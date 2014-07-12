@@ -1,13 +1,25 @@
 
 
+function readCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    }
+    return null;
+}
 
 function recordReplayData() {
   var savingIndex = 0
   var positions = {}
   //var fps = +chrome.storage.local.get('fps')
   //var saveDuration = +chrome.storage.local.get('duration')
-  var fps = +localStorage.getItem('fps')
-  var saveDuration = +localStorage.getItem('duration')
+  //var fps = +localStorage.getItem('fps')
+  //var saveDuration = +localStorage.getItem('duration')
+  var fps = +readCookie('fps')
+  var saveDuration = +readCookie('duration')
 
   // function to save current player positions
   function savePlayerPositions() {
@@ -33,11 +45,7 @@ function recordReplayData() {
       for(i in positions[player]) {
         if($.isArray(positions[player][i])) {
           positions[player][i].shift()
-          //if(tagpro.players[player].dead){
-          //    positions[player][i].push(null)
-          //} else {
           positions[player][i].push(tagpro.players[player][i])
-          //}
         }
       }
     }  
@@ -51,7 +59,7 @@ function saveReplayData() {
   var data = JSON.stringify(positions)
   replayFilename = 'replay' + new Date().getTime()
   eval('var items = {'+replayFilename+':data}')
-  chrome.storage.local.set(items, giveFeedback)
+  //chrome.storage.local.set(items, giveFeedback)
   giveFeedback()
 }
 
@@ -624,11 +632,13 @@ function openReplayMenu() {
     durationInputValue = $('#durationInput')[0].value
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
       //chrome.storage.local.set({fps:$('#fpsInput')[0].value})
-      localStorage.setItem('fps',$('#fpsInput')[0].value)
+      //localStorage.setItem('fps',$('#fpsInput')[0].value)
+      document.cookie = 'fps='+$('#fpsInput')[0].value+';domain=.koalabeast.com';
     }
     if(!isNaN(durationInputValue) & durationInputValue!="") {
       //chrome.storage.local.set({duration:$('#durationInput')[0].value})
-      localStorage.setItem('duration',$('#durationInput')[0].value)  
+      //localStorage.setItem('duration',$('#durationInput')[0].value)
+      document.cookie = 'duration='+$('#durationInput')[0].value+';domain=.koalabeast.com';
     }
     $("#menuContainer").fadeOut() 
     setTimeout(function(){$("#menuContainer").remove()},500)
@@ -673,12 +683,15 @@ function openReplayMenu() {
       }
     }
   }
-  
+  ////////////////////////////////////////
   // Set fps and duration text box values 
+  ////////////////////////////////////////
   //fpsValue = chrome.storage.local.get('fps')
   //durationValue = chrome.storage.local.get('duration')
-  fpsValue = localStorage.getItem('fps')
-  durationValue = localStorage.getItem('duration')
+  //fpsValue = localStorage.getItem('fps')
+  //durationValue = localStorage.getItem('duration')
+  fpsValue = readCookie('fps')
+  durationValue = readCookie('fps')
   $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : "30"
   $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : "60"
 
