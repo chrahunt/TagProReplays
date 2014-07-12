@@ -97,7 +97,7 @@ function recordButton() {
 
 
 function initiateAnimation(replayFilename) {
-	
+	chrome.runtime.sendMessage({method:'requestData'},function(message){animateReplay(message.title)})
 }
 
 function animateReplay(positionData) {
@@ -661,13 +661,19 @@ function openReplayMenu() {
   })
   $('#exitButton')[0].onclick = exitMenu
   
-  function populateList() {
+  function getListData() {
+  	chrome.runtime.sendMessage({method:'requestList'},function(message){
+  		populateList(message.title)
+  	})
+  }
+  
+  function populateList(storageData) {
     //storageData = chrome.storage.local.get()
-    storageData = localStorage
+    //storageData = localStorage
     replayList = []
     for(dat in storageData) {
-      if(dat.search('replay')==0) {
-        replayList.push(dat)
+      if(storageData[dat].search('replay')==0) {
+        replayList.push(storageData[dat])
       }
     }
     if(!replayList.length > 0) {
@@ -700,11 +706,12 @@ function openReplayMenu() {
   $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : "30"
   $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : "60"
 
-  populateList()
+  getListData()
   $('#menuContainer').fadeIn()
 }
 
 
+createReplayPageButton()
 
 // To Do: 
 //      4 - add replays menu (populated by local data replays)
