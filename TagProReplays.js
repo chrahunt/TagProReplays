@@ -96,7 +96,11 @@ function recordButton() {
 
 
 
-function animateReplay(replayFilename) {
+function initiateAnimation(replayFilename) {
+	
+}
+
+function animateReplay(positionData) {
   var maps = {
     "Velocity"        : "http://i.imgur.com/W0u8w8h.png",
     "45"              : "http://i.imgur.com/4E4fDGl.png",
@@ -136,7 +140,8 @@ function animateReplay(replayFilename) {
   i=0
   
   //positionData = JSON.parse(chrome.storage.local.get(replayFilename))
-  positionData = JSON.parse(localStorage.getItem(replayFilename))
+  //positionData = JSON.parse(localStorage.getItem(replayFilename))
+  positionData = JSON.parse(positionData)
 
   var player={}
   var viewport={}
