@@ -1,8 +1,7 @@
 {
-  "name": "tagpro-catstats",
-  "description": "lambda's catstat collector",
-  "version": "0.0.4",
-  "manifest_version": 2,
+  "name": "TagProReplays",
+  "description": "Save Replays from within TagPro Games",
+  "version": "0.0.1",
   "permissions": [],
   "content_scripts": [
     {
