@@ -21,23 +21,23 @@ initiateAnimation = function(replayFilename) {
 
 function animateReplay(positionData) {
   var maps = {
-    "Velocity"        : "http://i.imgur.com/W0u8w8h.png",
-    "45"              : "http://i.imgur.com/4E4fDGl.png",
-    "The Holy See"   	: "http://i.imgur.com/eQ3EBe9.png",
-    "GeoKoala" 			  : "http://i.imgur.com/iDyTJlq.png", 
-    "Colors" 			    : "http://i.imgur.com/Q1TcLsw.png",
-    "Star" 				    : "http://i.imgur.com/ij5oCBB.png", 
+    "Velocity"        	: "http://i.imgur.com/W0u8w8h.png",
+    "45"              	: "http://i.imgur.com/4E4fDGl.png",
+    "The Holy See"	: "http://i.imgur.com/eQ3EBe9.png",
+    "GeoKoala" 	  	: "http://i.imgur.com/iDyTJlq.png", 
+    "Colors" 		: "http://i.imgur.com/Q1TcLsw.png",
+    "Star" 		: "http://i.imgur.com/ij5oCBB.png", 
     "Hyper Reactor" 	: "http://i.imgur.com/WVHXkOC.png", 
-    "Blast Off"			  : "http://i.imgur.com/bWerjaG.png",
-    "Boombox"			    : "http://i.imgur.com/D3iqzZ8.png",
-    "Bombing Run"		  : "http://i.imgur.com/mHHPJh2.png",
-    "GamePad"         : "http://i.imgur.com/yiBCJuH.png",
-    "Smirk"				    : "http://i.imgur.com/Aa2JVEc.png",
-    "Danger Zone 3"		: "http://i.imgur.com/1w1oaMr.png",
-    "Ricochet"			  : "http://i.imgur.com/tIsUays.png",
-    "Wormy"				    : "http://i.imgur.com/0w9jvUK.png",
+    "Blast Off"		: "http://i.imgur.com/bWerjaG.png",
+    "Boombox"		: "http://i.imgur.com/D3iqzZ8.png",
+    "Bombing Run"	: "http://i.imgur.com/mHHPJh2.png",
+    "GamePad"         	: "http://i.imgur.com/yiBCJuH.png",
+    "Smirk"		: "http://i.imgur.com/Aa2JVEc.png",
+    "Danger Zone 3"	: "http://i.imgur.com/1w1oaMr.png",
+    "Ricochet"		: "http://i.imgur.com/tIsUays.png",
+    "Wormy"		: "http://i.imgur.com/0w9jvUK.png",
     "Command Center"	: "http://i.imgur.com/Bq8PIwY.png",
-    "CFB"             : "http://i.imgur.com/1KFQ3GK.png"
+    "CFB"             	: "http://i.imgur.com/1KFQ3GK.png"
   }
 
   var flags = {
