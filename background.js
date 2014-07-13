@@ -63,11 +63,10 @@ openRequest.onsuccess = function(e) {
 var title;
 chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   if(message.method == 'setPositionData') {
-    title = message.title;
     transaction = db.transaction(["positions"], "readwrite")
 	objectStore = transaction.objectStore('positions')
-	request = objectStore.add(title, 'replays'+new Date().getTime())
-    //chrome.storage.local.set({'poo':title})
+	console.log(message.positionData.length)
+	request = objectStore.add(message.positionData, 'replays'+new Date().getTime())
   } else if(message.method == 'requestData') {
     console.log('got data request for '+message.fileName)
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
@@ -83,7 +82,5 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   }
 });
 
-//transaction = db.transaction(["positions"], "readonly")
-//objectStore = transaction.objectStore('positions')
-//request = objectStore.get( 'replays'+new Date().getTime())
+
 
