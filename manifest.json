@@ -1,23 +1,26 @@
-{
-  "name": "TagProReplays",
-  "description": "Save Replays from within TagPro Games",
-  "version": "0.0.1",
-  "manifest_version": 2,
-  "background" : {
+{   
+	"name": "TagProReplays",
+  	"description": "Save Replays from within TagPro Games",
+  	"version": "0.0.1",
+	"manifest_version": 2,
+	"description": "My first Chrome extension.",
+	"background" : {
     "scripts": ["background.js"],
     "persistent":false
-  },
-  "permissions": [
+},
+"permissions": [
     "tabs",
     "storage",
     "unlimitedStorage"
-  ],
-  "content_scripts": [
+],
+"content_scripts": [
     {
       "matches": ["http://*.koalabeast.com/*"],
       "js": ["jquery.js","TagProReplays.js"],
       "run_at": "document_end"
     }
+],
+"web_accessible_resources": [
+    "replayRecording.js"
   ]
-
 }
