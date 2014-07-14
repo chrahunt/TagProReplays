@@ -14,6 +14,15 @@ function readCookie(name) {
     return null;
 }
 
+function setCookie(name, value, domain) { 
+  var now = new Date();
+  var time = now.getTime();
+  var expireTime = time + 1000*60*60*24*365;
+  now.setTime(expireTime);
+  document.cookie = name+'='+value+';expires='+now.toGMTString()+';path=/; domain='+domain;
+  console.log('cookie: name='+name+' value='+value+' expires='+now.toGMTString())
+}
+
 initiateAnimation = function(replayFilename) {
 	console.log('sending data request for '+replayFilename)
 	chrome.runtime.sendMessage({method:'requestData',fileName:replayFilename})
@@ -21,23 +30,23 @@ initiateAnimation = function(replayFilename) {
 
 function animateReplay(positionData) {
   var maps = {
-    "Velocity"			: "http://i.imgur.com/W0u8w8h.png",
-    "45"			: "http://i.imgur.com/4E4fDGl.png",
-    "The Holy See"		: "http://i.imgur.com/eQ3EBe9.png",
-    "GeoKoala"			: "http://i.imgur.com/iDyTJlq.png", 
-    "Colors"			: "http://i.imgur.com/Q1TcLsw.png",
-    "Star"			: "http://i.imgur.com/ij5oCBB.png", 
-    "Hyper Reactor"		: "http://i.imgur.com/WVHXkOC.png", 
-    "Blast Off"			: "http://i.imgur.com/bWerjaG.png",
-    "Boombox"			: "http://i.imgur.com/D3iqzZ8.png",
-    "Bombing Run"		: "http://i.imgur.com/mHHPJh2.png",
-    "GamePad"			: "http://i.imgur.com/yiBCJuH.png",
-    "Smirk"			: "http://i.imgur.com/Aa2JVEc.png",
+    "Velocity"        : "http://i.imgur.com/W0u8w8h.png",
+    "45"              : "http://i.imgur.com/4E4fDGl.png",
+    "The Holy See"   	: "http://i.imgur.com/eQ3EBe9.png",
+    "GeoKoala" 			  : "http://i.imgur.com/iDyTJlq.png", 
+    "Colors" 			    : "http://i.imgur.com/Q1TcLsw.png",
+    "Star" 				    : "http://i.imgur.com/ij5oCBB.png", 
+    "Hyper Reactor" 	: "http://i.imgur.com/WVHXkOC.png", 
+    "Blast Off"			  : "http://i.imgur.com/bWerjaG.png",
+    "Boombox"			    : "http://i.imgur.com/D3iqzZ8.png",
+    "Bombing Run"		  : "http://i.imgur.com/mHHPJh2.png",
+    "GamePad"         : "http://i.imgur.com/yiBCJuH.png",
+    "Smirk"				    : "http://i.imgur.com/Aa2JVEc.png",
     "Danger Zone 3"		: "http://i.imgur.com/1w1oaMr.png",
-    "Ricochet"			: "http://i.imgur.com/tIsUays.png",
-    "Wormy"			: "http://i.imgur.com/0w9jvUK.png",
-    "Command Center"		: "http://i.imgur.com/Bq8PIwY.png",
-    "CFB"			: "http://i.imgur.com/1KFQ3GK.png"
+    "Ricochet"			  : "http://i.imgur.com/tIsUays.png",
+    "Wormy"				    : "http://i.imgur.com/0w9jvUK.png",
+    "Command Center"	: "http://i.imgur.com/Bq8PIwY.png",
+    "CFB"             : "http://i.imgur.com/1KFQ3GK.png"
   }
 
   var flags = {
@@ -553,11 +562,12 @@ function openReplayMenu() {
   function exitMenu() {
     fpsInputValue = $('#fpsInput')[0].value
     durationInputValue = $('#durationInput')[0].value
+    console.log('fps='+fpsInputValue+'   duration='+durationInputValue)
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
-      document.cookie = 'fps='+$('#fpsInput')[0].value+';domain=.koalabeast.com';
+      setCookie('fps', $('#fpsInput')[0].value, '.koalabeast.com')
     }
     if(!isNaN(durationInputValue) & durationInputValue!="") {
-      document.cookie = 'duration='+$('#durationInput')[0].value+';domain=.koalabeast.com';
+      setCookie('duration', $('#durationInput')[0].value, '.koalabeast.com')
     }
     $("#menuContainer").fadeOut() 
     setTimeout(function(){$("#menuContainer").remove()},500)
@@ -610,11 +620,11 @@ function openReplayMenu() {
   // Set fps and duration text box values 
   ////////////////////////////////////////
 
-  fpsValue = readCookie('fps')
-  durationValue = readCookie('duration')
+  fpsValue = (!readCookie('fps')) ? "30" : fpsValue = readCookie('fps')
+  durationValue = (!readCookie('duration')) ? "60" : durationValue = readCookie('duration')
   $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : "30"
   $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : "60"
-
+  
   getListData()
   $('#menuContainer').fadeIn()
 }
