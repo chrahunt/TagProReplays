@@ -65,8 +65,13 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   if(message.method == 'setPositionData') {
     transaction = db.transaction(["positions"], "readwrite")
 	objectStore = transaction.objectStore('positions')
-	console.log(message.positionData.length)
+	console.log('got data from content script.')
 	request = objectStore.add(message.positionData, 'replays'+new Date().getTime())
+	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+  		tabNum = tabs[0].id
+  		chrome.tabs.sendMessage(tabNum, {method:"dataSetConfirmationFromBG"}) 
+    	console.log('sent confirmation')
+  	})
   } else if(message.method == 'requestData') {
     console.log('got data request for '+message.fileName)
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
@@ -81,6 +86,5 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	})
   }
 });
-
 
 
