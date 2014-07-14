@@ -1,12 +1,11 @@
 {   
 	"name": "TagProReplays",
   	"description": "Save Replays from within TagPro Games",
-  	"version": "0.0.1",
+  	"version": "0.0.3",
 	"manifest_version": 2,
-	"description": "My first Chrome extension.",
 	"background" : {
-		"scripts": ["background.js"],
-    		"persistent":false
+    		"scripts": ["background.js"],
+    		"persistent":true
 	},
 	"permissions": [
     		"tabs",
