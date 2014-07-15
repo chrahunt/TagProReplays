@@ -30,6 +30,21 @@ function getPosData(dataFileName) {
 	}
 }
 
+// this gets position data from object store so that it can be downloaded by user.
+function getPosDataForDownload(dataFileName) {
+	positionData = []
+	var transaction = db.transaction(["positions"], "readonly");
+	var store = transaction.objectStore("positions");
+	var request = store.get(dataFileName);
+	request.onsuccess=function(){
+		thisObj = request.result.value
+		chrome.tabs.sendMessage(tabNum, {method:"positionDataForDownload",
+										 fileName:dataFileName,
+										 title:request.result}) 
+    	console.log('sent reply')
+	}
+}
+
 
 // Set up indexedDB
 var openRequest = indexedDB.open("ReplayDatabase",1);
@@ -83,6 +98,12 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   		tabNum = tabs[0].id
   		listItems()
+  	})
+  } else if(message.method == 'requestDataForDownload') {
+  	console.log('got data request for download')
+  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+  		tabNum = tabs[0].id
+  		getPosDataForDownload(message.fileName)
   	})
   }
 });
