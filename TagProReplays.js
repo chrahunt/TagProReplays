@@ -617,11 +617,21 @@ function openReplayMenu() {
         ms = +thisReplay.replace('replays','')
         date = new Date(ms)
         datevalue = date.toDateString() + " " + date.toLocaleTimeString()
-        $('#'+thisReplay).after('<txt id='+thisReplay+'Date style="margin-left:30%">'+datevalue)
-        $('#'+thisReplay+'Date').after('<button id='+thisReplay+'Button style="margin-left:10%">Download')
-        $('#'+thisReplay+'Button')[0].onclick = function(){
-        	chrome.runtime.sendMessage({method:'requestDataForDownload',fileName:thisReplay})
+        $('#'+thisReplay).after('<txt id='+thisReplay+'Date style="margin-left:10%">'+datevalue)
+        $('#'+thisReplay+'Date').after('<button id='+thisReplay+'DownloadButton style="margin-left:10%">Download')
+        $('#'+thisReplay+'DownloadButton')[0].onclick = function(){
+        	fileNameToDownload = this.id.replace('DownloadButton','')
+        	console.log('requesting '+fileNameToDownload)
+        	chrome.runtime.sendMessage({method:'requestDataForDownload',fileName:fileNameToDownload})
         }
+        $('#'+thisReplay+'DownloadButton').after('<button id='+thisReplay+'DeleteButton style="margin-left:10%">Delete')
+        $('#'+thisReplay+'DeleteButton')[0].onclick = function(){
+        	fileNameToDelete = this.id.replace('DeleteButton','')
+        	if(confirm('Are you sure you want to delete '+fileNameToDelete+'?')){
+	        	console.log('requesting '+fileNameToDelete)
+    	    	chrome.runtime.sendMessage({method:'requestDataDelete',fileName:fileNameToDelete})
+    	    }
+    	}
       }
     }
   }
@@ -675,8 +685,12 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   		console.log('got data set confirmation from background script. sending confirmation to injected script.')
   		emit('positionDataConfirmation',true)
   	} else if(message.method == "positionDataForDownload") {
-  		console.log('got data for download')
+  		console.log('got data for download - '+message.fileName)
   		saveData(message.fileName, message.title)
+  	} else if(message.method == 'dataDeleted') {
+  		console.log('data were deleted')
+  		$('#menuContainer').remove()
+  		openReplayMenu()
   	}
 });
 
