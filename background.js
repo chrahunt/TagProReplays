@@ -37,14 +37,23 @@ function getPosDataForDownload(dataFileName) {
 	var store = transaction.objectStore("positions");
 	var request = store.get(dataFileName);
 	request.onsuccess=function(){
-		thisObj = request.result.value
 		chrome.tabs.sendMessage(tabNum, {method:"positionDataForDownload",
 										 fileName:dataFileName,
 										 title:request.result}) 
-    	console.log('sent reply')
+    	console.log('sent reply - '+dataFileName)
 	}
 }
 
+// this deletes data from the object store
+function deleteData(dataFileName) {
+	var transaction = db.transaction(["positions"], "readwrite");
+	var store = transaction.objectStore("positions");
+	request = store.delete(dataFileName)
+	request.onsuccess=function(){
+		chrome.tabs.sendMessage(tabNum, {method:'dataDeleted'})
+		console.log('sent reply')
+	}
+}
 
 // Set up indexedDB
 var openRequest = indexedDB.open("ReplayDatabase",1);
@@ -100,10 +109,16 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   		listItems()
   	})
   } else if(message.method == 'requestDataForDownload') {
-  	console.log('got data request for download')
+  	console.log('got data request for download - '+ message.fileName)
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   		tabNum = tabs[0].id
   		getPosDataForDownload(message.fileName)
+  	})
+  } else if(message.method == 'requestDataDelete') {
+  	console.log('got delete request for '+message.fileName)
+  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+  		tabNum = tabs[0].id
+  		deleteData(message.fileName)
   	})
   }
 });
