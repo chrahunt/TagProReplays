@@ -46,7 +46,8 @@ function animateReplay(positionData) {
     "Ricochet"			  : "http://i.imgur.com/tIsUays.png",
     "Wormy"				    : "http://i.imgur.com/0w9jvUK.png",
     "Command Center"	: "http://i.imgur.com/Bq8PIwY.png",
-    "CFB"             : "http://i.imgur.com/1KFQ3GK.png"
+    "CFB"             : "http://i.imgur.com/1KFQ3GK.png",
+    "Grail of Speed" : "http://i.imgur.com/YcXtSH2.png"
   }
 
   var flags = {
@@ -58,6 +59,8 @@ function animateReplay(positionData) {
   function first(obj) {
     for (var a in obj) return a;
   }
+  
+  console.log(positionData[first(positionData)].map)
 
 
   /*##################*\
@@ -585,10 +588,12 @@ function openReplayMenu() {
   })
   $('#exitButton')[0].onclick = exitMenu
   
+  
+  // function for requesting indexdb datastore contents from background script
   function getListData() {
   	chrome.runtime.sendMessage({method:'requestList'})
   }
-  
+ 	
   populateList = function(storageData) {
     replayList = []
     for(dat in storageData) {
@@ -612,7 +617,11 @@ function openReplayMenu() {
         ms = +thisReplay.replace('replays','')
         date = new Date(ms)
         datevalue = date.toDateString() + " " + date.toLocaleTimeString()
-        $('#'+thisReplay).after('<txt style="margin-left:40%">'+datevalue)
+        $('#'+thisReplay).after('<txt id='+thisReplay+'Date style="margin-left:30%">'+datevalue)
+        $('#'+thisReplay+'Date').after('<button id='+thisReplay+'Button style="margin-left:10%">Download')
+        $('#'+thisReplay+'Button')[0].onclick = function(){
+        	chrome.runtime.sendMessage({method:'requestDataForDownload',fileName:thisReplay})
+        }
       }
     }
   }
@@ -629,7 +638,20 @@ function openReplayMenu() {
   $('#menuContainer').fadeIn()
 }
 
+// This is in case we want the user to download something 
+function saveData(name, data) {
+	var file = new Blob([data], {type: "data:text/txt;charset=utf-8"});
+	var a = document.createElement('a');
+    a.download = name+'.txt';
+    a.href = (window.URL || window.webkitURL).createObjectURL(file);
+	var event = document.createEvent('MouseEvents');
+	event.initEvent('click', true, false);
+   // trigger download
+	a.dispatchEvent(event);    
+    (window.URL || window.webkitURL).revokeObjectURL(a.href);
+}
 
+// This is an easy method wrapper to dispatch events
 function emit(event, data){
    var e = new CustomEvent(event, {detail: data});
    window.dispatchEvent(e);
@@ -652,6 +674,9 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	} else if(message.method == "dataSetConfirmationFromBG") {
   		console.log('got data set confirmation from background script. sending confirmation to injected script.')
   		emit('positionDataConfirmation',true)
+  	} else if(message.method == "positionDataForDownload") {
+  		console.log('got data for download')
+  		saveData(message.fileName, message.title)
   	}
 });
 
