@@ -1,25 +1,39 @@
 {   
 	"name": "TagProReplays",
   	"description": "Save Replays from within TagPro Games",
-  	"version": "0.0.6",
+  	"version": "0.1.0",
 	"manifest_version": 2,
-	"background" : {
-    		"scripts": ["background.js"],
-    		"persistent":true
-	},
-	"permissions": [
-    		"tabs",
-    		"storage",
-    		"unlimitedStorage"
-	],
-	"content_scripts": [
-    	{
-      		"matches": ["http://*.koalabeast.com/*"],
-      		"js": ["jquery.js","TagProReplays.js"],
-      		"run_at": "document_end"
-    	}
-	],
-	"web_accessible_resources": [
-    		"replayRecording.js"
-  	]
+		"background" : {
+    "scripts": ["background.js",
+             "map_draw_functions.js",
+			 "createFileSystem.js",
+             "whammy.js"
+             ],
+    "persistent":true
+},
+"permissions": [
+    "tabs",
+    "storage",
+    "unlimitedStorage"
+],
+"content_scripts": [
+    {
+      "matches": ["http://*.koalabeast.com/*"],
+      "js": ["jquery.js",
+        	 "map_draw_functions.js",
+             "TagProReplays.js",
+             "in-page-preview.js"],
+      "run_at": "document_end"
+    }
+],
+"web_accessible_resources": [
+    "replayRecording.js",
+    "tiles.png",
+    "portal.png",
+    "speedpad.png",
+    "speedpadred.png",
+    "speedpadblue.png",
+    "tagpro.png",
+    "rollingbomb.png"
+  ]
 }
