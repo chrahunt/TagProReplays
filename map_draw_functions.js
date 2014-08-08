@@ -116,7 +116,57 @@ function drawMap(posx, posy, positions) {
 	
 	for(col in positions.tiles) {
 		for(row in positions.tiles[col]) {
-			if(positions.tiles[col][row].drawTileFirst) {
+			// draw floor tile underneath certain tiles
+			// but don't draw tile outside bounds of the map
+			if(positions.tiles[col][row].tile == 'diagonalWall') {
+				positions.tiles[col][row].drawTileFirst = true
+				if(positions.map[col][row] == '1.1') {
+					if(col != positions.map.length-1) {
+						if(positions.map[+col+1][row] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+					if(row != 0) {
+						if(positions.map[col][+row-1] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+				} else if(positions.map[col][row] == '1.2') {
+					if(col != positions.map.length-1) {
+						if(positions.map[+col+1][row] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+					if(row != positions.map[col].length-1) {
+						if(positions.map[col][+row+1] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+				} else if(positions.map[col][row] == '1.3') {
+					if(col != 0) {
+						if(positions.map[+col-1][row] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+					if(row != positions.map[col].length-1) {
+						if(positions.map[col][+row+1] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+				} else if(positions.map[col][row] == '1.4') {
+					if(col != 0) {
+						if(positions.map[+col+1][row] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+					if(row != 0) {
+						if(positions.map[col][+row-1] == '0') {
+							positions.tiles[col][row].drawTileFirst = false
+						}
+					}
+				}
+			}
+			if(positions.tiles[col][row].drawTileFirst) { 
 				tileSize = 40
 				newcontext.drawImage(img, 										// image
 						 		  13*tileSize, 									// x coordinate of image
@@ -128,12 +178,8 @@ function drawMap(posx, posy, positions) {
 						  		  tileSize,										// width of destination
 					  			  tileSize) 									// height of destination
 			}
-			if(positions.tiles[col][row].tile != 'wall') {
-				if(positions.tiles[col][row].tile == 'diagonalWall') {
-					tileSize = 40
-				} else {
-					tileSize = positions.tiles[col][row].tileSize
-				}
+			if(positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
+				tileSize = positions.tiles[col][row].tileSize
 				newcontext.drawImage(img, 											// image
 						 		  positions.tiles[col][row].coordinates.x*tileSize, 		// x coordinate of image
 						  		  positions.tiles[col][row].coordinates.y*tileSize,		// y coordinate of image
