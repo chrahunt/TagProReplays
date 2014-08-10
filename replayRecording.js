@@ -52,7 +52,7 @@ function recordReplayData() {
                             y:createZeroArray(saveDuration*fps), 
                             name:players[player].name,
                             fps:fps,
-                            team:players[player].team, // 1:red, 2:blue
+                            team: createZeroArray(saveDuration*fps), //players[player].team, // 1:red, 2:blue
                             map:$('#mapInfo').text().replace('Map: ','').replace(/ by.*/,''),
                             flag:createZeroArray(saveDuration*fps),
                             bomb:createZeroArray(saveDuration*fps),
@@ -60,7 +60,7 @@ function recordReplayData() {
                             tagpro:createZeroArray(saveDuration*fps),
                             dead:createZeroArray(saveDuration*fps),
                             draw:createZeroArray(saveDuration*fps),
-                            me:(tagpro.viewPort.source.id == player ? 'me' : 'other'),
+                            me:(+tagpro.playerId == +player ? 'me' : 'other'),
                             hasFlag:null
                           }
       }

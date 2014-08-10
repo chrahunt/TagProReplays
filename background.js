@@ -15,28 +15,36 @@
 
 	context = can.getContext('2d')
 	
+	defaultTextures = {
+		tiles  : 'img/tiles.png',
+		portal : 'img/portal.png',
+		speedpad : 'img/speedpad.png',
+		speedpadred : 'img/speedpadred.png',
+		speedpadblue : 'img/speedpadblue.png'
+	}
+	
 	img = new Image()
-	img.src = 'img/tiles.png'
+	img.src = defaultTextures.tiles
 	img.id = 'tiles'
 	img = document.body.appendChild(img)
 
 	portalImg = new Image()
-	portalImg.src = 'img/portal.png'
+	portalImg.src = defaultTextures.portal
 	portalImg.id = 'portal'
 	portalImg = document.body.appendChild(portalImg)
 
 	speedpadImg = new Image()
-	speedpadImg.src = 'img/speedpad.png'
+	speedpadImg.src = defaultTextures.speedpad
 	speedpadImg.id = 'speedpad'
 	speedpadImg = document.body.appendChild(speedpadImg)
 
 	speedpadredImg = new Image()
-	speedpadredImg.src = 'img/speedpadred.png'
+	speedpadredImg.src = defaultTextures.speedpadred
 	speedpadredImg.id = 'speedpadred'
 	speedpadredImg = document.body.appendChild(speedpadredImg)
 
 	speedpadblueImg = new Image()
-	speedpadblueImg.src = 'img/speedpadblue.png'
+	speedpadblueImg.src = defaultTextures.speedpadblue
 	speedpadblueImg.id = 'speedpadblue'
 	speedpadblueImg = document.body.appendChild(speedpadblueImg)
 
@@ -165,31 +173,90 @@ function renameData(oldName, newName) {
 }
 
 // this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name) {
-	var transaction = db.transaction(["positions"], "readonly");
-	var store = transaction.objectStore("positions");
-	var request = store.get(name);
-	request.onsuccess=function(){
-		if(typeof JSON.parse(request.result).clock !== "undefined") {
-			var output = renderVideo(request.result)
-			createFileSystem(saveMovieFile, [name, output])
-			chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
-  		} else {
-  			chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-  				tabNum = tabs[0].id
-  				chrome.tabs.sendMessage(tabNum, {method:"movieRenderFailure"}) 
-    			console.log('sent movie render failure notice')
-  			})
-  		}
-  	}
+function renderMovie(name, useTextures) {
+	if(useTextures) {
+		if(typeof localStorage.getItem('tiles') !== "undefined") {
+			img.src = localStorage.getItem('tiles')
+		} else {
+			img.src = defaultTextures.tiles
+		}
+		if(typeof localStorage.getItem('portal') !== "undefined") {
+			portalImg.src = localStorage.getItem('portal')
+		} else {
+			portalImg.src = defaultTextures.portal
+		}
+		if(typeof localStorage.getItem('speedpad') !== "undefined") {
+			speedpadImg.src = localStorage.getItem('speedpad')
+		} else {
+			speedpadImg.src = defaultTextures.speedpad
+		}
+		if(typeof localStorage.getItem('speedpadred') !== "undefined") {
+			speedpadredImg.src = localStorage.getItem('speedpadred')
+		} else {
+			speedpadredImg.src = defaultTextures.speedpadred
+		}
+		if(typeof localStorage.getItem('speedpadblue') !== "undefined") {
+			speedpadblueImg.src = localStorage.getItem('speedpadblue')
+		} else {
+			speedpadblueImg.src = defaultTextures.speedpadblue
+		}
+	} else {
+		img.src = defaultTextures.tiles
+		portalImg.src = defaultTextures.portal
+		speedpadImg.src = defaultTextures.speedpad
+		speedpadredImg.src = defaultTextures.speedpadred
+		speedpadblueImg.src = defaultTextures.speedpadblue
+	}
+	
+	setTimeout(function() {
+		var transaction = db.transaction(["positions"], "readonly");
+		var store = transaction.objectStore("positions");
+		var request = store.get(name);
+		request.onsuccess=function(){
+			if(typeof JSON.parse(request.result).clock !== "undefined") {
+				var output = renderVideo(request.result)
+				createFileSystem('savedMovies', saveMovieFile, [name, output])
+				chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
+	  		} else {
+	  			chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+	  				tabNum = tabs[0].id
+	  				chrome.tabs.sendMessage(tabNum, {method:"movieRenderFailure"}) 
+	    			console.log('sent movie render failure notice')
+	  			})
+	  		}
+	  	}, 2000})
 }
 
 // this downloads a rendered movie (found in the FileSystem) to disk
 function downloadMovie(name) {
 	//var nameDate = name.replace(/.*DATE/,'').replace('replays','')
-	createFileSystem(getMovieFile, [name])
+	createFileSystem('savedMovies', getMovieFile, [name])
 }
  	
+
+// this saves custom texture files to FileSystem
+function saveTextures(textureData) {
+	if(typeof textureData.tiles !== 'undefined') {
+		localStorage.setItem('tiles',textureData.tiles)
+	} else { localStorage.removeItem('tiles') }
+	if(typeof textureData.portal !== 'undefined') {
+		localStorage.setItem('portal',textureData.portal)
+	} else { localStorage.removeItem('portal') }
+	if(typeof textureData.speedpad !== 'undefined') {
+		localStorage.setItem('speedpad',textureData.speedpad)
+	} else { localStorage.removeItem('speedpad') }
+	if(typeof textureData.speedpadred !== 'undefined') {
+		localStorage.setItem('speedpadred',textureData.speedpadred)
+	} else { localStorage.removeItem('speedpadred') }
+	if(typeof textureData.speedpadblue !== 'undefined') {
+		localStorage.setItem('speedpadblue',textureData.speedpadblue)
+	} else { localStorage.removeItem('speedpadblue') }
+}
+
+// this gets saved texture files from FileSystem and sets images 
+function getTextures() {
+	
+}
 
 
 // Set up indexedDB
@@ -308,13 +375,20 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	console.log('got request to render Movie for '+message.name)
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   		tabNum = tabs[0].id
-  		renderMovie(message.name)
+  		renderMovie(message.name, message.useTextures)
   	})
   } else if(message.method == 'downloadMovie') {
   	console.log('got request to download Movie for '+message.name)
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   		tabNum = tabs[0].id
   		downloadMovie(message.name)
+  	})
+  } else if(message.method == 'setTextureData') {
+  	console.log('got request to save texture image files')
+  	saveTextures(JSON.parse(message.textureData))
+  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+  		tabNum = tabs[0].id
+		chrome.tabs.sendMessage(tabNum, {method:"textureSaveConfirmation"})
   	})
   }
 });

@@ -1,5 +1,5 @@
 // create file system.
-function createFileSystem(secondFunction, secondArguments) {
+function createFileSystem(thisDirectory, secondFunction, secondArguments) {
 
 
 	// Handle vendor prefixes.
@@ -10,9 +10,9 @@ function createFileSystem(secondFunction, secondArguments) {
 		console.log('FileSystem Loaded')
 		fs = filesystem
 		// create a directory to store videos
-		fs.root.getDirectory('savedMovies', {create: true}, function(dirEntry) {
+		fs.root.getDirectory(thisDirectory, {create: true}, function(dirEntry) {
   			console.log('You have just created the ' + dirEntry.name + ' directory.');
-  			secondFunction(fs, 'savedMovies', secondArguments)
+  			secondFunction(fs, thisDirectory, secondArguments)
 		}, errorHandler);
 	}
 
@@ -57,7 +57,7 @@ function readDirectory(fs, directory) {
 	    }
 	 
 	  }, function(){console.log('error1')});
-	}, function(){console.log('error1')}); 
+	}, function(){console.log('error2')}); 
 }
 
 // function that creates and fills a file
@@ -88,6 +88,7 @@ function saveMovieFile(fs, directory, secondArguments) {
 	fs.root.getFile(directory+'/'+fileName, {create: true}, function(fileEntry) {
 		fileEntry.createWriter(function(fileWriter) {
 			fileWriter.write(movie)
+			console.log(movie)
 		}, errorHandler)
 	}, errorHandler)
 }
@@ -129,6 +130,40 @@ function getMovieFile(fs, directory, secondArguments) {
   						tabNum = tabs[0].id
   						chrome.tabs.sendMessage(tabNum, {method:"movieDownloadConfirmation"}) 
     					console.log('sent movie download confirmation')
+  					})
+  				}      
+    		};
+    		reader.readAsDataURL(file);     
+  		}, errorHandler);
+	}, errorHandler);
+}
+
+
+// function to read contents of savedTextures directory -- creates a variable called 'textures'
+function getTextureFile(fs, directory, secondArguments) {
+	function errorHandler(err){
+		chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+  						tabNum = tabs[0].id
+  						chrome.tabs.sendMessage(tabNum, {method:"textureDownloadFailure"}) 
+    					console.log('sent texture download failure notice')
+  					})
+	};
+	delete(textures)
+	name = secondArguments[0]
+	fileName = name
+	console.log(fileName)
+	fs.root.getFile(directory+'/'+fileName, {}, function(fileEntry) {
+		fileEntry.file(function(file) {
+		    reader = new FileReader();
+    		reader.onloadend = function(e) {
+      			textures = this.result
+      			//movie.type = 'video/webm'
+      			if(typeof textures !== "undefined") {
+					console.log(textures)
+					chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+  						tabNum = tabs[0].id
+  						chrome.tabs.sendMessage(tabNum, {method:"textureDownloadConfirmation"}) 
+    					console.log('sent texture download confirmation')
   					})
   				}      
     		};

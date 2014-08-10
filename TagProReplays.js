@@ -49,7 +49,8 @@ function openReplayMenu() {
             "top": "0",
             "left": "0",
             "right": "0",
-            "bottom": "0"})
+            "bottom": "0",
+            "zIndex": "100"})
   $('#menuContainer').hide()
   
   // make a background
@@ -108,7 +109,11 @@ function openReplayMenu() {
             "color" : "black"
   })
   
-  // add settings
+  //////////////////
+  // add settings //
+  //////////////////
+  
+  // settings container
   $('#menuContainer').append('<div id=settingsContainer>')
   $('#settingsContainer').css({
             "width" : "80%",
@@ -118,45 +123,66 @@ function openReplayMenu() {
             "top" : "25%",
             "left" : "10%"            
   })
-  $('#settingsContainer').append('<txt id=settingsTxt>')
-  $('#settingsTxt').text('Settings:')
-  $('#settingsTxt').css({
-            "fontSize" : "18px",
-            "color" : "black",
-            "margin" : "15px"
-  })
-  $('#settingsTxt').after('<txt id=fpsTxt>')
-  $('#fpsTxt').text('FPS')
+  
+  // fps input
+  $('#settingsContainer').append('<txt id=fpsTxt>')
+  $('#fpsTxt').text('FPS:')
   $('#fpsTxt').css({
             "fontSize" : "18px",
             "color" : "black",
-            "margin" : "10px"
+            "margin-right" : "5px"
   })
   $('#fpsTxt').after('<input id=fpsInput>')
   $('#fpsInput').css({
-            "margin-right" : "15px"
+            "margin-right" : "10px",
+            "width" : "40px"
   })
   
+  // duration input
   $('#fpsInput').after('<txt id=durationTxt>')
-  $('#durationTxt').text('Duration (s)')
+  $('#durationTxt').text('Duration (s):')
   $('#durationTxt').css({
             "fontSize" : "18px",
             "color" : "black",
-            "margin" : "10px"
+            "margin-right" : "5px"
   })
   $('#durationTxt').after('<input id=durationInput>')
   $('#durationInput').css({
-  			"margin-right" : "15px"
+  			"width" : "40px",
+  			"margin-right" : "20px"
   })
+  
+  // recording checkbox
   $('#durationInput').after('<txt id=recordTxt>')  
   $('#recordTxt').text('Recording On/Off')
   $('#recordTxt').css({
   			"fontSize" : "18px",
   			"color" : "black",
-  			"margin" : "10px"
+  			"margin-right" : "5px"
   })
   $('#recordTxt').after('<input id=recordCheckbox type="checkbox">')
   
+  // custom texture checkbox
+  $('#recordCheckbox').after('<txt id=useTextureTxt>')
+  $('#useTextureTxt').text('Use Textures')
+  $('#useTextureTxt').css({
+  			"fontSize" : "18px",
+  			"color" : "black",
+  			"margin-left" : "20px",
+  			"margin-right" : "5px"
+  })
+  $('#useTextureTxt').after('<input id=useTextureCheckbox type="checkbox">')
+  
+  // custom texture menu button
+  $('#useTextureCheckbox').after('<button id=textureMenuButton>Load Textures')
+  $('#textureMenuButton').css({
+  			"margin-left" : "20px"
+  })
+  $('#textureMenuButton')[0].onclick = openTextureMenu
+  
+
+  			  
+  			  
   // Replay menu title
   $('#menuContainer').append('<div id=replayListContainer>Available Replays')
   $('#replayListContainer').css({
@@ -175,7 +201,7 @@ function openReplayMenu() {
     fpsInputValue = $('#fpsInput')[0].value
     durationInputValue = $('#durationInput')[0].value
     recordInputValue = $('#recordCheckbox')[0].checked
-    console.log('fps='+fpsInputValue+'   duration='+durationInputValue+'    record='+recordInputValue)
+    useTexturesInputValue = $('#useTextureCheckbox')[0].checked
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
       setCookie('fps', $('#fpsInput')[0].value, '.koalabeast.com')
     }
@@ -183,6 +209,7 @@ function openReplayMenu() {
       setCookie('duration', $('#durationInput')[0].value, '.koalabeast.com')
     }
     setCookie('record', recordInputValue, '.koalabeast.com')
+    setCookie('useTextures', useTexturesInputValue, '.koalabeast.com')
     $("#menuContainer").fadeOut() 
     setTimeout(function(){$("#menuContainer").remove()},500)
   }
@@ -234,7 +261,8 @@ function openReplayMenu() {
         	fileNameToRender = this.id.replace('RenderMovieButton','')
         	console.log('asking background script to render '+fileNameToRender)
         	if(confirm('Are you sure you want to render '+fileNameToRender.replace(/DATE.*/,'')+'? The extension will be unavailable until the movie is rendered.')) {
-	        	chrome.runtime.sendMessage({method:'renderMovie', name:fileNameToRender})
+	        	chrome.runtime.sendMessage({method:'renderMovie', name:fileNameToRender,
+								useTextures:$('#useTextureCheckbox')[0].checked})
 	        }
 	    }
 	    $('#'+thisReplay+'RenderMovieButton').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
@@ -285,16 +313,18 @@ function openReplayMenu() {
 	  }
     }
   }
-  ///////////////////////////////////////////////////////////////
-  // Set fps and duration text box values - and record checkbox
-  ///////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////
+  // Set fps and duration text box values - and checkboxes //
+  ///////////////////////////////////////////////////////////
 
   fpsValue = (!readCookie('fps')) ? "30" : readCookie('fps')
   durationValue = (!readCookie('duration')) ? "30" : readCookie('duration')
   recordValue = (!readCookie('record')) ? 'true' : readCookie('record')
+  useTexturesValue = (!readCookie('useTextures')) ? 'false' : readCookie('useTextures')
   $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : 30
   $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : 30
   $('#recordCheckbox')[0].checked = eval(recordValue)
+  $('#useTextureCheckbox')[0].checked = eval(useTexturesValue)
   
   getListData()
   $('#menuContainer').fadeIn()
@@ -367,6 +397,9 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     }
 });
 
+// set fps and duration if they're not already
+if(!readCookie('fps')) { setCookie('fps', 30, '.koalabeast.com') }
+if(!readCookie('duration')) { setCookie('duration', 30, '.koalabeast.com') }
 
 // this function sets up a listener wrapper
 function listen(event, listener) {

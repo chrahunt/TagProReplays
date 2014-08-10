@@ -312,9 +312,15 @@ function drawBalls(positions) {
 			me = j
 		}
 	}
+	// what team?
+	if(typeof positions[me].team.length === 'undefined') {
+		meTeam = positions[me].team
+	} else {
+		meTeam = positions[me].team[thisI]
+	}
 	if(positions[me].dead[thisI] == false) {
 		context.drawImage(img, 								// image
-			(positions[me].team == 1 ? 14:15)*tileSize, 	// x coordinate of image
+			(meTeam == 1 ? 14:15)*tileSize,				 	// x coordinate of image
 	   		0,												// y coordinate of image
 			tileSize,										// width of image
 			tileSize,										// height of image
@@ -334,8 +340,14 @@ function drawBalls(positions) {
 		if(positions[j].me=='other') {
 			if(positions[j].dead[thisI] == false) {
 				if(positions[j].draw[thisI] == true) {
+					// what team?
+					if(typeof positions[j].team.length === 'undefined') {
+						thisTeam = positions[j].team
+					} else {
+						thisTeam = positions[j].team[thisI]
+					}
 					context.drawImage(img,																		// image
-						(positions[j].team == 1 ? 14:15)*tileSize,												// x coordinate of image
+						(thisTeam == 1 ? 14:15)*tileSize,														// x coordinate of image
 						0,																						// y coordinate of image
 						tileSize,																				// width of image
 						tileSize,																				// height of image
