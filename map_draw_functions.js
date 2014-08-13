@@ -13,6 +13,7 @@ function drawText(ballname, namex, namey) {
 		context.fillText(ballname, namex, namey)
 }
 
+
 function drawPowerups(ball, ballx, bally, positions) {
 		if(positions[ball].tagpro[thisI] == true) {
 			context.drawImage(tagproImg,
@@ -79,6 +80,34 @@ function drawScore(positions) {
 	context.fillStyle="rgba(0, 0, 255, .5)",
 	context.fillText(thisScore.b, context.canvas.width/2 + 120, context.canvas.height-50)
 }
+
+function drawScoreFlag(positions) {
+	for(j in positions) {
+		if(typeof positions[j].flag != 'undefined') {
+		if(positions[j].flag[thisI] != null) {
+			if(positions[j].flag[thisI] == '3') {
+				flagCoords = {x:13, y:1}
+			} else {
+				flagCoords = positions[j].flag[thisI] == 1 ? {x:14, y:1} : {x:15, y:1}
+			}
+			flagTeam = positions[j].team.length==1 ? positions[j].team : positions[j].team[thisI]
+			flagPos = {x:context.canvas.width/2 + (flagTeam==1 ? -100 : 80),
+					   y:context.canvas.height-50}
+			context.globalAlpha = 0.5
+			context.drawImage(img, 
+							  flagCoords.x * tileSize, 
+							  1 * tileSize, 
+							  tileSize, 
+							  tileSize, 
+							  flagPos.x,
+							  flagPos.y,
+							  tileSize*.8, 
+							  tileSize*.8)
+			context.globalAlpha = 1
+		}}
+	}
+} 
+					  
 
 function drawFlag(ball, ballx, bally, positions) {
 		flagCodes = {
@@ -386,5 +415,6 @@ function animateReplay(thisI, positions, mapImg) {
 	drawBalls(positions)
 	drawClock(positions)
 	drawScore(positions)
+	drawScoreFlag(positions)
 }
 
