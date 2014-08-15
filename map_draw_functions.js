@@ -83,27 +83,32 @@ function drawScore(positions) {
 
 function drawScoreFlag(positions) {
 	for(j in positions) {
+		delete(flagCoords)
 		if(typeof positions[j].flag != 'undefined') {
 		if(positions[j].flag[thisI] != null) {
 			if(positions[j].flag[thisI] == '3') {
 				flagCoords = {x:13, y:1}
-			} else {
-				flagCoords = positions[j].flag[thisI] == 1 ? {x:14, y:1} : {x:15, y:1}
+			} else if(positions[j].flag[thisI] == '1') {
+				flagCoords = {x:14, y:1}
+			} else if(positions[j].flag[thisI] == '2') {
+				flagCoords = {x:15, y:1}
 			}
-			flagTeam = positions[j].team.length==1 ? positions[j].team : positions[j].team[thisI]
-			flagPos = {x:context.canvas.width/2 + (flagTeam==1 ? -100 : 80),
-					   y:context.canvas.height-50}
-			context.globalAlpha = 0.5
-			context.drawImage(img, 
-							  flagCoords.x * tileSize, 
-							  1 * tileSize, 
-							  tileSize, 
-							  tileSize, 
-							  flagPos.x,
-							  flagPos.y,
-							  tileSize*.8, 
-							  tileSize*.8)
-			context.globalAlpha = 1
+			if(typeof flagCoords != 'undefined') {
+				flagTeam = positions[j].team.length==1 ? positions[j].team : positions[j].team[thisI]
+				flagPos = {x:context.canvas.width/2 + (flagTeam==1 ? -100 : 80),
+						   y:context.canvas.height-50}
+				context.globalAlpha = 0.5
+				context.drawImage(img, 
+								  flagCoords.x * tileSize, 
+								  1 * tileSize, 
+								  tileSize, 
+								  tileSize, 
+								  flagPos.x,
+								  flagPos.y,
+								  tileSize*.8, 
+								  tileSize*.8)
+				context.globalAlpha = 1
+			}
 		}}
 	}
 } 
@@ -184,7 +189,7 @@ function drawMap(posx, posy, positions) {
 					}
 				} else if(positions.map[col][row] == '1.4') {
 					if(col != 0) {
-						if(positions.map[+col+1][row] == '0') {
+						if(positions.map[+col-1][row] == '0') {
 							positions.tiles[col][row].drawTileFirst = false
 						}
 					}
@@ -284,11 +289,12 @@ function drawFloorTiles(positions) {
 	}
 	for(floorTile in positions.floorTiles) {
 		mod = thisI % (positions[me].fps * 2/3)
-		if(mod < 5) {
+		fourth = (positions[me].fps * 2/3) / 4
+		if(mod < fourth) {
 			animationTile = 0
-		} else if(mod < 10) {
+		} else if(mod < fourth*2) {
 			animationTile = 1
-		} else if(mod < 15) {
+		} else if(mod < fourth*3) {
 			animationTile = 2
 		} else {
 			animationTile = 3

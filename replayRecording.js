@@ -44,13 +44,13 @@ function recordReplayData() {
 
   // function to save game data
   saveGameData = function() {
-    players=tagpro.players
-    for(player in players) {
+    currentPlayers=tagpro.players
+    for(player in currentPlayers) {
       if(!positions['player'+player]) {
         positions['player'+player] = {
                             x:createZeroArray(saveDuration*fps), 
                             y:createZeroArray(saveDuration*fps), 
-                            name:players[player].name,
+                            name:currentPlayers[player].name,
                             fps:fps,
                             team: createZeroArray(saveDuration*fps), //players[player].team, // 1:red, 2:blue
                             map:$('#mapInfo').text().replace('Map: ','').replace(/ by.*/,''),
@@ -64,10 +64,14 @@ function recordReplayData() {
                             hasFlag:null
                           }
       }
-      for(i in positions['player'+player]) {
-        if($.isArray(positions['player'+player][i])) {
-          positions['player'+player][i].shift()
-          positions['player'+player][i].push(tagpro.players[player][i])
+    }
+    for(player in positions) {
+      if(player.search('player')==0) {
+        for(i in positions[player]) {
+          if($.isArray(positions[player][i])) {
+            positions[player][i].shift()
+            positions[player][i].push(typeof tagpro.players[player.replace('player','')] != 'undefined' ? tagpro.players[player.replace('player','')][i] : null)
+          }
         }
       }
     }
@@ -79,7 +83,6 @@ function recordReplayData() {
     positions.clock.push(new Date())
     positions.score.shift()
     positions.score.push(tagpro.score)
-    //savingIndex++
   }
   
   thing = setInterval(saveGameData, 1000/fps)
