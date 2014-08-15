@@ -200,6 +200,7 @@ function openReplayMenu() {
   exitMenu = function() {
     fpsInputValue = $('#fpsInput')[0].value
     durationInputValue = $('#durationInput')[0].value
+    if(durationInputValue > 30) { alert('You have set the duration to be '+durationInputValue+' seconds. Durations greater than 30 seconds will most likely cause renderings of recorded replays to fail.') }
     recordInputValue = $('#recordCheckbox')[0].checked
     useTexturesInputValue = $('#useTextureCheckbox')[0].checked
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
