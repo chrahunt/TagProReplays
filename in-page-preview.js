@@ -34,12 +34,16 @@ function createReplay(positions) {
 		mapImgData = drawMap(0, 0, positions)
 		mapImg = new Image()
 		mapImg.src = mapImgData
+		imgDiv.appendChild(mapImg)
+		mapImg.onload = function() {
+			animateReplay(thisI, positions, mapImg)
+		}
 	}
 	
 	portalImg = new Image()
 	portalImg.src = 'images/portal.png'
 	portalImg.id = 'portal'
-	portalImg = imgDiv.appendChild(portalImg)
+	imgDiv.appendChild(portalImg)
 
 	speedpadImg = new Image()
 	speedpadImg.src = 'images/speedpad.png'
@@ -140,6 +144,7 @@ function createReplay(positions) {
     	can.remove()
     	newcan.remove()
     	img.remove()
+    	delete(mapImg)
     }, 600)    
   }
   function playReplay() {
@@ -231,7 +236,6 @@ function createReplay(positions) {
   // define variable that stores play state
   isPlaying = false
   
-  //animateReplay(thisI)
   can.style.opacity = 1
   showButtons()
 }	

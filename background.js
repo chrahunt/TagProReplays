@@ -175,27 +175,27 @@ function renameData(oldName, newName) {
 // this renders a movie and stores it in the savedMovies FileSystem
 function renderMovie(name, useTextures) {
 	if(useTextures) {
-		if(typeof localStorage.getItem('tiles') !== "undefined") {
+		if(typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
 			img.src = localStorage.getItem('tiles')
 		} else {
 			img.src = defaultTextures.tiles
 		}
-		if(typeof localStorage.getItem('portal') !== "undefined") {
+		if(typeof localStorage.getItem('portal') !== "undefined" & localStorage.getItem('portal') !== null) {
 			portalImg.src = localStorage.getItem('portal')
 		} else {
 			portalImg.src = defaultTextures.portal
 		}
-		if(typeof localStorage.getItem('speedpad') !== "undefined") {
+		if(typeof localStorage.getItem('speedpad') !== "undefined" & localStorage.getItem('speedpad') !== null) {
 			speedpadImg.src = localStorage.getItem('speedpad')
 		} else {
 			speedpadImg.src = defaultTextures.speedpad
 		}
-		if(typeof localStorage.getItem('speedpadred') !== "undefined") {
+		if(typeof localStorage.getItem('speedpadred') !== "undefined" & localStorage.getItem('speedpadred') !== null) {
 			speedpadredImg.src = localStorage.getItem('speedpadred')
 		} else {
 			speedpadredImg.src = defaultTextures.speedpadred
 		}
-		if(typeof localStorage.getItem('speedpadblue') !== "undefined") {
+		if(typeof localStorage.getItem('speedpadblue') !== "undefined" & localStorage.getItem('speedpadblue') !== null) {
 			speedpadblueImg.src = localStorage.getItem('speedpadblue')
 		} else {
 			speedpadblueImg.src = defaultTextures.speedpadblue
@@ -234,7 +234,7 @@ function downloadMovie(name) {
 }
  	
 
-// this saves custom texture files to FileSystem
+// this saves custom texture files to localStorage
 function saveTextures(textureData) {
 	if(typeof textureData.tiles !== 'undefined') {
 		localStorage.setItem('tiles',textureData.tiles)
@@ -252,12 +252,6 @@ function saveTextures(textureData) {
 		localStorage.setItem('speedpadblue',textureData.speedpadblue)
 	} else { localStorage.removeItem('speedpadblue') }
 }
-
-// this gets saved texture files from FileSystem and sets images 
-function getTextures() {
-	
-}
-
 
 // Set up indexedDB
 var openRequest = indexedDB.open("ReplayDatabase");
