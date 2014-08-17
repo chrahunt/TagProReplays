@@ -365,6 +365,7 @@ function emit(event, data){
    window.dispatchEvent(e);
 }
 
+
 // send position data to content script
 function saveReplayData(positions) {
   var data = JSON.stringify(positions)

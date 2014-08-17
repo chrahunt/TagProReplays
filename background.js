@@ -72,7 +72,7 @@ function saveVideoData(name, data) {
 }
 
 // Actually does the rendering of the movie 
-function renderVideo(positions) {
+function renderVideo(positions, name) {
 	positions = JSON.parse(positions)
 	mapImgData = drawMap(0, 0, positions)
 	mapImg = new Image()
@@ -84,8 +84,14 @@ function renderVideo(positions) {
 		}
 	}
 	var encoder = new Whammy.Video(positions[me].fps); 
-
+	
+	chrome.tabs.sendMessage(tabNum, {method:"progressBarCreate", name:name})
 	for(thisI = 0; thisI < positions.clock.length; thisI++) {
+		if(thisI/Math.round(positions.clock.length/100)%1==0){
+   			chrome.tabs.sendMessage(tabNum, {method:"progressBarUpdate", 
+   			                                 progress:thisI/positions.clock.length, 
+   			                                 name:name})
+  		}
 		animateReplay(thisI, positions, mapImg)
 		encoder.add(context)
 	}
@@ -214,7 +220,7 @@ function renderMovie(name, useTextures) {
 		var request = store.get(name);
 		request.onsuccess=function(){
 			if(typeof JSON.parse(request.result).clock !== "undefined") {
-				var output = renderVideo(request.result)
+				var output = renderVideo(request.result, name)
 				createFileSystem('savedMovies', saveMovieFile, [name, output])
 				chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
 	  		} else {
@@ -233,6 +239,29 @@ function downloadMovie(name) {
 	createFileSystem('savedMovies', getMovieFile, [name])
 }
  	
+// this function "cleans" position data when user clicked record to soon after start of game
+function cleanPositionData(positionDAT) {
+	for(cleanI=0; cleanI < positionDAT.clock.length; cleanI++) {
+		if(positionDAT.clock[cleanI] == 0) { 	
+			for(positionStat in positionDAT) {
+				if(positionStat.search('player')==0) {
+					for(playerStat in positionDAT[positionStat]) {
+						if($.isArray(positionDAT[positionStat][playerStat])) {
+							positionDAT[positionStat][playerStat].shift()
+						}
+					}
+				}
+			}
+			for(cleanFloorTile in positionDAT.floorTiles) {
+				positionDAT.floorTiles[cleanFloorTile].value.shift()
+			}
+			positionDAT.clock.shift()
+			positionDAT.score.shift()
+			cleanI--
+		}
+	}
+	return(positionDAT)	
+}
 
 // this saves custom texture files to localStorage
 function saveTextures(textureData) {
@@ -327,7 +356,8 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     transaction = db.transaction(["positions"], "readwrite")
 	objectStore = transaction.objectStore('positions')
 	console.log('got data from content script.')
-	request = objectStore.add(message.positionData, 'replays'+new Date().getTime())
+	positions = cleanPositionData(JSON.parse(message.positionData))
+	request = objectStore.add(JSON.stringify(positions), 'replays'+new Date().getTime())
 	request.onsuccess = function() {
 		chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   			tabNum = tabs[0].id

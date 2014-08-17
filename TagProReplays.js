@@ -395,6 +395,16 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     	console.log('got movie download confirmation')
     } else if(message.method == "movieDownloadFailure") {
     	alert('Download failed. Most likely you haven\'t rendered that movie yet.')
+    } else if(message.method == "progressBarCreate") {
+    	// CREATE PROGRESS BAR
+    	$('#'+message.name+'RenderMovieButton').after('<progress id='+message.name+'ProgressBar>')
+    	$('#'+message.name+'ProgressBar').width(100)
+    	console.log('got request to create progress Bar for '+message.name)
+    } else if(message.method == "progressBarUpdate") {
+    	// UPDATE PROGRESS BAR
+    	if(typeof $('#'+message.name+'ProgressBar')[0] !== 'undefined') {
+	    	$('#'+message.name+'ProgressBar')[0].value=message.progress
+	    }
     }
 });
 
