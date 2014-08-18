@@ -94,7 +94,7 @@ function drawScoreFlag(positions) {
 				flagCoords = {x:15, y:1}
 			}
 			if(typeof flagCoords != 'undefined') {
-				flagTeam = positions[j].team.length==1 ? positions[j].team : positions[j].team[thisI]
+				flagTeam = typeof positions[j].team.length === 'undefined' ? positions[j].team : positions[j].team[thisI]
 				flagPos = {x:context.canvas.width/2 + (flagTeam==1 ? -100 : 80),
 						   y:context.canvas.height-50}
 				context.globalAlpha = 0.5
