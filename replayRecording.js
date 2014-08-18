@@ -388,7 +388,7 @@ listen('positionDataConfirmation', function () {
 
 
 
-// function to add button to record replay data
+// function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton() {
   var recordButton = document.createElement("img")
   recordButton.id = 'recordButton'
@@ -412,6 +412,14 @@ function recordButton() {
   savedFeedback.style.fontWeight='bold'
   $('body').append(savedFeedback)
   $(savedFeedback).hide()
+  
+  if(readCookie('useRecordKey') == "true") {
+  	$(document).on("keypress", function(e) {
+  		if(e.which == readCookie('replayRecordKey')) { 
+    		saveReplayData(positions)
+  		}
+	})
+  }
 }
 
 if(readCookie('record') != 'false') {

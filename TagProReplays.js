@@ -135,12 +135,12 @@ function openReplayMenu() {
   $('#fpsTxt').after('<input id=fpsInput>')
   $('#fpsInput').css({
             "margin-right" : "10px",
-            "width" : "40px"
+            "width" : "20px"
   })
   
   // duration input
   $('#fpsInput').after('<txt id=durationTxt>')
-  $('#durationTxt').text('Duration (s):')
+  $('#durationTxt').text('Duration:')
   $('#durationTxt').css({
             "fontSize" : "18px",
             "color" : "black",
@@ -148,7 +148,7 @@ function openReplayMenu() {
   })
   $('#durationTxt').after('<input id=durationInput>')
   $('#durationInput').css({
-  			"width" : "40px",
+  			"width" : "20px",
   			"margin-right" : "20px"
   })
   
@@ -180,6 +180,21 @@ function openReplayMenu() {
   })
   $('#textureMenuButton')[0].onclick = openTextureMenu
   
+  // record key checkbox
+  $('#textureMenuButton').after('<txt id=recordKeyTxt>')
+  $('#recordKeyTxt').text('Record Key')
+  $('#recordKeyTxt').css({
+  			"fontSize" : "18px",
+  			"color" : "black",
+  			"margin-left" : "20px",
+  			"margin-right" : "5px"
+  })
+  $('#recordKeyTxt').after('<input id=recordKeyCheckbox type="checkbox">')
+  $('#recordKeyCheckbox')[0].onclick = function() {
+  	if(this.checked) {
+  		openRecordKeyMenu()
+  	}
+  }
 
   			  
   			  
@@ -203,6 +218,7 @@ function openReplayMenu() {
     if(durationInputValue > 30) { alert('You have set the duration to be '+durationInputValue+' seconds. Durations greater than 30 seconds will most likely cause renderings of recorded replays to fail.') }
     recordInputValue = $('#recordCheckbox')[0].checked
     useTexturesInputValue = $('#useTextureCheckbox')[0].checked
+    useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
       setCookie('fps', $('#fpsInput')[0].value, '.koalabeast.com')
     }
@@ -211,6 +227,7 @@ function openReplayMenu() {
     }
     setCookie('record', recordInputValue, '.koalabeast.com')
     setCookie('useTextures', useTexturesInputValue, '.koalabeast.com')
+    setCookie('useRecordKey', useRecordKeyValue, '.koalabeast.com')
     $("#menuContainer").fadeOut() 
     setTimeout(function(){$("#menuContainer").remove()},500)
   }
@@ -322,10 +339,13 @@ function openReplayMenu() {
   durationValue = (!readCookie('duration')) ? "30" : readCookie('duration')
   recordValue = (!readCookie('record')) ? 'true' : readCookie('record')
   useTexturesValue = (!readCookie('useTextures')) ? 'false' : readCookie('useTextures')
+  useRecordKeyValue = (!readCookie('useRecordKey')) ? 'false' : readCookie('useRecordKey')
+  
   $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : 30
   $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : 30
   $('#recordCheckbox')[0].checked = eval(recordValue)
   $('#useTextureCheckbox')[0].checked = eval(useTexturesValue)
+  $('#recordKeyCheckbox')[0].checked = eval(useRecordKeyValue)
   
   getListData()
   $('#menuContainer').fadeIn()
