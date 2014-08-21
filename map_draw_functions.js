@@ -1,6 +1,6 @@
-function drawText(ballname, namex, namey) {
+function drawText(ballname, namex, namey, auth, degree) {
 		context.textAlign = 'left'
-		context.fillStyle="#ffffff"
+		context.fillStyle=(auth == true) ? "#BFFF00":"#ffffff"
 		context.strokeStyle="#000000"
 		context.shadowColor="#000000"
 		context.shadowOffsetX=0
@@ -9,8 +9,15 @@ function drawText(ballname, namex, namey) {
 		context.font="bold 8pt Arial"
 		context.shadowBlur=10
 		context.strokeText(ballname, namex, namey)
+		if(typeof degree != "undefined" && degree != 0) {
+			context.strokeText(degree+"°", namex + 10, namey + 12)
+		}
 		context.shadowBlur=0
 		context.fillText(ballname, namex, namey)
+		if(typeof degree != "undefined" && degree != 0) {
+			context.fillStyle="#ffffff"
+			context.fillText(degree+"°", namex + 10, namey + 12)
+		}			
 }
 
 
@@ -368,37 +375,43 @@ function drawBalls(positions) {
 		drawFlag(me, context.canvas.width/2 - tileSize/2, context.canvas.height/2 - tileSize/2, positions)	
 		drawText(positions[me].name, 
 				 context.canvas.width/2 - tileSize/2 + 30, 
-				 context.canvas.height/2 - tileSize/2 - 5)
+				 context.canvas.height/2 - tileSize/2 - 5,
+				 positions[me].auth,
+				 positions[me].degree)
 	}
 	// draw other balls
 	for(j in positions) { 
 		if(positions[j].me=='other') {
 			if(positions[j].dead[thisI] == false) {
 				if(positions[j].draw[thisI] == true) {
-					// what team?
-					if(typeof positions[j].team.length === 'undefined') {
-						thisTeam = positions[j].team
-					} else {
-						thisTeam = positions[j].team[thisI]
+					if(thisI==0 || positions[j].draw[thisI-1] == true) {
+						// what team?
+						if(typeof positions[j].team.length === 'undefined') {
+							thisTeam = positions[j].team
+						} else {
+							thisTeam = positions[j].team[thisI]
+						}
+						context.drawImage(img,																		// image
+							(thisTeam == 1 ? 14:15)*tileSize,														// x coordinate of image
+							0,																						// y coordinate of image
+							tileSize,																				// width of image
+							tileSize,																				// height of image
+							positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,	// destination x coordinate
+							positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2,	// destination y coordinate
+							tileSize,																				// width of destination
+							tileSize)																				// height of destination
+						
+						drawPowerups(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
+						             positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions)
+						drawFlag(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
+						    	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions) 
+						drawText(positions[j].name, 
+								 positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2 + 30, 
+							 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5,
+				 				 positions[j].auth,
+				 				 positions[j].degree)
 					}
-					context.drawImage(img,																		// image
-						(thisTeam == 1 ? 14:15)*tileSize,														// x coordinate of image
-						0,																						// y coordinate of image
-						tileSize,																				// width of image
-						tileSize,																				// height of image
-						positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,	// destination x coordinate
-						positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2,	// destination y coordinate
-						tileSize,																				// width of destination
-						tileSize)																				// height of destination
-					
-					drawPowerups(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
-					             positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions)
-					drawFlag(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
-					    	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions) 
-					drawText(positions[j].name, 
-							 positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2 + 30, 
-						 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5)
-				}
+				}	
 			}
 		}
 	}

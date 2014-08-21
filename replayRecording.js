@@ -61,7 +61,8 @@ function recordReplayData() {
                             dead:createZeroArray(saveDuration*fps),
                             draw:createZeroArray(saveDuration*fps),
                             me:(+tagpro.playerId == +player ? 'me' : 'other'),
-                            hasFlag:null
+                            auth:tagpro.players[player.replace('player','')].auth,
+                            degree:tagpro.players[player.replace('player','')].degree
                           }
       }
     }
