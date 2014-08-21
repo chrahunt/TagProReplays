@@ -376,8 +376,8 @@ function drawBalls(positions) {
 		drawText(positions[me].name, 
 				 context.canvas.width/2 - tileSize/2 + 30, 
 				 context.canvas.height/2 - tileSize/2 - 5,
-				 positions[me].auth,
-				 positions[me].degree)
+				 (typeof positions[me].auth != 'undefined') ? positions[me].auth[thisI]:undefined,
+				 (typeof positions[me].degree != 'undefined') ? positions[me].degree[thisI]:undefined)
 	}
 	// draw other balls
 	for(j in positions) { 
@@ -408,8 +408,8 @@ function drawBalls(positions) {
 						drawText(positions[j].name, 
 								 positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2 + 30, 
 							 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5,
-				 				 positions[j].auth,
-				 				 positions[j].degree)
+				 				 (typeof positions[j].auth != 'undefined') ? positions[j].auth[thisI]:undefined,
+				 				 (typeof positions[j].degree != 'undefined') ? positions[j].degree[thisI]:undefined)
 					}
 				}	
 			}
