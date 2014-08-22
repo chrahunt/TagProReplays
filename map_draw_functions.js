@@ -347,6 +347,123 @@ function drawFloorTiles(positions) {
 		}
 	}
 }
+
+function bombPop(positions) {
+	positions.floorTiles.forEach(function(fT) {
+		for(j in positions) {
+			if(positions[j].me == 'me') {
+				me = j
+			}
+		}
+		if(fT.value[thisI]==10.1 & fT.value[thisI-1]==10) {
+			fT.bombAnimation = {
+				length: Math.round(positions[me].fps/10),
+				frame:0
+			}
+		}
+		if(typeof fT.bombAnimation != 'undefined') {
+			fT.bombAnimation.frame++
+			bombSize = 40 + (280 * (fT.bombAnimation.frame / fT.bombAnimation.length))
+			bombOpacity = 1 - fT.bombAnimation.frame / fT.bombAnimation.length
+			context.fillStyle = "#FF8000"
+			context.globalAlpha = bombOpacity
+			context.beginPath() 
+			bombX = fT.x * tileSize + posx + tileSize/2 //- context.canvas.width/2 + 60
+			bombY = fT.y * tileSize + posy + tileSize/2 //- context.canvas.height/2 - 20
+			context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, !0) 
+        	context.closePath()
+	        context.fill()
+			context.globalAlpha = 1
+			context.fillStyle = "#ffffff"
+			if(fT.bombAnimation.frame >= fT.bombAnimation.length) {
+				delete(fT.bombAnimation)
+			}
+		}
+	})
+}
+
+function ballCollision(positions, ball) {
+	for(j in positions) {
+		if(j.search('player')==0 & j != ball) {
+			if(Math.abs(positions[j].x[thisI-1] - positions[ball].x[thisI-1]) < (tileSize+5) & Math.abs(positions[j].y[thisI-1] - positions[ball].y[thisI-1]) < (tileSize+5)) {
+				return(true)
+			}
+		}
+	}
+	return(false)
+}
+
+function rollingBombPop(positions, ball) {
+	for(j in positions) {
+		if(positions[j].me == 'me') {
+			me = j
+		}
+	}
+	// determine if we need to start a rolling bomb animation: ball has no bomb now, but had bomb one frame ago
+	if(!positions[ball].bomb[thisI] & positions[ball].bomb[thisI-1] & ballCollision(positions, ball)) {
+		positions[ball].rollingBombAnimation = {
+			length: Math.round(positions[ball].fps/10),
+			frame:0
+		}
+	}
+	// if an animation should be in progress, draw it
+	if(typeof positions[ball].rollingBombAnimation != 'undefined') {
+		positions[ball].rollingBombAnimation.frame++
+		rollingBombSize = 40 + (200 * (positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length))
+		rollingBombOpacity = 1 - positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length
+		
+		context.fillStyle = "#FFFF00"
+		context.globalAlpha = rollingBombOpacity
+		context.beginPath() 
+		rollingBombX = positions[ball].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 //- tileSize/2
+		rollingBombY = positions[ball].y[thisI] - positions[me].y[thisI] + context.canvas.height/2  //- tileSize/2
+		context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0) 
+        context.closePath()
+        context.fill()
+		context.globalAlpha = 1
+		context.fillStyle = "#ffffff"
+		if(positions[ball].rollingBombAnimation.frame >= positions[ball].rollingBombAnimation.length) {
+			delete(positions[ball].rollingBombAnimation)
+		}
+	}
+}
+
+function ballPop(positions, ball) {
+	for(j in positions) {
+		if(positions[j].me == 'me') {
+			me = j
+		}
+	}
+	// determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
+	if(positions[ball].dead[thisI] & !positions[ball].dead[thisI-1] & positions[ball].draw[thisI-1]) {
+		positions[ball].popAnimation = {
+			length: Math.round(positions[ball].fps/10),
+			frame:0
+		}
+	}
+	// if an animation should be in progress, draw it
+	if(typeof positions[ball].popAnimation != 'undefined') {
+		positions[ball].popAnimation.frame++
+		popSize = 40 + (80 * (positions[ball].popAnimation.frame / positions[ball].popAnimation.length))
+		popOpacity = 1 - positions[ball].popAnimation.frame / positions[ball].popAnimation.length
+		
+		context.globalAlpha = popOpacity
+		context.drawImage(img,
+						  (positions[ball].team[thisI] == 1 ? 14:15)*tileSize,
+						  0,
+						  tileSize,
+						  tileSize,
+						  positions[ball].x[thisI] - positions[me].x[thisI] + context.canvas.width/2  - popSize/2,
+						  positions[ball].y[thisI] - positions[me].y[thisI] + context.canvas.height/2  - popSize/2,
+						  popSize,
+						  popSize)
+		context.globalAlpha = 1
+		if(positions[ball].popAnimation.frame >= positions[ball].popAnimation.length) {
+			delete(positions[ball].popAnimation)
+		}
+	}	
+}
+
 function drawBalls(positions) { 	
 	// draw 'me'
 	for(j in positions) {
@@ -379,6 +496,9 @@ function drawBalls(positions) {
 				 (typeof positions[me].auth != 'undefined') ? positions[me].auth[thisI]:undefined,
 				 (typeof positions[me].degree != 'undefined') ? positions[me].degree[thisI]:undefined)
 	}
+	ballPop(positions, me)
+	rollingBombPop(positions, me)
+	
 	// draw other balls
 	for(j in positions) { 
 		if(positions[j].me=='other') {
@@ -413,6 +533,8 @@ function drawBalls(positions) {
 					}
 				}	
 			}
+			ballPop(positions, j)
+			rollingBombPop(positions, j)
 		}
 	}
 }
@@ -435,5 +557,6 @@ function animateReplay(thisI, positions, mapImg) {
 	drawClock(positions)
 	drawScore(positions)
 	drawScoreFlag(positions)
+	bombPop(positions)
 }
 
