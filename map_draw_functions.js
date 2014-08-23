@@ -385,7 +385,7 @@ function bombPop(positions) {
 function ballCollision(positions, ball) {
 	for(j in positions) {
 		if(j.search('player')==0 & j != ball) {
-			if(Math.abs(positions[j].x[thisI-1] - positions[ball].x[thisI-1]) < (tileSize+5) & Math.abs(positions[j].y[thisI-1] - positions[ball].y[thisI-1]) < (tileSize+5)) {
+			if((Math.abs(positions[j].x[thisI-1] - positions[ball].x[thisI-1]) < (45) & Math.abs(positions[j].y[thisI-1] - positions[ball].y[thisI-1]) < (45)) | (Math.abs(positions[j].x[thisI] - positions[ball].x[thisI]) < (45) & Math.abs(positions[j].y[thisI] - positions[ball].y[thisI]) < (45))) {
 				return(true)
 			}
 		}
@@ -530,11 +530,11 @@ function drawBalls(positions) {
 							 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5,
 				 				 (typeof positions[j].auth != 'undefined') ? positions[j].auth[thisI]:undefined,
 				 				 (typeof positions[j].degree != 'undefined') ? positions[j].degree[thisI]:undefined)
+				 		rollingBombPop(positions, j)
 					}
 				}	
 			}
-			ballPop(positions, j)
-			rollingBombPop(positions, j)
+			ballPop(positions, j)	
 		}
 	}
 }
