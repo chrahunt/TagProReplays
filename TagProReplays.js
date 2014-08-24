@@ -227,7 +227,9 @@ function openReplayMenu() {
     setCookie('record', recordInputValue, '.koalabeast.com')
     setCookie('useTextures', useTexturesInputValue, '.koalabeast.com')
     setCookie('useRecordKey', useRecordKeyValue, '.koalabeast.com')
-    $("#menuContainer").fadeOut() 
+    $("#menuContainer").fadeOut()
+    
+    chrome.runtime.sendMessage({method:'cleanRenderedReplays'}) 
     setTimeout(function(){$("#menuContainer").remove()},500)
   }
   
@@ -249,8 +251,18 @@ function openReplayMenu() {
   	chrome.runtime.sendMessage({method:'requestList'})
   }
   
+  // function for determining if a position file name is in an array of rendered movie names
+  function positionFileIsRendered(positionFileName, movieNames) {
+  	for(m in movieNames) {
+  		if(positionFileName.replace('replays','').replace(/.*DATE/,'') == movieNames[m]) {
+  			return(true)
+  		}
+  	}
+  	return(false)
+  }
+  
   // This puts the current replays into the menu 	
-  populateList = function(storageData) {
+  populateList = function(storageData, movieNames) {
     replayList = []
     for(dat in storageData) {
         replayList.push(storageData[dat])
@@ -262,7 +274,7 @@ function openReplayMenu() {
       console.log(replayList)
       for(dat in replayList) {
         thisReplay = replayList[dat]
-        $('#replayListBox').append("<p><a id="+thisReplay+" href=# style='margin-left:20px margin-right:20px'>"+thisReplay.replace(/DATE.*/,'')+"</a></p>") 
+        $('#replayListBox').append("<p><a id="+thisReplay+" href=# style='margin-left:20px margin-right:10px'>"+thisReplay.replace(/DATE.*/,'')+"</a></p>") 
         $('#'+thisReplay)[0].onclick = function(){
           exitMenu()
 	 	  console.log('sending data request for '+this.id)
@@ -273,7 +285,14 @@ function openReplayMenu() {
     	date = new Date(ms)
         datevalue = date.toDateString() + " " + date.toLocaleTimeString()
         
-        $('#'+thisReplay).after('<button id='+thisReplay+'RenderMovieButton style="margin-left:10px">Render Movie')
+        if(positionFileIsRendered(thisReplay, movieNames)) {
+        	$('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:10px'>✓")
+        	$('#'+thisReplay+"Rendered")[0].style.color="white" //"#00FF00"
+        } else {
+        	$('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:16px'> ")
+        }
+        
+        $('#'+thisReplay+"Rendered").after('<button id='+thisReplay+'RenderMovieButton style="margin-left:10px">Render Movie')
         $('#'+thisReplay+'RenderMovieButton')[0].onclick = function() {
         	fileNameToRender = this.id.replace('RenderMovieButton','')
         	console.log('asking background script to render '+fileNameToRender)
@@ -288,6 +307,10 @@ function openReplayMenu() {
         	console.log('asking background script to download video for '+fileNameToDownload)
         	chrome.runtime.sendMessage({method:'downloadMovie', name:fileNameToDownload})
 	    }
+	    if(!positionFileIsRendered(thisReplay, movieNames)) {
+	    	$('#'+thisReplay+'DownloadMovieButton')[0].disabled = true
+	    }
+	    
         $('#'+thisReplay+'DownloadMovieButton').after('<button id='+thisReplay+'DownloadButton style="margin-left:5px">Download Raw Data')
         $('#'+thisReplay+'DownloadButton')[0].onclick = function(){
         	fileNameToDownload = this.id.replace('DownloadButton','')
@@ -379,7 +402,7 @@ var videofile
 chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
 	if(message.method == 'itemsList') {
   		console.log('got itemList message')
-  		populateList(message.title)
+  		populateList(message.positionKeys, message.movieNames)
   	} else if(message.method == 'positionData') {
   		console.log('got positionData message')
   		console.log(typeof message.title)
@@ -407,7 +430,6 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	} else if(message.method == "movieRenderConfirmation") {
   		console.log('got movie render confirmation')
   		exitMenu()
-  		openReplayMenu()
     } else if(message.method == "movieRenderFailure") {
     	alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
     } else if(message.method == "movieDownloadConfirmation") {
@@ -416,7 +438,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     	alert('Download failed. Most likely you haven\'t rendered that movie yet.')
     } else if(message.method == "progressBarCreate") {
     	// CREATE PROGRESS BAR
-    	$('#'+message.name+'RenderMovieButton').after('<progress id='+message.name+'ProgressBar>')
+    	$('#'+message.name+'RenderMovieButton').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
     	$('#'+message.name+'ProgressBar').width(100)
     	console.log('got request to create progress Bar for '+message.name)
     } else if(message.method == "progressBarUpdate") {

@@ -100,7 +100,8 @@ function renderVideo(positions, name) {
 }
 
 // this is a function to get all the keys in the object store
-//   It sends a message to the content script once it gets the keys 
+//   It also gets the list of names of rendered movies
+//   It sends a message to the content script once it gets the keys and movie names
 function listItems() {
 	allKeys = []
 	var transaction = db.transaction(["positions"], "readonly");
@@ -111,8 +112,25 @@ function listItems() {
 			allKeys.push(request.result.key);
 			request.result.continue()
 		} else {
-			chrome.tabs.sendMessage(tabNum, {method:"itemsList",title:allKeys}) 
-    		console.log('sent reply: ' + allKeys)
+			createFileSystem('savedMovies', getRenderedMovieNames, [allKeys])
+    	}
+	}
+}
+
+// this function gets all positions keys in object store
+//   it then cleans out filesystem of any rendered replay that isn't in indexedDB object store
+function getCurrentReplaysForCleaning() {
+	allKeys = []
+	var transaction = db.transaction(["positions"], "readonly");
+	var store = transaction.objectStore("positions");
+	var request = store.openCursor(null);
+	request.onsuccess=function(){
+		if(request.result){
+			allKeys.push(request.result.key);
+			request.result.continue()
+		} else {
+			console.log(allKeys)
+			createFileSystem('savedMovies', cleanMovieFiles, [allKeys])
     	}
 	}
 }
@@ -239,7 +257,7 @@ function downloadMovie(name) {
 	createFileSystem('savedMovies', getMovieFile, [name])
 }
  	
-// this function "cleans" position data when user clicked record to soon after start of game
+// this function "cleans" position data when user clicked record too soon after start of game
 function cleanPositionData(positionDAT) {
 	for(cleanI=0; cleanI < positionDAT.clock.length; cleanI++) {
 		if(positionDAT.clock[cleanI] == 0) { 	
@@ -414,6 +432,9 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   		tabNum = tabs[0].id
 		chrome.tabs.sendMessage(tabNum, {method:"textureSaveConfirmation"})
   	})
+  } else if(message.method == 'cleanRenderedReplays') {
+  	console.log('got request to clean rendered replays')
+  	getCurrentReplaysForCleaning()
   }
 });
 

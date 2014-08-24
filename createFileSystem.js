@@ -38,27 +38,25 @@ function createFileSystem(thisDirectory, secondFunction, secondArguments) {
 	 console.log(msg);
 	};
 
-	window.requestFileSystem(window.PERSISTENT, 1024*1024*1024, initFS, errorHandler);
+	window.requestFileSystem(window.PERSISTENT, 10*1024*1024*1024, initFS, errorHandler);
 }
 
-// function to print directory contents
-function readDirectory(fs, directory) {
+// function to get savedMovies directory contents
+function getRenderedMovieNames(fs, directory, secondArguments) {
+	cont=[]
+	allKeys = secondArguments[0]
 	fs.root.getDirectory(directory, {}, function(dirEntry){
-	  var dirReader = dirEntry.createReader();
-	  dirReader.readEntries(function(entries) {
-	    for(var i = 0; i < entries.length; i++) {
-	      var entry = entries[i];
-	      if (entry.isDirectory){
-	        console.log('Directory: ' + entry.fullPath);
-	      }
-	      else if (entry.isFile){
-	        console.log('File: ' + entry.fullPath);
-	      }
-	    }
-	 
-	  }, function(){console.log('error1')});
-	}, function(){console.log('error2')}); 
-}
+		var dirReader = dirEntry.createReader();
+	  	dirReader.readEntries(function(entries) {
+	    	for(var i = 0; i < entries.length; i++) {
+	    		var entry = entries[i];
+          		cont.push(entry.name)
+	 		}
+	 		chrome.tabs.sendMessage(tabNum, {method:"itemsList", positionKeys:allKeys, movieNames:cont})
+	 		console.log('sent reply: ' + allKeys)
+	  	}, function(){console.log('error1')});
+	}, function(){console.log('error2')});
+} 
 
 // function that creates and fills a file
 function saveMovieFile(fs, directory, secondArguments) {
@@ -139,35 +137,49 @@ function getMovieFile(fs, directory, secondArguments) {
 }
 
 
-// function to read contents of savedTextures directory -- creates a variable called 'textures'
-function getTextureFile(fs, directory, secondArguments) {
-	function errorHandler(err){
-		chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-  						tabNum = tabs[0].id
-  						chrome.tabs.sendMessage(tabNum, {method:"textureDownloadFailure"}) 
-    					console.log('sent texture download failure notice')
-  					})
-	};
-	delete(textures)
-	name = secondArguments[0]
-	fileName = name
-	console.log(fileName)
-	fs.root.getFile(directory+'/'+fileName, {}, function(fileEntry) {
-		fileEntry.file(function(file) {
-		    reader = new FileReader();
-    		reader.onloadend = function(e) {
-      			textures = this.result
-      			//movie.type = 'video/webm'
-      			if(typeof textures !== "undefined") {
-					console.log(textures)
-					chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-  						tabNum = tabs[0].id
-  						chrome.tabs.sendMessage(tabNum, {method:"textureDownloadConfirmation"}) 
-    					console.log('sent texture download confirmation')
-  					})
-  				}      
-    		};
-    		reader.readAsDataURL(file);     
-  		}, errorHandler);
-	}, errorHandler);
+/////////////////////////////////////////////////////////////
+//  functions for clearing deleted movies from filesystem  //
+/////////////////////////////////////////////////////////////
+
+// function to delete rendered movies from savedMovies filesystem directory
+function deleteMovieFile(fs, directory, name) {
+	function errorHandler(err) {
+		console.log(err)
+	}
+	fs.root.getFile(directory+'/'+name, {}, function(fileEntry) {
+		fileEntry.remove(function() {
+			console.log('deleted movie file '+name)
+		})},
+		errorHandler)
 }
+
+// function to check if a filesystem movie filename is in the indexedDB contents
+function fileInIndexedDB(movieName, indexedDBContents) {
+	for(var k=0; k < indexedDBContents.length; k++) {
+		if(movieName==indexedDBContents[k].replace(/.*DATE/,'').replace('replays','')) {
+			return(true)
+		}
+	}
+	return(false)
+}
+
+// function that takes an array of position files from indexedDB, looks up filesystem contents, and 
+//    calls deleteMovieFile for every entry in filesystem that is not in indexedDB
+function cleanMovieFiles(fs, directory, secondArguments) {
+	indexedDBContents = secondArguments[0]
+	function errorHandler(err) {
+		console.log(err)
+	}
+	fs.root.getDirectory(directory, {}, function(dirEntry){
+	  var dirReader = dirEntry.createReader();
+	  dirReader.readEntries(function(entries) {
+	    for(var i = 0; i < entries.length; i++) {
+	      var entry = entries[i];
+	      if(! fileInIndexedDB(entry.name, indexedDBContents)) {
+	      	deleteMovieFile(fs, directory, entry.name)
+	      }
+	 	}
+	  }, function(){console.log('error1')});
+	}, function(){console.log('error2')}); 
+}		
+	    
