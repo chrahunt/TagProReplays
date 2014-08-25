@@ -392,6 +392,34 @@ function emit(event, data){
    window.dispatchEvent(e);
 }
 
+// function to grey out menu buttons and disable all other menu actions
+function greyButtons() {
+	buttons = $('button')
+	for(var ii=0; ii < buttons.length; ii++) {
+		if(buttons[ii].parentElement.parentElement.parentElement.id == "menuContainer") {
+			buttons[ii].disabled = true
+		}
+		if(buttons[ii].parentElement.parentElement.id == "menuContainer") {
+			buttons[ii].disabled = true
+		}
+	}
+	inputs = $('input')
+	for(var ii=0; ii < inputs.length; ii++) {
+		if(inputs[ii].parentElement.parentElement.id == "menuContainer") {
+			inputs[ii].disabled = true
+		}
+	}
+	links = $('a')
+	for(var ii=0; ii < links.length; ii++) {
+		if(links[ii].parentElement.parentElement.parentElement.id == "menuContainer") {
+			thisLink = document.getElementById(links[ii].id)
+			thisLink.style.cursor='default'
+			thisLink.style.pointerEvents='none'
+			thisLink.style.color='white'
+		}
+	}
+}
+
 // set global scope for some variables and functions
 // then set up listeners for info from background script
 var positions
@@ -437,9 +465,10 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     } else if(message.method == "movieDownloadFailure") {
     	alert('Download failed. Most likely you haven\'t rendered that movie yet.')
     } else if(message.method == "progressBarCreate") {
-    	// CREATE PROGRESS BAR
+    	// CREATE PROGRESS BAR AND GREY OUT BUTTONS
     	$('#'+message.name+'RenderMovieButton').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
     	$('#'+message.name+'ProgressBar').width(100)
+    	greyButtons()
     	console.log('got request to create progress Bar for '+message.name)
     } else if(message.method == "progressBarUpdate") {
     	// UPDATE PROGRESS BAR
