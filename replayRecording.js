@@ -24,6 +24,7 @@ function recordReplayData() {
   var saveDuration = +readCookie('duration')
   
   // set up map data
+  positions.chat = []
   positions.map = tagpro.map
   positions.wallMap = tagpro.wallMap
   positions.floorTiles  = []
@@ -41,6 +42,9 @@ function recordReplayData() {
   		} 
   	}
   }
+
+  // set up listener for chats
+  tagpro.socket.on('chat', function(CHAT) {positions.chat.push(CHAT)})
 
   // function to save game data
   saveGameData = function() {

@@ -96,7 +96,11 @@ function renderVideo(positions, name) {
 		encoder.add(context)
 	}
 	output = encoder.compile()
-	return(output)
+	console.log('movie: ',output)
+	createFileSystem('savedMovies', saveMovieFile, [name, output])
+	chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
+	//console.log(output)
+	//return(output)
 }
 
 // this is a function to get all the keys in the object store
@@ -238,9 +242,7 @@ function renderMovie(name, useTextures) {
 		var request = store.get(name);
 		request.onsuccess=function(){
 			if(typeof JSON.parse(request.result).clock !== "undefined") {
-				var output = renderVideo(request.result, name)
-				createFileSystem('savedMovies', saveMovieFile, [name, output])
-				chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
+				renderVideo(request.result, name)
 	  		} else {
 	  			chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	  				tabNum = tabs[0].id

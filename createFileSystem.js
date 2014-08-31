@@ -86,7 +86,6 @@ function saveMovieFile(fs, directory, secondArguments) {
 	fs.root.getFile(directory+'/'+fileName, {create: true}, function(fileEntry) {
 		fileEntry.createWriter(function(fileWriter) {
 			fileWriter.write(movie)
-			console.log(movie)
 		}, errorHandler)
 	}, errorHandler)
 }

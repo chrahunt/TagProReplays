@@ -20,6 +20,65 @@ function drawText(ballname, namex, namey, auth, degree) {
 		}			
 }
 
+function prettyText(text, textx, texty, color) {
+		context.textAlign = 'left'
+		context.fillStyle= color
+		context.strokeStyle="#000000"
+		context.shadowColor="#000000"
+		context.shadowOffsetX=0
+		context.shadowOffsetY=0
+		context.lineWidth=2
+		context.font="bold 8pt Arial"
+		context.shadowBlur=10
+		context.strokeText(text, textx, texty)
+		context.shadowBlur=0
+		context.fillText(text, textx, texty)
+		return(context.measureText(text).width)
+}
+
+function drawChats(positions) {
+	if(positions.chat) {
+		chats = positions.chat
+		thisTime = new Date(positions.clock[thisI]).getTime()
+		currentChats = new Array(10)
+		for(chatI in chats) {
+			if(chats[chatI].removeAt - 30000 < thisTime & chats[chatI].removeAt > thisTime) {
+				currentChats.shift()
+				currentChats.push(chats[chatI])
+			}
+		}
+		for(chatI = 0; chatI < currentChats.length; chatI++) {
+			if(typeof currentChats[0] == 'undefined') {
+				currentChats.shift()
+				chatI--
+			}
+		}
+		
+		for(chatI in currentChats) {
+			thisChat = currentChats[chatI]
+			chatLeft = 10
+			chatTop = context.canvas.height - 175 + chatI*12
+			if(typeof thisChat.from == 'number') {
+				if(positions['player'+thisChat.from].auth[thisI]) {
+					chatLeft += prettyText("✓ ", chatLeft, chatTop, "#BFFF00")
+				}
+				chatLeft += prettyText(positions['player'+thisChat.from].name + ': ', 
+									   chatLeft, 
+									   chatTop, 
+									   positions['player'+thisChat.from].team == 1 ? "#FFB5BD" : "#CFCFFF")
+			}
+			if(thisChat.to == 'team') {
+				chatColor = positions['player'+thisChat.from].team == 1 ? "#FFB5BD" : "#CFCFFF"
+			} else if(thisChat.to == 'group') {
+				chatColor = "#E7E700"
+			} else { 
+				chatColor = 'white'
+			}
+			prettyText(thisChat.message, chatLeft, chatTop, chatColor)
+		}
+	}
+}
+
 
 function drawPowerups(ball, ballx, bally, positions) {
 		if(positions[ball].tagpro[thisI] == true) {
@@ -557,6 +616,7 @@ function animateReplay(thisI, positions, mapImg) {
 	drawClock(positions)
 	drawScore(positions)
 	drawScoreFlag(positions)
+	drawChats(positions)
 	bombPop(positions)
 }
 
