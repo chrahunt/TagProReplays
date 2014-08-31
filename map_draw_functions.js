@@ -65,10 +65,10 @@ function drawChats(positions) {
 				chatLeft += prettyText(positions['player'+thisChat.from].name + ': ', 
 									   chatLeft, 
 									   chatTop, 
-									   positions['player'+thisChat.from].team == 1 ? "#FFB5BD" : "#CFCFFF")
+									   positions['player'+thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF")
 			}
 			if(thisChat.to == 'team') {
-				chatColor = positions['player'+thisChat.from].team == 1 ? "#FFB5BD" : "#CFCFFF"
+				chatColor = positions['player'+thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF"
 			} else if(thisChat.to == 'group') {
 				chatColor = "#E7E700"
 			} else { 
