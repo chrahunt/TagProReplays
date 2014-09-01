@@ -125,8 +125,10 @@ function openReplayMenu() {
   })
   
   // fps input
+  fpsInfo = 'Use this to set how many times per second data are recorded from the tagpro game.\nHigher fps will create smoother replays. \n\nIf you experience framerate drops during gameplay, or if your replays are sped up, try reducing this value.'
   $('#settingsContainer').append('<txt id=fpsTxt>')
   $('#fpsTxt').text('FPS:')
+  $('#fpsTxt')[0].title = fpsInfo
   $('#fpsTxt').css({
             "fontSize" : "18px",
             "color" : "black",
@@ -137,10 +139,13 @@ function openReplayMenu() {
             "margin-right" : "10px",
             "width" : "20px"
   })
+  $('#fpsInput')[0].title = fpsInfo
   
   // duration input
+  durationInfo = 'Use this to set how long the replay will be in seconds. Values greater than 60 seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect replays that have already been recorded'
   $('#fpsInput').after('<txt id=durationTxt>')
   $('#durationTxt').text('Duration:')
+  $('#durationTxt')[0].title = durationInfo
   $('#durationTxt').css({
             "fontSize" : "18px",
             "color" : "black",
@@ -151,20 +156,26 @@ function openReplayMenu() {
   			"width" : "20px",
   			"margin-right" : "20px"
   })
+  $('#durationInput')[0].title = durationInfo
   
   // recording checkbox
+  recordInfo = 'This controls whether the extension is capable of recording replays during a tagpro game.\n\nUncheck to disable the extension.'
   $('#durationInput').after('<txt id=recordTxt>')  
-  $('#recordTxt').text('Recording On/Off')
+  $('#recordTxt').text('On/Off')
+  $('#recordTxt')[0].title = recordInfo
   $('#recordTxt').css({
   			"fontSize" : "18px",
   			"color" : "black",
   			"margin-right" : "5px"
   })
   $('#recordTxt').after('<input id=recordCheckbox type="checkbox">')
+  $('#recordCheckbox')[0].title = recordInfo
   
   // custom texture checkbox
+  textureInfo = 'This controls whether custom texture files will be used in rendered movies.\n\nCheck to use textures, uncheck to use vanilla.\n\nThis only applies to rendered movies.' 
   $('#recordCheckbox').after('<txt id=useTextureTxt>')
   $('#useTextureTxt').text('Use Textures')
+  $('#useTextureTxt')[0].title = textureInfo
   $('#useTextureTxt').css({
   			"fontSize" : "18px",
   			"color" : "black",
@@ -172,17 +183,22 @@ function openReplayMenu() {
   			"margin-right" : "5px"
   })
   $('#useTextureTxt').after('<input id=useTextureCheckbox type="checkbox">')
+  $('#useTextureCheckbox')[0].title = textureInfo
   
   // custom texture menu button
+  textureInfo2 = 'This button allows you to upload your custom texture files'
   $('#useTextureCheckbox').after('<button id=textureMenuButton>Load Textures')
   $('#textureMenuButton').css({
   			"margin-left" : "20px"
   })
   $('#textureMenuButton')[0].onclick = openTextureMenu
+  $('#textureMenuButton')[0].title = textureInfo2
   
   // record key checkbox
+  recordKeyInfo = 'This allows you to designate a key that acts exactly like clicking the record button with the mouse.\n\nDon\'t use keys that have other uses in the game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all, because the extension will listen for that key even if you are typing in chat.'
   $('#textureMenuButton').after('<txt id=recordKeyTxt>')
   $('#recordKeyTxt').text('Record Key')
+  $('#recordKeyTxt')[0].title = recordKeyInfo
   $('#recordKeyTxt').css({
   			"fontSize" : "18px",
   			"color" : "black",
@@ -195,6 +211,21 @@ function openReplayMenu() {
   		openRecordKeyMenu()
   	}
   }
+  $('#recordKeyCheckbox')[0].title = recordKeyInfo
+  
+  // useSplats checkbox
+  useSplatsInfo = 'This toggles whether to show splats or not.\n\nCheck the box if you want to show splats in the replay'
+  $('#recordKeyCheckbox').after('<txt id=useSplatsTxt>')
+  $('#useSplatsTxt').text('Splats')
+  $('#useSplatsTxt')[0].title = useSplatsInfo
+  $('#useSplatsTxt').css({
+  			"fontSize" : "18px",
+  			"color" : "black",
+  			"margin-left" : "20px",
+  			"margin-right" : "5px"
+  })
+  $('#useSplatsTxt').after('<input id=useSplatsCheckbox type="checkbox">')
+  $('#useSplatsCheckbox')[0].title = useSplatsInfo
 
   			  
   			  
@@ -218,6 +249,7 @@ function openReplayMenu() {
     recordInputValue = $('#recordCheckbox')[0].checked
     useTexturesInputValue = $('#useTextureCheckbox')[0].checked
     useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
+    useSplatsValue = $('#useSplatsCheckbox')[0].checked
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
       setCookie('fps', $('#fpsInput')[0].value, '.koalabeast.com')
     }
@@ -227,6 +259,7 @@ function openReplayMenu() {
     setCookie('record', recordInputValue, '.koalabeast.com')
     setCookie('useTextures', useTexturesInputValue, '.koalabeast.com')
     setCookie('useRecordKey', useRecordKeyValue, '.koalabeast.com')
+    setCookie('useSplats', useSplatsValue, '.koalabeast.com')
     $("#menuContainer").fadeOut()
     
     chrome.runtime.sendMessage({method:'cleanRenderedReplays'}) 
@@ -297,8 +330,11 @@ function openReplayMenu() {
         	fileNameToRender = this.id.replace('RenderMovieButton','')
         	console.log('asking background script to render '+fileNameToRender)
         	if(confirm('Are you sure you want to render '+fileNameToRender.replace(/DATE.*/,'')+'? The extension will be unavailable until the movie is rendered.')) {
-	        	chrome.runtime.sendMessage({method:'renderMovie', name:fileNameToRender,
-								useTextures:$('#useTextureCheckbox')[0].checked})
+	        	chrome.runtime.sendMessage({method:'renderMovie', 
+	        	                            name:fileNameToRender,
+	        	                            useTextures:$('#useTextureCheckbox')[0].checked,
+	        	                            useSplats:$('#useSplatsCheckbox')[0].checked
+	        	                            })
 	        }
 	    }
 	    $('#'+thisReplay+'RenderMovieButton').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
@@ -362,12 +398,14 @@ function openReplayMenu() {
   recordValue = (!readCookie('record')) ? 'true' : readCookie('record')
   useTexturesValue = (!readCookie('useTextures')) ? 'false' : readCookie('useTextures')
   useRecordKeyValue = (!readCookie('useRecordKey')) ? 'false' : readCookie('useRecordKey')
+  useSplatsValue = (!readCookie('useSplats')) ? 'false' : readCookie('useSplats')
   
   $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : 30
   $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : 30
   $('#recordCheckbox')[0].checked = eval(recordValue)
   $('#useTextureCheckbox')[0].checked = eval(useTexturesValue)
   $('#recordKeyCheckbox')[0].checked = eval(useRecordKeyValue)
+  $('#useSplatsCheckbox')[0].checked = eval(useSplatsValue)
   
   getListData()
   $('#menuContainer').fadeIn()
@@ -468,6 +506,8 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     	// CREATE PROGRESS BAR AND GREY OUT BUTTONS
     	$('#'+message.name+'RenderMovieButton').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
     	$('#'+message.name+'ProgressBar').width(100)
+    	$('#'+message.name+'ProgressBar').css({'margin-right' : '5px'})
+    	$('#'+message.name+'DownloadMovieButton').remove()
     	greyButtons()
     	console.log('got request to create progress Bar for '+message.name)
     } else if(message.method == "progressBarUpdate") {
@@ -481,6 +521,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
 // set fps and duration if they're not already
 if(!readCookie('fps')) { setCookie('fps', 30, '.koalabeast.com') }
 if(!readCookie('duration')) { setCookie('duration', 30, '.koalabeast.com') }
+if(!readCookie('useSplats')) { setCookie('useSplats', true, '.koalabeast.com') } 
 
 // this function sets up a listener wrapper
 function listen(event, listener) {

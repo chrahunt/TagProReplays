@@ -25,6 +25,8 @@ function recordReplayData() {
   
   // set up map data
   positions.chat = []
+  positions.splats = []
+  positions.bombs = []
   positions.map = tagpro.map
   positions.wallMap = tagpro.wallMap
   positions.floorTiles  = []
@@ -43,8 +45,16 @@ function recordReplayData() {
   	}
   }
 
-  // set up listener for chats
+  // set up listener for chats, splats, and bombs
   tagpro.socket.on('chat', function(CHAT) {positions.chat.push(CHAT)})
+  tagpro.socket.on('splat', function(SPLAT) {
+  		SPLAT.time = new Date()
+  		positions.splats.push(SPLAT)
+  })
+  tagpro.socket.on('bomb', function(BOMB) {
+  		BOMB.time = new Date()
+  		positions.bombs.push(BOMB)
+  })
 
   // function to save game data
   saveGameData = function() {

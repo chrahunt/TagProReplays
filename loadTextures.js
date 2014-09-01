@@ -26,6 +26,11 @@ saveTextureSettings = function() {
 		reader5.onload = function(e5) {imageData.speedpadblue=e5.target.result}
 		reader5.readAsDataURL($('#speedpadblueInput')[0].files[0])
 	} else { imageData.speedpadblue = undefined }
+	if(typeof $('#splatsInput')[0].files[0] !== 'undefined') {
+		reader6 = new FileReader()
+		reader6.onload = function(e6) {imageData.splats=e6.target.result}
+		reader6.readAsDataURL($('#splatsInput')[0].files[0])
+	} else { imageData.splats = undefined }
 
 	setTimeout(function(){
 		console.log(imageData)
@@ -49,7 +54,7 @@ function openTextureMenu() {
   $('article').append('<div id=textureContainer>')
   $('#textureContainer').css({
             "width" : "500px",
-            "height" : "400px",
+            "height" : "500px",
             "position": "absolute",
             "margin": "auto",
             "top": "0",
@@ -166,6 +171,17 @@ function openTextureMenu() {
   $('#speedpadblueText').after('<input type="file" id=speedpadblueInput>')
   $('#speedpadblueInput').css({
   			"margin-left" : (150-$("#speedpadblueText").width())+"px",
+  			"color" : '#00CC00'
+  })
+  // splats
+  $('#speedpadblueInput').after('<p><txt id=splatsText>Splats File')
+  $('#splatsText').css({
+  			"color" : "black",
+  			"margin-left" : "60px"
+  })
+  $('#splatsText').after('<input type="file" id=splatsInput>')
+  $('#splatsInput').css({
+  			"margin-left" : (150-$("#splatsText").width())+"px",
   			"color" : '#00CC00'
   })		 
   

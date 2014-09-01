@@ -59,6 +59,11 @@ function createReplay(positions) {
 	speedpadblueImg.src = 'images/speedpadblue.png'
 	speedpadblueImg.id = 'speedpadblue'
 	speedpadblueImg = imgDiv.appendChild(speedpadblueImg)
+	
+	splatsImg = new Image()
+	splatsImg.src = 'images/splats.png'
+	splatsImg.id = 'splats'
+	splatsImg = imgDiv.appendChild(splatsImg)
 
 	tagproImg = new Image()	
 	tagproImg.src = 'http://i.imgur.com/N11aYYg.png'

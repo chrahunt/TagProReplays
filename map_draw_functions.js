@@ -523,6 +523,30 @@ function ballPop(positions, ball) {
 	}	
 }
 
+function drawSplats(positions) {
+	if(positions.splats) {
+		for(splatI in positions.splats) {
+			if(!positions.splats[splatI].img) {
+				positions.splats[splatI].img = Math.floor(Math.random()*7)
+			}
+			thisSplat = positions.splats[splatI]
+			thisTime = new Date(positions.clock[thisI]).getTime()
+			thisSplatTime = new Date(thisSplat.time).getTime()
+			if(thisSplatTime <= thisTime) {
+				context.drawImage(splatsImg,
+								  thisSplat.img*120,
+								  (thisSplat.t - 1) * 120,
+								  120,
+								  120,
+								  thisSplat.x + posx - 60 + 20,
+								  thisSplat.y + posy - 60 + 20,
+								  120,
+								  120)
+			}
+		}
+	}
+}
+
 function drawBalls(positions) { 	
 	// draw 'me'
 	for(j in positions) {
@@ -611,6 +635,7 @@ function animateReplay(thisI, positions, mapImg) {
 					  posx, 
 					  posy,
 					  mapImg.width, mapImg.height)
+	if(localStorage.getItem('useSplats') == 'true' || readCookie('useSplats') == 'true') { drawSplats(positions) } else {console.log('nope')}
 	drawFloorTiles(positions)
 	drawBalls(positions)
 	drawClock(positions)

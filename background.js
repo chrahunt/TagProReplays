@@ -20,7 +20,8 @@
 		portal : 'img/portal.png',
 		speedpad : 'img/speedpad.png',
 		speedpadred : 'img/speedpadred.png',
-		speedpadblue : 'img/speedpadblue.png'
+		speedpadblue : 'img/speedpadblue.png',
+		splats : 'img/splats.png'
 	}
 	
 	img = new Image()
@@ -57,6 +58,11 @@
 	rollingbombImg.src = 'img/rollingbomb.png'
 	rollingbombImg.id = 'rollingbomb'
 	rollingbombImg = document.body.appendChild(rollingbombImg)
+	
+	splatsImg = new Image()
+	splatsImg.src = defaultTextures.splats
+	splatsImg.id = 'splats'
+	splatsImg = document.body.appendChild(splatsImg)
 
 
 // This function opens a download dialog
@@ -72,7 +78,8 @@ function saveVideoData(name, data) {
 }
 
 // Actually does the rendering of the movie 
-function renderVideo(positions, name) {
+function renderVideo(positions, name, useSplats) {
+	localStorage.setItem('useSplats',useSplats)
 	positions = JSON.parse(positions)
 	mapImgData = drawMap(0, 0, positions)
 	mapImg = new Image()
@@ -201,7 +208,7 @@ function renameData(oldName, newName) {
 }
 
 // this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name, useTextures) {
+function renderMovie(name, useTextures, useSplats) {
 	if(useTextures) {
 		if(typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
 			img.src = localStorage.getItem('tiles')
@@ -228,12 +235,18 @@ function renderMovie(name, useTextures) {
 		} else {
 			speedpadblueImg.src = defaultTextures.speedpadblue
 		}
+		if(typeof localStorage.getItem('splats') !== "undefined" & localStorage.getItem('splats') !== null) {
+			splatsImg.src = localStorage.getItem('splats')
+		} else {
+			splatsImg.src = defaultTextures.splats
+		}
 	} else {
 		img.src = defaultTextures.tiles
 		portalImg.src = defaultTextures.portal
 		speedpadImg.src = defaultTextures.speedpad
 		speedpadredImg.src = defaultTextures.speedpadred
 		speedpadblueImg.src = defaultTextures.speedpadblue
+		splatsImg.src = defaultTextures.splats
 	}
 	
 	setTimeout(function() {
@@ -242,7 +255,7 @@ function renderMovie(name, useTextures) {
 		var request = store.get(name);
 		request.onsuccess=function(){
 			if(typeof JSON.parse(request.result).clock !== "undefined") {
-				renderVideo(request.result, name)
+				renderVideo(request.result, name, useSplats)
 	  		} else {
 	  			chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	  				tabNum = tabs[0].id
@@ -300,6 +313,9 @@ function saveTextures(textureData) {
 	if(typeof textureData.speedpadblue !== 'undefined') {
 		localStorage.setItem('speedpadblue',textureData.speedpadblue)
 	} else { localStorage.removeItem('speedpadblue') }
+	if(typeof textureData.splats !== 'undefined') {
+		localStorage.setItem('splats', textureData.splats)
+	} else { localStorage.removeItem('splats') }
 }
 
 // Set up indexedDB
@@ -419,7 +435,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	console.log('got request to render Movie for '+message.name)
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   		tabNum = tabs[0].id
-  		renderMovie(message.name, message.useTextures)
+  		renderMovie(message.name, message.useTextures, message.useSplats)
   	})
   } else if(message.method == 'downloadMovie') {
   	console.log('got request to download Movie for '+message.name)
