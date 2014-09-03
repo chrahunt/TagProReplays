@@ -313,10 +313,11 @@ function openReplayMenu() {
 	 	  console.log('sending data request for '+this.id)
 		  chrome.runtime.sendMessage({method:'requestData',fileName:this.id})
         }
-        
         ms = +thisReplay.replace('replays','').replace(/.*DATE/,'')
     	date = new Date(ms)
         datevalue = date.toDateString() + " " + date.toLocaleTimeString()
+        $('#'+thisReplay)[0].title = datevalue
+        
         
         if(positionFileIsRendered(thisReplay, movieNames)) {
         	$('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:10px'>✓")
