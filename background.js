@@ -1,68 +1,79 @@
-	tileSize = 40
+function readCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    }
+    return null;
+}
+
+tileSize = 40
 	
-	can = document.createElement('canvas')
-	can.id = 'mapCanvas'
-	document.body.appendChild(can)
+can = document.createElement('canvas')
+can.id = 'mapCanvas'
+document.body.appendChild(can)
 
-	can = document.getElementById('mapCanvas')
-	can.width = 32*tileSize
-	can.height = 20*tileSize
-	can.style.zIndex = 200
-	can.style.position = 'absolute'
-	can.style.top = 0
-	can.style.left = 0
+can = document.getElementById('mapCanvas')
+can.width = 32*tileSize
+can.height = 20*tileSize
+can.style.zIndex = 200
+can.style.position = 'absolute'
+can.style.top = 0
+can.style.left = 0
 
 
-	context = can.getContext('2d')
+context = can.getContext('2d')
 	
-	defaultTextures = {
-		tiles  : 'img/tiles.png',
-		portal : 'img/portal.png',
-		speedpad : 'img/speedpad.png',
-		speedpadred : 'img/speedpadred.png',
-		speedpadblue : 'img/speedpadblue.png',
-		splats : 'img/splats.png'
-	}
+defaultTextures = {
+	tiles  : 'img/tiles.png',
+	portal : 'img/portal.png',
+	speedpad : 'img/speedpad.png',
+	speedpadred : 'img/speedpadred.png',
+	speedpadblue : 'img/speedpadblue.png',
+	splats : 'img/splats.png'
+}
 	
-	img = new Image()
-	img.src = defaultTextures.tiles
-	img.id = 'tiles'
-	img = document.body.appendChild(img)
+img = new Image()
+img.src = defaultTextures.tiles
+img.id = 'tiles'
+img = document.body.appendChild(img)
 
-	portalImg = new Image()
-	portalImg.src = defaultTextures.portal
-	portalImg.id = 'portal'
-	portalImg = document.body.appendChild(portalImg)
+portalImg = new Image()
+portalImg.src = defaultTextures.portal
+portalImg.id = 'portal'
+portalImg = document.body.appendChild(portalImg)
 
-	speedpadImg = new Image()
-	speedpadImg.src = defaultTextures.speedpad
-	speedpadImg.id = 'speedpad'
-	speedpadImg = document.body.appendChild(speedpadImg)
+speedpadImg = new Image()
+speedpadImg.src = defaultTextures.speedpad
+speedpadImg.id = 'speedpad'
+speedpadImg = document.body.appendChild(speedpadImg)
 
-	speedpadredImg = new Image()
-	speedpadredImg.src = defaultTextures.speedpadred
-	speedpadredImg.id = 'speedpadred'
-	speedpadredImg = document.body.appendChild(speedpadredImg)
+speedpadredImg = new Image()
+speedpadredImg.src = defaultTextures.speedpadred
+speedpadredImg.id = 'speedpadred'
+speedpadredImg = document.body.appendChild(speedpadredImg)
 
-	speedpadblueImg = new Image()
-	speedpadblueImg.src = defaultTextures.speedpadblue
-	speedpadblueImg.id = 'speedpadblue'
-	speedpadblueImg = document.body.appendChild(speedpadblueImg)
+speedpadblueImg = new Image()
+speedpadblueImg.src = defaultTextures.speedpadblue
+speedpadblueImg.id = 'speedpadblue'
+speedpadblueImg = document.body.appendChild(speedpadblueImg)
 
-	tagproImg = new Image()	
-	tagproImg.src = 'img/tagpro.png'
-	tagproImg.id = 'tagpro'
-	tagproImg = document.body.appendChild(tagproImg)
+tagproImg = new Image()	
+tagproImg.src = 'img/tagpro.png'
+tagproImg.id = 'tagpro'
+tagproImg = document.body.appendChild(tagproImg)
 
-	rollingbombImg = new Image()
-	rollingbombImg.src = 'img/rollingbomb.png'
-	rollingbombImg.id = 'rollingbomb'
-	rollingbombImg = document.body.appendChild(rollingbombImg)
+rollingbombImg = new Image()
+rollingbombImg.src = 'img/rollingbomb.png'
+rollingbombImg.id = 'rollingbomb'
+rollingbombImg = document.body.appendChild(rollingbombImg)
 	
-	splatsImg = new Image()
-	splatsImg.src = defaultTextures.splats
-	splatsImg.id = 'splats'
-	splatsImg = document.body.appendChild(splatsImg)
+splatsImg = new Image()
+splatsImg.src = defaultTextures.splats
+splatsImg.id = 'splats'
+splatsImg = document.body.appendChild(splatsImg)
 
 
 // This function opens a download dialog
