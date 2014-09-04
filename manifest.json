@@ -1,7 +1,7 @@
 {   
 	"name": "TagProReplays",
   	"description": "Save Replays from within TagPro Games",
-  	"version": "0.1.21",
+  	"version": "0.1.22",
 	"manifest_version": 2,
 		"background" : {
     "scripts": ["background.js",
@@ -38,6 +38,7 @@
     "speedpadblue.png",
     "tagpro.png",
     "rollingbomb.png",
-    "splats.png"
+    "splats.png",
+    "flair.png"
   ]
 }

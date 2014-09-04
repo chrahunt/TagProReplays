@@ -64,6 +64,11 @@ function createReplay(positions) {
 	splatsImg.src = 'images/splats.png'
 	splatsImg.id = 'splats'
 	splatsImg = imgDiv.appendChild(splatsImg)
+	
+	flairImg = new Image()
+	flairImg.src = 'images/flair.png'
+	flairImg.id = 'flair'
+	flairImg = imgDiv.appendChild(flairImg)
 
 	tagproImg = new Image()	
 	tagproImg.src = 'http://i.imgur.com/N11aYYg.png'

@@ -32,7 +32,8 @@ defaultTextures = {
 	speedpad : 'img/speedpad.png',
 	speedpadred : 'img/speedpadred.png',
 	speedpadblue : 'img/speedpadblue.png',
-	splats : 'img/splats.png'
+	splats : 'img/splats.png',
+	flair : 'img/flair.png'
 }
 	
 img = new Image()
@@ -74,6 +75,11 @@ splatsImg = new Image()
 splatsImg.src = defaultTextures.splats
 splatsImg.id = 'splats'
 splatsImg = document.body.appendChild(splatsImg)
+
+flairImg = new Image()
+flairImg.src = defaultTextures.flair
+flairImg.id = 'flair'
+flairImg = document.body.appendChild(flairImg)
 
 
 // This function opens a download dialog

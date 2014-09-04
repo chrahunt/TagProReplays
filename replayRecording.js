@@ -64,7 +64,7 @@ function recordReplayData() {
         positions['player'+player] = {
                             x:createZeroArray(saveDuration*fps), 
                             y:createZeroArray(saveDuration*fps), 
-                            name:currentPlayers[player].name,
+                            name:createZeroArray(saveDuration*fps),
                             fps:fps,
                             team: createZeroArray(saveDuration*fps), //players[player].team, // 1:red, 2:blue
                             map:$('#mapInfo').text().replace('Map: ','').replace(/ by.*/,''),
@@ -76,7 +76,8 @@ function recordReplayData() {
                             draw:createZeroArray(saveDuration*fps),
                             me:(+tagpro.playerId == +player ? 'me' : 'other'),
                             auth:createZeroArray(saveDuration*fps),
-                            degree:createZeroArray(saveDuration*fps)
+                            degree:createZeroArray(saveDuration*fps),
+                            flair:createZeroArray(saveDuration*fps)
                           }
       }
     }

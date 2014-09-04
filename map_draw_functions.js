@@ -8,17 +8,32 @@ function drawText(ballname, namex, namey, auth, degree) {
 		context.lineWidth=2
 		context.font="bold 8pt Arial"
 		context.shadowBlur=10
-		context.strokeText(ballname, namex, namey)
+		context.strokeText(ballname, namex + 3, namey)
 		if(typeof degree != "undefined" && degree != 0) {
 			context.strokeText(degree+"°", namex + 10, namey + 12)
 		}
 		context.shadowBlur=0
-		context.fillText(ballname, namex, namey)
+		context.fillText(ballname, namex + 3, namey)
 		if(typeof degree != "undefined" && degree != 0) {
 			context.fillStyle="#ffffff"
 			context.fillText(degree+"°", namex + 10, namey + 12)
 		}			
 }
+
+function drawFlair(ballFlair, flairx, flairy) {
+	if(ballFlair !== null) {
+		context.drawImage(flairImg,
+	    	              ballFlair.x * 16,
+	        	          ballFlair.y * 16,
+	            	      16,
+	                	  16,
+	     	              flairx,
+	        	          flairy,
+	            	      16,
+	                	  16)
+	}
+}
+
 
 function prettyText(text, textx, texty, color) {
 		context.textAlign = 'left'
@@ -62,7 +77,8 @@ function drawChats(positions) {
 				if(positions['player'+thisChat.from].auth[thisI]) {
 					chatLeft += prettyText("✓ ", chatLeft, chatTop, "#BFFF00")
 				}
-				chatLeft += prettyText(positions['player'+thisChat.from].name + ': ', 
+				chatName = (typeof positions['player'+thisChat.from].name === "string") ? positions['player'+thisChat.from].name : positions['player'+thisChat.from].name[thisI]
+				chatLeft += prettyText(chatName + ': ', 
 									   chatLeft, 
 									   chatTop, 
 									   positions['player'+thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF")
@@ -572,12 +588,18 @@ function drawBalls(positions) {
 			tileSize) 										// height of destination
 		
 		drawPowerups(me, context.canvas.width/2 - tileSize/2, context.canvas.height/2 - tileSize/2, positions)
-		drawFlag(me, context.canvas.width/2 - tileSize/2, context.canvas.height/2 - tileSize/2, positions)	
-		drawText(positions[me].name, 
+		drawFlag(me, context.canvas.width/2 - tileSize/2, context.canvas.height/2 - tileSize/2, positions)
+		thisName = (typeof positions[me].name == 'string') ? positions[me].name : positions[me].name[thisI]	
+		drawText(thisName, 
 				 context.canvas.width/2 - tileSize/2 + 30, 
 				 context.canvas.height/2 - tileSize/2 - 5,
 				 (typeof positions[me].auth != 'undefined') ? positions[me].auth[thisI]:undefined,
 				 (typeof positions[me].degree != 'undefined') ? positions[me].degree[thisI]:undefined)
+		if(typeof positions[me].flair !== 'undefined') {
+			drawFlair(positions[me].flair[thisI],
+					  context.canvas.width/2 - 16/2,
+					  context.canvas.height/2 - tileSize/2 - 17)
+		}
 	}
 	ballPop(positions, me)
 	rollingBombPop(positions, me)
@@ -608,11 +630,17 @@ function drawBalls(positions) {
 						             positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions)
 						drawFlag(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
 						    	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions) 
-						drawText(positions[j].name, 
+						thisName = (typeof positions[j].name === 'string') ? positions[j].name : positions[j].name[thisI]
+						drawText(thisName, 
 								 positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2 + 30, 
 							 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5,
 				 				 (typeof positions[j].auth != 'undefined') ? positions[j].auth[thisI]:undefined,
 				 				 (typeof positions[j].degree != 'undefined') ? positions[j].degree[thisI]:undefined)
+				 		if(typeof positions[j].flair !== 'undefined') {
+							drawFlair(positions[j].flair[thisI],
+					  				  positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - 16/2, 
+							 	 	  positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 20)
+						}
 				 		rollingBombPop(positions, j)
 					}
 				}	

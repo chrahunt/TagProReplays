@@ -433,30 +433,13 @@ function emit(event, data){
 
 // function to grey out menu buttons and disable all other menu actions
 function greyButtons() {
-	buttons = $('button')
-	for(var ii=0; ii < buttons.length; ii++) {
-		if(buttons[ii].parentElement.parentElement.parentElement.id == "menuContainer") {
-			buttons[ii].disabled = true
-		}
-		if(buttons[ii].parentElement.parentElement.id == "menuContainer") {
-			buttons[ii].disabled = true
-		}
-	}
-	inputs = $('input')
-	for(var ii=0; ii < inputs.length; ii++) {
-		if(inputs[ii].parentElement.parentElement.id == "menuContainer") {
-			inputs[ii].disabled = true
-		}
-	}
-	links = $('a')
-	for(var ii=0; ii < links.length; ii++) {
-		if(links[ii].parentElement.parentElement.parentElement.id == "menuContainer") {
-			thisLink = document.getElementById(links[ii].id)
-			thisLink.style.cursor='default'
-			thisLink.style.pointerEvents='none'
-			thisLink.style.color='white'
-		}
-	}
+	$('#menuContainer button').each(function(){this.disabled=true})
+	$('#menuContainer input').each(function(){this.disabled=true})
+	$('#replayListBox a').css({
+    	cursor: 'default',
+    	pointerEvents: 'none',
+    	color: 'white'
+	});
 }
 
 // set global scope for some variables and functions
