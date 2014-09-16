@@ -80,6 +80,95 @@ function createReplay(positions) {
 	rollingbombImg.id = 'rollingbomb'
 	rollingbombImg = imgDiv.appendChild(rollingbombImg)
 	
+	////////////////////////////////
+	/////     Playback bar     /////
+	////////////////////////////////
+	
+	// create area to hold buttons and slider bar
+	
+	playbackBarDiv = document.createElement('div')
+	playbackBarDiv.style.position = 'absolute'
+	playbackBarDiv.style.top = +can.style.top.replace('px','') + can.height + 20 + 'px'
+	playbackBarDiv.style.left = can.style.left
+	playbackBarDiv.style.width = can.width + 20 + 'px'
+	playbackBarDiv.style.height = '90px'
+	playbackBarDiv.style.transition = "opacity 0.25s linear"
+	playbackBarDiv.id = 'playbackBarDiv'
+	playbackBarDiv.style.backgroundColor = 'black'
+	document.body.appendChild(playbackBarDiv)
+	
+	// create white bar showing area that will be cropped
+	whiteBar = document.createElement('div')
+	whiteBar.style.position = 'absolute'
+	whiteBar.style.top = +can.style.top.replace('px','') + can.height + 20 + 'px'
+	whiteBar.style.left = can.style.left
+	whiteBar.style.width = can.width + 20 + 'px'
+	whiteBar.style.height = '20px'
+	whiteBar.style.transition = "opacity 0.25s linear"
+	whiteBar.id = 'whiteBar'
+	whiteBar.style.backgroundColor = 'white'
+	document.body.appendChild(whiteBar)
+	
+	// create grey bar showing area that will be kept
+	greyBar = document.createElement('div')
+	greyBar.style.position = 'absolute'
+	greyBar.style.top = +can.style.top.replace('px','') + can.height + 20 + 'px'
+	greyBar.style.left = can.style.left
+	greyBar.style.width = can.width + 20 + 'px'
+	greyBar.style.height = '20px'
+	greyBar.style.transition = "opacity 0.25s linear"
+	greyBar.id = 'greyBar'
+	greyBar.style.backgroundColor = 'grey'
+	document.body.appendChild(greyBar)
+	
+	// create slider bar to hold slider
+	sliderBar = document.createElement('div')
+	sliderBar.style.position = 'absolute'
+	sliderBar.style.top = +can.style.top.replace('px','') + can.height + 20 + 'px'
+	sliderBar.style.left = can.style.left
+	sliderBar.style.width = can.width + 20 + 'px'
+	sliderBar.style.height = '20px'
+	sliderBar.style.transition = "opacity 0.25s linear"
+	sliderBar.id = 'sliderBar'
+	sliderBar.style.backgroundColor = 'transparent'
+	document.body.appendChild(sliderBar)
+	
+	// create slider
+	
+	$('#sliderBar').append('<input type="range" id="slider">')
+	slider = document.getElementById('slider')
+	slider.style.width = $('#sliderBar')[0].style.width
+	slider.style.transition = "opacity 0.25s linear"
+	slider.value = 0
+	slider.min = 0
+	slider.max = positions.clock.length - 1
+	slider.onmousedown = function() {
+		pauseReplay()
+	}
+	slider.onmouseup = function() {
+		thisI = this.value
+		animateReplay(thisI, positions, mapImg)
+	}
+	
+	function clearSliderArea() {
+		$('#playbackBarDiv')[0].style.opacity = "0"
+		$('#sliderBar')[0].style.opacity = "0"
+		$('#slider')[0].style.opacity = "0"
+		$('#greyBar')[0].style.opacity = "0"
+		$('#whiteBar')[0].style.opacity = "0"
+		setTimeout(function(){
+			$('#playbackBarDiv').remove()
+			$('#sliderBar').remove()
+			$('#slider').remove()
+			$('#greyBar').remove()
+			$('#whiteBar').remove()
+		}, 600)
+	} 
+	
+
+ 
+
+
 	////////////////////////////////////
 	/////     Playback buttons     /////
 	////////////////////////////////////
@@ -91,6 +180,7 @@ function createReplay(positions) {
 			}
 			animateReplay(thisI, positions, mapImg)
 			thisI++
+			slider.value = thisI
 		}, 1000/positions[me].fps)
 	}
 
@@ -99,7 +189,7 @@ function createReplay(positions) {
     var buttons = {pause  : pauseButton,
                    play   : playButton,
                    stop   : stopButton,
-                   reset  : resetButton,
+                   reset  : resetButton
     }
     for(button in buttons) {
       buttons[button].style.opacity="1.0"
@@ -112,6 +202,10 @@ function createReplay(positions) {
                    play   : playButton,
                    stop   : stopButton,
                    reset  : resetButton,
+                   cStart : cropStartButton,
+                   cEnd   : cropEndButton,
+                   cButt  : cropButton,
+            	   pCrop  : playCroppedMovieButton
     }
     for(button in buttons) {
       buttons[button].style.opacity="0"
@@ -123,6 +217,10 @@ function createReplay(positions) {
                    play   : playButton,
                    stop   : stopButton,
                    reset  : resetButton,
+                   cStart : cropStartButton,
+                   cEnd   : cropEndButton,
+                   cButt  : cropButton,
+            	   pCrop  : playCroppedMovieButton
     }
     for(button in buttons) {
       buttons[button].remove()
@@ -134,6 +232,7 @@ function createReplay(positions) {
     thisI=0
     clearInterval(thingy)
     animateReplay(thisI, positions, mapImg)
+    slider.value = 0
     delete(thingy)
     isPlaying=false
     showButtons()
@@ -145,6 +244,7 @@ function createReplay(positions) {
       delete(thingy)
       isPlaying=false
     }
+    clearSliderArea() 
     openReplayMenu()
     hideButtons()
     can.style.opacity = 0
@@ -161,14 +261,146 @@ function createReplay(positions) {
     if(typeof thingy === 'undefined') {
       updateMap(mapImg)
       isPlaying=true
-      hideButtons()
+      //hideButtons()
     }
   }
   function pauseReplay() {
-    clearInterval(thingy)
+    if(thingy) {clearInterval(thingy)}
     delete(thingy)
     isPlaying=false
     showButtons()
+  }
+  
+  
+  // cropping functions
+  
+  function setCropStart() {
+  	currentCropStart = +$('#slider')[0].value / +$('#slider')[0].max 
+  	greyBarStart = currentCropStart * $('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px','')
+  	if(typeof currentCropEnd !== 'undefined') {
+  		if(currentCropStart >= currentCropEnd) {
+  			delete currentCropEnd
+  		}
+  	}	
+  	$('#greyBar')[0].style.left = greyBarStart + 'px'
+  	if(typeof currentCropEnd !== 'undefined') {
+  		greyBarEnd = currentCropEnd * $('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px','')
+  		$('#greyBar').width(greyBarEnd-greyBarStart) + 'px'
+  	} else {
+  		$('#greyBar').width(($('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px',''))-greyBarStart) + 'px'
+  	}
+  }
+  
+  function setCropEnd() {
+  	currentCropEnd = +$('#slider')[0].value / +$('#slider')[0].max
+  	greyBarEnd = currentCropEnd * $('#whiteBar').width() 
+  	if(typeof currentCropStart !== 'undefined') {
+  		if(currentCropEnd <= currentCropStart) {
+  			delete currentCropStart
+  		}
+  	}
+  	if(typeof currentCropStart !== 'undefined') {
+  		greyBarStart = currentCropStart * $('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px','')
+  		$('#greyBar')[0].style.left = greyBarStart + 'px'
+  		$('#greyBar').width(greyBarEnd-greyBarStart + +$('#whiteBar')[0].style.left.replace('px','')) + 'px'
+  	} else {
+  		$('#greyBar')[0].style.left = $('#whiteBar')[0].style.left
+   		$('#greyBar').width(greyBarEnd) + 'px'
+  	}
+  }	
+  
+  function playCroppedMovie() {
+  	if(typeof thingy === 'undefined') {
+	  	if(typeof currentCropStart === 'undefined') {
+  			if(typeof currentCropEnd === 'undefined') {
+  				// just play the whole movie from the beginning
+  				thisI = 0
+  				if(typeof thingy === 'undefined') { playReplay() }
+  			} else {
+  				// play only up until the crop end point
+  				thisI = 0
+  				endI = Math.floor(currentCropEnd * (positions.clock.length-1))
+  				thingy = setInterval(function() {
+					if(thisI == endI) {
+						clearInterval(thingy)
+						delete(thingy)
+					}
+					animateReplay(thisI, positions, mapImg)
+					thisI++
+					slider.value = thisI
+				}, 1000/positions[me].fps)
+  			}
+	  	} else {
+  			if(typeof currentCropEnd === 'undefined') {
+  				// play from crop start point until the end
+  				thisI = Math.floor(currentCropStart * (positions.clock.length-1))
+	  			thingy = setInterval(function() {
+					if(thisI == positions.clock.length - 1) {
+						clearInterval(thingy)
+						delete(thingy)
+					}
+					animateReplay(thisI, positions, mapImg)
+					thisI++
+					slider.value = thisI
+				}, 1000/positions[me].fps)
+  			} else {
+  				// play in between crop start point and crop end point
+	  			thisI = Math.floor(currentCropStart * (positions.clock.length-1))
+  				endI = Math.floor(currentCropEnd * (positions.clock.length-1))
+  				console.log(thisI)
+  				thingy = setInterval(function() {
+					if(thisI == endI) {
+						clearInterval(thingy)
+						delete(thingy)
+					}
+					animateReplay(thisI, positions, mapImg)
+					thisI++
+					slider.value = thisI
+				}, 1000/positions[me].fps)
+  			}
+  		}
+  	}
+  }
+  
+  // this function actually crops the position data
+  function cropPositionData(positionDAT, cropStart, cropEnd) {
+  	popFromEnd = positionDAT.clock.length - cropEnd - 1
+  	shiftFromStart = cropStart
+	// first crop from the front
+	for(cropI=0; cropI < shiftFromStart; cropI++) {
+		for(positionStat in positionDAT) {
+			if(positionStat.search('player')==0) {
+				for(playerStat in positionDAT[positionStat]) {
+					if($.isArray(positionDAT[positionStat][playerStat])) {
+						positionDAT[positionStat][playerStat].shift()
+					}
+				}
+			}
+		}
+		for(cropFloorTile in positionDAT.floorTiles) {
+			positionDAT.floorTiles[cropFloorTile].value.shift()
+		}
+		positionDAT.clock.shift()
+		positionDAT.score.shift()
+	}
+	// now crop from the back
+	for(cropI=0; cropI < popFromEnd; cropI++) {
+		for(positionStat in positionDAT) {
+			if(positionStat.search('player')==0) {
+				for(playerStat in positionDAT[positionStat]) {
+					if($.isArray(positionDAT[positionStat][playerStat])) {
+						positionDAT[positionStat][playerStat].pop()
+					}
+				}
+			}
+		}
+		for(cropFloorTile in positionDAT.floorTiles) {
+			positionDAT.floorTiles[cropFloorTile].value.pop()
+		}
+		positionDAT.clock.pop()
+		positionDAT.score.pop()
+	}
+	return(positionDAT)	
   }
   
   // playback control buttons
@@ -185,11 +417,11 @@ function createReplay(positions) {
   stopButton.id = 'stopButton'
   stopButton.src = buttonURLs['stop']
   stopButton.onclick=stopReplay
-  stopButton.onmouseover = showButtons
-  stopButton.onmouseleave = function() {if(isPlaying) hideButtons()}
+  //stopButton.onmouseover = showButtons
+  //stopButton.onmouseleave = function() {if(isPlaying) hideButtons()}
   stopButton.style.position = "absolute"
-  stopButton.style.top = +can.style.top.replace('px','') + can.height + 10 -70 + 'px'
-  stopButton.style.left = window.innerWidth/2 - 199 + 'px'
+  stopButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 25 + 'px'
+  stopButton.style.left = +can.style.left.replace('px','') + 20 + 'px'
   stopButton.style.transition = "opacity 0.25s linear"
   stopButton.style.zIndex = 300
   stopButton.style.opacity = 0
@@ -200,11 +432,11 @@ function createReplay(positions) {
   resetButton.id = 'resetButton'
   resetButton.src = buttonURLs['reset']
   resetButton.onclick=resetReplay
-  resetButton.onmouseover = showButtons
-  resetButton.onmouseleave = function() {if(isPlaying) hideButtons()}
+  //resetButton.onmouseover = showButtons
+  //resetButton.onmouseleave = function() {if(isPlaying) hideButtons()}
   resetButton.style.position="absolute"
-  resetButton.style.top = +can.style.top.replace('px','') + can.height + 10 -70 + 'px'
-  resetButton.style.left=window.innerWidth/2 - 85 + 'px'
+  resetButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 25 + 'px'
+  resetButton.style.left= +can.style.left.replace('px','') + 80 + 'px'
   resetButton.style.transition="opacity 0.25s linear"
   resetButton.style.zIndex = 300
   resetButton.style.opacity = 0
@@ -215,11 +447,11 @@ function createReplay(positions) {
   playButton.id = 'playButton'
   playButton.src = buttonURLs['play']
   playButton.onclick=playReplay
-  playButton.onmouseover = showButtons
-  playButton.onmouseleave = function() {if(isPlaying) hideButtons()}
+  //playButton.onmouseover = showButtons
+  //playButton.onmouseleave = function() {if(isPlaying) hideButtons()}
   playButton.style.position="absolute"
-  playButton.style.top = +can.style.top.replace('px','') + can.height + 10 -70 + 'px'
-  playButton.style.left=window.innerWidth/2 + 28 + 'px'
+  playButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 25 + 'px'
+  playButton.style.left= +can.style.left.replace('px','') + 140 + 'px'
   playButton.style.transition="opacity 0.25s linear"
   playButton.style.zIndex = 300
   playButton.style.opacity = 0
@@ -230,16 +462,76 @@ function createReplay(positions) {
   pauseButton.id = 'pauseButton'
   pauseButton.src = buttonURLs['pause']
   pauseButton.onclick=pauseReplay
-  pauseButton.onmouseover = showButtons
-  pauseButton.onmouseleave = function() {if(isPlaying) hideButtons()}
+  //pauseButton.onmouseover = showButtons
+  //pauseButton.onmouseleave = function() {if(isPlaying) hideButtons()}
   pauseButton.style.position="absolute"
-  pauseButton.style.top = +can.style.top.replace('px','') + can.height + 10 -70 + 'px'
-  pauseButton.style.left=window.innerWidth/2 + 142 + 'px'
+  pauseButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 25 + 'px'
+  pauseButton.style.left= +can.style.left.replace('px','') + 200 + 'px'
   pauseButton.style.transition="opacity 0.25s linear"
   pauseButton.style.zIndex = 300
   pauseButton.style.opacity = 0
   document.body.appendChild(pauseButton)
   
+  // crop start button
+  $('#pauseButton').after('<button id="cropStartButton">Set Crop Start')
+  cropStartButton = document.getElementById('cropStartButton')
+  cropStartButton.style.position = 'absolute'
+  cropStartButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  cropStartButton.style.left = +pauseButton.style.left.replace('px','') + 80 + 'px'
+  cropStartButton.style.height='40px'
+  cropStartButton.style.fontSize = '20px'
+  cropStartButton.style.fontWeight='bold'
+  cropStartButton.style.transition="opacity 0.25s linear"
+  cropStartButton.style.cursor="pointer"
+  cropStartButton.onclick=setCropStart
+  
+  // crop End button
+  $('#cropStartButton').after('<button id="cropEndButton">Set Crop End')
+  cropEndButton = document.getElementById('cropEndButton')
+  cropEndButton.style.position = 'absolute'
+  cropEndButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  cropEndButton.style.left = +cropStartButton.style.left.replace('px','') + $('#cropStartButton').width() + 20 + 'px'
+  cropEndButton.style.height='40px'
+  cropEndButton.style.fontSize = '20px'
+  cropEndButton.style.fontWeight='bold'
+  cropEndButton.style.transition="opacity 0.25s linear"
+  cropEndButton.style.cursor="pointer"
+  cropEndButton.onclick=setCropEnd
+  
+  // play cropped movie button
+  $('#cropEndButton').after('<button id="playCroppedMovieButton">Play Cropped Movie')
+  playCroppedMovieButton = document.getElementById('playCroppedMovieButton')
+  playCroppedMovieButton.style.position = 'absolute'
+  playCroppedMovieButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  playCroppedMovieButton.style.left = +cropEndButton.style.left.replace('px','') + $('#cropEndButton').width() + 20 + 'px'
+  playCroppedMovieButton.style.height='40px'
+  playCroppedMovieButton.style.fontSize = '20px'
+  playCroppedMovieButton.style.fontWeight='bold'  
+  playCroppedMovieButton.style.transition="opacity 0.25s linear"
+  playCroppedMovieButton.style.cursor="pointer"
+  playCroppedMovieButton.onclick=playCroppedMovie
+  
+  // crop button
+  $('#playCroppedMovieButton').after('<button id="cropButton">Crop Movie')
+  cropButton = document.getElementById('cropButton')
+  cropButton.style.position = 'absolute'
+  cropButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  cropButton.style.left = +playCroppedMovieButton.style.left.replace('px','') + $('#playCroppedMovieButton').width() + 20 + 'px'
+  cropButton.style.height = '40px'
+  cropButton.style.fontSize = '20px'
+  cropButton.style.fontWeight = 'bold'
+  cropButton.style.transition="opacity 0.25s linear"
+  cropButton.style.cursor="pointer"
+  cropButton.onclick = function() {
+  	cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length-1))
+  	cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length-1 : Math.floor(currentCropEnd * (positions.clock.length-1))
+  	positions2 = cropPositionData(positions, cropStart, cropEnd)
+  	chrome.runtime.sendMessage({method:'setPositionData',positionData:JSON.stringify(positions2)}) 
+  	stopReplay()
+  	delete currentCropStart
+  	delete currentCropEnd
+  }
+
   
   // because of the way the play button works, must ensure 'thingy' is undefined first
   delete(thingy)
