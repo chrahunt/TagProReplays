@@ -571,7 +571,7 @@ function drawSpawns(positions) {
 			thisTime = new Date(positions.clock[thisI]).getTime()
 			thisSpawnTime = new Date(thisSpawn.time).getTime()
 			timeDiff = thisTime - thisSpawnTime // positive if spawn has already happened
-			if(timeDiff >= 0 & timeDiff <= 3000) {
+			if(timeDiff >= 0 & timeDiff <= thisSpawn.w) {
 				context.drawImage(img,
 								  (thisSpawn.t == 1 ? 14:15)*tileSize,
 								  0,
