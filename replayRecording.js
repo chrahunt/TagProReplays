@@ -27,6 +27,7 @@ function recordReplayData() {
   positions.chat = []
   positions.splats = []
   positions.bombs = []
+  positions.spawns = []
   positions.map = tagpro.map
   positions.wallMap = tagpro.wallMap
   positions.floorTiles  = []
@@ -55,7 +56,11 @@ function recordReplayData() {
   		BOMB.time = new Date()
   		positions.bombs.push(BOMB)
   })
-
+  tagpro.socket.on('spawn', function(SPAWN) {
+  		SPAWN.time = new Date()
+  		positions.spawns.push(SPAWN)
+  })
+  
   // function to save game data
   saveGameData = function() {
     currentPlayers=tagpro.players

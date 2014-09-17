@@ -563,6 +563,30 @@ function drawSplats(positions) {
 	}
 }
 
+function drawSpawns(positions) {
+	if(positions.spawns) {
+		context.globalAlpha = .25
+		for(spawnI in positions.spawns) {
+			thisSpawn = positions.spawns[spawnI]
+			thisTime = new Date(positions.clock[thisI]).getTime()
+			thisSpawnTime = new Date(thisSpawn.time).getTime()
+			timeDiff = thisTime - thisSpawnTime // positive if spawn has already happened
+			if(timeDiff >= 0 & timeDiff <= 3000) {
+				context.drawImage(img,
+								  (thisSpawn.t == 1 ? 14:15)*tileSize,
+								  0,
+								  40,
+								  40,
+								  thisSpawn.x + posx,
+								  thisSpawn.y + posy,
+								  40,
+								  40)
+			}
+		}
+		context.globalAlpha = 1
+	}
+}
+
 function drawBalls(positions) { 	
 	// draw 'me'
 	for(j in positions) {
@@ -665,6 +689,7 @@ function animateReplay(thisI, positions, mapImg) {
 					  mapImg.width, mapImg.height)
 	if(localStorage.getItem('useSplats') == 'true' || readCookie('useSplats') == 'true') { drawSplats(positions) } else {console.log('nope')}
 	drawFloorTiles(positions)
+	drawSpawns(positions)
 	drawBalls(positions)
 	drawClock(positions)
 	drawScore(positions)
