@@ -135,15 +135,17 @@ function drawPowerups(ball, ballx, bally, positions) {
 } 
 
 function drawClock(positions) {
-	if(new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[thisI]).getTime()) {
-		curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12*60*1000 - new Date(positions.clock[thisI]).getTime()
-	} else {
-		curTimeMilli = new Date(positions.gameEndsAt) - new Date(positions.clock[thisI])
+	if(!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[thisI]).getTime()) {
+		if(new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[thisI]).getTime()) {
+			curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12*60*1000 - new Date(positions.clock[thisI]).getTime()
+		} else {
+			curTimeMilli = new Date(positions.gameEndsAt) - new Date(positions.clock[thisI])
+		}
+		minute = ('0'+Math.floor(curTimeMilli/1000/60)).slice(-2)
+		seconds = ('0'+Math.round(curTimeMilli/1000 % 60)).slice(-2)
+		seconds = (seconds == '60' ? '00':seconds)
+		curTime = minute+':'+seconds
 	}
-	minute = ('0'+Math.floor(curTimeMilli/1000/60)).slice(-2)
-	seconds = ('0'+Math.round(curTimeMilli/1000 % 60)).slice(-2)
-	seconds = (seconds == '60' ? '00':seconds)
-	curTime = minute+':'+seconds
 	context.fillStyle="rgba(255, 255, 255, 1)";
     context.strokeStyle="rgba(0, 0, 0, .75)";
 	context.font="bold 30pt Arial";
@@ -151,7 +153,7 @@ function drawClock(positions) {
 	context.lineWidth=4;
     context.strokeText(curTime,context.canvas.width/2,context.canvas.height-25);
     context.fillText(curTime,context.canvas.width/2,context.canvas.height-25);
-}
+}				
 
 function drawScore(positions) {
 	thisScore = positions.score[thisI]
@@ -587,6 +589,25 @@ function drawSpawns(positions) {
 	}
 }
 
+function drawEndText(positions) {
+	if(positions.end) {
+		endTime = new Date(positions.end.time).getTime()
+		thisTime = new Date(positions.clock[thisI]).getTime()
+		if(endTime <= thisTime) {
+			positions.end.winner == 'red' ? endColor = "#ff0000" : positions.end.winner == 'blue' ? endColor = "#0000ff" : endColor = "#ffffff"
+			positions.end.winner == 'red' ? endText = "Red Team Wins!" : positions.end.winner == 'blue' ? endText = "Blue Team Wins!" : endText = "It's a Tie!"
+        	context.save()
+	        context.textAlign = "center"
+    	    context.font = "bold 48pt Arial"
+        	context.fillStyle = endColor 
+	        context.strokeStyle = "#000000"
+    	    context.fillText(endText, context.canvas.width/2, 100)
+        	context.strokeText(endText, context.canvas.width/2, 100)
+       		context.restore()
+    	}
+	}
+}
+
 function drawBalls(positions) { 	
 	// draw 'me'
 	for(j in positions) {
@@ -696,5 +717,6 @@ function animateReplay(thisI, positions, mapImg) {
 	drawScoreFlag(positions)
 	drawChats(positions)
 	bombPop(positions)
+	drawEndText(positions)
 }
 

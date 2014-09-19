@@ -60,6 +60,10 @@ function recordReplayData() {
   		SPAWN.time = new Date()
   		positions.spawns.push(SPAWN)
   })
+  tagpro.socket.on('end', function(END) {
+  		END.time = new Date()
+  		positions.end = END
+  })
   
   // function to save game data
   saveGameData = function() {

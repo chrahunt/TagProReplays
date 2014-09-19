@@ -294,6 +294,35 @@ function openReplayMenu() {
   	return(false)
   }
   
+  // function that initially sends list of replays to background script for mass rendering
+  // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
+  function renderSelectedInitial() {
+  	replaysToRender = []
+  	$('#replayListBox input').each(function(){if(this.checked){replaysToRender.push(this.id.replace('SelectedCheckbox',''))}})
+  	if(replaysToRender.length > 0) {
+  		if(confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
+		  	chrome.runtime.sendMessage({method:'renderAllInitial', 
+		  	                            data:replaysToRender,
+	  		                            useTextures:$('#useTextureCheckbox')[0].checked,
+	        		                    useSplats:$('#useSplatsCheckbox')[0].checked
+	        		                    })
+  			console.log('sent request to render multiple replays: '+replaysToRender)
+  		}
+  	}
+  }
+  
+  // function to delete multiple files at once
+  function deleteSelected() {
+  	replaysToDelete = []
+  	$('#replayListBox input').each(function(){if(this.checked){replaysToDelete.push(this.id.replace('SelectedCheckbox',''))}})
+  	if(replaysToDelete.length > 0) {
+  		if(confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
+  			console.log('requesting to delete '+replaysToDelete)
+    	    chrome.runtime.sendMessage({method:'requestDataDelete',fileName:replaysToDelete})
+  		}
+  	}
+  }
+  
   // This puts the current replays into the menu 	
   populateList = function(storageData, movieNames) {
     replayList = []
@@ -303,11 +332,22 @@ function openReplayMenu() {
     if(!replayList.length > 0) {
       $('#replayListBox').append("<p><a>You don't have any replays saved. Go record some!")
     } else {
+    
+      // this is where the replay sorting functions will go, when i write them
       replayList = replayList.reverse()
+      //
+      
+      // these buttons allow rendering/deleting multiple replays
+      $('#replayListBox').append("<p><center><button id=renderSelectedButton>Render Selected")
+      $('#renderSelectedButton')[0].onclick=renderSelectedInitial
+      $('#renderSelectedButton').after("<button id=deleteSelectedButton style='margin-left:10px'>Delete Selected")
+      $('#deleteSelectedButton')[0].onclick=deleteSelected
+      
       console.log(replayList)
       for(dat in replayList) {
         thisReplay = replayList[dat]
-        $('#replayListBox').append("<p><a id="+thisReplay+" href=# style='margin-left:20px margin-right:10px'>"+thisReplay.replace(/DATE.*/,'')+"</a></p>") 
+        $('#replayListBox').append("<p><input type=checkbox id="+thisReplay+"SelectedCheckbox style='margin-left:20px'>")
+        $('#'+thisReplay+'SelectedCheckbox').after("<a id="+thisReplay+" href=# style='margin-left:5px margin-right:10px'>"+thisReplay.replace(/DATE.*/,'')+"</a>") 
         $('#'+thisReplay)[0].onclick = function(){
           exitMenu()
 	 	  console.log('sending data request for '+this.id)
@@ -442,6 +482,18 @@ function greyButtons() {
 	});
 }
 
+// this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
+function  renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
+	chrome.runtime.sendMessage({method:'renderAllSubsequent', 
+		  	                  	data:replaysToRender,
+		  	                  	replayI:replayI,
+		  	                  	lastOne:lastOne,
+	  		                  	useTextures:$('#useTextureCheckbox')[0].checked,
+	        		        	useSplats:$('#useSplatsCheckbox')[0].checked
+	        		            })
+  	console.log('sent request to render replay: '+replaysToRender[replayI])
+}
+
 // set global scope for some variables and functions
 // then set up listeners for info from background script
 var positions
@@ -499,7 +551,14 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     	if(typeof $('#'+message.name+'ProgressBar')[0] !== 'undefined') {
 	    	$('#'+message.name+'ProgressBar')[0].value=message.progress
 	    }
-    }
+    } else if(message.method == "movieRenderConfirmationNotLastOne") {
+		newReplayI = +message.replayI+1
+		lastOne = false
+		if(newReplayI == message.replaysToRender.length-1) {
+			lastOne = true
+		}
+		renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
+	}
 });
 
 // set fps and duration if they're not already

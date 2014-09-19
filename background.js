@@ -95,7 +95,7 @@ function saveVideoData(name, data) {
 }
 
 // Actually does the rendering of the movie 
-function renderVideo(positions, name, useSplats) {
+function renderVideo(positions, name, useSplats, lastOne, replaysToRender, replayI) {
 	localStorage.setItem('useSplats',useSplats)
 	positions = JSON.parse(positions)
 	mapImgData = drawMap(0, 0, positions)
@@ -122,9 +122,13 @@ function renderVideo(positions, name, useSplats) {
 	output = encoder.compile()
 	console.log('movie: ',output)
 	createFileSystem('savedMovies', saveMovieFile, [name, output])
-	chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
-	//console.log(output)
-	//return(output)
+	if(lastOne) {
+		chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmation"})
+	} else {
+		chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmationNotLastOne",
+										 replaysToRender:replaysToRender,
+										 replayI:replayI})
+	}
 }
 
 // this is a function to get all the keys in the object store
@@ -195,10 +199,24 @@ function getPosDataForDownload(dataFileName) {
 function deleteData(dataFileName) {
 	var transaction = db.transaction(["positions"], "readwrite");
 	var store = transaction.objectStore("positions");
-	request = store.delete(dataFileName)
-	request.onsuccess=function(){
-		chrome.tabs.sendMessage(tabNum, {method:'dataDeleted'})
-		console.log('sent reply')
+	if($.isArray(dataFileName)){
+		deleted = []
+		for(fTD in dataFileName) {
+			request = store.delete(dataFileName[fTD])
+			request.onsuccess=function(){
+				deleted.push(fTD)
+				if(deleted.length == dataFileName.length) {
+						chrome.tabs.sendMessage(tabNum, {method:'dataDeleted'})
+						console.log('sent reply')
+				}
+			}
+		}
+	} else {
+		request = store.delete(dataFileName)
+		request.onsuccess=function(){
+			chrome.tabs.sendMessage(tabNum, {method:'dataDeleted'})
+			console.log('sent reply')
+		}
 	}
 }
 
@@ -225,7 +243,7 @@ function renameData(oldName, newName) {
 }
 
 // this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name, useTextures, useSplats) {
+function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, replayI) {
 	if(useTextures) {
 		if(typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
 			img.src = localStorage.getItem('tiles')
@@ -272,7 +290,11 @@ function renderMovie(name, useTextures, useSplats) {
 		var request = store.get(name);
 		request.onsuccess=function(){
 			if(typeof JSON.parse(request.result).clock !== "undefined") {
-				renderVideo(request.result, name, useSplats)
+				if(typeof replaysToRender !== 'undefined') {
+					renderVideo(request.result, name, useSplats, lastOne, replaysToRender, replayI)
+				} else {
+					renderVideo(request.result, name, useSplats, lastOne)
+				}
 	  		} else {
 	  			chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	  				tabNum = tabs[0].id
@@ -282,6 +304,7 @@ function renderMovie(name, useTextures, useSplats) {
 	  		}
 	  	}, 2000})
 }
+
 
 // this downloads a rendered movie (found in the FileSystem) to disk
 function downloadMovie(name) {
@@ -452,7 +475,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	console.log('got request to render Movie for '+message.name)
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   		tabNum = tabs[0].id
-  		renderMovie(message.name, message.useTextures, message.useSplats)
+  		renderMovie(message.name, message.useTextures, message.useSplats, true)
   	})
   } else if(message.method == 'downloadMovie') {
   	console.log('got request to download Movie for '+message.name)
@@ -470,6 +493,24 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   } else if(message.method == 'cleanRenderedReplays') {
   	console.log('got request to clean rendered replays')
   	getCurrentReplaysForCleaning()
+  } else if(message.method == 'renderAllInitial') {
+  	console.log('got request to render these replays: '+message.data)
+  	console.log('rendering the first one: '+message.data[0])
+  	if(message.data.length == 1) {
+  		lastOne = true
+  	} else {
+  		lastOne = false
+  	}
+  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+	  	tabNum = tabs[0].id
+  		renderMovie(message.data[0], message.useTextures, message.useSplats, lastOne, message.data, 0)
+  	})
+  } else if(message.method == 'renderAllSubsequent') {
+  	console.log('got request to render subsequent replay: '+message.data[message.replayI])
+  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+	  	tabNum = tabs[0].id
+  		renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.lastOne, message.data, message.replayI)
+  	})
   }
 });
 
