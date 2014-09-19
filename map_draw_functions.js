@@ -506,6 +506,10 @@ function rollingBombPop(positions, ball) {
 }
 
 function ballPop(positions, ball) {
+	if(ball.search('player') != 0) {
+		return 
+	}
+			
 	for(j in positions) {
 		if(positions[j].me == 'me') {
 			me = j
@@ -651,7 +655,7 @@ function drawBalls(positions) {
 	
 	// draw other balls
 	for(j in positions) { 
-		if(positions[j].me=='other') {
+		if(typeof positions[j].me != undefined & positions[j].me=='other') {
 			if(positions[j].dead[thisI] == false) {
 				if(positions[j].draw[thisI] == true) {
 					if(thisI==0 || positions[j].draw[thisI-1] == true) {
