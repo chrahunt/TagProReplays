@@ -1,7 +1,7 @@
 {   
 	"name": "TagProReplays",
   	"description": "Save Replays from within TagPro Games",
-  	"version": "0.2.3",
+  	"version": "0.2.4",
 	"manifest_version": 2,
 		"background" : {
     "scripts": ["background.js",
@@ -13,7 +13,6 @@
     "persistent":true
 },
 "permissions": [
-    "tabs",
     "storage",
     "unlimitedStorage"
 ],
