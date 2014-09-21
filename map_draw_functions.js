@@ -136,13 +136,25 @@ function drawPowerups(ball, ballx, bally, positions) {
 
 function drawClock(positions) {
 	if(!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[thisI]).getTime()) {
-		if(new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[thisI]).getTime()) {
-			curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12*60*1000 - new Date(positions.clock[thisI]).getTime()
+		if(!$.isArray(positions.gameEndsAt)) {
+			if(new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[thisI]).getTime()) {
+				curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12*60*1000 - new Date(positions.clock[thisI]).getTime()
+			} else {
+				curTimeMilli = new Date(positions.gameEndsAt) - new Date(positions.clock[thisI])
+			}
 		} else {
-			curTimeMilli = new Date(positions.gameEndsAt) - new Date(positions.clock[thisI])
+			if(positions.gameEndsAt.length < 2) {
+				curTimeMilli = new Date(positions.gameEndsAt[0]).getTime() - new Date(positions.clock[thisI]).getTime()
+			} else {
+				if(new Date(positions.clock[thisI]).getTime() >= new Date(positions.gameEndsAt[1].startTime).getTime()) {
+					curTimeMilli = new Date(positions.gameEndsAt[1].startTime).getTime() + positions.gameEndsAt[1].time - new Date(positions.clock[thisI]).getTime()
+				} else {
+					curTimeMilli = new Date(positions.gameEndsAt[0]).getTime() - new Date(positions.clock[thisI]).getTime()
+				}
+			}
 		}
 		minute = ('0'+Math.floor(curTimeMilli/1000/60)).slice(-2)
-		seconds = ('0'+Math.round(curTimeMilli/1000 % 60)).slice(-2)
+		seconds = ('0'+Math.floor(curTimeMilli/1000 % 60)).slice(-2)
 		seconds = (seconds == '60' ? '00':seconds)
 		curTime = minute+':'+seconds
 	}

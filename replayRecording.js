@@ -32,7 +32,7 @@ function recordReplayData() {
   positions.wallMap = tagpro.wallMap
   positions.floorTiles  = []
   positions.score = createZeroArray(saveDuration*fps)
-  positions.gameEndsAt = tagpro.gameEndsAt
+  positions.gameEndsAt = [new Date(tagpro.gameEndsAt).getTime()]
   positions.clock = createZeroArray(saveDuration*fps)
   decipheredData = decipherMapdata(positions.map, mapElements)
   positions.tiles = translateWallTiles(decipheredData, positions.wallMap, quadrantCoords)
@@ -47,7 +47,9 @@ function recordReplayData() {
   }
 
   // set up listener for chats, splats, and bombs
-  tagpro.socket.on('chat', function(CHAT) {positions.chat.push(CHAT)})
+  tagpro.socket.on('chat', function(CHAT) {
+  		positions.chat.push(CHAT)
+  })
   tagpro.socket.on('splat', function(SPLAT) {
   		SPLAT.time = new Date()
   		positions.splats.push(SPLAT)
@@ -64,7 +66,11 @@ function recordReplayData() {
   		END.time = new Date()
   		positions.end = END
   })
-  
+  tagpro.socket.on('time', function(TIME) {
+  		TIME.startTime = new Date()
+  		positions.gameEndsAt.push(TIME)
+  })
+    
   // function to save game data
   saveGameData = function() {
     currentPlayers=tagpro.players
