@@ -176,7 +176,7 @@ function getPosData(dataFileName) {
 	var request = store.get(dataFileName);
 	request.onsuccess=function(){
 		thisObj = request.result.value
-		chrome.tabs.sendMessage(tabNum, {method:"positionData",title:request.result}) 
+		chrome.tabs.sendMessage(tabNum, {method:"positionData",title:request.result, movieName:dataFileName}) 
     	console.log('sent reply')
 	}
 }
@@ -429,11 +429,17 @@ openRequest.onsuccess = function(e) {
 var title;
 chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   if(message.method == 'setPositionData') {
+  	if(typeof message.newName !== 'undefined') {
+  		var name = message.newName
+  	} else {
+  		var name = 'replays'+new Date().getTime()
+  	}
+  	console.log('new key is '+name)
     transaction = db.transaction(["positions"], "readwrite")
 	objectStore = transaction.objectStore('positions')
 	console.log('got data from content script.')
 	positions = cleanPositionData(JSON.parse(message.positionData))
-	request = objectStore.add(JSON.stringify(positions), 'replays'+new Date().getTime())
+	request = objectStore.put(JSON.stringify(positions), name)
 	request.onsuccess = function() {
 		chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
   			tabNum = tabs[0].id

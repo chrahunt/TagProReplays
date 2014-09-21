@@ -205,7 +205,8 @@ function createReplay(positions) {
                    cStart : cropStartButton,
                    cEnd   : cropEndButton,
                    cButt  : cropButton,
-            	   pCrop  : playCroppedMovieButton
+            	   pCrop  : playCroppedMovieButton,
+            	   cRButt : cropAndReplaceButton
     }
     for(button in buttons) {
       buttons[button].style.opacity="0"
@@ -220,7 +221,8 @@ function createReplay(positions) {
                    cStart : cropStartButton,
                    cEnd   : cropEndButton,
                    cButt  : cropButton,
-            	   pCrop  : playCroppedMovieButton
+            	   pCrop  : playCroppedMovieButton,
+            	   cRButt : cropAndReplaceButton
     }
     for(button in buttons) {
       buttons[button].remove()
@@ -484,6 +486,7 @@ function createReplay(positions) {
   cropStartButton.style.transition="opacity 0.25s linear"
   cropStartButton.style.cursor="pointer"
   cropStartButton.onclick=setCropStart
+  cropStartButton.title = 'This sets the beginning of the cropped portion of the replay. Everything before this point will be erased when you crop the replay.'
   
   // crop End button
   $('#cropStartButton').after('<button id="cropEndButton">Set Crop End')
@@ -497,6 +500,7 @@ function createReplay(positions) {
   cropEndButton.style.transition="opacity 0.25s linear"
   cropEndButton.style.cursor="pointer"
   cropEndButton.onclick=setCropEnd
+  cropEndButton.title = 'This sets the end of the cropped portion of the replay. Everything after this point will be erased when you crop the replay.'
   
   // play cropped movie button
   $('#cropEndButton').after('<button id="playCroppedMovieButton">Play Cropped Movie')
@@ -510,6 +514,7 @@ function createReplay(positions) {
   playCroppedMovieButton.style.transition="opacity 0.25s linear"
   playCroppedMovieButton.style.cursor="pointer"
   playCroppedMovieButton.onclick=playCroppedMovie
+  playCroppedMovieButton.title = 'This plays the section of the replay between the "crop start" and "crop end" so you know what your cropped replay will look like.'
   
   // crop button
   $('#playCroppedMovieButton').after('<button id="cropButton">Crop Movie')
@@ -531,8 +536,31 @@ function createReplay(positions) {
   	delete currentCropStart
   	delete currentCropEnd
   }
-
+  cropButton.title = 'This actually crops the replay. It leaves the original replay intact, though, and saves a new cropped replay.'
   
+  // crop and replace button
+  $('#cropButton').after('<button id="cropAndReplaceButton">Crop and Replace')
+  cropAndReplaceButton = document.getElementById('cropAndReplaceButton')
+  cropAndReplaceButton.style.position = 'absolute'
+  cropAndReplaceButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  cropAndReplaceButton.style.left = +cropButton.style.left.replace('px','') + $('#cropButton').width() + 20 + 'px'
+  cropAndReplaceButton.style.height = '40px'
+  cropAndReplaceButton.style.fontSize = '20px'
+  cropAndReplaceButton.style.fontWeight = 'bold'
+  cropAndReplaceButton.style.transition="opacity 0.25s linear"
+  cropAndReplaceButton.style.cursor="pointer"
+  cropAndReplaceButton.onclick = function() {
+  	cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length-1))
+  	cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length-1 : Math.floor(currentCropEnd * (positions.clock.length-1))
+  	positions2 = cropPositionData(positions, cropStart, cropEnd)
+  	chrome.runtime.sendMessage({method:'setPositionData',positionData:JSON.stringify(positions2), newName:localStorage.getItem('currentReplayName')}) 
+  	stopReplay()
+  	delete currentCropStart
+  	delete currentCropEnd
+  }
+  cropAndReplaceButton.title = 'This also actually crops the replay, but it replaces the original replay with the cropped one.'
+  
+
   // because of the way the play button works, must ensure 'thingy' is undefined first
   delete(thingy)
   // define variable that stores play state

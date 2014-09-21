@@ -355,7 +355,7 @@ function openReplayMenu() {
         }
         ms = +thisReplay.replace('replays','').replace(/.*DATE/,'')
     	date = new Date(ms)
-        datevalue = date.toDateString() + " " + date.toLocaleTimeString()
+        datevalue = date.toDateString() +' '+ date.toLocaleTimeString().replace(/:.?.? /g, ' ')
         $('#'+thisReplay)[0].title = datevalue
         
         
@@ -366,19 +366,20 @@ function openReplayMenu() {
         	$('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:16px'> ")
         }
         
-        $('#'+thisReplay+"Rendered").after('<button id='+thisReplay+'RenderMovieButton style="margin-left:10px">Render Movie')
-        $('#'+thisReplay+'RenderMovieButton')[0].onclick = function() {
-        	fileNameToRender = this.id.replace('RenderMovieButton','')
-        	console.log('asking background script to render '+fileNameToRender)
-        	if(confirm('Are you sure you want to render '+fileNameToRender.replace(/DATE.*/,'')+'? The extension will be unavailable until the movie is rendered.')) {
-	        	chrome.runtime.sendMessage({method:'renderMovie', 
-	        	                            name:fileNameToRender,
-	        	                            useTextures:$('#useTextureCheckbox')[0].checked,
-	        	                            useSplats:$('#useSplatsCheckbox')[0].checked
-	        	                            })
-	        }
-	    }
-	    $('#'+thisReplay+'RenderMovieButton').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
+      
+        //$('#'+thisReplay+"Rendered").after('<button id='+thisReplay+'RenderMovieButton style="margin-left:10px">Render Movie')
+        //$('#'+thisReplay+'RenderMovieButton')[0].onclick = function() {
+        //	fileNameToRender = this.id.replace('RenderMovieButton','')
+        //	console.log('asking background script to render '+fileNameToRender)
+        //	if(confirm('Are you sure you want to render '+fileNameToRender.replace(/DATE.*/,'')+'? The extension will be unavailable until the movie is rendered.')) {
+	    //    	chrome.runtime.sendMessage({method:'renderMovie', 
+	    //    	                            name:fileNameToRender,
+	    //    	                            useTextures:$('#useTextureCheckbox')[0].checked,
+	    //    	                            useSplats:$('#useSplatsCheckbox')[0].checked
+	    //    	                            })
+	    //    }
+	    //}
+	    $('#'+thisReplay+'Rendered').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
 	    $('#'+thisReplay+'DownloadMovieButton')[0].onclick = function() {
         	fileNameToDownload = this.id.replace('DownloadMovieButton','')
         	console.log('asking background script to download video for '+fileNameToDownload)
@@ -405,16 +406,16 @@ function openReplayMenu() {
     	    	chrome.runtime.sendMessage({method:'requestFileRename',oldName:fileNameToRename, newName:newName})
     	    }
     	}	
-        $('#'+thisReplay+'RenameButton').after('<button id='+thisReplay+'DeleteButton style="margin-left:5px">Delete')
-        $('#'+thisReplay+'DeleteButton')[0].onclick = function(){
-        	fileNameToDelete = this.id.replace('DeleteButton','')
-        	if(confirm('Are you sure you want to delete '+fileNameToDelete+'?')){
-	        	console.log('requesting '+fileNameToDelete)
-    	    	chrome.runtime.sendMessage({method:'requestDataDelete',fileName:fileNameToDelete})
-    	    }
-    	}
+        //$('#'+thisReplay+'RenameButton').after('<button id='+thisReplay+'DeleteButton style="margin-left:5px">Delete')
+        //$('#'+thisReplay+'DeleteButton')[0].onclick = function(){
+        //	fileNameToDelete = this.id.replace('DeleteButton','')
+        //	if(confirm('Are you sure you want to delete '+fileNameToDelete+'?')){
+	    //    	console.log('requesting '+fileNameToDelete)
+    	//    	chrome.runtime.sendMessage({method:'requestDataDelete',fileName:fileNameToDelete})
+    	//    }
+    	//}
     	
-    	//$('#'+thisReplay+'DeleteButton').after('<txt id='+thisReplay+'Date style="margin-left:5px">'+datevalue)
+    	$('#'+thisReplay+'RenameButton').after('<txt id='+thisReplay+'Date style="margin-left:5px">'+datevalue)
       }
       GOODMARGIN = 0
       for(dat in replayList) {
@@ -507,6 +508,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   		populateList(message.positionKeys, message.movieNames)
   	} else if(message.method == 'positionData') {
   		console.log('got positionData message')
+  		localStorage.setItem('currentReplayName', message.movieName)
   		console.log(typeof message.title)
   		positions = JSON.parse(message.title)
   		console.log(positions)
@@ -540,7 +542,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     	alert('Download failed. Most likely you haven\'t rendered that movie yet.')
     } else if(message.method == "progressBarCreate") {
     	// CREATE PROGRESS BAR AND GREY OUT BUTTONS
-    	$('#'+message.name+'RenderMovieButton').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
+    	$('#'+message.name+'Rendered').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
     	$('#'+message.name+'ProgressBar').width(100)
     	$('#'+message.name+'ProgressBar').css({'margin-right' : '5px'})
     	$('#'+message.name+'DownloadMovieButton').remove()
