@@ -95,7 +95,7 @@ function saveVideoData(name, data) {
 }
 
 // Actually does the rendering of the movie 
-function renderVideo(positions, name, useSplats, lastOne, replaysToRender, replayI) {
+function renderVideo(positions, name, useSplats, lastOne, replaysToRender, replayI, tabNum) {
 	localStorage.setItem('useSplats',useSplats)
 	positions = JSON.parse(positions)
 	mapImgData = drawMap(0, 0, positions)
@@ -127,7 +127,8 @@ function renderVideo(positions, name, useSplats, lastOne, replaysToRender, repla
 	} else {
 		chrome.tabs.sendMessage(tabNum, {method:"movieRenderConfirmationNotLastOne",
 										 replaysToRender:replaysToRender,
-										 replayI:replayI})
+										 replayI:replayI,
+										 tabNum:tabNum})
 	}
 }
 
@@ -243,7 +244,7 @@ function renameData(oldName, newName) {
 }
 
 // this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, replayI) {
+function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, replayI, tabNum) {
 	if(useTextures) {
 		if(typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
 			img.src = localStorage.getItem('tiles')
@@ -291,7 +292,7 @@ function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, rep
 		request.onsuccess=function(){
 			if(typeof JSON.parse(request.result).clock !== "undefined") {
 				if(typeof replaysToRender !== 'undefined') {
-					renderVideo(request.result, name, useSplats, lastOne, replaysToRender, replayI)
+					renderVideo(request.result, name, useSplats, lastOne, replaysToRender, replayI, tabNum)
 				} else {
 					renderVideo(request.result, name, useSplats, lastOne)
 				}
@@ -509,14 +510,11 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   	}
   	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	  	tabNum = tabs[0].id
-  		renderMovie(message.data[0], message.useTextures, message.useSplats, lastOne, message.data, 0)
+  		renderMovie(message.data[0], message.useTextures, message.useSplats, lastOne, message.data, 0, tabNum)
   	})
   } else if(message.method == 'renderAllSubsequent') {
   	console.log('got request to render subsequent replay: '+message.data[message.replayI])
-  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-	  	tabNum = tabs[0].id
-  		renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.lastOne, message.data, message.replayI)
-  	})
+  	renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.lastOne, message.data, message.replayI, message.tabNum)
   }
 });
 

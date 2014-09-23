@@ -484,13 +484,14 @@ function greyButtons() {
 }
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
-function  renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
+function  renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
 	chrome.runtime.sendMessage({method:'renderAllSubsequent', 
 		  	                  	data:replaysToRender,
 		  	                  	replayI:replayI,
 		  	                  	lastOne:lastOne,
 	  		                  	useTextures:$('#useTextureCheckbox')[0].checked,
-	        		        	useSplats:$('#useSplatsCheckbox')[0].checked
+	        		        	useSplats:$('#useSplatsCheckbox')[0].checked,
+	        		        	tabNum:tabNum
 	        		            })
   	console.log('sent request to render replay: '+replaysToRender[replayI])
 }
@@ -556,10 +557,11 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     } else if(message.method == "movieRenderConfirmationNotLastOne") {
 		newReplayI = +message.replayI+1
 		lastOne = false
+		tabNum = message.tabNum
 		if(newReplayI == message.replaysToRender.length-1) {
 			lastOne = true
 		}
-		renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
+		renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne, tabNum)
 	}
 });
 
