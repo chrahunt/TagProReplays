@@ -38,7 +38,7 @@ function createFileSystem(thisDirectory, secondFunction, secondArguments) {
 	 console.log(msg);
 	};
 
-	window.requestFileSystem(window.PERSISTENT, 10*1024*1024*1024, initFS, errorHandler);
+	window.requestFileSystem(window.PERSISTENT, 50*1024*1024*1024, initFS, errorHandler);
 }
 
 // function to get savedMovies directory contents
