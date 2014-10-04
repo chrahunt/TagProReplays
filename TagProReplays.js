@@ -586,6 +586,9 @@ listen('setPositionData', function (data) {
 
 // if we're on the main tagpro server screen, run the createReplayPageButton function
 if(document.URL.search('com/$') >= 0 | document.URL.search('com/#$') >= 0) {
+	// make the body scrollable
+	$('body')[0].style.overflowY = "scroll"
+	// make the button
 	createReplayPageButton()
 }	
 
