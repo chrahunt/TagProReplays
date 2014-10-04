@@ -351,6 +351,7 @@ function openReplayMenu() {
         $('#'+thisReplay)[0].onclick = function(){
           exitMenu()
 	 	  console.log('sending data request for '+this.id)
+		  sessionStorage.setItem('currentReplay', this.id)
 		  chrome.runtime.sendMessage({method:'requestData',fileName:this.id})
         }
         ms = +thisReplay.replace('replays','').replace(/.*DATE/,'')

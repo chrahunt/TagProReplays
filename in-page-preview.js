@@ -19,6 +19,7 @@ function createReplay(positions) {
 	can.style.display = 'block'
 	can.style.transition = "opacity 0.5s linear"
 	can.style.opacity = 0
+	can.title = "replay: " + sessionStorage.getItem('currentReplay').replace(/DATE.*/,'')
 
 	document.body.appendChild(can)
 	can = document.getElementById('mapCanvas')
@@ -206,7 +207,10 @@ function createReplay(positions) {
                    cEnd   : cropEndButton,
                    cButt  : cropButton,
             	   pCrop  : playCroppedMovieButton,
-            	   cRButt : cropAndReplaceButton
+            	   cRButt : cropAndReplaceButton,
+            	   dButt  : deleteButton,
+            	   rButt  : renderButton,
+            	   reButt : renameButton
     }
     for(button in buttons) {
       buttons[button].style.opacity="0"
@@ -222,7 +226,10 @@ function createReplay(positions) {
                    cEnd   : cropEndButton,
                    cButt  : cropButton,
             	   pCrop  : playCroppedMovieButton,
-            	   cRButt : cropAndReplaceButton
+            	   cRButt : cropAndReplaceButton,
+            	   dButt  : deleteButton,
+            	   rButt  : renderButton,
+            	   reButt : renameButton
     }
     for(button in buttons) {
       buttons[button].remove()
@@ -239,15 +246,17 @@ function createReplay(positions) {
     isPlaying=false
     showButtons()
   }
-  function stopReplay() {
+  function stopReplay(doNotReopen) {
     thisI=0
     if(typeof thingy !== 'undefined') {
       clearInterval(thingy)
       delete(thingy)
       isPlaying=false
     }
-    clearSliderArea() 
-    openReplayMenu()
+    clearSliderArea()
+    if(!doNotReopen) { 	
+	    openReplayMenu()
+	}
     hideButtons()
     can.style.opacity = 0
     setTimeout(function(){
@@ -405,6 +414,57 @@ function createReplay(positions) {
 	return(positionDAT)	
   }
   
+  
+  
+  // delete, render, and rename functions
+  
+  // delete this replay
+  deleteThisReplay = function() {
+  	replayToDelete = sessionStorage.getItem('currentReplay')
+  	if(replayToDelete != null) {
+  		if(confirm('Are you sure you want to delete this replay?')){
+	  		stopReplay(true)
+  			console.log('requesting to delete '+replayToDelete)
+   			chrome.runtime.sendMessage({method:'requestDataDelete',fileName:replayToDelete})
+    	}
+  	}
+  }
+  
+  // render this replay
+  renderThisReplay = function() {
+  	replayToRender = sessionStorage.getItem('currentReplay')
+  	if(replayToRender != null) {
+  		if(confirm('Are you sure you want to render this replay?')){ 
+  			stopReplay(false)
+  			setTimeout(function(){
+	  			console.log('requesting to render '+replayToRender)
+	  			chrome.runtime.sendMessage({method:'renderAllInitial', 
+		  	     		                    data:[replayToRender],
+	  		               		            useTextures:readCookie('useTextures'),
+	        	                		    useSplats:readCookie('useSplats')
+	        	})
+    		}, 1000)
+    	}
+  	}
+  }
+  
+  // rename this replay
+  renameThisReplay = function() {
+  	replayToRename = sessionStorage.getItem('currentReplay')
+  	if(replayToRename != null) {
+        datePortion = replayToRename.replace(/.*DATE/,'').replace('replays','')
+        newName = prompt('How would you like to rename '+replayToRename.replace(/DATE.*/,'')+'?')
+        if(newName != null) {
+        	stopReplay(true)
+        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi,'')+"DATE"+datePortion
+	       	console.log('requesting to rename from '+replayToRename+' to '+newName)
+    	   	chrome.runtime.sendMessage({method:'requestFileRename',oldName:replayToRename, newName:newName})
+    	}
+    }
+  }
+  
+  
+  
   // playback control buttons
   buttonURLs = {
     'stop'    : 'http://i.imgur.com/G32WYvH.png',
@@ -418,7 +478,7 @@ function createReplay(positions) {
   stopButton = new Image()
   stopButton.id = 'stopButton'
   stopButton.src = buttonURLs['stop']
-  stopButton.onclick=stopReplay
+  stopButton.onclick=function(){stopReplay(false)}
   //stopButton.onmouseover = showButtons
   //stopButton.onmouseleave = function() {if(isPlaying) hideButtons()}
   stopButton.style.position = "absolute"
@@ -475,11 +535,11 @@ function createReplay(positions) {
   document.body.appendChild(pauseButton)
   
   // crop start button
-  $('#pauseButton').after('<button id="cropStartButton">Set Crop Start')
+  $('#pauseButton').after('<button id="cropStartButton">Crop Start')
   cropStartButton = document.getElementById('cropStartButton')
   cropStartButton.style.position = 'absolute'
   cropStartButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
-  cropStartButton.style.left = +pauseButton.style.left.replace('px','') + 80 + 'px'
+  cropStartButton.style.left = +pauseButton.style.left.replace('px','') + 70 + 'px'
   cropStartButton.style.height='40px'
   cropStartButton.style.fontSize = '20px'
   cropStartButton.style.fontWeight='bold'
@@ -489,7 +549,7 @@ function createReplay(positions) {
   cropStartButton.title = 'This sets the beginning of the cropped portion of the replay. Everything before this point will be erased when you crop the replay.'
   
   // crop End button
-  $('#cropStartButton').after('<button id="cropEndButton">Set Crop End')
+  $('#cropStartButton').after('<button id="cropEndButton">Crop End')
   cropEndButton = document.getElementById('cropEndButton')
   cropEndButton.style.position = 'absolute'
   cropEndButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
@@ -503,7 +563,7 @@ function createReplay(positions) {
   cropEndButton.title = 'This sets the end of the cropped portion of the replay. Everything after this point will be erased when you crop the replay.'
   
   // play cropped movie button
-  $('#cropEndButton').after('<button id="playCroppedMovieButton">Play Cropped Movie')
+  $('#cropEndButton').after('<button id="playCroppedMovieButton">Play Cropped')
   playCroppedMovieButton = document.getElementById('playCroppedMovieButton')
   playCroppedMovieButton.style.position = 'absolute'
   playCroppedMovieButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
@@ -517,7 +577,7 @@ function createReplay(positions) {
   playCroppedMovieButton.title = 'This plays the section of the replay between the "crop start" and "crop end" so you know what your cropped replay will look like.'
   
   // crop button
-  $('#playCroppedMovieButton').after('<button id="cropButton">Crop Movie')
+  $('#playCroppedMovieButton').after('<button id="cropButton">Crop')
   cropButton = document.getElementById('cropButton')
   cropButton.style.position = 'absolute'
   cropButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
@@ -532,7 +592,7 @@ function createReplay(positions) {
   	cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length-1 : Math.floor(currentCropEnd * (positions.clock.length-1))
   	positions2 = cropPositionData(positions, cropStart, cropEnd)
   	chrome.runtime.sendMessage({method:'setPositionData',positionData:JSON.stringify(positions2)}) 
-  	stopReplay()
+  	stopReplay(false)
   	delete currentCropStart
   	delete currentCropEnd
   }
@@ -554,11 +614,53 @@ function createReplay(positions) {
   	cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length-1 : Math.floor(currentCropEnd * (positions.clock.length-1))
   	positions2 = cropPositionData(positions, cropStart, cropEnd)
   	chrome.runtime.sendMessage({method:'setPositionData',positionData:JSON.stringify(positions2), newName:localStorage.getItem('currentReplayName')}) 
-  	stopReplay()
+  	stopReplay(false)
   	delete currentCropStart
   	delete currentCropEnd
   }
   cropAndReplaceButton.title = 'This also actually crops the replay, but it replaces the original replay with the cropped one.'
+  
+  // delete button
+  $('#cropAndReplaceButton').after('<button id="deleteButton">Delete')
+  deleteButton = document.getElementById('deleteButton')
+  deleteButton.style.position = 'absolute'
+  deleteButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  deleteButton.style.left = +cropAndReplaceButton.style.left.replace('px','') + $('#cropAndReplaceButton').width() + 20 + 'px'
+  deleteButton.style.height = '40px'
+  deleteButton.style.fontSize = '20px'
+  deleteButton.style.fontWeight = 'bold'
+  deleteButton.style.transition="opacity 0.25s linear"
+  deleteButton.style.cursor="pointer"
+  deleteButton.onclick = deleteThisReplay
+  deleteButton.title = 'This deletes the current replay.'
+  
+  // render button
+  $('#deleteButton').after('<button id="renderButton">Render')
+  renderButton = document.getElementById('renderButton')
+  renderButton.style.position = 'absolute'
+  renderButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  renderButton.style.left = +deleteButton.style.left.replace('px','') + $('#deleteButton').width() + 20 + 'px'
+  renderButton.style.height = '40px'
+  renderButton.style.fontSize = '20px'
+  renderButton.style.fontWeight = 'bold'
+  renderButton.style.transition="opacity 0.25s linear"
+  renderButton.style.cursor="pointer"
+  renderButton.onclick = renderThisReplay
+  renderButton.title = 'This renders the current replay.'
+  
+  // rename button
+  $('#renderButton').after('<button id="renameButton">Rename')
+  renameButton = document.getElementById('renameButton')
+  renameButton.style.position = 'absolute'
+  renameButton.style.top = +can.style.top.replace('px','') + can.height + 20 + 35 + 'px'
+  renameButton.style.left = +renderButton.style.left.replace('px','') + $('#renderButton').width() + 20 + 'px'
+  renameButton.style.height = '40px'
+  renameButton.style.fontSize = '20px'
+  renameButton.style.fontWeight = 'bold'
+  renameButton.style.transition="opacity 0.25s linear"
+  renameButton.style.cursor="pointer"
+  renameButton.onclick = renameThisReplay
+  renameButton.title = 'This renames the current replay.'
   
 
   // because of the way the play button works, must ensure 'thingy' is undefined first
