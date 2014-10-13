@@ -23,6 +23,9 @@ function setCookie(name, value, domain) {
   console.log('cookie: name='+name+' value='+value+' expires='+now.toGMTString())
 }
 
+// Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
+var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//);
+
 function createReplayPageButton() {
   function findInsertionPoint() {
     buttons = $('article>div.buttons.smaller>a')
@@ -251,15 +254,15 @@ function openReplayMenu() {
     useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
     useSplatsValue = $('#useSplatsCheckbox')[0].checked
     if(!isNaN(fpsInputValue) & fpsInputValue!="") {
-      setCookie('fps', $('#fpsInput')[0].value, '.koalabeast.com')
+      setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
     }
     if(!isNaN(durationInputValue) & durationInputValue!="") {
-      setCookie('duration', $('#durationInput')[0].value, '.koalabeast.com')
+      setCookie('duration', $('#durationInput')[0].value, cookieDomain)
     }
-    setCookie('record', recordInputValue, '.koalabeast.com')
-    setCookie('useTextures', useTexturesInputValue, '.koalabeast.com')
-    setCookie('useRecordKey', useRecordKeyValue, '.koalabeast.com')
-    setCookie('useSplats', useSplatsValue, '.koalabeast.com')
+    setCookie('record', recordInputValue, cookieDomain)
+    setCookie('useTextures', useTexturesInputValue, cookieDomain)
+    setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
+    setCookie('useSplats', useSplatsValue, cookieDomain)
     $("#menuContainer").fadeOut()
     
     chrome.runtime.sendMessage({method:'cleanRenderedReplays'}) 
@@ -567,9 +570,9 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
 });
 
 // set fps and duration if they're not already
-if(!readCookie('fps')) { setCookie('fps', 30, '.koalabeast.com') }
-if(!readCookie('duration')) { setCookie('duration', 30, '.koalabeast.com') }
-if(!readCookie('useSplats')) { setCookie('useSplats', true, '.koalabeast.com') } 
+if(!readCookie('fps')) { setCookie('fps', 30, cookieDomain) }
+if(!readCookie('duration')) { setCookie('duration', 30, cookieDomain) }
+if(!readCookie('useSplats')) { setCookie('useSplats', true, cookieDomain) } 
 
 // this function sets up a listener wrapper
 function listen(event, listener) {
@@ -586,7 +589,7 @@ listen('setPositionData', function (data) {
 })
 
 // if we're on the main tagpro server screen, run the createReplayPageButton function
-if(document.URL.search('com/$') >= 0 | document.URL.search('com/#$') >= 0) {
+if(document.URL.search(/[a-z]+\/#?$/) >= 0) {
 	// make the body scrollable
 	$('body')[0].style.overflowY = "scroll"
 	// make the button
@@ -594,8 +597,8 @@ if(document.URL.search('com/$') >= 0 | document.URL.search('com/#$') >= 0) {
 }	
 
 
-// if we're in a game, inject the replayRecording.js script
-if(document.URL.search('com:') >= 0) {
+// if we're in a game, as evidenced by there being a port number, inject the replayRecording.js script
+if(document.URL.search(/\.\w+:/) >= 0) {
 	function injectScript(path) {
     	var script = document.createElement('script');
     	script.setAttribute("type", "application/javascript");

@@ -18,11 +18,13 @@ function setCookie(name, value, domain) {
   console.log('cookie: name='+name+' value='+value+' expires='+now.toGMTString())
 }
 
+var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//);
+
 saveRecordKeySettings = function() {
 	setTimeout(function(){
 		// Save cookie
 		if(typeof currentRecordKey !== "undefined") {
-			setCookie('replayRecordKey', currentRecordKey, '.koalabeast.com')
+			setCookie('replayRecordKey', currentRecordKey, cookieDomain)
 		}	
 		
 		// do 'saved' animation now
@@ -127,7 +129,7 @@ function openRecordKeyMenu() {
   if(readCookie('replayRecordKey') !== null) {
   	$('#recordKeyChooserInput').val(String.fromCharCode(readCookie('replayRecordKey')))
   } else {
-  	setCookie('replayRecordKey', 47, '.koalabeast.com')
+  	setCookie('replayRecordKey', 47, cookieDomain)
   	$('#recordKeyChooserInput').val('/')
   }
   
