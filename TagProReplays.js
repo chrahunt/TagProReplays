@@ -470,6 +470,7 @@ if(document.URL.search(/[a-z]+\/#?$/) >= 0) {
   // Inject style sheet for menu.
   injectStyleSheet("ui/_menu.css");
   injectStyleSheet("ui/_texture.css");
+  injectStyleSheet("ui/_recordkey.css");
 }  
 
 
