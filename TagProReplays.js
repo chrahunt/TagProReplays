@@ -337,7 +337,7 @@ function greyButtons() {
 }
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
-function  renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
+function renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
   chrome.runtime.sendMessage({
     method:'renderAllSubsequent', 
     data:replaysToRender,
@@ -469,6 +469,7 @@ if(document.URL.search(/[a-z]+\/#?$/) >= 0) {
   createReplayPageButton()
   // Inject style sheet for menu.
   injectStyleSheet("ui/_menu.css");
+  injectStyleSheet("ui/_texture.css");
 }  
 
 
