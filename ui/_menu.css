@@ -132,3 +132,12 @@
   color: black;
   text-align: center;
 }
+
+#exitButton {
+  position: absolute;
+  color: black;
+  top: 5%;
+  right: 5%;
+  font-size: 20px;
+  background-color: rgb(128, 128, 128);
+}
