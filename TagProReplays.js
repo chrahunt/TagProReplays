@@ -51,6 +51,45 @@ function openReplayMenu() {
     });
   }
 
+  function setFormTitles() {
+    fpsTitle = 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
+      'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
+      'or if your replays are sped up, try reducing this value.';
+    $('#fpsTxt').prop('title', fpsTitle);
+    $('#fpsInput').prop('title', fpsTitle);
+
+    durationTitle = 'Use this to set how long the replay will be in seconds. Values greater than 60 ' +
+      'seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
+      'replays that have already been recorded';
+    $('#durationText').prop('title', durationTitle);
+    $('#durationInput').prop('title', durationTitle);
+
+    recordTitle = 'This controls whether the extension is capable of recording replays during a tagpro game.\n\n' +
+      'Uncheck to disable the extension.';
+    $('#recordTxt').prop('title', recordTitle);
+    $('#recordCheckbox').prop('title', recordTitle);
+
+    useTextureTitle = 'This controls whether custom texture files will be used in rendered movies.\n\n' +
+      'Check to use textures, uncheck to use vanilla.\n\nThis only applies to rendered movies.';
+    $('#useTextureTxt').prop('title', useTextureTitle);
+    $('#useTextureCheckbox').prop('title', useTextureTitle);
+
+    textureMenuButtonTitle = 'This button allows you to upload your custom texture files';
+    $('#textureMenuButton').prop('title', textureMenuButtonTitle);
+
+    recordKeyTitle = 'This allows you to designate a key that acts exactly like clicking ' +
+      'the record button with the mouse.\n\nDon\'t use keys that have other uses in the ' +
+      'game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all, ' +
+      'because the extension will listen for that key even if you are typing in chat.';
+    $('#recordKeyTxt').prop('title', recordKeyTitle);
+    $('#recordKeyCheckbox').prop('title', recordKeyTitle);
+
+    useSplatsTitle = 'This toggles whether to show splats or not.\n\nCheck the box if you ' +
+      'want to show splats in the replay';
+    $('#useSplatsTxt').prop('title', useSplatsTitle);
+    $('#useSplatsCheckbox').prop('title', useSplatsTitle);
+  }
+
   if($('#menuContainer').length) {
     // Menu already exists, update replay list and show.
     // Remove previously-created replay rows.
@@ -65,6 +104,7 @@ function openReplayMenu() {
     // Retrieve html from ui/_menu.html and place into menu container,
     // executing relevant javascript afterwards.
     $('#menuContainer').load(chrome.extension.getURL("ui/_menu.html"), function() {
+      setFormTitles();
       $('#textureMenuButton')[0].onclick = openTextureMenu;
       $('#recordKeyCheckbox')[0].onclick = function() {
         if(this.checked) {

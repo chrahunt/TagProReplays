@@ -24,52 +24,18 @@
     <txt id="titleText">TagPro Replays Menu</txt>
 </div>
 <div id="settingsContainer">
-    <txt id="fpsTxt" title="Use this to set how many times per second data are recorded from the tagpro game.
-Higher fps will create smoother replays. 
-
-If you experience framerate drops during gameplay, or if your replays are sped up, try reducing this value.">FPS:</txt>
-    <input id="fpsInput" title="Use this to set how many times per second data are recorded from the tagpro game.
-Higher fps will create smoother replays. 
-
-If you experience framerate drops during gameplay, or if your replays are sped up, try reducing this value.">
-    <txt id="durationTxt" title="Use this to set how long the replay will be in seconds. Values greater than 60 seconds are not recommended.
-
-This setting will apply to future recordings. It will not affect replays that have already been recorded">Duration:</txt>
-    <input id="durationInput" title="Use this to set how long the replay will be in seconds. Values greater than 60 seconds are not recommended.
-
-This setting will apply to future recordings. It will not affect replays that have already been recorded">
-    <txt id="recordTxt" title="This controls whether the extension is capable of recording replays during a tagpro game.
-
-Uncheck to disable the extension.">On/Off</txt>
-    <input id="recordCheckbox" type="checkbox" title="This controls whether the extension is capable of recording replays during a tagpro game.
-
-Uncheck to disable the extension.">
-    <txt id="useTextureTxt" title="This controls whether custom texture files will be used in rendered movies.
-
-Check to use textures, uncheck to use vanilla.
-
-This only applies to rendered movies.">Use Textures</txt>
-    <input id="useTextureCheckbox" type="checkbox" title="This controls whether custom texture files will be used in rendered movies.
-
-Check to use textures, uncheck to use vanilla.
-
-This only applies to rendered movies.">
-    <button id="textureMenuButton" title="This button allows you to upload your custom texture files">Load Textures</button>
-    <txt id="recordKeyTxt" title="This allows you to designate a key that acts exactly like clicking the record button with the mouse.
-
-Don't use keys that have other uses in the game, such as w, a, s, d, t, or g.
-
-Actually, don't use a letter key at all, because the extension will listen for that key even if you are typing in chat.">Record Key</txt>
-    <input id="recordKeyCheckbox" type="checkbox" title="This allows you to designate a key that acts exactly like clicking the record button with the mouse.
-
-Don't use keys that have other uses in the game, such as w, a, s, d, t, or g.
-
-Actually, don't use a letter key at all, because the extension will listen for that key even if you are typing in chat.">
-    <txt id="useSplatsTxt" title="This toggles whether to show splats or not.
-
-Check the box if you want to show splats in the replay">Splats</txt>
-    <input id="useSplatsCheckbox" type="checkbox" title="This toggles whether to show splats or not.
-
-Check the box if you want to show splats in the replay">
+    <txt id="fpsTxt">FPS:</txt>
+    <input id="fpsInput">
+    <txt id="durationTxt">Duration:</txt>
+    <input id="durationInput">
+    <txt id="recordTxt">On/Off</txt>
+    <input id="recordCheckbox" type="checkbox">
+    <txt id="useTextureTxt">Use Textures</txt>
+    <input id="useTextureCheckbox" type="checkbox">
+    <button id="textureMenuButton">Load Textures</button>
+    <txt id="recordKeyTxt">Record Key</txt>
+    <input id="recordKeyCheckbox" type="checkbox">
+    <txt id="useSplatsTxt">Splats</txt>
+    <input id="useSplatsCheckbox" type="checkbox">
 </div>
 <div id="replayListContainer">Available Replays</div><a id="exitButton" href="#">X</a>
