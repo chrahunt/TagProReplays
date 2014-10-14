@@ -44,7 +44,7 @@ function createFileSystem(thisDirectory, secondFunction, secondArguments) {
 // function to get savedMovies directory contents
 function getRenderedMovieNames(fs, directory, secondArguments) {
 	cont=[]
-	allKeys = secondArguments[0]
+	var allKeys = secondArguments[0]
 	fs.root.getDirectory(directory, {}, function(dirEntry){
 		var dirReader = dirEntry.createReader();
 	  	dirReader.readEntries(function(entries) {
