@@ -4,14 +4,14 @@
 ////////////////////////////////////////////
 
 function readCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for(var i=0;i < ca.length;i++) {
-        var c = ca[i];
-        while (c.charAt(0)==' ') c = c.substring(1,c.length);
-        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-    }
-    return null;
+  var nameEQ = name + "=";
+  var ca = document.cookie.split(';');
+  for(var i=0;i < ca.length;i++) {
+    var c = ca[i];
+    while (c.charAt(0)==' ') c = c.substring(1,c.length);
+    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+  }
+  return null;
 }
 
 function setCookie(name, value, domain) { 
@@ -49,185 +49,187 @@ function openReplayMenu() {
   // Retrieve html from ui/_menu.html and place into menu container,
   // executing relevant javascript afterwards.
   $('#menuContainer').load(chrome.extension.getURL("ui/_menu.html"), function() {
-      $('#textureMenuButton')[0].onclick = openTextureMenu;
-      $('#recordKeyCheckbox')[0].onclick = function() {
+    $('#textureMenuButton')[0].onclick = openTextureMenu;
+    $('#recordKeyCheckbox')[0].onclick = function() {
+      if(this.checked) {
+        openRecordKeyMenu();
+      }
+    }
+
+    exitMenu = function() {
+      fpsInputValue = $('#fpsInput')[0].value
+      durationInputValue = $('#durationInput')[0].value
+      recordInputValue = $('#recordCheckbox')[0].checked
+      useTexturesInputValue = $('#useTextureCheckbox')[0].checked
+      useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
+      useSplatsValue = $('#useSplatsCheckbox')[0].checked
+      if(!isNaN(fpsInputValue) & fpsInputValue!="") {
+        setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
+      }
+      if(!isNaN(durationInputValue) & durationInputValue!="") {
+        setCookie('duration', $('#durationInput')[0].value, cookieDomain)
+      }
+      setCookie('record', recordInputValue, cookieDomain)
+      setCookie('useTextures', useTexturesInputValue, cookieDomain)
+      setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
+      setCookie('useSplats', useSplatsValue, cookieDomain)
+      $("#menuContainer").fadeOut()
+      
+      chrome.runtime.sendMessage({method:'cleanRenderedReplays'}) 
+      setTimeout(function(){$("#menuContainer").remove()},500)
+    }
+
+    $('#exitButton')[0].onclick = exitMenu;
+
+    // function for requesting indexdb datastore contents from background script
+    function getListData() {
+      chrome.runtime.sendMessage({
+        method: 'requestList'
+      });
+    }
+  
+    // function for determining if a position file name is in an array of rendered movie names
+    function positionFileIsRendered(positionFileName, movieNames) {
+      for(m in movieNames) {
+        if(positionFileName.replace('replays','').replace(/.*DATE/,'') == movieNames[m]) {
+          return(true);
+        }
+      }
+      return(false);
+    }
+  
+    // function that initially sends list of replays to background script for mass rendering
+    // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
+    function renderSelectedInitial() {
+      replaysToRender = []
+      $('#replayListBox input').each(function() {
+        if(this.checked){
+          replaysToRender.push(this.id.replace('SelectedCheckbox',''))
+        }
+      });
+      if(replaysToRender.length > 0) {
+        if(confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
+          chrome.runtime.sendMessage({
+            method: 'renderAllInitial', 
+            data: replaysToRender,
+            useTextures: $('#useTextureCheckbox')[0].checked,
+            useSplats: $('#useSplatsCheckbox')[0].checked
+          });
+          console.log('sent request to render multiple replays: '+replaysToRender)
+        }
+      }
+    }
+  
+    // function to delete multiple files at once
+    function deleteSelected() {
+      replaysToDelete = []
+      $('#replayListBox input').each(function() {
         if(this.checked) {
-          openRecordKeyMenu();
+          replaysToDelete.push(this.id.replace('SelectedCheckbox',''))
+        }
+      });
+
+      if(replaysToDelete.length > 0) {
+        if(confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
+          console.log('requesting to delete ' + replaysToDelete)
+          chrome.runtime.sendMessage({
+            method: 'requestDataDelete',
+            fileName: replaysToDelete
+          });
         }
       }
-
-      exitMenu = function() {
-        fpsInputValue = $('#fpsInput')[0].value
-        durationInputValue = $('#durationInput')[0].value
-        recordInputValue = $('#recordCheckbox')[0].checked
-        useTexturesInputValue = $('#useTextureCheckbox')[0].checked
-        useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
-        useSplatsValue = $('#useSplatsCheckbox')[0].checked
-        if(!isNaN(fpsInputValue) & fpsInputValue!="") {
-          setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
-        }
-        if(!isNaN(durationInputValue) & durationInputValue!="") {
-          setCookie('duration', $('#durationInput')[0].value, cookieDomain)
-        }
-        setCookie('record', recordInputValue, cookieDomain)
-        setCookie('useTextures', useTexturesInputValue, cookieDomain)
-        setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
-        setCookie('useSplats', useSplatsValue, cookieDomain)
-        $("#menuContainer").fadeOut()
+    }
+  
+    // This puts the current replays into the menu   
+    populateList = function(storageData, movieNames) {
+      replayList = [];
+      for(dat in storageData) {
+        replayList.push(storageData[dat]);
+      }
+      
+      if(!replayList.length > 0) {
+        $('#replayListBox').append("<p><a>You don't have any replays saved. Go record some!");
+      } else {
+        // this is where the replay sorting functions will go, when i write them
+        replayList = replayList.reverse();
         
-        chrome.runtime.sendMessage({method:'cleanRenderedReplays'}) 
-        setTimeout(function(){$("#menuContainer").remove()},500)
-      }
-
-      $('#exitButton')[0].onclick = exitMenu;
-
-      // function for requesting indexdb datastore contents from background script
-      function getListData() {
-        chrome.runtime.sendMessage({
-          method: 'requestList'
-        });
-      }
-    
-      // function for determining if a position file name is in an array of rendered movie names
-      function positionFileIsRendered(positionFileName, movieNames) {
-        for(m in movieNames) {
-          if(positionFileName.replace('replays','').replace(/.*DATE/,'') == movieNames[m]) {
-            return(true);
+        // these buttons allow rendering/deleting multiple replays
+        $('#replayListBox').append("<p><center><button id=renderSelectedButton>Render Selected");
+        $('#renderSelectedButton')[0].onclick=renderSelectedInitial;
+        $('#renderSelectedButton').after("<button id=deleteSelectedButton style='margin-left:10px'>Delete Selected");
+        $('#deleteSelectedButton')[0].onclick=deleteSelected;
+        
+        console.log(replayList);
+        for(dat in replayList) {
+          thisReplay = replayList[dat]
+          $('#replayListBox').append("<p><input type=checkbox id="+thisReplay+"SelectedCheckbox style='margin-left:20px'>")
+          $('#'+thisReplay+'SelectedCheckbox').after("<a id="+thisReplay+" href=# style='margin-left:5px margin-right:10px'>"+thisReplay.replace(/DATE.*/,'')+"</a>") 
+          $('#'+thisReplay)[0].onclick = function() {
+            exitMenu()
+            console.log('sending data request for '+this.id)
+            sessionStorage.setItem('currentReplay', this.id)
+            chrome.runtime.sendMessage({method:'requestData',fileName:this.id})
           }
-        }
-        return(false);
-      }
-    
-      // function that initially sends list of replays to background script for mass rendering
-      // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
-      function renderSelectedInitial() {
-        replaysToRender = []
-        $('#replayListBox input').each(function() {
-          if(this.checked){
-            replaysToRender.push(this.id.replace('SelectedCheckbox',''))
-          }
-        });
-        if(replaysToRender.length > 0) {
-          if(confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
-            chrome.runtime.sendMessage({
-              method: 'renderAllInitial', 
-              data: replaysToRender,
-              useTextures: $('#useTextureCheckbox')[0].checked,
-              useSplats: $('#useSplatsCheckbox')[0].checked
-            });
-            console.log('sent request to render multiple replays: '+replaysToRender)
-          }
-        }
-      }
-    
-      // function to delete multiple files at once
-      function deleteSelected() {
-        replaysToDelete = []
-        $('#replayListBox input').each(function() {
-          if(this.checked) {
-            replaysToDelete.push(this.id.replace('SelectedCheckbox',''))
-          }
-        });
-
-        if(replaysToDelete.length > 0) {
-          if(confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-            console.log('requesting to delete ' + replaysToDelete)
-            chrome.runtime.sendMessage({
-              method: 'requestDataDelete',
-              fileName: replaysToDelete
-            });
-          }
-        }
-      }
-    
-      // This puts the current replays into the menu   
-      populateList = function(storageData, movieNames) {
-        replayList = [];
-        for(dat in storageData) {
-            replayList.push(storageData[dat]);
-        }
-        if(!replayList.length > 0) {
-          $('#replayListBox').append("<p><a>You don't have any replays saved. Go record some!");
-        } else {
-          // this is where the replay sorting functions will go, when i write them
-          replayList = replayList.reverse();
+          ms = +thisReplay.replace('replays','').replace(/.*DATE/,'')
+          date = new Date(ms)
+          datevalue = date.toDateString() +' '+ date.toLocaleTimeString().replace(/:.?.? /g, ' ')
+          $('#'+thisReplay)[0].title = datevalue
           
-          // these buttons allow rendering/deleting multiple replays
-          $('#replayListBox').append("<p><center><button id=renderSelectedButton>Render Selected");
-          $('#renderSelectedButton')[0].onclick=renderSelectedInitial;
-          $('#renderSelectedButton').after("<button id=deleteSelectedButton style='margin-left:10px'>Delete Selected");
-          $('#deleteSelectedButton')[0].onclick=deleteSelected;
           
-          console.log(replayList);
-          for(dat in replayList) {
-            thisReplay = replayList[dat]
-            $('#replayListBox').append("<p><input type=checkbox id="+thisReplay+"SelectedCheckbox style='margin-left:20px'>")
-            $('#'+thisReplay+'SelectedCheckbox').after("<a id="+thisReplay+" href=# style='margin-left:5px margin-right:10px'>"+thisReplay.replace(/DATE.*/,'')+"</a>") 
-            $('#'+thisReplay)[0].onclick = function() {
-              exitMenu()
-              console.log('sending data request for '+this.id)
-              sessionStorage.setItem('currentReplay', this.id)
-              chrome.runtime.sendMessage({method:'requestData',fileName:this.id})
-            }
-            ms = +thisReplay.replace('replays','').replace(/.*DATE/,'')
-            date = new Date(ms)
-            datevalue = date.toDateString() +' '+ date.toLocaleTimeString().replace(/:.?.? /g, ' ')
-            $('#'+thisReplay)[0].title = datevalue
-            
-            
-            if(positionFileIsRendered(thisReplay, movieNames)) {
-              $('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:10px'>✓")
-              $('#'+thisReplay+"Rendered")[0].style.color="white" //"#00FF00"
-            } else {
-              $('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:16px'> ")
-            }
+          if(positionFileIsRendered(thisReplay, movieNames)) {
+            $('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:10px'>✓")
+            $('#'+thisReplay+"Rendered")[0].style.color="white" //"#00FF00"
+          } else {
+            $('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:16px'> ")
+          }
 
-            $('#'+thisReplay+'Rendered').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
-            $('#'+thisReplay+'DownloadMovieButton')[0].onclick = function() {
-                fileNameToDownload = this.id.replace('DownloadMovieButton','')
-                console.log('asking background script to download video for '+fileNameToDownload)
-                chrome.runtime.sendMessage({method:'downloadMovie', name:fileNameToDownload})
-            }
-            if(!positionFileIsRendered(thisReplay, movieNames)) {
-              $('#'+thisReplay+'DownloadMovieButton')[0].disabled = true
-            }
-          
-            $('#'+thisReplay+'DownloadMovieButton').after('<button id='+thisReplay+'DownloadButton style="margin-left:5px">Download Raw Data')
-            $('#'+thisReplay+'DownloadButton')[0].onclick = function(){
-              fileNameToDownload = this.id.replace('DownloadButton','')
-              console.log('requesting '+fileNameToDownload)
-              chrome.runtime.sendMessage({method:'requestDataForDownload',fileName:fileNameToDownload})
-            }
-            $('#'+thisReplay+'DownloadButton').after('<button id='+thisReplay+'RenameButton style="margin-left:5px">Rename')
-            $('#'+thisReplay+'RenameButton')[0].onclick = function() {
-              fileNameToRename = this.id.replace('RenameButton','')
-              datePortion = this.id.replace(/.*DATE/,'').replace('replays','').replace('RenameButton','')
-              newName = prompt('How would you like to rename '+this.id.replace(/DATE.*/,'').replace('RenameButton',''))
-              if(newName != null) {
-                newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi,'')+"DATE"+datePortion
-                console.log('requesting to rename from '+fileNameToRename+' to '+newName)
-                chrome.runtime.sendMessage({method:'requestFileRename',oldName:fileNameToRename, newName:newName})
-              }
-            }  
-          
-            $('#'+thisReplay+'RenameButton').after('<txt id='+thisReplay+'Date style="margin-left:5px">'+datevalue)
+          $('#'+thisReplay+'Rendered').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
+          $('#'+thisReplay+'DownloadMovieButton')[0].onclick = function() {
+              fileNameToDownload = this.id.replace('DownloadMovieButton','')
+              console.log('asking background script to download video for '+fileNameToDownload)
+              chrome.runtime.sendMessage({method:'downloadMovie', name:fileNameToDownload})
           }
-          GOODMARGIN = 0
-          for(dat in replayList) {
-              thisReplay = replayList[dat]
-              if($('#'+thisReplay).width() > GOODMARGIN) {
-                GOODMARGIN = $('#'+thisReplay).width()
-              }
+          if(!positionFileIsRendered(thisReplay, movieNames)) {
+            $('#'+thisReplay+'DownloadMovieButton')[0].disabled = true
           }
-          for(dat in replayList) {
-            thisReplay = replayList[dat]
-            $('#'+thisReplay).css({
-              'margin-right': (GOODMARGIN - $('#'+thisReplay).width() + 20)+'px',
-              'margin-left': '20px'
-            });
+        
+          $('#'+thisReplay+'DownloadMovieButton').after('<button id='+thisReplay+'DownloadButton style="margin-left:5px">Download Raw Data')
+          $('#'+thisReplay+'DownloadButton')[0].onclick = function(){
+            fileNameToDownload = this.id.replace('DownloadButton','')
+            console.log('requesting '+fileNameToDownload)
+            chrome.runtime.sendMessage({method:'requestDataForDownload',fileName:fileNameToDownload})
+          }
+          $('#'+thisReplay+'DownloadButton').after('<button id='+thisReplay+'RenameButton style="margin-left:5px">Rename')
+          $('#'+thisReplay+'RenameButton')[0].onclick = function() {
+            fileNameToRename = this.id.replace('RenameButton','')
+            datePortion = this.id.replace(/.*DATE/,'').replace('replays','').replace('RenameButton','')
+            newName = prompt('How would you like to rename '+this.id.replace(/DATE.*/,'').replace('RenameButton',''))
+            if(newName != null) {
+              newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi,'')+"DATE"+datePortion
+              console.log('requesting to rename from '+fileNameToRename+' to '+newName)
+              chrome.runtime.sendMessage({method:'requestFileRename',oldName:fileNameToRename, newName:newName})
+            }
+          }  
+        
+          $('#'+thisReplay+'RenameButton').after('<txt id='+thisReplay+'Date style="margin-left:5px">'+datevalue)
+        }
+        GOODMARGIN = 0
+        for(dat in replayList) {
+          thisReplay = replayList[dat]
+          if($('#'+thisReplay).width() > GOODMARGIN) {
+            GOODMARGIN = $('#'+thisReplay).width()
           }
         }
+        for(dat in replayList) {
+          thisReplay = replayList[dat]
+          $('#'+thisReplay).css({
+            'margin-right': (GOODMARGIN - $('#'+thisReplay).width() + 20)+'px',
+            'margin-left': '20px'
+          });
+        }
       }
+    }
+
     ///////////////////////////////////////////////////////////
     // Set fps and duration text box values - and checkboxes //
     ///////////////////////////////////////////////////////////
@@ -255,13 +257,13 @@ function openReplayMenu() {
 function saveData(name, data) {
   var file = new Blob([data], {type: "data:text/txt;charset=utf-8"});
   var a = document.createElement('a');
-    a.download = name+'.txt';
-    a.href = (window.URL || window.webkitURL).createObjectURL(file);
+  a.download = name+'.txt';
+  a.href = (window.URL || window.webkitURL).createObjectURL(file);
   var event = document.createEvent('MouseEvents');
   event.initEvent('click', true, false);
-   // trigger download
+  // trigger download
   a.dispatchEvent(event);    
-    (window.URL || window.webkitURL).revokeObjectURL(a.href);
+  (window.URL || window.webkitURL).revokeObjectURL(a.href);
 }
 
 // This is an easy method wrapper to dispatch events
@@ -275,23 +277,24 @@ function greyButtons() {
   $('#menuContainer button').each(function(){this.disabled=true})
   $('#menuContainer input').each(function(){this.disabled=true})
   $('#replayListBox a').css({
-      cursor: 'default',
-      pointerEvents: 'none',
-      color: 'white'
+    cursor: 'default',
+    pointerEvents: 'none',
+    color: 'white'
   });
 }
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
 function  renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
-  chrome.runtime.sendMessage({method:'renderAllSubsequent', 
-                            data:replaysToRender,
-                            replayI:replayI,
-                            lastOne:lastOne,
-                            useTextures:$('#useTextureCheckbox')[0].checked,
-                        useSplats:$('#useSplatsCheckbox')[0].checked,
-                        tabNum:tabNum
-                          })
-    console.log('sent request to render replay: '+replaysToRender[replayI])
+  chrome.runtime.sendMessage({
+    method:'renderAllSubsequent', 
+    data:replaysToRender,
+    replayI:replayI,
+    lastOne:lastOne,
+    useTextures:$('#useTextureCheckbox')[0].checked,
+    useSplats:$('#useSplatsCheckbox')[0].checked,
+    tabNum:tabNum
+  });
+  console.log('sent request to render replay: '+replaysToRender[replayI])
 }
 
 // set global scope for some variables and functions
@@ -303,56 +306,56 @@ var initiateAnimation
 var videofile
 chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   if(message.method == 'itemsList') {
-      console.log('got itemList message')
-      populateList(message.positionKeys, message.movieNames)
-    } else if(message.method == 'positionData') {
-      console.log('got positionData message')
-      localStorage.setItem('currentReplayName', message.movieName)
-      console.log(typeof message.title)
-      positions = JSON.parse(message.title)
-      console.log(positions)
-      createReplay(positions)
-      animateReplay(thisI, positions, mapImg)
-    } else if(message.method == "dataSetConfirmationFromBG") {
-      console.log('got data set confirmation from background script. sending confirmation to injected script.')
-      emit('positionDataConfirmation',true)
-    } else if(message.method == "positionDataForDownload") {
-      console.log('got data for download - '+message.fileName)
-      saveData(message.fileName, message.title)
-    } else if(message.method == 'dataDeleted') {
-      console.log('data were deleted')
-      $('#menuContainer').remove()
-      openReplayMenu()
-    } else if(message.method == "fileRenameSuccess") {
-      console.log('got confirmation of data file rename from background script')
-      $('#menuContainer').remove()
-      openReplayMenu()
-    } else if(message.method == "picture") {
-      console.log('got picture file from background script')
-      picture = message.file
-    } else if(message.method == "movieRenderConfirmation") {
-      console.log('got movie render confirmation')
-      exitMenu()
-    } else if(message.method == "movieRenderFailure") {
-      alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
-    } else if(message.method == "movieDownloadConfirmation") {
-      console.log('got movie download confirmation')
-    } else if(message.method == "movieDownloadFailure") {
-      alert('Download failed. Most likely you haven\'t rendered that movie yet.')
-    } else if(message.method == "progressBarCreate") {
-      // CREATE PROGRESS BAR AND GREY OUT BUTTONS
-      $('#'+message.name+'Rendered').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
-      $('#'+message.name+'ProgressBar').width(100)
-      $('#'+message.name+'ProgressBar').css({'margin-right' : '5px'})
-      $('#'+message.name+'DownloadMovieButton').remove()
-      greyButtons()
-      console.log('got request to create progress Bar for '+message.name)
-    } else if(message.method == "progressBarUpdate") {
-      // UPDATE PROGRESS BAR
-      if(typeof $('#'+message.name+'ProgressBar')[0] !== 'undefined') {
-        $('#'+message.name+'ProgressBar')[0].value=message.progress
-      }
-    } else if(message.method == "movieRenderConfirmationNotLastOne") {
+    console.log('got itemList message')
+    populateList(message.positionKeys, message.movieNames)
+  } else if(message.method == 'positionData') {
+    console.log('got positionData message')
+    localStorage.setItem('currentReplayName', message.movieName)
+    console.log(typeof message.title)
+    positions = JSON.parse(message.title)
+    console.log(positions)
+    createReplay(positions)
+    animateReplay(thisI, positions, mapImg)
+  } else if(message.method == "dataSetConfirmationFromBG") {
+    console.log('got data set confirmation from background script. sending confirmation to injected script.')
+    emit('positionDataConfirmation',true)
+  } else if(message.method == "positionDataForDownload") {
+    console.log('got data for download - '+message.fileName)
+    saveData(message.fileName, message.title)
+  } else if(message.method == 'dataDeleted') {
+    console.log('data were deleted')
+    $('#menuContainer').remove()
+    openReplayMenu()
+  } else if(message.method == "fileRenameSuccess") {
+    console.log('got confirmation of data file rename from background script')
+    $('#menuContainer').remove()
+    openReplayMenu()
+  } else if(message.method == "picture") {
+    console.log('got picture file from background script')
+    picture = message.file
+  } else if(message.method == "movieRenderConfirmation") {
+    console.log('got movie render confirmation')
+    exitMenu()
+  } else if(message.method == "movieRenderFailure") {
+    alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
+  } else if(message.method == "movieDownloadConfirmation") {
+    console.log('got movie download confirmation')
+  } else if(message.method == "movieDownloadFailure") {
+    alert('Download failed. Most likely you haven\'t rendered that movie yet.')
+  } else if(message.method == "progressBarCreate") {
+    // CREATE PROGRESS BAR AND GREY OUT BUTTONS
+    $('#'+message.name+'Rendered').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
+    $('#'+message.name+'ProgressBar').width(100)
+    $('#'+message.name+'ProgressBar').css({'margin-right' : '5px'})
+    $('#'+message.name+'DownloadMovieButton').remove()
+    greyButtons()
+    console.log('got request to create progress Bar for '+message.name)
+  } else if(message.method == "progressBarUpdate") {
+    // UPDATE PROGRESS BAR
+    if(typeof $('#'+message.name+'ProgressBar')[0] !== 'undefined') {
+      $('#'+message.name+'ProgressBar')[0].value=message.progress
+    }
+  } else if(message.method == "movieRenderConfirmationNotLastOne") {
     newReplayI = +message.replayI+1
     lastOne = false
     tabNum = message.tabNum
@@ -370,16 +373,19 @@ if(!readCookie('useSplats')) { setCookie('useSplats', true, cookieDomain) }
 
 // this function sets up a listener wrapper
 function listen(event, listener) {
-    window.addEventListener(event, function(e){
-      listener(e.detail);
-    });
+  window.addEventListener(event, function(e){
+    listener(e.detail);
+  });
 }
 
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
 listen('setPositionData', function (data) {
   console.log('got position data from injected script. sending to background script')
-  chrome.runtime.sendMessage({method:'setPositionData',positionData:data})
+  chrome.runtime.sendMessage({
+    method:'setPositionData',
+    positionData:data
+  })
 })
 
 function injectScript(path) {
@@ -415,10 +421,6 @@ if(document.URL.search(/[a-z]+\/#?$/) >= 0) {
 
 // if we're in a game, as evidenced by there being a port number, inject the replayRecording.js script
 if(document.URL.search(/\.\w+:/) >= 0) {
-  
-    
-    var scripts = ["replayRecording.js"];
-    scripts.forEach(injectScript);
+  var scripts = ["replayRecording.js"];
+  scripts.forEach(injectScript);
 }
-
-
