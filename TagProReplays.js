@@ -95,9 +95,9 @@ function openReplayMenu() {
         chrome.runtime.sendMessage({
           method:'cleanRenderedReplays'
         }); 
-        setTimeout(function() {
+        /*setTimeout(function() {
           $("#menuContainer").fadeOut()
-        },500);
+        },500);*/
       }
 
       $('#exitButton')[0].onclick = exitMenu;
@@ -329,11 +329,13 @@ function emit(event, data){
 function greyButtons() {
   $('#menuContainer button').each(function(){this.disabled=true})
   $('#menuContainer input').each(function(){this.disabled=true})
-  $('#replayListBox a').css({
-    cursor: 'default',
-    pointerEvents: 'none',
-    color: 'white'
-  });
+  $('#replayListBox a').addClass('disabled');
+}
+
+function unGreyButtons() {
+  $('#menuContainer button').each(function(){this.disabled=false})
+  $('#menuContainer input').each(function(){this.disabled=false})
+  $('#replayListBox a').removeClass('disabled');
 }
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
@@ -389,6 +391,8 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   } else if(message.method == "movieRenderConfirmation") {
     console.log('got movie render confirmation')
     exitMenu()
+    unGreyButtons()
+    openReplayMenu()
   } else if(message.method == "movieRenderFailure") {
     alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
   } else if(message.method == "movieDownloadConfirmation") {
