@@ -44,6 +44,8 @@
     "tagpro.png",
     "rollingbomb.png",
     "splats.png",
-    "flair.png"
+    "flair.png",
+    "ui/_menu.html",
+    "ui/_menu.css"
   ]
 }
