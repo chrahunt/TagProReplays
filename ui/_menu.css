@@ -41,6 +41,57 @@
   z-index: 100;
 }
 
+#noReplays {
+  display: none;
+}
+
+#multiButtons {
+  display: none;
+  text-align: center;
+}
+
+#replayList {
+  display: none;
+}
+
+.clone {
+  display: none;
+}
+
+.selected-checkbox {
+  margin-left: 20px;
+}
+
+#deleteSelectedButton {
+  margin-left: 10px;
+}
+
+.playback-link {
+  margin-right: 5px;
+  margin-left: 20px;
+}
+
+.rendered-check {
+  margin-right: 16px;
+  color: white;
+}
+
+.download-movie-button {
+  margin-left: 5px;
+}
+
+.download-button {
+  margin-left: 5px;
+}
+
+.rename-button {
+  margin-left: 5px;
+}
+
+.replay-date {
+  margin-left: 5px;
+}
+
 #titleBox {
   width: 80%;
   height: 10%;

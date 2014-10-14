@@ -26,6 +26,7 @@ function setCookie(name, value, domain) {
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//);
 
+// Inserts Replay button in main page
 function createReplayPageButton() {
   function findInsertionPoint() {
     buttons = $('article>div.buttons.smaller>a')
@@ -102,9 +103,11 @@ function openReplayMenu() {
     // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
     function renderSelectedInitial() {
       replaysToRender = []
-      $('#replayListBox input').each(function() {
-        if(this.checked){
-          replaysToRender.push(this.id.replace('SelectedCheckbox',''))
+      $('.selected-checkbox').each(function() {
+        if(this.checked) {
+          var row = $(this).closest('div');
+          var replayId = row.data("replay");
+          replaysToRender.push(replayId);
         }
       });
       if(replaysToRender.length > 0) {
@@ -123,9 +126,11 @@ function openReplayMenu() {
     // function to delete multiple files at once
     function deleteSelected() {
       replaysToDelete = []
-      $('#replayListBox input').each(function() {
+      $('.selected-checkbox').each(function() {
         if(this.checked) {
-          replaysToDelete.push(this.id.replace('SelectedCheckbox',''))
+          var row = $(this).closest('div');
+          var replayId = row.data("replay");
+          replaysToDelete.push(replayId);
         }
       });
 
@@ -148,85 +153,115 @@ function openReplayMenu() {
       }
       
       if(!replayList.length > 0) {
-        $('#replayListBox').append("<p><a>You don't have any replays saved. Go record some!");
+        // Show no replay message.
+        $('#noReplays').show();
       } else {
         // this is where the replay sorting functions will go, when i write them
         replayList = replayList.reverse();
+
+        // Display buttons for rendering and deleting multiple items.
+        $('#multiButtons').show();
+
+        // Display list of replays.
+        $('#replayList').show();
         
         // these buttons allow rendering/deleting multiple replays
-        $('#replayListBox').append("<p><center><button id=renderSelectedButton>Render Selected");
-        $('#renderSelectedButton')[0].onclick=renderSelectedInitial;
-        $('#renderSelectedButton').after("<button id=deleteSelectedButton style='margin-left:10px'>Delete Selected");
-        $('#deleteSelectedButton')[0].onclick=deleteSelected;
-        
+        $('#renderSelectedButton')[0].onclick = renderSelectedInitial;
+        $('#deleteSelectedButton')[0].onclick = deleteSelected;
+
+        // Template row that other rows will clone and populate with their own information.
+        var cloneRow = $('#replayList div.replayRow.clone:first').clone(true);
+        cloneRow.removeClass('clone');
         console.log(replayList);
+        // Populate rows
         for(dat in replayList) {
           thisReplay = replayList[dat]
-          $('#replayListBox').append("<p><input type=checkbox id="+thisReplay+"SelectedCheckbox style='margin-left:20px'>")
-          $('#'+thisReplay+'SelectedCheckbox').after("<a id="+thisReplay+" href=# style='margin-left:5px margin-right:10px'>"+thisReplay.replace(/DATE.*/,'')+"</a>") 
-          $('#'+thisReplay)[0].onclick = function() {
-            exitMenu()
-            console.log('sending data request for '+this.id)
-            sessionStorage.setItem('currentReplay', this.id)
-            chrome.runtime.sendMessage({method:'requestData',fileName:this.id})
-          }
-          ms = +thisReplay.replace('replays','').replace(/.*DATE/,'')
-          date = new Date(ms)
-          datevalue = date.toDateString() +' '+ date.toLocaleTimeString().replace(/:.?.? /g, ' ')
-          $('#'+thisReplay)[0].title = datevalue
-          
+          var newRow = cloneRow.clone(true);
+          newRow.data("replay", thisReplay);
+          newRow.attr("id", thisReplay);
+          // Set playback link text
+          newRow.children('a.playback-link').text(thisReplay.replace(/DATE.*/,''));
+
+          ms = +thisReplay.replace('replays','').replace(/.*DATE/,'');
+          date = new Date(ms);
+          datevalue = date.toDateString() +' '+ date.toLocaleTimeString().replace(/:.?.? /g, ' ');
+          newRow.children('a.playback-link').title = datevalue;
           
           if(positionFileIsRendered(thisReplay, movieNames)) {
-            $('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:10px'>✓")
-            $('#'+thisReplay+"Rendered")[0].style.color="white" //"#00FF00"
-          } else {
-            $('#'+thisReplay).after("<txt id="+thisReplay+"Rendered style='margin-right:16px'> ")
+            newRow.children('.rendered-check').text('✓');
+            newRow.children('.rendered-check').css('margin-right', '10px');
           }
 
-          $('#'+thisReplay+'Rendered').after('<button id='+thisReplay+'DownloadMovieButton style="margin-left:5px">Download Movie')
-          $('#'+thisReplay+'DownloadMovieButton')[0].onclick = function() {
-              fileNameToDownload = this.id.replace('DownloadMovieButton','')
-              console.log('asking background script to download video for '+fileNameToDownload)
-              chrome.runtime.sendMessage({method:'downloadMovie', name:fileNameToDownload})
-          }
           if(!positionFileIsRendered(thisReplay, movieNames)) {
-            $('#'+thisReplay+'DownloadMovieButton')[0].disabled = true
+            newRow.children('.download-movie-button')[0].disabled = true
           }
-        
-          $('#'+thisReplay+'DownloadMovieButton').after('<button id='+thisReplay+'DownloadButton style="margin-left:5px">Download Raw Data')
-          $('#'+thisReplay+'DownloadButton')[0].onclick = function(){
-            fileNameToDownload = this.id.replace('DownloadButton','')
-            console.log('requesting '+fileNameToDownload)
-            chrome.runtime.sendMessage({method:'requestDataForDownload',fileName:fileNameToDownload})
-          }
-          $('#'+thisReplay+'DownloadButton').after('<button id='+thisReplay+'RenameButton style="margin-left:5px">Rename')
-          $('#'+thisReplay+'RenameButton')[0].onclick = function() {
-            fileNameToRename = this.id.replace('RenameButton','')
-            datePortion = this.id.replace(/.*DATE/,'').replace('replays','').replace('RenameButton','')
-            newName = prompt('How would you like to rename '+this.id.replace(/DATE.*/,'').replace('RenameButton',''))
-            if(newName != null) {
-              newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi,'')+"DATE"+datePortion
-              console.log('requesting to rename from '+fileNameToRename+' to '+newName)
-              chrome.runtime.sendMessage({method:'requestFileRename',oldName:fileNameToRename, newName:newName})
-            }
-          }  
-        
-          $('#'+thisReplay+'RenameButton').after('<txt id='+thisReplay+'Date style="margin-left:5px">'+datevalue)
+
+          newRow.children('.replay-date').text(datevalue);
+          $('#replayList').append(newRow);
         }
-        GOODMARGIN = 0
-        for(dat in replayList) {
-          thisReplay = replayList[dat]
-          if($('#'+thisReplay).width() > GOODMARGIN) {
-            GOODMARGIN = $('#'+thisReplay).width()
-          }
-        }
-        for(dat in replayList) {
-          thisReplay = replayList[dat]
-          $('#'+thisReplay).css({
-            'margin-right': (GOODMARGIN - $('#'+thisReplay).width() + 20)+'px',
-            'margin-left': '20px'
+
+        // Replay row element click handlers
+        $('#replayList .playback-link').click(function() {
+          var replayRow = $(this).closest('div');
+          var replayId = replayRow.data("replay");
+          exitMenu()
+          console.log('sending data request for ' + replayId);
+          sessionStorage.setItem('currentReplay', replayId);
+          chrome.runtime.sendMessage({
+            method: 'requestData',
+            fileName: replayId
           });
-        }
+        });
+
+        $('#replayList .download-movie-button').click(function() {
+          var replayRow = $(this).closest('div');
+          var replayId = replayRow.data("replay");
+          fileNameToDownload = replayId;
+          console.log('asking background script to download video for '+ fileNameToDownload)
+          chrome.runtime.sendMessage({
+            method: 'downloadMovie',
+            name: fileNameToDownload
+          });
+        });
+
+        $('.download-button').click(function() {
+          var replayRow = $(this).closest('div');
+          var replayId = replayRow.data("replay");
+          fileNameToDownload = replayId;
+          console.log('requesting ' + fileNameToDownload);
+          chrome.runtime.sendMessage({
+            method: 'requestDataForDownload',
+            fileName: fileNameToDownload
+          });
+        });
+
+        $('.rename-button').click(function() {
+          var replayRow = $(this).closest('div');
+          var replayId = replayRow.data("replay");
+          fileNameToRename = replayId;
+          datePortion = fileNameToRename.replace(/.*DATE/,'').replace('replays','');
+          newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/,''));
+          if(newName != null) {
+            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi,'')+"DATE"+datePortion;
+            console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+            chrome.runtime.sendMessage({
+              method: 'requestFileRename',
+              oldName: fileNameToRename,
+              newName: newName
+            });
+          }
+        });
+
+        GOODMARGIN = 0
+        $('.playback-link').each(function() {
+          if($(this).width() > GOODMARGIN) {
+            GOODMARGIN = $(this).width();
+          }
+        });
+
+        $('.playback-link').each(function() {
+          $(this).css('margin-right', (GOODMARGIN - $(this).width() + 20) + 'px');
+        });
       }
     }
 
@@ -344,10 +379,10 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     alert('Download failed. Most likely you haven\'t rendered that movie yet.')
   } else if(message.method == "progressBarCreate") {
     // CREATE PROGRESS BAR AND GREY OUT BUTTONS
-    $('#'+message.name+'Rendered').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
+    $('#'+message.name+' .rendered-check').after('<progress id='+message.name+'ProgressBar style="margin-left:5px">')
     $('#'+message.name+'ProgressBar').width(100)
     $('#'+message.name+'ProgressBar').css({'margin-right' : '5px'})
-    $('#'+message.name+'DownloadMovieButton').remove()
+    $('#'+message.name+' .download-movie-button').remove()
     greyButtons()
     console.log('got request to create progress Bar for '+message.name)
   } else if(message.method == "progressBarUpdate") {

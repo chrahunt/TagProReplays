@@ -1,5 +1,24 @@
 <img id="background">
-<div id="replayListBox"></div>
+<div id="replayListBox">
+    <div id="noReplays">
+        <p><a>You don't have any replays saved. Go record some!</a></p>
+    </div>
+    <div id="multiButtons">
+        <button id="renderSelectedButton">Render Selected</button>
+        <button id="deleteSelectedButton" style="margin-left:10px">Delete Selected</button>
+    </div>
+    <div id="replayList">
+        <div class="replayRow clone">
+            <input type="checkbox" class="selected-checkbox">
+            <a class="playback-link" href="#"></a>
+            <txt class="rendered-check"></txt>
+            <button class="download-movie-button" disabled="">Download Movie</button>
+            <button class="download-button">Download Raw Data</button>
+            <button class="rename-button">Rename</button>
+            <txt class="replay-date"></txt>
+        </div>
+    </div>
+</div>
 <div id="backgroundBorder"></div>
 <div id="titleBox">
     <txt id="titleText">TagPro Replays Menu</txt>
