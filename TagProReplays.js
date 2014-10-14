@@ -92,8 +92,7 @@ function openReplayMenu() {
 
   if($('#menuContainer').length) {
     // Menu already exists, update replay list and show.
-    // Remove previously-created replay rows.
-    $('.replayRow').not('.clone').remove();
+    $('#menuContainer').hide();
     getListData();
     $('#menuContainer').fadeIn();
   } else {
@@ -114,12 +113,14 @@ function openReplayMenu() {
 
       // Save form fields and close menu.
       exitMenu = function() {
+        // Save form fields
         fpsInputValue = $('#fpsInput')[0].value
         durationInputValue = $('#durationInput')[0].value
         recordInputValue = $('#recordCheckbox')[0].checked
         useTexturesInputValue = $('#useTextureCheckbox')[0].checked
         useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
         useSplatsValue = $('#useSplatsCheckbox')[0].checked
+        // Set cookies for replayRecording
         if(!isNaN(fpsInputValue) & fpsInputValue!="") {
           setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
         }
@@ -130,14 +131,14 @@ function openReplayMenu() {
         setCookie('useTextures', useTexturesInputValue, cookieDomain)
         setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
         setCookie('useSplats', useSplatsValue, cookieDomain)
+
+        // Hide menu and remove replayRows
         $("#menuContainer").fadeOut()
+        $('.replayRow').not('.clone').remove();
         
         chrome.runtime.sendMessage({
           method:'cleanRenderedReplays'
-        }); 
-        /*setTimeout(function() {
-          $("#menuContainer").fadeOut()
-        },500);*/
+        });
       }
 
       $('#exitButton')[0].onclick = exitMenu;
@@ -258,7 +259,7 @@ function openReplayMenu() {
           }
 
           // Replay row element click handlers
-          $('#replayList .playback-link').click(function() {
+          $('.replayRow:not(.clone) .playback-link').click(function() {
             var replayRow = $(this).closest('div');
             var replayId = replayRow.data("replay");
             exitMenu()
@@ -270,7 +271,7 @@ function openReplayMenu() {
             });
           });
 
-          $('#replayList .download-movie-button').click(function() {
+          $('.replayRow:not(.clone) .download-movie-button').click(function() {
             var replayRow = $(this).closest('div');
             var replayId = replayRow.data("replay");
             fileNameToDownload = replayId;
@@ -281,7 +282,7 @@ function openReplayMenu() {
             });
           });
 
-          $('.download-button').click(function() {
+          $('.replayRow:not(.clone) .download-button').click(function() {
             var replayRow = $(this).closest('div');
             var replayId = replayRow.data("replay");
             fileNameToDownload = replayId;
@@ -292,7 +293,7 @@ function openReplayMenu() {
             });
           });
 
-          $('.rename-button').click(function() {
+          $('.replayRow:not(.clone) .rename-button').click(function() {
             var replayRow = $(this).closest('div');
             var replayId = replayRow.data("replay");
             fileNameToRename = replayId;
