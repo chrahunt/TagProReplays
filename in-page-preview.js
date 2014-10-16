@@ -1,6 +1,8 @@
 // Create and display UI for in-browser preview.
 function createReplay(positions) {  
+  // Initialize values
   thisI = 0
+  // Get player that corresponds to recording user ball.
   for(j in positions) {
     if(positions[j].me == 'me') {
       me = j
@@ -8,6 +10,7 @@ function createReplay(positions) {
   }
   tileSize = 40
   
+  // Canvas for main display
   can = document.createElement('canvas')
   can.id = 'mapCanvas'
   can.width = 30*tileSize
@@ -31,6 +34,7 @@ function createReplay(positions) {
   img.src = 'images/tiles.png'
   img.id = 'tiles'
   img = document.body.appendChild(img)
+  // Get map image and draw initial replay image
   img.onload = function() {
     mapImgData = drawMap(0, 0, positions)
     mapImg = new Image()
@@ -174,6 +178,7 @@ function createReplay(positions) {
   /////     Playback buttons     /////
   ////////////////////////////////////
   
+  // Start replay animation.
   function updateMap(mapImg) {
     thingy = setInterval(function() {
       if(thisI == positions.clock.length - 1) {
