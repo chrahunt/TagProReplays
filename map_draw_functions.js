@@ -109,7 +109,7 @@ function drawPowerups(ball, ballx, bally, positions) {
 							  tileSize)
 		}
 		if(positions[ball].bomb[thisI] == true) {
-			if(thisI % (positions[ball].fps/6) == 0) {
+			if(Math.round(Math.random() * 4) == 1) {
 				context.drawImage(rollingbombImg,
 				                  0,
 				                  0,
