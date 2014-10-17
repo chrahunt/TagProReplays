@@ -25,13 +25,16 @@
               </tr>
             </thead>
           </table>
+          <div id="noReplays" class="text-center">
+            <p>You don't have any replays saved. Go record some!</p>
+          </div>
           <div id="replayList">
             <table class="table table-condensed">
               <tbody>
                 <tr class="replayRow clone">
                   <td class="text-right"><input type="checkbox" class="selected-checkbox"></td>
                   <td class="col-sm-3"><a class="playback-link" href="#"></a></td>
-                  <td class="col-sm-1"><txt class="rendered-check"></txt></td>
+                  <td class="col-sm-1"><div class="rendered-check"></div></td>
                   <td class="col-sm-2"><txt class="replay-date"></txt></td>
                   <td class="col-sm-1"><button class="download-movie-button">Download</button></td>
                   <td class="col-sm-1"><button class="download-button">Download</button></td>
@@ -111,7 +114,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary">Save changes</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsButton">Save changes</button>
       </div>
     </div>
   </div>

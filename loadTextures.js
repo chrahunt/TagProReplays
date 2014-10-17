@@ -42,8 +42,8 @@ saveTextureSettings = function() {
     });
   
     // do 'saved' animation now
-    $('#textureSaveFeedback').fadeIn()
-    $('#textureSaveFeedback').fadeOut()
+    //$('#textureSaveFeedback').fadeIn()
+    //$('#textureSaveFeedback').fadeOut()
   }, 100)
 }
 

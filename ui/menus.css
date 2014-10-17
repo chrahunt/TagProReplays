@@ -49,3 +49,19 @@
   margin-bottom: 0px;
   text-align: right;
 }
+
+#tpr-container #noReplays {
+  display: none;
+}
+
+#tpr-container .rendered-check {
+  text-align: center;
+}
+
+#tpr-container .progressbar {
+  width: 100%;
+}
+
+#tpr-container button:disabled {
+ color: #BBB;
+}
