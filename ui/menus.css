@@ -1,0 +1,51 @@
+#tpr-container {
+  color: #333;
+}
+
+#tpr-container #replays table {
+  table-layout: fixed;
+  margin-bottom: 0;
+}
+
+#tpr-container #replayList {
+  overflow-y: auto;
+}
+
+#tpr-container #replay-headers th {
+  text-align: center;
+}
+
+#tpr-container .clone {
+  display: none;
+}
+
+#tpr-container .replayRow td:first-of-type, #replay-headers th:first-of-type {
+  width: 4%;
+}
+
+#tpr-container #tpr-settings {
+  font-size: 24px;
+  color: #999;
+}
+
+#tpr-container #tpr-settings:hover {
+  color: #222;
+}
+
+#tpr-container .input-xs {
+  height: 22px;
+  padding: 5px 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 3px;
+}
+
+#tpr-container .narrow-input {
+  width: 45px !important;
+}
+
+#tpr-container .control-label-sm {
+  padding-top: 0px;
+  margin-bottom: 0px;
+  text-align: right;
+}

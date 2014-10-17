@@ -29,7 +29,9 @@
         "TagProReplays.js",
         "in-page-preview.js",
         "loadTextures.js",
-        "recordKeyFunctions.js"
+        "recordKeyFunctions.js",
+        "ui/bootstrap.min.js",
+        "ui/jquery.scoped.js"
       ],
       "run_at": "document_end"
     }
@@ -50,6 +52,15 @@
     "ui/_texture.html",
     "ui/_texture.css",
     "ui/_recordkey.html",
-    "ui/_recordkey.css"
+    "ui/_recordkey.css",
+    "ui/menus.css",
+    "ui/menus.html",
+    "ui/menus.js",
+    "ui/bootstrap.min.css",
+    "ui/bootstrap.css",
+    "ui/glyphicons-halflings-regular.eot",
+    "ui/glyphicons-halflings-regular.svg",
+    "ui/glyphicons-halflings-regular.ttf",
+    "ui/glyphicons-halflings-regular.woff"
   ]
 }
