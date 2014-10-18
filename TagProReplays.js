@@ -154,6 +154,7 @@ function createMenu() {
       }
       $('#useTextureCheckbox')[0].checked = (useTexturesValue === 'true');
       $('#useSplatsCheckbox')[0].checked = (useSplatsValue === 'true');
+      $('#recordCheckbox')[0].checked = (recordValue === 'true');
     }
 
     $('#settingsContainer').on('show.bs.modal', setSettings);
