@@ -102,7 +102,9 @@ function createMenu() {
       durationInputValue = $('#durationInput')[0].value
       recordInputValue = $('#recordCheckbox')[0].checked
       useTexturesInputValue = $('#useTextureCheckbox')[0].checked
-      //useRecordKeyValue = $('#recordKeyCheckbox')[0].checked
+      useRecordKeyValue = $('#recordKeyChooserInput').data('record');
+      console.log("Use record key value: " + useRecordKeyValue);
+      currentRecordKey = $('#recordKeyChooserInput').text();
       useSplatsValue = $('#useSplatsCheckbox')[0].checked
       // Set cookies for replayRecording
       if(!isNaN(fpsInputValue) & fpsInputValue!="") {
@@ -113,7 +115,10 @@ function createMenu() {
       }
       setCookie('record', recordInputValue, cookieDomain)
       setCookie('useTextures', useTexturesInputValue, cookieDomain)
-      //setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
+      setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
+      if(currentRecordKey !== 'None') {
+        setCookie('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain)
+      }
       setCookie('useSplats', useSplatsValue, cookieDomain)
       
       chrome.runtime.sendMessage({
@@ -130,16 +135,25 @@ function createMenu() {
       fpsValue = (!readCookie('fps')) ? "30" : readCookie('fps');
       durationValue = (!readCookie('duration')) ? "30" : readCookie('duration');
       recordValue = (!readCookie('record')) ? 'true' : readCookie('record');
+      // Record key default is '/'
+      replayRecordKey = (!readCookie('replayRecordKey')) ? 47 : readCookie('replayRecordKey');
       useTexturesValue = (!readCookie('useTextures')) ? 'false' : readCookie('useTextures');
-      //useRecordKeyValue = (!readCookie('useRecordKey')) ? 'false' : readCookie('useRecordKey');
+      useRecordKeyValue = (!readCookie('useRecordKey')) ? 'false' : readCookie('useRecordKey');
       useSplatsValue = (!readCookie('useSplats')) ? 'false' : readCookie('useSplats');
       
       $('#fpsInput')[0].value=(!isNaN(fpsValue) & fpsValue!="") ? fpsValue : 30;
       $('#durationInput')[0].value=(!isNaN(durationValue) & durationValue!="") ? durationValue : 30;
-      $('#recordCheckbox')[0].checked = eval(recordValue);
-      $('#useTextureCheckbox')[0].checked = eval(useTexturesValue);
-      //$('#recordKeyCheckbox').checked = eval(useRecordKeyValue);
-      $('#useSplatsCheckbox')[0].checked = eval(useSplatsValue);
+      if(useRecordKeyValue === 'true') {
+        $('#recordKeyChooserInput').text(String.fromCharCode(replayRecordKey));
+        $('#recordKeyChooserInput').data('record', true);
+        $('#record-key-remove').show();
+      } else {
+        $('#recordKeyChooserInput').text('None');
+        $('#recordKeyChooserInput').data('record', false);
+        $('#record-key-remove').hide();
+      }
+      $('#useTextureCheckbox')[0].checked = (useTexturesValue === 'true');
+      $('#useSplatsCheckbox')[0].checked = (useSplatsValue === 'true');
     }
 
     $('#settingsContainer').on('show.bs.modal', setSettings);
@@ -324,6 +338,42 @@ function createMenu() {
     $('#textureSaveButton').click(function() {
       saveTextureSettings();
       $('#textureContainer').modal('hide');
+    });
+
+    // Record key functionality.
+    keyListener = function(e) {
+      currentRecordKey = e.which
+      $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
+      $('#recordKeyChooserInput').data('record', true);
+      $('#record-key-remove').show();
+      stopInputting();
+    }
+
+    // Stop input
+    stopInputting = function() {
+      $('#record-key-input-container').removeClass('focused');
+      $(document).off("keypress", keyListener);
+    }
+
+    $('#record-key-input-container').click(function(e) {
+      console.log("target: "+e.target);
+      console.log("test");
+      $(this).addClass('focused');
+      $(document).on("keypress", keyListener)
+    });
+
+    $('#record-key-remove').click(function(e) {
+      e.stopPropagation();
+      $('#recordKeyChooserInput').data('record', false);
+      $('#recordKeyChooserInput').text('None');
+      $('#record-key-remove').hide();
+      return false;
+    });
+
+    $(document).click(function(e) {
+      if(!$(e.target).parents().andSelf().is('#record-key-input-container')) {
+        stopInputting();
+      }
     });
   }); /* end load */
 }
