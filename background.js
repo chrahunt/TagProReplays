@@ -493,10 +493,13 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   } else if(message.method == 'setTextureData') {
   	console.log('got request to save texture image files')
   	saveTextures(JSON.parse(message.textureData))
-  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-  		tabNum = tabs[0].id
-		chrome.tabs.sendMessage(tabNum, {method:"textureSaveConfirmation"})
-  	})
+  	/*chrome.tabs.query({
+  		active: true,
+  		currentWindow: true
+  	}, function(tabs) {
+  		tabNum = tabs[0].id;
+			chrome.tabs.sendMessage(tabNum, { method:"textureSaveConfirmation" });
+  	});*/
   } else if(message.method == 'cleanRenderedReplays') {
   	console.log('got request to clean rendered replays')
   	getCurrentReplaysForCleaning()

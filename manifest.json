@@ -29,7 +29,6 @@
         "TagProReplays.js",
         "in-page-preview.js",
         "loadTextures.js",
-        "recordKeyFunctions.js",
         "ui/bootstrap.min.js"
       ],
       "run_at": "document_end"
