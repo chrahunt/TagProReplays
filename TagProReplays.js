@@ -158,6 +158,9 @@ function createMenu() {
     }
 
     $('#settingsContainer').on('show.bs.modal', setSettings);
+    // Set settings so other areas that use the settings directly from the
+    // elements will work properly.
+    setSettings();
 
     // Update list of replays when menu is opened.
     $('#menuContainer').on('show.bs.modal', function() {
