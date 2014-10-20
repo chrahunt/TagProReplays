@@ -289,7 +289,8 @@ function createMenu() {
           $('#replayList tbody').append(newRow);
         }
 
-        // Set replay row element click handlers
+        // Set replay row element click handlers.
+        // Set handler for in-browser-preview link.
         $('.replayRow:not(.clone) .playback-link').click(function() {
           var replayId = getReplayId(this);
           $('#menuContainer').modal('hide');
@@ -301,6 +302,7 @@ function createMenu() {
           });
         });
 
+        // Set handler for movie download button.
         $('.replayRow:not(.clone) .download-movie-button').click(function() {
           var replayId = getReplayId(this);
           fileNameToDownload = replayId;
@@ -311,6 +313,7 @@ function createMenu() {
           });
         });
 
+        // Set handler for raw data download button.
         $('.replayRow:not(.clone) .download-button').click(function() {
           var replayId = getReplayId(this);
           fileNameToDownload = replayId;
@@ -321,6 +324,7 @@ function createMenu() {
           });
         });
 
+        // Set handler for rename button.
         $('.replayRow:not(.clone) .rename-button').click(function() {
           var replayId = getReplayId(this);
           fileNameToRename = replayId;
@@ -336,6 +340,26 @@ function createMenu() {
             });
           }
         });
+
+        // Automatic height adjustment for replay list.
+        $('#menuContainer .modal-dialog').data(
+          'original-height',
+          $('#menuContainer .modal-dialog').height()
+        );
+
+        setReplayListHeight = function() {
+          if($('#menuContainer .modal-dialog').data('original-height') > $(window).height()) {
+            var setHeight = false;
+            var newHeight = 185;
+            if($(window).height() > 500) {
+              newHeight = $(window).height() - 315;
+            }
+            $('#replayList').height(newHeight);
+          }
+        }
+
+        $(window).resize(setReplayListHeight);
+        setReplayListHeight();
       }
     }
 
@@ -353,7 +377,6 @@ function createMenu() {
       stopInputting();
     }
 
-    // Stop input
     stopInputting = function() {
       $('#record-key-input-container').removeClass('focused');
       $(document).off("keypress", keyListener);
@@ -379,7 +402,7 @@ function createMenu() {
         stopInputting();
       }
     });
-  }); /* end load */
+  }); /* end menu load */
 }
 
 // Function to set UI titles.
@@ -461,8 +484,8 @@ function saveData(name, data) {
 
 // This is an easy method wrapper to dispatch events
 function emit(event, data){
-   var e = new CustomEvent(event, {detail: data});
-   window.dispatchEvent(e);
+  var e = new CustomEvent(event, {detail: data});
+  window.dispatchEvent(e);
 }
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
