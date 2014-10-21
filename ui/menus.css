@@ -81,3 +81,7 @@
   margin-top: 1px;
   display: none;
 }
+
+#tpr-container .hidden-file-input {
+  display: none;
+}

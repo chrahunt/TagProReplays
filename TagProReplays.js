@@ -402,6 +402,69 @@ function createMenu() {
         stopInputting();
       }
     });
+
+    // Raw data import functionality.
+    /*
+     * Test a raw TagPro Replays data file for integrity and add to
+     * replays.
+     * fileData  the file data as read from the file input
+     * fileName  [optional]  the name of the file as it will appear in
+     *   the replay list.
+     */
+    rawParse = function(fileData, fileName) {
+      try {
+        var parsedData = JSON.parse(fileData);
+      } catch(err) {
+        alert('The file you uploaded was not a valid TagPro Replays raw file.');
+        return;
+      }
+
+      // Test for necessary replay parts.
+      if(!parsedData.tiles | !parsedData.clock | !parsedData.floorTiles | !parsedData.map | !parsedData.wallMap) {
+        alert('The file you uploaded was not a valid TagPro Replays raw file.');
+      } else {
+        var message = {
+          method: 'setPositionData',
+          positionData: fileData
+        }
+
+        if (typeof fileName === 'undefined') {
+          console.log('undefined file name');
+          chrome.runtime.sendMessage({
+            method: 'setPositionData',
+            positionData: fileData
+          });
+        } else {
+          console.log('defined file name');
+          chrome.runtime.sendMessage({
+            method: 'setPositionData',
+            positionData: fileData,
+            newName: fileName
+          });
+        }
+      }
+    }
+    // Visible button invokes the actual file input.
+    $('#raw-upload-button').click(function(e) {
+      // Empty file input so change listener is invoked even if same
+      // file is selected.
+      $('#raw-upload').val('');
+      $('#raw-upload').click();
+      e.preventDefault();
+    });
+    $('#raw-upload').attr('accept', '.txt');
+    $('#raw-upload').change(function() {
+      var files = $(this).prop('files');
+      if(files.length > 0) {
+        var rawFileReader = new FileReader();
+        var newFileName = files[0].name.replace(/\.txt$/, '');
+        console.log(newFileName);
+        rawFileReader.onload = function(e) {
+          rawParse(e.target.result, newFileName);
+        }
+        rawFileReader.readAsText(files[0]);
+      }
+    });
   }); /* end menu load */
 }
 
