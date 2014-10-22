@@ -341,6 +341,7 @@ function createMenu() {
           }
         });
 
+        $('#replayList').height('auto');
         // Automatic height adjustment for replay list.
         $('#menuContainer .modal-dialog').data(
           'original-height',
@@ -361,7 +362,7 @@ function createMenu() {
         $(window).resize(setReplayListHeight);
         setReplayListHeight();
       }
-    }
+    } /* end populateList */
 
     $('#textureSaveButton').click(function() {
       saveTextureSettings();
