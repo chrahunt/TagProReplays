@@ -1,34 +1,40 @@
 {   
-	"name": "TagProReplays",
-  	"description": "Save Replays from within TagPro Games",
-  	"version": "0.2.11",
-	"manifest_version": 2,
-		"background" : {
-    "scripts": ["background.js",
-             "map_draw_functions.js",
-			 "createFileSystem.js",
-             "whammy.js",
-             "jquery.js"
-             ],
+  "name": "TagProReplays",
+  "description": "Save Replays from within TagPro Games",
+  "version": "0.2.11",
+  "manifest_version": 2,
+  "background": {
+    "scripts": [
+      "background.js",
+      "map_draw_functions.js",
+      "createFileSystem.js",
+      "whammy.js",
+      "jquery.js"
+    ],
     "persistent":true
-},
-"permissions": [
+  },
+  "permissions": [
     "storage",
     "unlimitedStorage"
-],
-"content_scripts": [
+  ],
+  "content_scripts": [
     {
-      "matches": ["http://*.koalabeast.com/*"],
-      "js": ["jquery.js",
-        	 "map_draw_functions.js",
-             "TagProReplays.js",
-             "in-page-preview.js",
-             "loadTextures.js",
-             "recordKeyFunctions.js"],
+      "matches": [
+        "http://*.koalabeast.com/*",
+        "http://*.newcompte.fr/*"
+      ],
+      "js": [
+        "jquery.js",
+        "map_draw_functions.js",
+        "TagProReplays.js",
+        "in-page-preview.js",
+        "loadTextures.js",
+        "ui/bootstrap.min.js"
+      ],
       "run_at": "document_end"
     }
-],
-"web_accessible_resources": [
+  ],
+  "web_accessible_resources": [
     "replayRecording.js",
     "tiles.png",
     "portal.png",
@@ -38,6 +44,21 @@
     "tagpro.png",
     "rollingbomb.png",
     "splats.png",
-    "flair.png"
+    "flair.png",
+    "ui/_menu.html",
+    "ui/_menu.css",
+    "ui/_texture.html",
+    "ui/_texture.css",
+    "ui/_recordkey.html",
+    "ui/_recordkey.css",
+    "ui/menus.css",
+    "ui/menus.html",
+    "ui/menus.js",
+    "ui/bootstrap.min.css",
+    "ui/bootstrap.css",
+    "ui/glyphicons-halflings-regular.eot",
+    "ui/glyphicons-halflings-regular.svg",
+    "ui/glyphicons-halflings-regular.ttf",
+    "ui/glyphicons-halflings-regular.woff"
   ]
 }

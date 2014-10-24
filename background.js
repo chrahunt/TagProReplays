@@ -136,7 +136,7 @@ function renderVideo(positions, name, useSplats, lastOne, replaysToRender, repla
 //   It also gets the list of names of rendered movies
 //   It sends a message to the content script once it gets the keys and movie names
 function listItems() {
-	allKeys = []
+	var allKeys = []
 	var transaction = db.transaction(["positions"], "readonly");
 	var store = transaction.objectStore("positions");
 	var request = store.openCursor(null);
@@ -153,7 +153,7 @@ function listItems() {
 // this function gets all positions keys in object store
 //   it then cleans out filesystem of any rendered replay that isn't in indexedDB object store
 function getCurrentReplaysForCleaning() {
-	allKeys = []
+	var allKeys = []
 	var transaction = db.transaction(["positions"], "readonly");
 	var store = transaction.objectStore("positions");
 	var request = store.openCursor(null);
@@ -493,10 +493,13 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
   } else if(message.method == 'setTextureData') {
   	console.log('got request to save texture image files')
   	saveTextures(JSON.parse(message.textureData))
-  	chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-  		tabNum = tabs[0].id
-		chrome.tabs.sendMessage(tabNum, {method:"textureSaveConfirmation"})
-  	})
+  	/*chrome.tabs.query({
+  		active: true,
+  		currentWindow: true
+  	}, function(tabs) {
+  		tabNum = tabs[0].id;
+			chrome.tabs.sendMessage(tabNum, { method:"textureSaveConfirmation" });
+  	});*/
   } else if(message.method == 'cleanRenderedReplays') {
   	console.log('got request to clean rendered replays')
   	getCurrentReplaysForCleaning()
