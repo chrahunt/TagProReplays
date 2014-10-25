@@ -239,6 +239,7 @@ function drawFlag(ball, ballx, bally, positions) {
 function drawMap(posx, posy, positions) {
 	newcan = document.createElement('canvas')
 	newcan.id = 'newCanvas'
+	newcan.style.display = 'none'
 	document.body.appendChild(newcan)
 	newcan = document.getElementById('newCanvas')
 	newcan.width = positions.map.length*tileSize
@@ -735,7 +736,7 @@ function animateReplay(thisI, positions, mapImg) {
 					  posx, 
 					  posy,
 					  mapImg.width, mapImg.height)
-	if(localStorage.getItem('useSplats') == 'true' || readCookie('useSplats') == 'true') { drawSplats(positions) } else {console.log('nope')}
+	if(localStorage.getItem('useSplats') == 'true' || readCookie('useSplats') == 'true') { drawSplats(positions) } 
 	drawFloorTiles(positions)
 	drawSpawns(positions)
 	drawBalls(positions)
