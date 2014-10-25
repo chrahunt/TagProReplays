@@ -230,7 +230,12 @@ function drawFlag(ball, ballx, bally, positions) {
 		}
 }
 
-
+/**
+ * Takes in the replay data and returns a DataURL (png) representing the map.
+ * posx - offset of actual map image from left side of generated image
+ * posy - offset of actual map image from top of generated image
+ * positions - replay data
+ */
 function drawMap(posx, posy, positions) {
 	newcan = document.createElement('canvas')
 	newcan.id = 'newCanvas'
@@ -712,6 +717,12 @@ function drawBalls(positions) {
 	}
 }
 
+/**
+ * Edit mapCanvas to reflect the replay at the given frame.
+ * thisI - frame of replay
+ * positions - replay data
+ * mapImg - html img element reflecting the image of the map
+ */
 function animateReplay(thisI, positions, mapImg) {
 	for(j in positions) {
 		if(positions[j].me == 'me') {

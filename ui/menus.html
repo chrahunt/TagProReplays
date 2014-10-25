@@ -1,0 +1,169 @@
+<!-- Main Menu -->
+<div class="modal fade" id="menuContainer">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">TagPro Replays</h4>
+      </div>
+      <div class="modal-body">
+        <div>
+          <a class="pull-right" id="tpr-settings" data-toggle="modal" data-target="#settingsContainer"><span class="glyphicon glyphicon-cog"></span></a>
+          <h3>Available Replays</h3>
+        </div>
+        <div id="replays">
+          <table class="table table-condensed" id="replay-headers">
+            <thead>
+              <tr>
+                <th></th>
+                <th class="col-sm-3">Name</th>
+                <th class="col-sm-1">Rendered</th>
+                <th class="col-sm-2">Date</th>
+                <th class="col-sm-1">Movie</th>
+                <th class="col-sm-1">Raw Data</th>
+                <th class="col-sm-1"></th>
+              </tr>
+            </thead>
+          </table>
+          <div id="noReplays" class="text-center">
+            <p>You don't have any replays saved. Go record some!</p>
+          </div>
+          <div id="replayList">
+            <table class="table table-condensed">
+              <tbody>
+                <tr class="replayRow clone">
+                  <td class="text-right"><input type="checkbox" class="selected-checkbox"></td>
+                  <td class="col-sm-3"><a class="playback-link" href="#"></a></td>
+                  <td class="col-sm-1"><div class="rendered-check"></div></td>
+                  <td class="col-sm-2"><txt class="replay-date"></txt></td>
+                  <td class="col-sm-1"><button class="download-movie-button">Download</button></td>
+                  <td class="col-sm-1"><button class="download-button">Download</button></td>
+                  <td class="col-sm-1"><button class="rename-button">Rename</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>              
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="pull-left">
+          <button type="button" class="btn btn-danger" id="deleteSelectedButton">Delete Selected</button>
+          <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
+        </div>
+        <div class="pull-right">
+          <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
+          <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Settings -->
+<div class="modal fade" id="settingsContainer">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">TagPro Replays</h4>
+      </div>
+      <div class="modal-body">
+        <h3>Settings</h3>
+        <div class="row form-horizontal" id="settings-form">
+          <div class="col-sm-12 text-center">
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="recordCheckbox"> Extension Enabled
+              </label>
+            </div>
+          </div>
+          <div class="col-sm-6 text-center">
+            <h4>Recording</h4>
+            <div class="form-group">
+              <label for="fpsInput" class="control-label-sm col-sm-6">FPS:</label>
+              <div class="col-sm-4">
+                <input type="text" class="form-control input-xs narrow-input" id="fpsInput">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="durationInput" class="control-label-sm col-sm-6">Duration:</label>
+              <div class="col-sm-4">
+                <input type="text" class="form-control input-xs narrow-input" id="durationInput">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="recordKeyChooserInput" class="control-label-sm col-sm-6">Record Key:</label>
+              <div class="col-sm-4">
+                <span class="form-control input-xs narrow-input" id="record-key-input-container">
+                  <span id="recordKeyChooserInput"></span>
+                  <span class="glyphicon glyphicon-remove pull-right" id="record-key-remove"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 text-center">
+            <h4>Rendering</h4>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="useSplatsCheckbox"> Show Splats
+              </label>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-12">
+                <input type="checkbox" id="useTextureCheckbox"> Use Custom Textures
+              </label>
+              <button data-toggle="modal" data-target="#textureContainer">Load Textures</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsButton">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Texture Picker -->
+<div class="modal fade" id="textureContainer">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">TagPro Replays</h4>
+      </div>
+      <div class="modal-body">
+        <h3>Select Texture Files</h3>
+        <div class="form" id="texture-form">
+          <div class="form-group">
+            <label for="tilesInput" class="control-label">Tiles File</label>
+            <input type="file" id="tilesInput">
+          </div>
+          <div class="form-group">
+            <label for="portalInput" class="control-label">Portal File</label>
+            <input type="file" id="portalInput">
+          </div>
+          <div class="form-group">
+            <label for="speedpadInput" class="control-label">Speedpad File</label>
+            <input type="file" id="speedpadInput">
+          </div>
+          <div class="form-group">
+            <label for="speedpadredInput" class="control-label">Red Speedpad File</label>
+            <input type="file" id="speedpadredInput">
+          </div>
+          <div class="form-group">
+            <label for="speedpadblueInput" class="control-label">Blue Speedpad File</label>
+            <input type="file" id="speedpadblueInput">
+          </div>
+          <div class="form-group">
+            <label for="splatsInput" class="control-label">Splats File</label>
+            <input type="file" id="splatsInput">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="textureSaveButton">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
