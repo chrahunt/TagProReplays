@@ -10,6 +10,8 @@ function createReplay(positions) {
 	
 	can = document.createElement('canvas')
 	can.id = 'mapCanvas'
+	can.style.background = 'black'
+	can.style.border = "10px solid white"
 	can.width = 30*tileSize
 	can.height = 18*tileSize
 	can.style.zIndex = 200
@@ -30,6 +32,7 @@ function createReplay(positions) {
 	img = new Image()
 	img.src = 'images/tiles.png'
 	img.id = 'tiles'
+	img.style.display = 'none'
 	img = document.body.appendChild(img)
 	img.onload = function() {
 		mapImgData = drawMap(0, 0, positions)
