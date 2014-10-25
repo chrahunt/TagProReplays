@@ -459,6 +459,9 @@ function createMenu() {
       if(files.length > 0) {
         var rawFileReader = new FileReader();
         var newFileName = files[0].name.replace(/\.txt$/, '');
+        if(newFileName.search('DATE') < 0 & newFileName.search('replays') != 0) {
+        	newFileName += 'DATE'+new Date().getTime()
+        }
         console.log(newFileName);
         rawFileReader.onload = function(e) {
           rawParse(e.target.result, newFileName);
@@ -587,6 +590,7 @@ chrome.runtime.onMessage.addListener(function(message,sender,sendResponse){
     animateReplay(thisI, positions, mapImg)
   } else if(message.method == "dataSetConfirmationFromBG") {
     console.log('got data set confirmation from background script. sending confirmation to injected script.')
+    closeAndReopenMenu();
     emit('positionDataConfirmation',true)
   } else if(message.method == "positionDataForDownload") {
     console.log('got data for download - '+message.fileName)
