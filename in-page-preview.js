@@ -609,8 +609,8 @@ function createReplay(positions) {
     cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length-1))
     cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length-1 : Math.floor(currentCropEnd * (positions.clock.length-1))
     positions2 = cropPositionData(positions, cropStart, cropEnd)
+    stopReplay(true)
     chrome.runtime.sendMessage({method:'setPositionData',positionData:JSON.stringify(positions2)}) 
-    stopReplay(false)
     delete currentCropStart
     delete currentCropEnd
   }
@@ -631,8 +631,8 @@ function createReplay(positions) {
     cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length-1))
     cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length-1 : Math.floor(currentCropEnd * (positions.clock.length-1))
     positions2 = cropPositionData(positions, cropStart, cropEnd)
+	stopReplay(true)
     chrome.runtime.sendMessage({method:'setPositionData',positionData:JSON.stringify(positions2), newName:localStorage.getItem('currentReplayName')}) 
-    stopReplay(false)
     delete currentCropStart
     delete currentCropEnd
   }
