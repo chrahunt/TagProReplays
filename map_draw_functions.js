@@ -677,39 +677,41 @@ function drawBalls(positions) {
 			if(positions[j].dead[thisI] == false) {
 				if(positions[j].draw[thisI] == true) {
 					if(thisI==0 || positions[j].draw[thisI-1] == true) {
-						// what team?
-						if(typeof positions[j].team.length === 'undefined') {
-							thisTeam = positions[j].team
-						} else {
-							thisTeam = positions[j].team[thisI]
-						}
-						context.drawImage(img,																		// image
-							(thisTeam == 1 ? 14:15)*tileSize,														// x coordinate of image
-							0,																						// y coordinate of image
-							tileSize,																				// width of image
-							tileSize,																				// height of image
-							positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,	// destination x coordinate
-							positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2,	// destination y coordinate
-							tileSize,																				// width of destination
-							tileSize)																				// height of destination
+						if((positions[j].dead[thisI-1] == true & positions[j].x[thisI] != positions[j].x[thisI-positions[j].fps]) | positions[j].dead[thisI-1] != true) {
+							// what team?
+							if(typeof positions[j].team.length === 'undefined') {
+								thisTeam = positions[j].team
+							} else {
+								thisTeam = positions[j].team[thisI]
+							}
+							context.drawImage(img,																		// image
+								(thisTeam == 1 ? 14:15)*tileSize,														// x coordinate of image
+								0,																						// y coordinate of image
+								tileSize,																				// width of image
+								tileSize,																				// height of image
+								positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,	// destination x coordinate
+								positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2,	// destination y coordinate
+								tileSize,																				// width of destination
+								tileSize)																				// height of destination
 						
-						drawPowerups(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
-						             positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions)
-						drawFlag(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
-						    	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions) 
-						thisName = (typeof positions[j].name === 'string') ? positions[j].name : positions[j].name[thisI]
-						drawText(thisName, 
-								 positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2 + 30, 
-							 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5,
-				 				 (typeof positions[j].auth != 'undefined') ? positions[j].auth[thisI]:undefined,
-				 				 (typeof positions[j].degree != 'undefined') ? positions[j].degree[thisI]:undefined)
-				 		if(typeof positions[j].flair !== 'undefined') {
-							drawFlair(positions[j].flair[thisI],
-					  				  positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - 16/2, 
-							 	 	  positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 20)
+							drawPowerups(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
+							             positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions)
+							drawFlag(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2,
+							    	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2, positions) 
+							thisName = (typeof positions[j].name === 'string') ? positions[j].name : positions[j].name[thisI]
+							drawText(thisName, 
+									 positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - tileSize/2 + 30, 
+								 	 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 5,
+				 					 (typeof positions[j].auth != 'undefined') ? positions[j].auth[thisI]:undefined,
+				 					 (typeof positions[j].degree != 'undefined') ? positions[j].degree[thisI]:undefined)
+				 			if(typeof positions[j].flair !== 'undefined') {
+								drawFlair(positions[j].flair[thisI],
+					  					  positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width/2 - 16/2, 
+								 	 	  positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height/2 - tileSize/2 - 20)
+							}
+				 			rollingBombPop(positions, j)
 						}
-				 		rollingBombPop(positions, j)
-					}
+					}	
 				}	
 			}
 			ballPop(positions, j)	
