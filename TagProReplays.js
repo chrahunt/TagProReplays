@@ -528,6 +528,11 @@ function openReplayMenu() {
 
 // Function to close and reopen the TagPro Replays menu.
 function closeAndReopenMenu() {
+  // first, clear out saved rendered replays whose raw files have been deleted
+  chrome.runtime.sendMessage({
+  	method:'cleanRenderedReplays'
+  });
+  
   $('#menuContainer').modal('hide');
   // A delay here is necessary otherwise there is an issue with the
   // modal not re-appearing.
