@@ -749,4 +749,3 @@ function animateReplay(thisI, positions, mapImg) {
 	bombPop(positions)
 	drawEndText(positions)
 }
-

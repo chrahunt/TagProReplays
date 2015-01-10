@@ -125,6 +125,7 @@ function recordReplayData() {
 
 function decipherMapdata(mapData, mapElements) {
 	result = []
+	console.log(mapData);
 	for(col in mapData) {
 		result.push([])
 		for(row in mapData[col]) {
@@ -510,8 +511,10 @@ function recordButton() {
 }
 
 if(readCookie('record') != 'false') {
-	var positions = {}
-	recordButton()
-	setTimeout(recordReplayData, 3000)
+	tagpro.ready(function() {
+		positions = {}
+		recordButton()
+		setTimeout(recordReplayData, 3000)
+	})
 }
 
