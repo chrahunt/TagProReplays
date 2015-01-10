@@ -1,4 +1,4 @@
-{   
+{
   "name": "TagProReplays",
   "description": "Save Replays from within TagPro Games",
   "version": "1.0.6",
@@ -11,7 +11,7 @@
       "whammy.js",
       "jquery.js"
     ],
-    "persistent":true
+    "persistent": true
   },
   "permissions": [
     "storage",

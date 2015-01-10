@@ -1,6 +1,4 @@
-
-
-onmessage = function(oEvent) {
-  postMessage(oEvent.data);
+onmessage = function (oEvent) {
+    postMessage(oEvent.data);
 };
 
