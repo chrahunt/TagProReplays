@@ -30,6 +30,7 @@ function recordReplayData() {
     positions.bombs = [];
     positions.spawns = [];
     positions.map = tagpro.map;
+    delete positions.map.splats;
     positions.wallMap = tagpro.wallMap;
     positions.floorTiles = [];
     positions.score = createZeroArray(saveDuration * fps);
@@ -514,11 +515,16 @@ function recordButton() {
     }
 }
 
-if (readCookie('record') != 'false') {
-    tagpro.ready(function () {
-        positions = {}
-        recordButton()
-        setTimeout(recordReplayData, 3000)
-    })
+if(readCookie('record') != 'false') {
+	tagpro.ready(function() {
+		var startInterval = setInterval(function() {
+			if(tagpro.map) {
+				clearInterval(startInterval);
+				positions = {};
+				recordButton();
+				recordReplayData();
+			}
+		}, 1000);
+	})
 }
 
