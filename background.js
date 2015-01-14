@@ -94,10 +94,54 @@ function saveVideoData(name, data) {
     (window.URL || window.webkitURL).revokeObjectURL(a.href);
 }
 
+
+// Function to test integrity of position data before attempting to render
+// Returns false if a vital piece is missing, true if no problems were found
+// CUrrently does not do a very thorough test
+function checkData(positions) {
+	var obs = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
+	obs.forEach(function(ob){
+		if(!positions[ob]) {
+			return(false);
+		}
+	})
+	if(positions.map.length == 0 || positions.wallMap.length == 0 || positions.clock.length == 0) {
+		return(false);
+	}
+	var val = false;
+	Object.keys(positions).forEach(function(key){
+		if(key.search('player')==0){
+			val = true;
+		}
+	})
+	
+	return(val)
+}
+
+
 // Actually does the rendering of the movie 
 function renderVideo(positions, name, useSplats, lastOne, replaysToRender, replayI, tabNum) {
     localStorage.setItem('useSplats', useSplats)
     positions = JSON.parse(positions)
+    
+    // check position data and abort rendering if not good
+    if(!checkData(positions)) {
+    	if (lastOne) {
+        	chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
+    	} else {
+        	chrome.tabs.sendMessage(tabNum, {
+            	method: "movieRenderConfirmationNotLastOne",
+            	replaysToRender: replaysToRender,
+            	replayI: replayI,
+            	tabNum: tabNum,
+            	failure: true,
+            	name:name
+	        })
+    	}
+    	console.log(name+' was a bad positions file. Very bad boy.');
+    	return
+    }
+    
     mapImgData = drawMap(0, 0, positions)
     mapImg = new Image()
     mapImg.src = mapImgData
@@ -121,6 +165,7 @@ function renderVideo(positions, name, useSplats, lastOne, replaysToRender, repla
         animateReplay(thisI, positions, mapImg)
         encoder.add(context)
     }
+    delete output;
     output = encoder.compile()
     console.log('movie: ', output)
     createFileSystem('savedMovies', saveMovieFile, [name, output])

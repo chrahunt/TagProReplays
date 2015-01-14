@@ -634,6 +634,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
             $('#' + message.name + ' .progressbar')[0].value = message.progress
         }
     } else if (message.method == "movieRenderConfirmationNotLastOne") {
+    	if( message.failure ) {
+    		console.log(message.name+' was a failure.');
+    		$('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
+    	}
         newReplayI = +message.replayI + 1
         lastOne = false
         tabNum = message.tabNum

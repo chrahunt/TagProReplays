@@ -50,6 +50,7 @@ function recordReplayData() {
 
     // set up listener for chats, splats, and bombs
     tagpro.socket.on('chat', function (CHAT) {
+    	CHAT.removeAt = Date.now()+30000;
         positions.chat.push(CHAT);
     });
 
@@ -518,7 +519,9 @@ function recordButton() {
 if(readCookie('record') != 'false') {
 	tagpro.ready(function() {
 		var startInterval = setInterval(function() {
-			if(tagpro.map) {
+			console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
+			console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
+			if(tagpro.map && tagpro.wallMap) {
 				clearInterval(startInterval);
 				positions = {};
 				recordButton();
