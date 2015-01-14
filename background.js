@@ -354,8 +354,8 @@ function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, rep
                     console.log('sent movie render failure notice')
                 })
             }
-        }, 2000
-    })
+        }
+    },2000)
 }
 
 
