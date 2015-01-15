@@ -65,8 +65,11 @@ saveTextureSettings = function () {
             textureData: JSON.stringify(imageData)
         });
 
-        // do 'saved' animation now
-        //$('#textureSaveFeedback').fadeIn()
-        //$('#textureSaveFeedback').fadeOut()
+		// save texture data in local storage
+        Object.keys(imageData).forEach(function(key){
+			if(imageData[key] != undefined) {
+				localStorage.setItem(key, imageData[key]);
+			}
+		})
     }, 100)
 }

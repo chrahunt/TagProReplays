@@ -254,7 +254,12 @@ function createMenu() {
                 $('#deleteSelectedButton').prop('disabled', false);
 
                 // this is where the replay sorting functions will go, when i write them
-                replayList = replayList.reverse();
+                //replayList = replayList.reverse();
+                replayList = replayList.sort(function(a,b) {
+                	aNum = a.replace('replays', '').replace(/.*DATE/, '');
+                	bNum = b.replace('replays', '').replace(/.*DATE/, '');
+                	return(bNum - aNum);
+                })
 
                 // Display list of replays.
                 $('#replayList').show();
@@ -577,6 +582,16 @@ function renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
     console.log('sent request to render replay: ' + replaysToRender[replayI])
 }
 
+// this function stores custom texture files sent by the background script
+function storeTextures(textures) {
+	Object.keys(textures).forEach(function(key){
+		if(textures[key] != undefined) {
+			localStorage.setItem(key, textures[key]);
+		}
+	})
+}
+		
+
 // set global scope for some variables and functions
 // then set up listeners for info from background script
 var positions
@@ -587,7 +602,8 @@ var videofile
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.method == 'itemsList') {
         console.log('got itemList message')
-        populateList(message.positionKeys, message.movieNames)
+        storeTextures(message.textures);
+        populateList(message.positionKeys, message.movieNames);
     } else if (message.method == 'positionData') {
         console.log('got positionData message')
         localStorage.setItem('currentReplayName', message.movieName)

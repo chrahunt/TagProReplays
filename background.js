@@ -184,7 +184,9 @@ function renderVideo(positions, name, useSplats, lastOne, replaysToRender, repla
 // this is a function to get all the keys in the object store
 //   It also gets the list of names of rendered movies
 //   It sends a message to the content script once it gets the keys and movie names
+//   It also sends custom texture files as well.
 function listItems() {
+	var textures = retrieveTextures();
     var allKeys = []
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
@@ -194,7 +196,7 @@ function listItems() {
             allKeys.push(request.result.key);
             request.result.continue()
         } else {
-            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys])
+            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures])
         }
     }
 }
@@ -421,6 +423,18 @@ function saveTextures(textureData) {
     } else {
         localStorage.removeItem('splats')
     }
+}
+
+// this retrieves custom textures from localStorage and returns them as an object
+function retrieveTextures() {
+	var textures = {};
+	textures.tiles        = localStorage.getItem('tiles');
+	textures.portal       = localStorage.getItem('portal');
+	textures.speedpad     = localStorage.getItem('speedpad');
+	textures.speedpadred  = localStorage.getItem('speedpadred');
+	textures.speedpadblue = localStorage.getItem('speedpadblue');
+	textures.splats       = localStorage.getItem('splats');
+	return(textures)
 }
 
 // Set up indexedDB

@@ -1,3 +1,31 @@
+function readCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+
+// function for assigning texture sources
+//   it first checks if the cookie to use custom textures is true
+//   if it is, it checks if a saved custom texture exists
+//   if so, use that. if not, use default
+function assignTexture(imgElement, textureName) {
+	if(readCookie('useTextures') == 'true') {
+		if(typeof localStorage.getItem(textureName) !== "undefined" & localStorage.getItem(textureName) !== null) {
+			imgElement.src = localStorage.getItem(textureName);
+		} else {
+			imgElement.src = 'images/'+textureName+'.png';
+		}
+	} else {
+		imgElement.src = 'images/'+textureName+'.png';
+	}
+}
+
 // Create and display UI for in-browser preview.
 function createReplay(positions) {
     // Initialize values
@@ -33,7 +61,7 @@ function createReplay(positions) {
     imgDiv = document.createElement('div')
 
     img = new Image()
-    img.src = 'images/tiles.png'
+    assignTexture(img, 'tiles');
     img.id = 'tiles'
     img.style.display = 'none'
     img = document.body.appendChild(img)
@@ -49,27 +77,27 @@ function createReplay(positions) {
     }
 
     portalImg = new Image()
-    portalImg.src = 'images/portal.png'
+    assignTexture(portalImg, 'portal');
     portalImg.id = 'portal'
     imgDiv.appendChild(portalImg)
 
     speedpadImg = new Image()
-    speedpadImg.src = 'images/speedpad.png'
+    assignTexture(speedpadImg, 'speedpad');
     speedpadImg.id = 'speedpad'
     speedpadImg = imgDiv.appendChild(speedpadImg)
 
     speedpadredImg = new Image()
-    speedpadredImg.src = 'images/speedpadred.png'
+    assignTexture(speedpadredImg, 'speedpadred');
     speedpadredImg.id = 'speedpadred'
     speedpadredImg = imgDiv.appendChild(speedpadredImg)
 
     speedpadblueImg = new Image()
-    speedpadblueImg.src = 'images/speedpadblue.png'
+    assignTexture(speedpadblueImg, 'speedpadblue');
     speedpadblueImg.id = 'speedpadblue'
     speedpadblueImg = imgDiv.appendChild(speedpadblueImg)
 
     splatsImg = new Image()
-    splatsImg.src = 'images/splats.png'
+    assignTexture(splatsImg, 'splats');
     splatsImg.id = 'splats'
     splatsImg = imgDiv.appendChild(splatsImg)
 
