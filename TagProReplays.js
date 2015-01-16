@@ -238,6 +238,82 @@ function createMenu() {
                 }
             }
         }
+        
+        
+        /*
+        Sorting Section
+        **
+        **
+        **
+        */
+        
+        // unicode arrows to use for sort indicators
+        UPARROW   = "\u25B2"
+        DOWNARROW = "\u25BC"
+        
+        // function for toggling sorting - name (alphabetical)
+        function nameSortToggle() {
+        	var curSortMethod = readCookie('sortMethod');
+        	setCookie('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
+        	closeAndReopenMenu()
+        }        		
+        
+        // function for toggling sorting - date (chronological) 
+        function dateSortToggle() {
+        	var curSortMethod = readCookie('sortMethod');
+        	setCookie('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
+        	closeAndReopenMenu()
+        }
+        
+        // tie sorting toggle functions to the headers
+        $('#nameHeader')[0].onclick = nameSortToggle;
+        $('#nameHeader')[0].style.cursor = 'pointer';
+        $('#dateHeader')[0].onclick = dateSortToggle;
+        $('#dateHeader')[0].style.cursor = 'pointer';
+        
+        // if no sortmethod cookie exists, default is chronoD
+        if(!readCookie('sortMethod')) {
+        	setCookie('sortMethod', 'chronoD', cookieDomain);
+        }
+        
+        // this function handles sorting and the toggling of 
+        function doSorting(replaylist, sortmethod) {
+        	if(sortmethod === "alphaA") {
+        		$('#nameHeader')[0].textContent = 'Name '+UPARROW;
+        		$('#dateHeader')[0].textContent = 'Date';
+        		return(replaylist.sort());
+        	}
+        	if(sortmethod === "alphaD") {
+        		$('#nameHeader')[0].textContent = 'Name '+DOWNARROW;
+        		$('#dateHeader')[0].textContent = 'Date';
+        		return(replaylist.sort().reverse());
+        	}
+        	if(sortmethod === "chronoA") {
+        		$('#dateHeader')[0].textContent = 'Date '+UPARROW;
+            	$('#nameHeader')[0].textContent = 'Name';
+        		return(replaylist.sort(function(a,b) {
+                	aNum = a.replace('replays', '').replace(/.*DATE/, '');
+                	bNum = b.replace('replays', '').replace(/.*DATE/, '');
+                	return(aNum - bNum);
+                }))
+            }
+            if(sortmethod === "chronoD") {
+            	$('#dateHeader')[0].textContent = 'Date '+DOWNARROW;
+            	$('#nameHeader')[0].textContent = 'Name';
+            	return(replayList.sort(function(a,b) {
+                	aNum = a.replace('replays', '').replace(/.*DATE/, '');
+                	bNum = b.replace('replays', '').replace(/.*DATE/, '');
+                	return(bNum - aNum);
+                }))
+            }
+        }
+
+		/*
+		End of Sorting Section
+		**
+		**
+		*/
+
 
         // This puts the current replays into the menu
         populateList = function (storageData, movieNames) {
@@ -258,13 +334,8 @@ function createMenu() {
                 $('#renderSelectedButton').prop('disabled', false);
                 $('#deleteSelectedButton').prop('disabled', false);
 
-                // this is where the replay sorting functions will go, when i write them
-                //replayList = replayList.reverse();
-                replayList = replayList.sort(function(a,b) {
-                	aNum = a.replace('replays', '').replace(/.*DATE/, '');
-                	bNum = b.replace('replays', '').replace(/.*DATE/, '');
-                	return(bNum - aNum);
-                })
+                // sort the results
+                replayList = doSorting(replayList, readCookie('sortMethod'));
 
                 // Display list of replays.
                 $('#replayList').show();
