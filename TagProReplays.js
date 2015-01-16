@@ -106,7 +106,8 @@ function createMenu() {
             useRecordKeyValue = $('#recordKeyChooserInput').data('record');
             console.log("Use record key value: " + useRecordKeyValue);
             currentRecordKey = $('#recordKeyChooserInput').text();
-            useSplatsValue = $('#useSplatsCheckbox')[0].checked
+            useSplatsValue = $('#useSplatsCheckbox')[0].checked;
+            useSpinValue = $('#useSpinCheckbox')[0].checked;
             // Set cookies for replayRecording
             if (!isNaN(fpsInputValue) & fpsInputValue != "") {
                 setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
@@ -121,6 +122,7 @@ function createMenu() {
                 setCookie('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain)
             }
             setCookie('useSplats', useSplatsValue, cookieDomain)
+            setCookie('useSpin', useSpinValue, cookieDomain);
 
             chrome.runtime.sendMessage({
                 method: 'cleanRenderedReplays'
@@ -141,6 +143,7 @@ function createMenu() {
             useTexturesValue = (!readCookie('useTextures')) ? 'false' : readCookie('useTextures');
             useRecordKeyValue = (!readCookie('useRecordKey')) ? 'false' : readCookie('useRecordKey');
             useSplatsValue = (!readCookie('useSplats')) ? 'false' : readCookie('useSplats');
+            useSpinValue = (!readCookie('useSpin')) ? 'false' : readCookie('useSpin');
 
             $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 30;
             $('#durationInput')[0].value = (!isNaN(durationValue) & durationValue != "") ? durationValue : 30;
@@ -156,6 +159,7 @@ function createMenu() {
             $('#useTextureCheckbox')[0].checked = (useTexturesValue === 'true');
             $('#useSplatsCheckbox')[0].checked = (useSplatsValue === 'true');
             $('#recordCheckbox')[0].checked = (recordValue === 'true');
+            $('#useSpinCheckbox')[0].checked = (useSpinValue === 'true');
         }
 
         $('#settingsContainer').on('show.bs.modal', setSettings);
@@ -205,7 +209,8 @@ function createMenu() {
                         method: 'renderAllInitial',
                         data: replaysToRender,
                         useTextures: $('#useTextureCheckbox')[0].checked,
-                        useSplats: $('#useSplatsCheckbox')[0].checked
+                        useSplats: $('#useSplatsCheckbox')[0].checked,
+                        useSpin: $('#useSpinCheckbox')[0].checked
                     });
                     console.log('sent request to render multiple replays: ' + replaysToRender);
                 }
@@ -577,6 +582,7 @@ function renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
         lastOne: lastOne,
         useTextures: $('#useTextureCheckbox')[0].checked,
         useSplats: $('#useSplatsCheckbox')[0].checked,
+        useSpin: $('#useSpinCheckbox')[0].checked,
         tabNum: tabNum
     });
     console.log('sent request to render replay: ' + replaysToRender[replayI])
@@ -673,6 +679,9 @@ if (!readCookie('duration')) {
 }
 if (!readCookie('useSplats')) {
     setCookie('useSplats', true, cookieDomain)
+}
+if (!readCookie('useSpin')) {
+	setCookie('useSpin', true, cookieDomain)
 }
 
 // this function sets up a listener wrapper

@@ -100,7 +100,8 @@ function recordReplayData() {
                     me: (+tagpro.playerId == +player ? 'me' : 'other'),
                     auth: createZeroArray(saveDuration * fps),
                     degree: createZeroArray(saveDuration * fps),
-                    flair: createZeroArray(saveDuration * fps)
+                    flair: createZeroArray(saveDuration * fps),
+                    angle: createZeroArray(saveDuration * fps)
                 }
             }
         }

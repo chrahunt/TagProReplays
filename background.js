@@ -120,8 +120,9 @@ function checkData(positions) {
 
 
 // Actually does the rendering of the movie 
-function renderVideo(positions, name, useSplats, lastOne, replaysToRender, replayI, tabNum) {
+function renderVideo(positions, name, useSplats, useSpin, lastOne, replaysToRender, replayI, tabNum) {
     localStorage.setItem('useSplats', useSplats)
+    localStorage.setItem('useSpin', useSpin);
     positions = JSON.parse(positions)
     
     // check position data and abort rendering if not good
@@ -297,7 +298,7 @@ function renameData(oldName, newName) {
 }
 
 // this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, replayI, tabNum) {
+function renderMovie(name, useTextures, useSplats, useSpin, lastOne, replaysToRender, replayI, tabNum) {
     if (useTextures) {
         if (typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
             img.src = localStorage.getItem('tiles')
@@ -345,9 +346,9 @@ function renderMovie(name, useTextures, useSplats, lastOne, replaysToRender, rep
         request.onsuccess = function () {
             if (typeof JSON.parse(request.result).clock !== "undefined") {
                 if (typeof replaysToRender !== 'undefined') {
-                    renderVideo(request.result, name, useSplats, lastOne, replaysToRender, replayI, tabNum)
+                    renderVideo(request.result, name, useSplats, useSpin, lastOne, replaysToRender, replayI, tabNum)
                 } else {
-                    renderVideo(request.result, name, useSplats, lastOne)
+                    renderVideo(request.result, name, useSplats, useSpin, lastOne)
                 }
             } else {
                 chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
@@ -560,7 +561,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('got request to render Movie for ' + message.name)
         chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
             tabNum = tabs[0].id
-            renderMovie(message.name, message.useTextures, message.useSplats, true)
+            renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, true)
         })
     } else if (message.method == 'downloadMovie') {
         console.log('got request to download Movie for ' + message.name)
@@ -591,11 +592,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         }
         chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
             tabNum = tabs[0].id
-            renderMovie(message.data[0], message.useTextures, message.useSplats, lastOne, message.data, 0, tabNum)
+            renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, lastOne, message.data, 0, tabNum)
         })
     } else if (message.method == 'renderAllSubsequent') {
         console.log('got request to render subsequent replay: ' + message.data[message.replayI])
-        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.lastOne, message.data, message.replayI, message.tabNum)
+        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.lastOne, message.data, message.replayI, message.tabNum)
     }
 });
 

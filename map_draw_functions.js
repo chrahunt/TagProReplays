@@ -634,6 +634,8 @@ function drawEndText(positions) {
 }
 
 function drawBalls(positions) {
+	spin = (localStorage.getItem('useSpin') == 'true' || readCookie('useSpin') == 'true') 
+
     // draw 'me'
     for (j in positions) {
         if (positions[j].me == 'me') {
@@ -647,15 +649,33 @@ function drawBalls(positions) {
         meTeam = positions[me].team[thisI]
     }
     if (positions[me].dead[thisI] == false) {
-        context.drawImage(img, 								// image
-            (meTeam == 1 ? 14 : 15) * tileSize,				 	// x coordinate of image
-            0,												// y coordinate of image
-            tileSize,										// width of image
-            tileSize,										// height of image
-            context.canvas.width / 2 - tileSize / 2,			// destination x coordinate
-            context.canvas.height / 2 - tileSize / 2,			// destination y coordinate
-            tileSize,										// width of destination
-            tileSize) 										// height of destination
+    
+    	// draw own ball with or without spin
+    	if(spin === false || typeof positions[me].angle === 'undefined') {
+        	context.drawImage(img, 								// image
+            	(meTeam == 1 ? 14 : 15) * tileSize,				 	// x coordinate of image
+            	0,												// y coordinate of image
+            	tileSize,										// width of image
+            	tileSize,										// height of image
+            	context.canvas.width / 2 - tileSize / 2,			// destination x coordinate
+            	context.canvas.height / 2 - tileSize / 2,			// destination y coordinate
+            	tileSize,										// width of destination
+            	tileSize) 										// height of destination
+        } else {
+        	context.translate(context.canvas.width/2, context.canvas.height/2);
+        	context.rotate(positions[me].angle[thisI]);
+        	context.drawImage(img,
+        		(meTeam == 1 ? 14 : 15) * tileSize,	
+        		0,
+        		tileSize,
+        		tileSize,
+        		-20,
+        		-20,
+        		tileSize,
+        		tileSize);
+        	context.rotate(-positions[me].angle[thisI]);
+        	context.translate(-context.canvas.width/2, -context.canvas.height/2);		
+        }
 
         drawPowerups(me, context.canvas.width / 2 - tileSize / 2, context.canvas.height / 2 - tileSize / 2, positions)
         drawFlag(me, context.canvas.width / 2 - tileSize / 2, context.canvas.height / 2 - tileSize / 2, positions)
@@ -687,15 +707,35 @@ function drawBalls(positions) {
                             } else {
                                 thisTeam = positions[j].team[thisI]
                             }
-                            context.drawImage(img,																		// image
-                                (thisTeam == 1 ? 14 : 15) * tileSize,														// x coordinate of image
-                                0,																						// y coordinate of image
-                                tileSize,																				// width of image
-                                tileSize,																				// height of image
-                                positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width / 2 - tileSize / 2,	// destination x coordinate
-                                positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height / 2 - tileSize / 2,	// destination y coordinate
-                                tileSize,																				// width of destination
-                                tileSize)																				// height of destination
+                            
+                            // draw with or without spin
+                            if(spin === false || typeof positions[j].angle === 'undefined') {
+                            	context.drawImage(img,																		// image
+                                	(thisTeam == 1 ? 14 : 15) * tileSize,														// x coordinate of image
+                                	0,																						// y coordinate of image
+                                	tileSize,																				// width of image
+                                	tileSize,																				// height of image
+                                	positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width / 2 - tileSize / 2,	// destination x coordinate
+                                	positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height / 2 - tileSize / 2,	// destination y coordinate
+                                	tileSize,																				// width of destination
+                                	tileSize)																				// height of destination
+                            } else {
+                            	context.translate(positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width / 2, 
+                            					  positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height / 2);
+        						context.rotate(positions[j].angle[thisI]);
+        						context.drawImage(img,
+        							(thisTeam == 1 ? 14 : 15) * tileSize,	
+        							0,
+        							tileSize,
+        							tileSize,
+        							-20,
+        							-20,
+        							tileSize,
+        							tileSize);
+        						context.rotate(-positions[j].angle[thisI]);
+        						context.translate(-(positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width / 2), 
+                            					  -(positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height / 2));	
+                            }
 
                             drawPowerups(j, positions[j].x[thisI] - positions[me].x[thisI] + context.canvas.width / 2 - tileSize / 2,
                                 positions[j].y[thisI] - positions[me].y[thisI] + context.canvas.height / 2 - tileSize / 2, positions)
@@ -728,7 +768,7 @@ function drawBalls(positions) {
  * positions - replay data
  * mapImg - html img element reflecting the image of the map
  */
-function animateReplay(thisI, positions, mapImg) {
+function animateReplay(thisI, positions, mapImg, spin) {
     for (j in positions) {
         if (positions[j].me == 'me') {
             me = j
