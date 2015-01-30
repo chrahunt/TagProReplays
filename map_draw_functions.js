@@ -447,38 +447,40 @@ function drawFloorTiles(positions) {
 }
 
 function bombPop(positions) {
-    positions.floorTiles.forEach(function (fT) {
+    positions.bombs.forEach(function (bmb) {
         for (j in positions) {
             if (positions[j].me == 'me') {
                 me = j
             }
         }
-        if (fT.value[thisI] == 10.1 & fT.value[thisI - 1] == 10) {
-            fT.bombAnimation = {
-                length: Math.round(positions[me].fps / 10),
-                frame: 0
-            }
-        }
-        if (typeof fT.bombAnimation != 'undefined') {
-            fT.bombAnimation.frame++
-            bombSize = 40 + (280 * (fT.bombAnimation.frame / fT.bombAnimation.length))
-            bombOpacity = 1 - fT.bombAnimation.frame / fT.bombAnimation.length
-            context.fillStyle = "#FF8000"
-            context.globalAlpha = bombOpacity
-            context.beginPath()
-            bombX = fT.x * tileSize + posx + tileSize / 2 //- context.canvas.width/2 + 60
-            bombY = fT.y * tileSize + posy + tileSize / 2 //- context.canvas.height/2 - 20
-            context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, !0)
-            context.closePath()
-            context.fill()
-            context.globalAlpha = 1
-            context.fillStyle = "#ffffff"
-            if (fT.bombAnimation.frame >= fT.bombAnimation.length) {
-                delete(fT.bombAnimation)
+        
+        if(bmb.time <= positions.clock[thisI] & bmb.type === 2) {
+        	if(typeof bmb.bombAnimation === 'undefined') {
+        		bmb.bombAnimation = {
+        			length: Math.round(positions[me].fps / 10),
+        			frame: 0
+        		}
+        	}
+        	
+        	if(bmb.bombAnimation.frame < bmb.bombAnimation.length) {
+        		bmb.bombAnimation.frame++
+        		bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length))
+            	bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length
+            	context.fillStyle = "#FF8000"
+            	context.globalAlpha = bombOpacity
+            	context.beginPath()
+            	bombX = bmb.x + posx + tileSize / 2 //- context.canvas.width/2 + 60
+            	bombY = bmb.y + posy + tileSize / 2 //- context.canvas.height/2 - 20
+            	context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, !0)
+            	context.closePath()
+            	context.fill()
+            	context.globalAlpha = 1
+            	context.fillStyle = "#ffffff"
             }
         }
     })
 }
+        		
 
 function ballCollision(positions, ball) {
     for (j in positions) {
