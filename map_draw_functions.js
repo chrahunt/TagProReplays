@@ -453,8 +453,9 @@ function bombPop(positions) {
                 me = j
             }
         }
-        
-        if(bmb.time <= positions.clock[thisI] & bmb.type === 2) {
+        var bTime = new Date(bmb.time).getTime();
+        var cTime = new Date(positions.clock[thisI]).getTime();
+        if(bTime <= cTime && cTime - bTime < 200 && bmb.type === 2) {
         	if(typeof bmb.bombAnimation === 'undefined') {
         		bmb.bombAnimation = {
         			length: Math.round(positions[me].fps / 10),
@@ -476,7 +477,9 @@ function bombPop(positions) {
             	context.fill()
             	context.globalAlpha = 1
             	context.fillStyle = "#ffffff"
-            }
+            } 
+        } else {
+            delete bmb.bombAnimation;
         }
     })
 }
@@ -622,14 +625,26 @@ function drawEndText(positions) {
         thisTime = new Date(positions.clock[thisI]).getTime()
         if (endTime <= thisTime) {
             positions.end.winner == 'red' ? endColor = "#ff0000" : positions.end.winner == 'blue' ? endColor = "#0000ff" : endColor = "#ffffff"
-            positions.end.winner == 'red' ? endText = "Red Team Wins!" : positions.end.winner == 'blue' ? endText = "Blue Team Wins!" : endText = "It's a Tie!"
+            switch(positions.end.winner) {
+    			case 'red':
+        			endText = "Red Wins!";
+        			break;
+    			case 'blue':
+        			endText = "Blue Wins!";
+        			break;
+        		case 'tie':
+        			endText = "It's a Tie!";
+        			break;
+    			default:
+        			endText = positions.end.winner;
+			}
             context.save()
             context.textAlign = "center"
             context.font = "bold 48pt Arial"
             context.fillStyle = endColor
             context.strokeStyle = "#000000"
-            context.fillText(endText, context.canvas.width / 2, 100)
             context.strokeText(endText, context.canvas.width / 2, 100)
+            context.fillText(endText, context.canvas.width / 2, 100)
             context.restore()
         }
     }

@@ -517,7 +517,7 @@ function recordButton() {
     }
 }
 
-if(readCookie('record') != 'false') {
+if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
 	tagpro.ready(function() {
 		var startInterval = setInterval(function() {
 			console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
