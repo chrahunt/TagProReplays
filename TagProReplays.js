@@ -95,6 +95,23 @@ function createMenu() {
 
         //
         setFormTitles();
+        
+        // allow 'select all' checkbox to work
+        $('#selectAllCheckbox')[0].onchange=function(e) {
+        					if(e.target.checked) {
+        						$('#replayList .selected-checkbox').each(function(num) {
+        							if(num !== 0) {
+        								this.checked=true
+        							}
+        						})
+        					} else {
+        						$('#replayList .selected-checkbox').each(function(num) {
+        							if(num !== 0) {
+        								this.checked=false
+        							}
+        						})
+        					}
+        }
 
         // Save form fields.
         saveSettings = function () {
