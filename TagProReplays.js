@@ -98,19 +98,12 @@ function createMenu() {
         
         // allow 'select all' checkbox to work
         $('#selectAllCheckbox')[0].onchange=function(e) {
-        					if(e.target.checked) {
-        						$('#replayList .selected-checkbox').each(function(num) {
-        							if(num !== 0) {
-        								this.checked=true
-        							}
-        						})
-        					} else {
-        						$('#replayList .selected-checkbox').each(function(num) {
-        							if(num !== 0) {
-        								this.checked=false
-        							}
-        						})
-        					}
+        					$('#replayList .selected-checkbox').each(function(num) {
+        						if(num !== 0) {
+        							this.checked = e.target.checked 
+        						}
+        					})
+
         }
 
         // Save form fields.
