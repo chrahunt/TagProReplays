@@ -640,8 +640,19 @@ function createReplay(positions) {
         cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length - 1))
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
+        var newName = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
+        if(newName === null) return;
+        if(newName === '') {
+        	newName = 'replays' + Date.now();
+        } else {
+        	newName += 'DATE' + Date.now();
+        }
         stopReplay(true)
-        chrome.runtime.sendMessage({method: 'setPositionData', positionData: JSON.stringify(positions2)})
+        chrome.runtime.sendMessage({
+        	method: 'setPositionData', 
+        	positionData: JSON.stringify(positions2),
+        	newName: newName
+        })
         delete currentCropStart
         delete currentCropEnd
     }
@@ -662,11 +673,12 @@ function createReplay(positions) {
         cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length - 1))
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
+        var newName = localStorage.getItem('currentReplayName');
         stopReplay(true)
         chrome.runtime.sendMessage({
             method: 'setPositionData',
             positionData: JSON.stringify(positions2),
-            newName: localStorage.getItem('currentReplayName')
+            newName: newName
         })
         delete currentCropStart
         delete currentCropEnd
