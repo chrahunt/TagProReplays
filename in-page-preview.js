@@ -645,6 +645,7 @@ function createReplay(positions) {
         if(newName === '') {
         	newName = 'replays' + Date.now();
         } else {
+        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
         	newName += 'DATE' + Date.now();
         }
         stopReplay(true)
@@ -673,12 +674,24 @@ function createReplay(positions) {
         cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length - 1))
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
-        var newName = localStorage.getItem('currentReplayName');
+        var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
+        if(newName === null) return;
+        if(newName === '') {
+        	var oldName = null;
+        	newName = localStorage.getItem('currentReplayName');
+        	var replaceName = false;
+        } else {
+        	var oldName = localStorage.getItem('currentReplayName');
+        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
+        	newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
+        	var replaceName = true;
+        }
         stopReplay(true)
         chrome.runtime.sendMessage({
             method: 'setPositionData',
             positionData: JSON.stringify(positions2),
-            newName: newName
+            newName: newName,
+            oldName: oldName
         })
         delete currentCropStart
         delete currentCropEnd
@@ -696,7 +709,7 @@ function createReplay(positions) {
     deleteButton.style.fontWeight = 'bold'
     deleteButton.style.transition = "opacity 0.25s linear"
     deleteButton.style.cursor = "pointer"
-    deleteButton.onclick = deleteThisReplay
+    deleteButton.onclick = deleteThisReplay;
     deleteButton.title = 'This deletes the current replay.'
 
     // render button

@@ -514,6 +514,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         } else {
             var name = 'replays' + new Date().getTime()
         }
+        var deleteTheseData = (message.oldName !== null && typeof message.oldName !== 'undefined') ? true : false;
         console.log('new key is ' + name)
         transaction = db.transaction(["positions"], "readwrite")
         objectStore = transaction.objectStore('positions')
@@ -521,10 +522,15 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         positions = cleanPositionData(JSON.parse(message.positionData))
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
-            chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-                tabNum = tabs[0].id
-                chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG"})
-                console.log('sent confirmation')
+        	chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
+        		tabNum = tabs[0].id;
+        		if(deleteTheseData) {
+        			console.log('new replay saved, deleting old replay...');
+        			deleteData(message.oldName);
+        		} else {
+                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG"})
+                	console.log('sent confirmation')
+            	}
             })
         }
     } else if (message.method == 'requestData') {
