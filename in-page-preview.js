@@ -45,7 +45,7 @@ function createReplay(positions) {
     can.style.border = "10px solid white"
     can.width = 30 * tileSize
     can.height = 18 * tileSize
-    can.style.zIndex = 200
+    can.style.zIndex = 1200
     can.style.position = 'absolute'
     can.style.top = (window.innerHeight - can.height - 20) / 2 + 'px'
     can.style.left = (window.innerWidth - can.width - 20) / 2 + 'px'
@@ -129,6 +129,7 @@ function createReplay(positions) {
     playbackBarDiv.style.width = can.width + 20 + 'px'
     playbackBarDiv.style.height = '90px'
     playbackBarDiv.style.transition = "opacity 0.25s linear"
+    playbackBarDiv.style.zIndex = 1300
     playbackBarDiv.id = 'playbackBarDiv'
     playbackBarDiv.style.backgroundColor = 'black'
     document.body.appendChild(playbackBarDiv)
@@ -141,6 +142,7 @@ function createReplay(positions) {
     whiteBar.style.width = can.width + 20 + 'px'
     whiteBar.style.height = '20px'
     whiteBar.style.transition = "opacity 0.25s linear"
+    whiteBar.style.zIndex = 1300
     whiteBar.id = 'whiteBar'
     whiteBar.style.backgroundColor = 'white'
     document.body.appendChild(whiteBar)
@@ -153,6 +155,7 @@ function createReplay(positions) {
     greyBar.style.width = can.width + 20 + 'px'
     greyBar.style.height = '20px'
     greyBar.style.transition = "opacity 0.25s linear"
+    greyBar.style.zIndex = 1300
     greyBar.id = 'greyBar'
     greyBar.style.backgroundColor = 'grey'
     document.body.appendChild(greyBar)
@@ -165,6 +168,7 @@ function createReplay(positions) {
     sliderBar.style.width = can.width + 20 + 'px'
     sliderBar.style.height = '20px'
     sliderBar.style.transition = "opacity 0.25s linear"
+    sliderBar.style.zIndex = 1300
     sliderBar.id = 'sliderBar'
     sliderBar.style.backgroundColor = 'transparent'
     document.body.appendChild(sliderBar)
@@ -175,6 +179,7 @@ function createReplay(positions) {
     slider = document.getElementById('slider')
     slider.style.width = $('#sliderBar')[0].style.width
     slider.style.transition = "opacity 0.25s linear"
+    slider.style.zIndex = 1300
     slider.value = 0
     slider.min = 0
     slider.max = positions.clock.length - 1
@@ -292,7 +297,8 @@ function createReplay(positions) {
         }
         clearSliderArea()
         if (!doNotReopen) {
-            openReplayMenu()
+            //openReplayMenu()
+            $('#menuContainer').show();
         }
         hideButtons()
         can.style.opacity = 0
@@ -463,7 +469,7 @@ function createReplay(positions) {
         replayToDelete = sessionStorage.getItem('currentReplay')
         if (replayToDelete != null) {
             if (confirm('Are you sure you want to delete this replay?')) {
-                stopReplay(true)
+                stopReplay(false)
                 console.log('requesting to delete ' + replayToDelete)
                 chrome.runtime.sendMessage({
                     method: 'requestDataDelete',
@@ -499,7 +505,7 @@ function createReplay(positions) {
             datePortion = replayToRename.replace(/.*DATE/, '').replace('replays', '')
             newName = prompt('How would you like to rename ' + replayToRename.replace(/DATE.*/, '') + '?')
             if (newName != null) {
-                stopReplay(true)
+                stopReplay(false)
                 newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion
                 console.log('requesting to rename from ' + replayToRename + ' to ' + newName)
                 chrome.runtime.sendMessage({
@@ -534,7 +540,7 @@ function createReplay(positions) {
     stopButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
     stopButton.style.left = +can.style.left.replace('px', '') + 20 + 'px'
     stopButton.style.transition = "opacity 0.25s linear"
-    stopButton.style.zIndex = 300
+    stopButton.style.zIndex = 1300
     stopButton.style.opacity = 0
     document.body.appendChild(stopButton)
 
@@ -549,7 +555,7 @@ function createReplay(positions) {
     resetButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
     resetButton.style.left = +can.style.left.replace('px', '') + 80 + 'px'
     resetButton.style.transition = "opacity 0.25s linear"
-    resetButton.style.zIndex = 300
+    resetButton.style.zIndex = 1300
     resetButton.style.opacity = 0
     document.body.appendChild(resetButton)
 
@@ -564,7 +570,7 @@ function createReplay(positions) {
     playButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
     playButton.style.left = +can.style.left.replace('px', '') + 140 + 'px'
     playButton.style.transition = "opacity 0.25s linear"
-    playButton.style.zIndex = 300
+    playButton.style.zIndex = 1300
     playButton.style.opacity = 0
     document.body.appendChild(playButton)
 
@@ -579,7 +585,7 @@ function createReplay(positions) {
     pauseButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
     pauseButton.style.left = +can.style.left.replace('px', '') + 200 + 'px'
     pauseButton.style.transition = "opacity 0.25s linear"
-    pauseButton.style.zIndex = 300
+    pauseButton.style.zIndex = 1300
     pauseButton.style.opacity = 0
     document.body.appendChild(pauseButton)
 
@@ -593,6 +599,7 @@ function createReplay(positions) {
     cropStartButton.style.fontSize = '20px'
     cropStartButton.style.fontWeight = 'bold'
     cropStartButton.style.transition = "opacity 0.25s linear"
+    cropStartButton.style.zIndex = 1300
     cropStartButton.style.cursor = "pointer"
     cropStartButton.onclick = setCropStart
     cropStartButton.title = 'This sets the beginning of the cropped portion of the replay. Everything before this point will be erased when you crop the replay.'
@@ -607,6 +614,7 @@ function createReplay(positions) {
     cropEndButton.style.fontSize = '20px'
     cropEndButton.style.fontWeight = 'bold'
     cropEndButton.style.transition = "opacity 0.25s linear"
+    cropEndButton.style.zIndex = 1300
     cropEndButton.style.cursor = "pointer"
     cropEndButton.onclick = setCropEnd
     cropEndButton.title = 'This sets the end of the cropped portion of the replay. Everything after this point will be erased when you crop the replay.'
@@ -621,6 +629,7 @@ function createReplay(positions) {
     playCroppedMovieButton.style.fontSize = '20px'
     playCroppedMovieButton.style.fontWeight = 'bold'
     playCroppedMovieButton.style.transition = "opacity 0.25s linear"
+    playCroppedMovieButton.style.zIndex = 1300
     playCroppedMovieButton.style.cursor = "pointer"
     playCroppedMovieButton.onclick = playCroppedMovie
     playCroppedMovieButton.title = 'This plays the section of the replay between the "crop start" and "crop end" so you know what your cropped replay will look like.'
@@ -635,6 +644,7 @@ function createReplay(positions) {
     cropButton.style.fontSize = '20px'
     cropButton.style.fontWeight = 'bold'
     cropButton.style.transition = "opacity 0.25s linear"
+    cropButton.style.zIndex = 1300
     cropButton.style.cursor = "pointer"
     cropButton.onclick = function () {
         cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length - 1))
@@ -648,7 +658,7 @@ function createReplay(positions) {
         	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
         	newName += 'DATE' + Date.now();
         }
-        stopReplay(true)
+        stopReplay(false)
         chrome.runtime.sendMessage({
         	method: 'setPositionData', 
         	positionData: JSON.stringify(positions2),
@@ -669,6 +679,7 @@ function createReplay(positions) {
     cropAndReplaceButton.style.fontSize = '20px'
     cropAndReplaceButton.style.fontWeight = 'bold'
     cropAndReplaceButton.style.transition = "opacity 0.25s linear"
+    cropAndReplaceButton.style.zIndex = 1300
     cropAndReplaceButton.style.cursor = "pointer"
     cropAndReplaceButton.onclick = function () {
         cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length - 1))
@@ -686,7 +697,7 @@ function createReplay(positions) {
         	newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
         	var replaceName = true;
         }
-        stopReplay(true)
+        stopReplay(false)
         chrome.runtime.sendMessage({
             method: 'setPositionData',
             positionData: JSON.stringify(positions2),
@@ -708,6 +719,7 @@ function createReplay(positions) {
     deleteButton.style.fontSize = '20px'
     deleteButton.style.fontWeight = 'bold'
     deleteButton.style.transition = "opacity 0.25s linear"
+    deleteButton.style.zIndex = 1300
     deleteButton.style.cursor = "pointer"
     deleteButton.onclick = deleteThisReplay;
     deleteButton.title = 'This deletes the current replay.'
@@ -722,6 +734,7 @@ function createReplay(positions) {
     renderButton.style.fontSize = '20px'
     renderButton.style.fontWeight = 'bold'
     renderButton.style.transition = "opacity 0.25s linear"
+    renderButton.style.zIndex = 1300
     renderButton.style.cursor = "pointer"
     renderButton.onclick = renderThisReplay
     renderButton.title = 'This renders the current replay.'
@@ -736,6 +749,7 @@ function createReplay(positions) {
     renameButton.style.fontSize = '20px'
     renameButton.style.fontWeight = 'bold'
     renameButton.style.transition = "opacity 0.25s linear"
+    renameButton.style.zIndex = 1300
     renameButton.style.cursor = "pointer"
     renameButton.onclick = renameThisReplay
     renameButton.title = 'This renames the current replay.'

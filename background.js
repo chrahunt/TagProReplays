@@ -251,9 +251,16 @@ function getPosDataForDownload(dataFileName) {
 }
 
 // this deletes data from the object store
+// if the `dataFileName` argument is an object (not a string or array), then
+// this was called during a crop and replace process. we need to send the new
+// name for this replay back to the content script
 function deleteData(dataFileName) {
     var transaction = db.transaction(["positions"], "readwrite");
     var store = transaction.objectStore("positions");
+    if($.isPlainObject(dataFileName)) {
+    	var newName = dataFileName.newName;
+    	dataFileName = dataFileName.fileName;
+    };
     if ($.isArray(dataFileName)) {
         deleted = []
         for (fTD in dataFileName) {
@@ -261,7 +268,7 @@ function deleteData(dataFileName) {
             request.onsuccess = function () {
                 deleted.push(fTD)
                 if (deleted.length == dataFileName.length) {
-                    chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted'})
+                    chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
                     console.log('sent reply')
                 }
             }
@@ -269,8 +276,13 @@ function deleteData(dataFileName) {
     } else {
         request = store.delete(dataFileName)
         request.onsuccess = function () {
-            chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted'})
-            console.log('sent reply')
+        	if(typeof newName !== 'undefined') {
+        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName});
+        		console.log('sent reply');
+        	} else {
+            	chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
+            	console.log('sent reply')
+            }
         }
     }
 }
@@ -290,7 +302,9 @@ function renameData(oldName, newName) {
             objectStore = transaction3.objectStore('positions')
             request = objectStore.add(thisObj, newName)
             request.onsuccess = function () {
-                chrome.tabs.sendMessage(tabNum, {method: "fileRenameSuccess"})
+                chrome.tabs.sendMessage(tabNum, {method: "fileRenameSuccess", 
+                								 oldName: oldName, 
+                								 newName: newName})
                 console.log('sent reply')
             }
         }
@@ -526,9 +540,9 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         		tabNum = tabs[0].id;
         		if(deleteTheseData) {
         			console.log('new replay saved, deleting old replay...');
-        			deleteData(message.oldName);
+        			deleteData({fileName: message.oldName, newName: message.newName});
         		} else {
-                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG"})
+                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name})
                 	console.log('sent confirmation')
             	}
             })
