@@ -45,8 +45,9 @@ function createFileSystem(thisDirectory, secondFunction, secondArguments) {
 // function to get savedMovies directory contents
 function getRenderedMovieNames(fs, directory, secondArguments) {
     cont = []
-    var allKeys = secondArguments[0]
-    var textures = secondArguments[1]
+    var allKeys = secondArguments[0];
+    var textures = secondArguments[1];
+    var durations = secondArguments[2];
     fs.root.getDirectory(directory, {}, function (dirEntry) {
         var dirReader = dirEntry.createReader();
         dirReader.readEntries(function (entries) {
@@ -54,7 +55,11 @@ function getRenderedMovieNames(fs, directory, secondArguments) {
                 var entry = entries[i];
                 cont.push(entry.name)
             }
-            chrome.tabs.sendMessage(tabNum, {method: "itemsList", positionKeys: allKeys, movieNames: cont, textures: textures})
+            chrome.tabs.sendMessage(tabNum, {method: "itemsList", 
+            								 positionKeys: allKeys, 
+            								 movieNames: cont, 
+            								 textures: textures,
+            								 durations: durations})
             console.log('sent reply: ' + allKeys)
         }, function () {
             console.log('error1')

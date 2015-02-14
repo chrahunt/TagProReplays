@@ -688,7 +688,7 @@ function createReplay(positions) {
         var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
         if(newName === null) return;
         if(newName === '') {
-        	var oldName = null;
+        	var oldName = localStorage.getItem('currentReplayName');
         	newName = localStorage.getItem('currentReplayName');
         	var replaceName = false;
         } else {

@@ -58,6 +58,10 @@
     text-align: center;
 }
 
+#tpr-container .duration {
+	text-align: center;
+}
+
 #tpr-container .progressbar {
     width: 100%;
 }

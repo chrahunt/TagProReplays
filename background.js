@@ -188,16 +188,24 @@ function renderVideo(positions, name, useSplats, useSpin, lastOne, replaysToRend
 //   It also sends custom texture files as well.
 function listItems() {
 	var textures = retrieveTextures();
-    var allKeys = []
+    var allKeys = [];
+    var allDurations = [];
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
     var request = store.openCursor(null);
     request.onsuccess = function () {
         if (request.result) {
+        	var duration = localStorage.getItem(request.result.key);
+        	if(duration === null) {
+	        	var data = JSON.parse(request.result.value);
+            	var duration = getDuration(data);
+            	localStorage.setItem(request.result.key, duration);
+            } 
+            allDurations.push(duration);
             allKeys.push(request.result.key);
-            request.result.continue()
+            request.result.continue();
         } else {
-            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures])
+            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures, allDurations]);
         }
     }
 }
@@ -259,14 +267,21 @@ function deleteData(dataFileName) {
     var store = transaction.objectStore("positions");
     if($.isPlainObject(dataFileName)) {
     	var newName = dataFileName.newName;
+    	var duration = dataFileName.duration;
     	dataFileName = dataFileName.fileName;
+    	if(dataFileName === newName) {
+    		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, duration: duration});
+        	console.log('sent crop and replace reply');
+        	return;
+    	}
     };
     if ($.isArray(dataFileName)) {
         deleted = []
         for (fTD in dataFileName) {
-            request = store.delete(dataFileName[fTD])
+            request = store.delete(dataFileName[fTD]);
+            localStorage.removeItem(dataFileName[fTD]);
             request.onsuccess = function () {
-                deleted.push(fTD)
+                deleted.push(fTD);
                 if (deleted.length == dataFileName.length) {
                     chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
                     console.log('sent reply')
@@ -274,14 +289,16 @@ function deleteData(dataFileName) {
             }
         }
     } else {
-        request = store.delete(dataFileName)
+        request = store.delete(dataFileName);
         request.onsuccess = function () {
         	if(typeof newName !== 'undefined') {
-        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName});
-        		console.log('sent reply');
+        		if(newName !== dataFileName) localStorage.removeItem(dataFileName);
+        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, duration: duration});
+        		console.log('sent crop and replace reply');
         	} else {
+        		localStorage.removeItem(dataFileName);
             	chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
-            	console.log('sent reply')
+            	console.log('sent single delete reply')
             }
         }
     }
@@ -302,6 +319,8 @@ function renameData(oldName, newName) {
             objectStore = transaction3.objectStore('positions')
             request = objectStore.add(thisObj, newName)
             request.onsuccess = function () {
+            	localStorage.setItem(newName, localStorage.getItem(oldName));
+            	localStorage.removeItem(oldName);
                 chrome.tabs.sendMessage(tabNum, {method: "fileRenameSuccess", 
                 								 oldName: oldName, 
                 								 newName: newName})
@@ -452,6 +471,20 @@ function retrieveTextures() {
 	return(textures)
 }
 
+// this takes a positions file and returns the duration in seconds of that replay
+function getDuration(positions) {
+	for(var iii in positions) {
+        if(iii.search("player")===0) {
+        	var player = positions[iii];
+        	break;
+        }
+    }
+    if(typeof player === 'undefined') return(0)
+    var duration = Math.round(player.x.length/player.fps);
+    return(duration);
+}
+
+
 // Set up indexedDB
 var openRequest = indexedDB.open("ReplayDatabase");
 openRequest.onupgradeneeded = function (e) {
@@ -534,15 +567,18 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         objectStore = transaction.objectStore('positions')
         console.log('got data from content script.')
         positions = cleanPositionData(JSON.parse(message.positionData))
+        var duration = getDuration(positions);
+        localStorage.setItem(name, duration);
+        
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
         	chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
         		tabNum = tabs[0].id;
         		if(deleteTheseData) {
         			console.log('new replay saved, deleting old replay...');
-        			deleteData({fileName: message.oldName, newName: message.newName});
+        			deleteData({fileName: message.oldName, newName: message.newName, duration: duration});
         		} else {
-                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name})
+                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, duration: duration})
                 	console.log('sent confirmation')
             	}
             })
