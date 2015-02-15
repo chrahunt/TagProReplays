@@ -255,6 +255,21 @@ function createMenu() {
         UPARROW   = "\u25B2"
         DOWNARROW = "\u25BC"
         
+        /*
+        These next functions allow toggling of the various sort methods.
+        A cookie is used to store the current sort preference.
+        Values of this cookie include:
+        	- "alphaA"  : alphabetical ascending - normal alphabetical order
+        	- "alphaD"  : alphabetical descending - reverse alphabetical
+        	- "chronoA" : chronological ascending - older replays appear at the top
+        	- "chronoD" : chronological descending - newer replays appear at the top
+        	- "durA"    : duration ascending - shorter replays appear at the top
+        	- "durD"    : duration descending - longer replays appear at the top
+        	- "renA"    : rendered ascending - unrendered replays appear at the top
+        	- "renD"    : rendered descending - rendered replays appear at the top
+        
+        */
+        
         // function for toggling sorting - name (alphabetical)
         function nameSortToggle() {
         	var curSortMethod = readCookie('sortMethod');
@@ -276,6 +291,13 @@ function createMenu() {
         	sortReplays();
         }
         
+        // function for toggling sorting - rendered status
+        function renderedSortToggle() {
+        	var curSortMethod = readCookie('sortMethod');
+        	setCookie('sortMethod', (curSortMethod === 'renD') ? "renA" : "renD", cookieDomain);
+        	sortReplays();
+        }
+        
         // tie sorting toggle functions to the headers
         $('#nameHeader')[0].onclick = nameSortToggle;
         $('#nameHeader')[0].style.cursor = 'pointer';
@@ -283,6 +305,8 @@ function createMenu() {
         $('#dateHeader')[0].style.cursor = 'pointer';
         $('#durationHeader')[0].onclick = durationSortToggle;
         $('#durationHeader')[0].style.cursor = 'pointer';
+        $('#renderedHeader')[0].onclick = renderedSortToggle;
+        $('#renderedHeader')[0].style.cursor = 'pointer';
         
         // if no sortmethod cookie exists, default is chronoD
         if(!readCookie('sortMethod')) {
@@ -298,9 +322,11 @@ function createMenu() {
         		var thisMinutes = Number(thisDurationString.split(':')[0]);
         		var thisSeconds = Number(thisDurationString.split(':')[1]);
         		var thisDuration = 60*thisMinutes + thisSeconds;
+        		var thisRendered = $(b).find('.rendered-check').text() !== '';
         		entries.push({
         			replay: b.id, 
-        		    duration: thisDuration
+        		    duration: thisDuration,
+        		    rendered: thisRendered
         		});
         	});
         	var sortedEntries = doSorting(entries, readCookie('sortMethod'));
@@ -323,6 +349,7 @@ function createMenu() {
         		$('#nameHeader')[0].textContent = 'Name '+UPARROW;
         		$('#dateHeader')[0].textContent = 'Date';
         		$('#durationHeader')[0].textContent = 'Duration';
+        		$('#renderedHeader')[0].textContent = 'Rendered';
         		return(replaylist.sort(function(a,b) {
         			aREP = a.replay;
         			bREP = b.replay;
@@ -335,6 +362,7 @@ function createMenu() {
         		$('#nameHeader')[0].textContent = 'Name '+DOWNARROW;
         		$('#dateHeader')[0].textContent = 'Date';
         		$('#durationHeader')[0].textContent = 'Duration';
+        		$('#renderedHeader')[0].textContent = 'Rendered';
         		return(replaylist.sort(function(a,b) {
         			aREP = a.replay;
         			bREP = b.replay;
@@ -347,6 +375,7 @@ function createMenu() {
         		$('#dateHeader')[0].textContent = 'Date '+UPARROW;
             	$('#nameHeader')[0].textContent = 'Name';
             	$('#durationHeader')[0].textContent = 'Duration';
+            	$('#renderedHeader')[0].textContent = 'Rendered';
         		return(replaylist.sort(function(a,b) {
                 	aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
                 	bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
@@ -357,6 +386,7 @@ function createMenu() {
             	$('#dateHeader')[0].textContent = 'Date '+DOWNARROW;
             	$('#nameHeader')[0].textContent = 'Name';
             	$('#durationHeader')[0].textContent = 'Duration';
+            	$('#renderedHeader')[0].textContent = 'Rendered';
             	return(replaylist.sort(function(a,b) {
                 	aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
                 	bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
@@ -367,6 +397,7 @@ function createMenu() {
             	$('#durationHeader')[0].textContent = 'Duration '+UPARROW;
             	$('#dateHeader')[0].textContent = 'Date';
             	$('#nameHeader')[0].textContent = 'Name';
+            	$('#renderedHeader')[0].textContent = 'Rendered';
             	return(replaylist.sort(function(a,b) {
             		return(Number(a.duration) - Number(b.duration));
             	}));
@@ -375,8 +406,27 @@ function createMenu() {
             	$('#durationHeader')[0].textContent = 'Duration '+DOWNARROW;
             	$('#dateHeader')[0].textContent = 'Date';
             	$('#nameHeader')[0].textContent = 'Name';
+            	$('#renderedHeader')[0].textContent = 'Rendered';
             	return(replaylist.sort(function(a,b) {
             		return(Number(b.duration) - Number(a.duration));
+            	}));
+            }
+            if(sortmethod === 'renA') {
+            	$('#renderedHeader')[0].textContent = 'Rendered '+UPARROW;
+            	$('#durationHeader')[0].textContent = 'Duration';
+            	$('#dateHeader')[0].textContent = 'Date';
+            	$('#nameHeader')[0].textContent = 'Name';
+            	return(replaylist.sort(function(a,b) {
+            		return(a.rendered - b.rendered);
+            	}));
+            }
+            if(sortmethod === 'renD') {
+            	$('#renderedHeader')[0].textContent = 'Rendered '+DOWNARROW;
+            	$('#durationHeader')[0].textContent = 'Duration';
+            	$('#dateHeader')[0].textContent = 'Date';
+            	$('#nameHeader')[0].textContent = 'Name';
+            	return(replaylist.sort(function(a,b) {
+            		return(b.rendered - a.rendered);
             	}));
             }
         }
