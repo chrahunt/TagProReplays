@@ -259,21 +259,21 @@ function createMenu() {
         function nameSortToggle() {
         	var curSortMethod = readCookie('sortMethod');
         	setCookie('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
-        	closeAndReopenMenu()
+        	sortReplays();
         }        		
         
         // function for toggling sorting - date (chronological) 
         function dateSortToggle() {
         	var curSortMethod = readCookie('sortMethod');
         	setCookie('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
-        	closeAndReopenMenu()
+        	sortReplays();
         }
         
         // function for toggling sorting - duration 
         function durationSortToggle() {
         	var curSortMethod = readCookie('sortMethod');
         	setCookie('sortMethod', (curSortMethod === 'durD') ? "durA" : "durD", cookieDomain);
-        	closeAndReopenMenu();
+        	sortReplays();
         }
         
         // tie sorting toggle functions to the headers
@@ -289,8 +289,36 @@ function createMenu() {
         	setCookie('sortMethod', 'chronoD', cookieDomain);
         }
         
+        // this function grabs ids, dates, and durations and calls the doSorting function with 
+        // the appropriate arguments. then it rearranges the replay rows in the menu according to that order.
+        sortReplays = function() {
+        	var entries = [];
+        	$('#replayList .replayRow').not('.clone').map(function(a, b) {
+        		var thisDurationString = $(b).find('.duration').text();
+        		var thisMinutes = Number(thisDurationString.split(':')[0]);
+        		var thisSeconds = Number(thisDurationString.split(':')[1]);
+        		var thisDuration = 60*thisMinutes + thisSeconds;
+        		entries.push({
+        			replay: b.id, 
+        		    duration: thisDuration
+        		});
+        	});
+        	var sortedEntries = doSorting(entries, readCookie('sortMethod'));
+        	for(var entry in sortedEntries) {
+        		var thisEntry = $('#replayList #'+sortedEntries[entry].replay);
+        		if(entry === 0) {
+        			$('#replayList tBody').prepend(thisEntry);
+        			var oldEntry = thisEntry;
+        		} else {
+        			$(oldEntry).after(thisEntry);
+        			oldEntry = thisEntry;
+        		};
+        	};
+        	$('#replayList tBody').prepend($('#replayList .clone'));
+        };		
+        
         // this function handles sorting and the toggling of 
-        function doSorting(replaylist, sortmethod) {
+        doSorting = function(replaylist, sortmethod) {
         	if(sortmethod === "alphaA") {
         		$('#nameHeader')[0].textContent = 'Name '+UPARROW;
         		$('#dateHeader')[0].textContent = 'Date';
@@ -320,8 +348,8 @@ function createMenu() {
             	$('#nameHeader')[0].textContent = 'Name';
             	$('#durationHeader')[0].textContent = 'Duration';
         		return(replaylist.sort(function(a,b) {
-                	aNum = a.replay.replace('replays', '').replace(/.*DATE/, '');
-                	bNum = b.replay.replace('replays', '').replace(/.*DATE/, '');
+                	aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
+                	bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
                 	return(aNum - bNum);
                 }))
             }
@@ -329,9 +357,9 @@ function createMenu() {
             	$('#dateHeader')[0].textContent = 'Date '+DOWNARROW;
             	$('#nameHeader')[0].textContent = 'Name';
             	$('#durationHeader')[0].textContent = 'Duration';
-            	return(replayList.sort(function(a,b) {
-                	aNum = a.replay.replace('replays', '').replace(/.*DATE/, '');
-                	bNum = b.replay.replace('replays', '').replace(/.*DATE/, '');
+            	return(replaylist.sort(function(a,b) {
+                	aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
+                	bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
                 	return(bNum - aNum);
                 }))
             }
@@ -339,16 +367,16 @@ function createMenu() {
             	$('#durationHeader')[0].textContent = 'Duration '+UPARROW;
             	$('#dateHeader')[0].textContent = 'Date';
             	$('#nameHeader')[0].textContent = 'Name';
-            	return(replayList.sort(function(a,b) {
-            		return(a.duration - b.duration);
+            	return(replaylist.sort(function(a,b) {
+            		return(Number(a.duration) - Number(b.duration));
             	}));
             }
             if(sortmethod === 'durD') {
             	$('#durationHeader')[0].textContent = 'Duration '+DOWNARROW;
             	$('#dateHeader')[0].textContent = 'Date';
             	$('#nameHeader')[0].textContent = 'Name';
-            	return(replayList.sort(function(a,b) {
-            		return(b.duration - a.duration);
+            	return(replaylist.sort(function(a,b) {
+            		return(Number(b.duration) - Number(a.duration));
             	}));
             }
         }
@@ -865,7 +893,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     } else if (message.method == "dataSetConfirmationFromBG") {
         console.log('got data set confirmation from background script. sending confirmation to injected script.')
         //closeAndReopenMenu();
-        addRow(message.replayName, message.duration, 'top');
+        if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
+        	addRow(message.replayName, message.duration, 'top');
+        	sortReplays()
+        }
         emit('positionDataConfirmation', true)
     } else if (message.method == "positionDataForDownload") {
         console.log('got data for download - ' + message.fileName)
@@ -875,6 +906,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         //closeAndReopenMenu();
         if(typeof message.newName !== 'undefined') {
         	addRow(message.newName, message.duration, message.deletedFiles)
+        	sortReplays()
         } else {
         	deleteRows(message.deletedFiles);
         }
@@ -882,6 +914,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('got confirmation of data file rename from background script')
         //closeAndReopenMenu();
         renameRow(message.oldName, message.newName);
+        sortReplays();
     } else if (message.method == "picture") {
         console.log('got picture file from background script')
         picture = message.file
