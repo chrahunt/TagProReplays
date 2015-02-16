@@ -195,8 +195,12 @@ function listItems() {
         if (request.result) {
         	var duration = localStorage.getItem(request.result.key);
         	if(duration === null) {
-	        	var data = JSON.parse(request.result.value);
-            	var duration = getDuration(data);
+        		if(request.result.value === undefined || request.result.value === "undefined") {
+        			var duration = 0;
+        		} else {
+	        		var data = JSON.parse(request.result.value);
+            		var duration = getDuration(data);
+            	}
             	localStorage.setItem(request.result.key, duration);
             } 
             allDurations.push(duration);

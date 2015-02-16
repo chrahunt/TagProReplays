@@ -677,7 +677,7 @@ function createMenu() {
             if (files.length > 0) {
                 var rawFileReader = new FileReader();
                 var newFileName = files[0].name.replace(/\.txt$/, '');
-                if (newFileName.search('DATE') < 0 & newFileName.search('replays') != 0) {
+                if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
                     newFileName += 'DATE' + new Date().getTime()
                 }
                 console.log(newFileName);
@@ -807,7 +807,10 @@ function storeTextures(textures) {
 // this gets called in reponse to a message from the background script confirming a
 // data deletion	
 function deleteRows(deletedFiles) {
-	if(!$.isArray(deletedFiles)) $('#'+deletedFiles);
+	if(!$.isArray(deletedFiles)) {
+		$('#'+deletedFiles).remove();
+		return
+	}
 	deletedFiles.map(function(deletedFile){
 		$('#'+deletedFile).remove()
 	});

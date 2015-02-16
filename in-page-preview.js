@@ -470,11 +470,13 @@ function createReplay(positions) {
         if (replayToDelete != null) {
             if (confirm('Are you sure you want to delete this replay?')) {
                 stopReplay(false)
-                console.log('requesting to delete ' + replayToDelete)
-                chrome.runtime.sendMessage({
-                    method: 'requestDataDelete',
-                    fileName: replayToDelete
-                });
+                setTimeout(function(){
+                	console.log('requesting to delete ' + replayToDelete)
+                	chrome.runtime.sendMessage({
+                    	method: 'requestDataDelete',
+                    	fileName: replayToDelete
+                	});
+                }, 500);
             }
         }
     }
