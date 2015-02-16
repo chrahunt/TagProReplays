@@ -746,6 +746,7 @@ function openReplayMenu() {
 }
 
 // Function to close and reopen the TagPro Replays menu.
+// THIS FUNCTION IS NO LONGER USED - IT REMAINS HERE IN CASE I NEED IT LATER FOR SOME REASON
 function closeAndReopenMenu() {
     // first, clear out saved rendered replays whose raw files have been deleted
     chrome.runtime.sendMessage({
@@ -780,7 +781,7 @@ function emit(event, data) {
 }
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
-function renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
+function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
     chrome.runtime.sendMessage({
         method: 'renderAllSubsequent',
         data: replaysToRender,
@@ -788,8 +789,7 @@ function renderSelectedSubsequent(replaysToRender, replayI, lastOne, tabNum) {
         lastOne: lastOne,
         useTextures: $('#useTextureCheckbox')[0].checked,
         useSplats: $('#useSplatsCheckbox')[0].checked,
-        useSpin: $('#useSpinCheckbox')[0].checked,
-        tabNum: tabNum
+        useSpin: $('#useSpinCheckbox')[0].checked
     });
     console.log('sent request to render replay: ' + replaysToRender[replayI])
 }
@@ -970,7 +970,9 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         picture = message.file
     } else if (message.method == "movieRenderConfirmation") {
         console.log('got movie render confirmation')
-        closeAndReopenMenu();
+        $('.replayRow').not('.clone').remove();
+        getListData();
+        //closeAndReopenMenu();
     } else if (message.method == "movieRenderFailure") {
         alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
     } else if (message.method == "movieDownloadConfirmation") {
@@ -993,17 +995,16 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     	}
         newReplayI = +message.replayI + 1
         lastOne = false
-        tabNum = message.tabNum
         if (newReplayI == message.replaysToRender.length - 1) {
             lastOne = true
         }
-        renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne, tabNum)
+        renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
     }
 });
 
 // set fps and duration if they're not already
 if (!readCookie('fps')) {
-    setCookie('fps', 30, cookieDomain)
+    setCookie('fps', 60, cookieDomain)
 }
 if (!readCookie('duration')) {
     setCookie('duration', 30, cookieDomain)

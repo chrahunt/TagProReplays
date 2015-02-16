@@ -59,7 +59,8 @@ function getRenderedMovieNames(fs, directory, secondArguments) {
             								 positionKeys: allKeys, 
             								 movieNames: cont, 
             								 textures: textures,
-            								 durations: durations})
+            								 durations: durations
+            })
             console.log('sent reply: ' + allKeys)
         }, function () {
             console.log('error1')
@@ -117,11 +118,8 @@ function dataURItoBlob(dataURI) {
 // function to read contents of file -- no return value, this creates a variable called 'movie'
 function getMovieFile(fs, directory, secondArguments) {
     function errorHandler(err) {
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            chrome.tabs.sendMessage(tabNum, {method: "movieDownloadFailure"})
-            console.log('sent movie download failure notice')
-        })
+        chrome.tabs.sendMessage(tabNum, {method: "movieDownloadFailure"});
+        console.log('sent movie download failure notice');
     };
     delete(movie)
     name = secondArguments[0]
@@ -135,11 +133,8 @@ function getMovieFile(fs, directory, secondArguments) {
                 movie.type = 'video/webm'
                 if (typeof movie !== "undefined") {
                     saveVideoData(name.replace(/DATE.*/, '') + '.webm', movie)
-                    chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-                        tabNum = tabs[0].id
-                        chrome.tabs.sendMessage(tabNum, {method: "movieDownloadConfirmation"})
-                        console.log('sent movie download confirmation')
-                    })
+                    chrome.tabs.sendMessage(tabNum, {method: "movieDownloadConfirmation"})
+                    console.log('sent movie download confirmation')
                 }
             };
             reader.readAsDataURL(file);

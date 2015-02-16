@@ -134,7 +134,6 @@ function renderVideo(positions, name, useSplats, useSpin, lastOne, replaysToRend
             	method: "movieRenderConfirmationNotLastOne",
             	replaysToRender: replaysToRender,
             	replayI: replayI,
-            	tabNum: tabNum,
             	failure: true,
             	name:name
 	        })
@@ -176,8 +175,7 @@ function renderVideo(positions, name, useSplats, useSpin, lastOne, replaysToRend
         chrome.tabs.sendMessage(tabNum, {
             method: "movieRenderConfirmationNotLastOne",
             replaysToRender: replaysToRender,
-            replayI: replayI,
-            tabNum: tabNum
+            replayI: replayI
         })
     }
 }
@@ -230,7 +228,7 @@ function getCurrentReplaysForCleaning() {
 
 // this is a function to get position data from the object store
 //   It sends a message to the content script once it gets the data 
-function getPosData(dataFileName) {
+function getPosData(dataFileName, tabNum) {
     positionData = []
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
@@ -243,7 +241,7 @@ function getPosData(dataFileName) {
 }
 
 // this gets position data from object store so that it can be downloaded by user.
-function getPosDataForDownload(dataFileName) {
+function getPosDataForDownload(dataFileName, tabNum) {
     positionData = []
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
@@ -262,7 +260,7 @@ function getPosDataForDownload(dataFileName) {
 // if the `dataFileName` argument is an object (not a string or array), then
 // this was called during a crop and replace process. we need to send the new
 // name for this replay back to the content script
-function deleteData(dataFileName) {
+function deleteData(dataFileName, tabNum) {
     var transaction = db.transaction(["positions"], "readwrite");
     var store = transaction.objectStore("positions");
     if($.isPlainObject(dataFileName)) {
@@ -305,7 +303,7 @@ function deleteData(dataFileName) {
 }
 
 // this renames data in the object store
-function renameData(oldName, newName) {
+function renameData(oldName, newName, tabNum) {
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
     var request = store.get(oldName);
@@ -323,8 +321,9 @@ function renameData(oldName, newName) {
             	localStorage.removeItem(oldName);
                 chrome.tabs.sendMessage(tabNum, {method: "fileRenameSuccess", 
                 								 oldName: oldName, 
-                								 newName: newName})
-                console.log('sent reply')
+                								 newName: newName
+                });
+                console.log('sent rename reply');
             }
         }
     }
@@ -384,11 +383,8 @@ function renderMovie(name, useTextures, useSplats, useSpin, lastOne, replaysToRe
                     renderVideo(request.result, name, useSplats, useSpin, lastOne)
                 }
             } else {
-                chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-                    tabNum = tabs[0].id
-                    chrome.tabs.sendMessage(tabNum, {method: "movieRenderFailure"})
-                    console.log('sent movie render failure notice')
-                })
+                chrome.tabs.sendMessage(tabNum, {method: "movieRenderFailure"})
+                console.log('sent movie render failure notice')
             }
         }
     },2000)
@@ -556,6 +552,7 @@ openRequest.onsuccess = function (e) {
 var title;
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.method == 'setPositionData') {
+    	tabNum = sender.tab.id;
         if (typeof message.newName !== 'undefined') {
             var name = message.newName
         } else {
@@ -572,73 +569,52 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
-        	chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-        		tabNum = tabs[0].id;
-        		if(deleteTheseData) {
-        			console.log('new replay saved, deleting old replay...');
-        			deleteData({fileName: message.oldName, newName: message.newName, duration: duration});
-        		} else {
-                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, duration: duration})
-                	console.log('sent confirmation')
-            	}
-            })
+        	if(deleteTheseData) {
+        		console.log('new replay saved, deleting old replay...');
+        		deleteData({fileName: message.oldName, newName: message.newName, duration: duration}, tabNum);
+        	} else {
+                chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, duration: duration})
+                console.log('sent confirmation')
+            }
         }
     } else if (message.method == 'requestData') {
-        console.log('got data request for ' + message.fileName)
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            getPosData(message.fileName)
-        })
+    	tabNum = sender.tab.id;
+        console.log('got data request for ' + message.fileName);
+        getPosData(message.fileName, tabNum);
     } else if (message.method == 'requestList') {
-        console.log('got list request')
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            listItems()
-        })
+    	tabNum = sender.tab.id;
+        console.log('got list request');
+        listItems();
     } else if (message.method == 'requestDataForDownload') {
-        console.log('got data request for download - ' + message.fileName)
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            getPosDataForDownload(message.fileName)
-        })
+    	tabNum = sender.tab.id;
+        console.log('got data request for download - ' + message.fileName);
+        getPosDataForDownload(message.fileName, tabNum);
     } else if (message.method == 'requestDataDelete') {
-        console.log('got delete request for ' + message.fileName)
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            deleteData(message.fileName)
-        })
+    	tabNum = sender.tab.id;
+        console.log('got delete request for ' + message.fileName);
+        deleteData(message.fileName, tabNum);
     } else if (message.method == 'requestFileRename') {
+    	tabNum = sender.tab.id;
         console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            renameData(message.oldName, message.newName)
-        })
+        renameData(message.oldName, message.newName, tabNum);
     } else if (message.method == 'renderMovie') {
-        console.log('got request to render Movie for ' + message.name)
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, true)
-        })
+    	tabNum = sender.tab.id;
+        console.log('got request to render Movie for ' + message.name);
+        renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, true);
     } else if (message.method == 'downloadMovie') {
-        console.log('got request to download Movie for ' + message.name)
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            downloadMovie(message.name)
-        })
+    	tabNum = sender.tab.id;
+        console.log('got request to download Movie for ' + message.name);
+        downloadMovie(message.name);
     } else if (message.method == 'setTextureData') {
+    	tabNum = sender.tab.id;
         console.log('got request to save texture image files')
-        saveTextures(JSON.parse(message.textureData))
-        /*chrome.tabs.query({
-         active: true,
-         currentWindow: true
-         }, function(tabs) {
-         tabNum = tabs[0].id;
-         chrome.tabs.sendMessage(tabNum, { method:"textureSaveConfirmation" });
-         });*/
+        saveTextures(JSON.parse(message.textureData));
     } else if (message.method == 'cleanRenderedReplays') {
+    	tabNum = sender.tab.id;
         console.log('got request to clean rendered replays')
         getCurrentReplaysForCleaning()
     } else if (message.method == 'renderAllInitial') {
+    	tabNum = sender.tab.id;
         console.log('got request to render these replays: ' + message.data)
         console.log('rendering the first one: ' + message.data[0])
         if (message.data.length == 1) {
@@ -646,13 +622,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         } else {
             lastOne = false
         }
-        chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-            tabNum = tabs[0].id
-            renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, lastOne, message.data, 0, tabNum)
-        })
+        renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, lastOne, message.data, 0, tabNum);
     } else if (message.method == 'renderAllSubsequent') {
+    	tabNum = sender.tab.id;
         console.log('got request to render subsequent replay: ' + message.data[message.replayI])
-        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.lastOne, message.data, message.replayI, message.tabNum)
+        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.lastOne, message.data, message.replayI, tabNum)
     }
 });
 
