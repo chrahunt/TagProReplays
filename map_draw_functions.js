@@ -804,10 +804,14 @@ function animateReplay(thisI, positions, mapImg, spin) {
     drawFloorTiles(positions)
     drawSpawns(positions)
     drawBalls(positions)
-    drawClock(positions)
-    drawScore(positions)
-    drawScoreFlag(positions)
-    drawChats(positions)
+    if (localStorage.getItem('useClockAndScore') == 'true' || readCookie('useClockAndScore') == 'true') {
+    	drawClock(positions)
+    	drawScore(positions)
+    	drawScoreFlag(positions)
+    }
+    if (localStorage.getItem('useChat') == 'true' || readCookie('useChat') == 'true') {
+	    drawChats(positions)
+	}
     bombPop(positions)
     drawEndText(positions)
 }

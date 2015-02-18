@@ -109,30 +109,42 @@ function createMenu() {
         // Save form fields.
         saveSettings = function () {
             // Save form fields
-            fpsInputValue = $('#fpsInput')[0].value
-            durationInputValue = $('#durationInput')[0].value
-            recordInputValue = $('#recordCheckbox')[0].checked
-            useTexturesInputValue = $('#useTextureCheckbox')[0].checked
-            useRecordKeyValue = $('#recordKeyChooserInput').data('record');
-            console.log("Use record key value: " + useRecordKeyValue);
-            currentRecordKey = $('#recordKeyChooserInput').text();
-            useSplatsValue = $('#useSplatsCheckbox')[0].checked;
-            useSpinValue = $('#useSpinCheckbox')[0].checked;
+            var fpsInputValue = $('#fpsInput')[0].value,
+            	durationInputValue = $('#durationInput')[0].value,
+            	recordInputValue = $('#recordCheckbox')[0].checked,
+            	useTexturesInputValue = $('#useTextureCheckbox')[0].checked,
+            	useRecordKeyValue = $('#recordKeyChooserInput').data('record'),
+            	currentRecordKey = $('#recordKeyChooserInput').text(),
+            	useSplatsValue = $('#useSplatsCheckbox')[0].checked,
+            	useSpinValue = $('#useSpinCheckbox')[0].checked,
+            	useClockAndScoreValue = $('#useClockAndScoreCheckbox')[0].checked,
+            	useChatValue = $('#useChatCheckbox')[0].checked,
+            	canvasWidthValue = Number($('#canvasWidthInput').val()),
+            	canvasHeightValue = Number($('#canvasHeightInput').val());
+            
             // Set cookies for replayRecording
-            if (!isNaN(fpsInputValue) & fpsInputValue != "") {
+            if (!isNaN(fpsInputValue) && fpsInputValue != "") {
                 setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
             }
-            if (!isNaN(durationInputValue) & durationInputValue != "") {
-                setCookie('duration', $('#durationInput')[0].value, cookieDomain)
+            if (!isNaN(durationInputValue) && durationInputValue != "") {
+                setCookie('duration', $('#durationInput')[0].value, cookieDomain);
             }
-            setCookie('record', recordInputValue, cookieDomain)
-            setCookie('useTextures', useTexturesInputValue, cookieDomain)
-            setCookie('useRecordKey', useRecordKeyValue, cookieDomain)
+            setCookie('record', recordInputValue, cookieDomain);
+            setCookie('useTextures', useTexturesInputValue, cookieDomain);
+            setCookie('useRecordKey', useRecordKeyValue, cookieDomain);
             if (currentRecordKey !== 'None') {
-                setCookie('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain)
+                setCookie('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain);
             }
-            setCookie('useSplats', useSplatsValue, cookieDomain)
+            setCookie('useSplats', useSplatsValue, cookieDomain);
             setCookie('useSpin', useSpinValue, cookieDomain);
+            setCookie('useClockAndScore', useClockAndScoreValue, cookieDomain);
+            setCookie('useChat', useChatValue, cookieDomain);
+            if (!isNaN(canvasWidthValue) && canvasWidthValue !== "") {
+            	setCookie('canvasWidth', canvasWidthValue, cookieDomain);
+            }
+            if (!isNaN(canvasHeightValue) && canvasHeightValue !== "") {
+            	setCookie('canvasHeight', canvasHeightValue, cookieDomain);
+            } 
 
             chrome.runtime.sendMessage({
                 method: 'cleanRenderedReplays'
@@ -145,17 +157,21 @@ function createMenu() {
         // Set value of settings when dialog opened, using default values if
         // none have yet been set.
         setSettings = function () {
-            fpsValue = (!readCookie('fps')) ? "30" : readCookie('fps');
-            durationValue = (!readCookie('duration')) ? "30" : readCookie('duration');
-            recordValue = (!readCookie('record')) ? 'true' : readCookie('record');
-            // Record key default is '/'
-            replayRecordKey = (!readCookie('replayRecordKey')) ? 47 : readCookie('replayRecordKey');
-            useTexturesValue = (!readCookie('useTextures')) ? 'false' : readCookie('useTextures');
-            useRecordKeyValue = (!readCookie('useRecordKey')) ? 'false' : readCookie('useRecordKey');
-            useSplatsValue = (!readCookie('useSplats')) ? 'false' : readCookie('useSplats');
-            useSpinValue = (!readCookie('useSpin')) ? 'false' : readCookie('useSpin');
+            var fpsValue = readCookie('fps') || "60",
+        		durationValue = readCookie('duration') || "30",
+            	recordValue = readCookie('record') || 'true',
+            	// Record key default is '/'
+            	replayRecordKey = readCookie('replayRecordKey') || 47,
+            	useTexturesValue = readCookie('useTextures') || 'true',
+            	useRecordKeyValue = 'true',
+            	useSplatsValue = readCookie('useSplats') || 'true',
+            	useSpinValue = readCookie('useSpin') || 'true',
+            	useClockAndScoreValue = readCookie('useClockAndScore') || 'true',
+            	useChatValue = readCookie('useChat') || 'true', 
+            	canvasWidthValue = readCookie('canvasWidth') || 1280,
+            	canvasHeightValue = readCookie('canvasHeight') || 800;
 
-            $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 30;
+            $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 60;
             $('#durationInput')[0].value = (!isNaN(durationValue) & durationValue != "") ? durationValue : 30;
             if (useRecordKeyValue === 'true') {
                 $('#recordKeyChooserInput').text(String.fromCharCode(replayRecordKey));
@@ -170,6 +186,10 @@ function createMenu() {
             $('#useSplatsCheckbox')[0].checked = (useSplatsValue === 'true');
             $('#recordCheckbox')[0].checked = (recordValue === 'true');
             $('#useSpinCheckbox')[0].checked = (useSpinValue === 'true');
+            $('#useClockAndScoreCheckbox')[0].checked = (useClockAndScoreValue === 'true');
+            $('#useChatCheckbox')[0].checked = (useChatValue === 'true');
+            $('#canvasWidthInput').val(canvasWidthValue);
+            $('#canvasHeightInput').val(canvasHeightValue);
         }
 
         $('#settingsContainer').on('show.bs.modal', setSettings);
@@ -214,7 +234,11 @@ function createMenu() {
                         data: replaysToRender,
                         useTextures: $('#useTextureCheckbox')[0].checked,
                         useSplats: $('#useSplatsCheckbox')[0].checked,
-                        useSpin: $('#useSpinCheckbox')[0].checked
+                        useSpin: $('#useSpinCheckbox')[0].checked,
+                        useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
+                        useChat: $('#useChatCheckbox')[0].checked,
+                        canvasWidth: isNaN($('#canvasWidthInput').val()) ? 1280 : Number($('#canvasWidthInput').val()),
+                        canvasHeight: isNaN($('#canvasHeightInput').val()) ? 800 : Number($('#canvasHeightInput').val())
                     });
                     console.log('sent request to render multiple replays: ' + replaysToRender);
                 }
@@ -729,6 +753,11 @@ function setFormTitles() {
     'want to show splats in the replay';
     $('#useSplatsTxt').prop('title', useSplatsTitle);
     $('#useSplatsCheckbox').prop('title', useSplatsTitle);
+    
+    canvasWidthAndHeightTitle = 'Set the width and height of the .webm movie file. The default is 1280 by 800, ' +
+    'but set it to 1280 by 720 for true 720p resolution';
+    $('#canvasWidthInput').prop('title', canvasWidthAndHeightTitle);
+    $('#canvasHeightInput').prop('title', canvasWidthAndHeightTitle);
 }
 
 // function for requesting indexdb datastore contents from background script.
@@ -789,7 +818,9 @@ function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
         lastOne: lastOne,
         useTextures: $('#useTextureCheckbox')[0].checked,
         useSplats: $('#useSplatsCheckbox')[0].checked,
-        useSpin: $('#useSpinCheckbox')[0].checked
+        useSpin: $('#useSpinCheckbox')[0].checked,
+        useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
+        useChat: $('#useChatCheckbox')[0].checked
     });
     console.log('sent request to render replay: ' + replaysToRender[replayI])
 }
@@ -1017,6 +1048,18 @@ if (!readCookie('useSplats')) {
 }
 if (!readCookie('useSpin')) {
 	setCookie('useSpin', true, cookieDomain)
+}
+if (!readCookie('useClockAndScore')) {
+	setCookie('useClockAndScore', true, cookieDomain)
+}
+if (!readCookie('canvasWidth')) {
+	setCookie('canvasWidth', 1280, cookieDomain)
+}
+if (!readCookie('canvasHeight')) {
+	setCookie('canvasHeight', 800, cookieDomain)
+}
+if (!readCookie('useChat')) {
+	setCookie('useChat', true, cookieDomain)
 }
 
 // this function sets up a listener wrapper

@@ -16,8 +16,8 @@ can.id = 'mapCanvas'
 document.body.appendChild(can)
 
 can = document.getElementById('mapCanvas')
-can.width = 32 * tileSize
-can.height = 20 * tileSize
+can.width = localStorage.getItem('canvasWidth') || 32 * tileSize;
+can.height = localStorage.getItem('canvasHeight') || 20 * tileSize;
 can.style.zIndex = 200
 can.style.position = 'absolute'
 can.style.top = 0
@@ -120,10 +120,12 @@ function checkData(positions) {
 
 
 // Actually does the rendering of the movie 
-function renderVideo(positions, name, useSplats, useSpin, lastOne, replaysToRender, replayI, tabNum) {
-    localStorage.setItem('useSplats', useSplats)
+function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum) {
+    localStorage.setItem('useSplats', useSplats);
     localStorage.setItem('useSpin', useSpin);
-    positions = JSON.parse(positions)
+    localStorage.setItem('useClockAndScore', useClockAndScore);
+    localStorage.setItem('useChat', useChat);
+    positions = JSON.parse(positions);
     
     // check position data and abort rendering if not good
     if(!checkData(positions)) {
@@ -334,7 +336,7 @@ function renameData(oldName, newName, tabNum) {
 }
 
 // this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name, useTextures, useSplats, useSpin, lastOne, replaysToRender, replayI, tabNum) {
+function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum) {
     if (useTextures) {
         if (typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
             img.src = localStorage.getItem('tiles')
@@ -382,9 +384,9 @@ function renderMovie(name, useTextures, useSplats, useSpin, lastOne, replaysToRe
         request.onsuccess = function () {
             if (typeof JSON.parse(request.result).clock !== "undefined") {
                 if (typeof replaysToRender !== 'undefined') {
-                    renderVideo(request.result, name, useSplats, useSpin, lastOne, replaysToRender, replayI, tabNum)
+                    renderVideo(request.result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum)
                 } else {
-                    renderVideo(request.result, name, useSplats, useSpin, lastOne)
+                    renderVideo(request.result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne)
                 }
             } else {
                 chrome.tabs.sendMessage(tabNum, {method: "movieRenderFailure"})
@@ -604,7 +606,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     } else if (message.method == 'renderMovie') {
     	tabNum = sender.tab.id;
         console.log('got request to render Movie for ' + message.name);
-        renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, true);
+        localStorage.setItem('canvasWidth', message.canvasWidth);
+        localStorage.setItem('canvasHeight', message.canvasHeight);
+        can.width = message.canvasWidth;
+		can.height = message.canvasHeight;
+        renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, true);
     } else if (message.method == 'downloadMovie') {
     	tabNum = sender.tab.id;
         console.log('got request to download Movie for ' + message.name);
@@ -626,11 +632,15 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         } else {
             lastOne = false
         }
-        renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, lastOne, message.data, 0, tabNum);
+        localStorage.setItem('canvasWidth', message.canvasWidth);
+        localStorage.setItem('canvasHeight', message.canvasHeight);
+        can.width = message.canvasWidth;
+		can.height = message.canvasHeight;
+        renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, lastOne, message.data, 0, tabNum);
     } else if (message.method == 'renderAllSubsequent') {
     	tabNum = sender.tab.id;
         console.log('got request to render subsequent replay: ' + message.data[message.replayI])
-        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.lastOne, message.data, message.replayI, tabNum)
+        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
     }
 });
 

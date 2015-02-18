@@ -493,7 +493,12 @@ function createReplay(positions) {
                         method: 'renderAllInitial',
                         data: [replayToRender],
                         useTextures: readCookie('useTextures'),
-                        useSplats: readCookie('useSplats')
+                        useSplats: readCookie('useSplats'),
+                        useSpin: readCookie('useSpin'),
+                        useClockAndScore: readCookie('useClockAndScore'),
+                        useChat: readCookie('useChat'),
+                        canvasWidth: readCookie('canvasWidth') || 1280,
+                        canvasHeight: readCookie('canvasHeight') || 800
                     });
                 }, 1000)
             }
