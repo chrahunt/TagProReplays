@@ -23,7 +23,9 @@
                             <th class="col-sm-1" id="durationHeader">Duration</th>
                             <th class="col-sm-2" id="dateHeader">Date</th>
                             <th class="col-sm-1">Movie</th>
-                            <th class="col-sm-1">Raw Data</th>
+                            <!-- 
+                            <th class="col-sm-1">Raw Data</th> 
+                            -->
                             <th class="col-sm-1"></th>
                         </tr>
                         </thead>
@@ -49,9 +51,11 @@
                                 <td class="col-sm-1">
                                     <button class="download-movie-button">Download</button>
                                 </td>
+                                <!--
                                 <td class="col-sm-1">
                                     <button class="download-button">Download</button>
                                 </td>
+                                -->
                                 <td class="col-sm-1">
                                     <button class="rename-button">Rename</button>
                                 </td>
@@ -65,10 +69,11 @@
                 <div class="pull-left">
                     <button type="button" class="btn btn-danger" id="deleteSelectedButton">Delete Selected</button>
                     <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
+                    <button type="button" class="btn btn-primary" id="downloadRawButton">Download Raw Data</button>
                 </div>
                 <div class="pull-right">
                     <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
-                    <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input">
+                    <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input" multiple="multiple">
                 </div>
             </div>
         </div>

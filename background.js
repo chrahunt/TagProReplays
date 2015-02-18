@@ -262,6 +262,29 @@ function getPosDataForDownload(dataFileName, tabNum) {
     }
 }
 
+// gets position data from object store for multiple files and zips it into blob
+// saves as zip file
+function getRawDataAndZip(files) {
+	var zip = new JSZip();
+	var transaction = db.transaction(["positions"], "readonly");
+    var store = transaction.objectStore("positions");
+    var request = store.openCursor(null);
+    request.onsuccess = function () {
+        if (request.result) {
+        	if($.inArray(request.result.key, files) >= 0) {
+				//console.log(request.result.value)
+				console.log(request.result.key)
+				zip.file(request.result.key+'.txt', request.result.value);
+			}
+            request.result.continue()
+        } else {
+            var content = zip.generate({type:"blob"});
+            console.log(content)
+            saveAs(content, 'raw_data.zip')
+        }
+    }
+}
+
 // this deletes data from the object store
 // if the `dataFileName` argument is an object (not a string or array), then
 // this was called during a crop and replace process. we need to send the new
@@ -557,7 +580,7 @@ openRequest.onsuccess = function (e) {
 
 var title;
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    if (message.method == 'setPositionData') {
+    if (message.method == 'setPositionData' || message.method == 'setPositionDataFromImport') {
     	tabNum = sender.tab.id;
         if (typeof message.newName !== 'undefined') {
             var name = message.newName
@@ -579,10 +602,15 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         		console.log('new replay saved, deleting old replay...');
         		deleteData({fileName: message.oldName, newName: message.newName, duration: duration}, tabNum);
         	} else {
-                chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, duration: duration})
-                console.log('sent confirmation')
+        		if(message.method === 'setPositionDataFromImport') {
+        			sendResponse({replayName: name, duration: duration});
+        		} else {
+                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, duration: duration});
+                	console.log('sent confirmation');
+                }
             }
         }
+        return true;
     } else if (message.method == 'requestData') {
     	tabNum = sender.tab.id;
         console.log('got data request for ' + message.fileName);
@@ -593,8 +621,16 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         listItems();
     } else if (message.method == 'requestDataForDownload') {
     	tabNum = sender.tab.id;
-        console.log('got data request for download - ' + message.fileName);
-        getPosDataForDownload(message.fileName, tabNum);
+    	if(message.fileName || message.files.length == 1) { // old, single button
+        	console.log('got data request for download - ' + message.fileName || message.files[0]);
+        	getPosDataForDownload(message.fileName || message.files[0], tabNum);
+        	return;
+        }
+        if(message.files) {
+        	console.log('got request to download raw data for: ' + message.files)
+        	getRawDataAndZip(message.files);
+        }
+        return true;
     } else if (message.method == 'requestDataDelete') {
     	tabNum = sender.tab.id;
         console.log('got delete request for ' + message.fileName);

@@ -206,6 +206,7 @@ function createMenu() {
         // these buttons allow rendering/deleting multiple replays
         $('#renderSelectedButton').click(renderSelectedInitial);
         $('#deleteSelectedButton').click(deleteSelected);
+        $('#downloadRawButton').click(downloadRawData);
 
         // function for determining if a position file name is in an array of rendered movie names
         function positionFileIsRendered(positionFileName, movieNames) {
@@ -267,6 +268,25 @@ function createMenu() {
             }
         }
         
+        //function to download multiple raw data at once
+        function downloadRawData() {
+        	var rawDataToDownload = [];
+        	$('.selected-checkbox').each(function () {
+        		if (this.checked) {
+        			var row = $(this).closest('tr');
+        			var replayId = row.data('replay');
+        			rawDataToDownload.push(replayId);
+        		}
+        	});
+        	
+        	if (rawDataToDownload.length > 0) {
+        		console.log('requesting to download raw data for ' + rawDataToDownload);
+        		chrome.runtime.sendMessage({
+        			method: 'requestDataForDownload',
+        			files: rawDataToDownload
+        		});
+        	}
+        }
         
         /*
         Sorting Section
@@ -474,12 +494,14 @@ function createMenu() {
                 $('#noReplays').show();
                 $('#renderSelectedButton').prop('disabled', true);
                 $('#deleteSelectedButton').prop('disabled', true);
+                $('#downloadRawButton').prop('disabled', true);
                 $('#replayList').hide();
             } else {
                 console.log("got replays");
                 // Enable buttons for interacting with multiple selections.
                 $('#renderSelectedButton').prop('disabled', false);
                 $('#deleteSelectedButton').prop('disabled', false);
+                $('#downloadRawButton').prop('disabled', false);
 
                 // sort the results
                 replayList = doSorting(replayList, readCookie('sortMethod'));
@@ -547,7 +569,8 @@ function createMenu() {
                         name: fileNameToDownload
                     });
                 });
-
+				
+				/*
                 // Set handler for raw data download button.
                 $('.replayRow:not(.clone) .download-button').click(function () {
                     var replayId = getReplayId(this);
@@ -558,7 +581,8 @@ function createMenu() {
                         fileName: fileNameToDownload
                     });
                 });
-
+				*/
+				
                 // Set handler for rename button.
                 $('.replayRow:not(.clone) .rename-button').click(function () {
                     var replayId = getReplayId(this);
@@ -654,7 +678,8 @@ function createMenu() {
          * fileName  [optional]  the name of the file as it will appear in
          *   the replay list.
          */
-        rawParse = function (fileData, fileName) {
+        rawParse = function (fileData, fileName, i, files) {
+        	i++;
             try {
                 var parsedData = JSON.parse(fileData);
             } catch (err) {
@@ -667,26 +692,34 @@ function createMenu() {
                 alert('The file you uploaded was not a valid TagPro Replays raw file.');
             } else {
                 var message = {
-                    method: 'setPositionData',
+                    method: 'setPositionDataFromImport',
                     positionData: fileData
                 }
+                if(typeof fileName !== 'undefined') message.newName = fileName;
 
-                if (typeof fileName === 'undefined') {
-                    console.log('undefined file name');
-                    chrome.runtime.sendMessage({
-                        method: 'setPositionData',
-                        positionData: fileData
-                    });
-                } else {
-                    console.log('defined file name');
-                    chrome.runtime.sendMessage({
-                        method: 'setPositionData',
-                        positionData: fileData,
-                        newName: fileName
-                    });
-                }
+				chrome.runtime.sendMessage(message, function(response) {
+					console.log('got "data added" response from background script')
+					addRow(response.replayName, response.duration, 'top');
+        			sortReplays();
+        			readImportedFile(files, i);
+				});
             }
         }
+        
+        // function for preparing a file to be read by the rawParse function
+        readImportedFile = function(files, i) {
+			if(i==files.length) return
+        	var rawFileReader = new FileReader();
+			var newFileName = files[i].name.replace(/\.txt$/, '');
+			if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
+				newFileName += 'DATE' + new Date().getTime()
+			}
+			rawFileReader.onload = function (e) {
+				rawParse(e.target.result, newFileName, i, files);
+			}
+			rawFileReader.readAsText(files[i]);
+		};
+        
         // Visible button invokes the actual file input.
         $('#raw-upload-button').click(function (e) {
             // Empty file input so change listener is invoked even if same
@@ -699,16 +732,7 @@ function createMenu() {
         $('#raw-upload').change(function () {
             var files = $(this).prop('files');
             if (files.length > 0) {
-                var rawFileReader = new FileReader();
-                var newFileName = files[0].name.replace(/\.txt$/, '');
-                if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
-                    newFileName += 'DATE' + new Date().getTime()
-                }
-                console.log(newFileName);
-                rawFileReader.onload = function (e) {
-                    rawParse(e.target.result, newFileName);
-                }
-                rawFileReader.readAsText(files[0]);
+                readImportedFile(files, 0)
             }
         });
     });
