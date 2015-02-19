@@ -186,7 +186,7 @@ function createReplay(positions) {
     slider.onmousedown = function () {
         pauseReplay()
     }
-    slider.onmouseup = function () {
+    slider.onchange = function () {
         thisI = this.value
         animateReplay(thisI, positions, mapImg)
     }
@@ -280,7 +280,7 @@ function createReplay(positions) {
     // functions to control replay playback
     function resetReplay() {
         thisI = 0
-        clearInterval(thingy)
+        if(typeof thingy !== 'undefined') clearInterval(thingy)
         animateReplay(thisI, positions, mapImg)
         slider.value = 0
         delete(thingy)
