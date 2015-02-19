@@ -252,12 +252,49 @@ function drawMap(posx, posy, positions) {
     newcan.style.top = 0
     newcan.style.left = 0
     newcontext = newcan.getContext('2d')
+    
+    var specialTiles = ['11', '12', '17', '18'];
+    var specialTileElements = {
+	    11: {tile: "redtile", coordinates: {x: 14, y: 4}, tileSize: 40, drawTileFirst: false},
+    	12: {tile: "bluetile", coordinates: {x: 15, y: 4}, tileSize: 40, drawTileFirst: false},
+	    17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
+    	18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
+    }
+    
+    function drawSpecialTile(col, row, type) {
+    	if ( type == '1.1' && col != positions.tiles.length-1 && row != 0 ) {
+    		var test = specialTiles.map(function(tile) {
+    			if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
+    				return ({test:true,tile:tile});
+    		});
+    	} else if ( type == '1.2' && col != positions.tiles.length-1 && row != positions.tiles[col].length-1 ) {
+    		var test = specialTiles.map(function(tile) {
+    			if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
+    				return ({test:true,tile:tile});
+    		});
+    	} else if ( type == '1.3' && col != 0 && row != positions.tiles[col].length-1 ) {
+    		var test = specialTiles.map(function(tile) {
+    			if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
+    				return ({test:true,tile:tile});
+    		});
+    	} else if ( type == '1.4' && col != 0 && row != 0 ) {
+    		var test = specialTiles.map(function(tile) {
+    			if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
+    				return ({test:true,tile:tile});
+    		});
+    	};
+    	if(typeof test === 'undefined' || $.map(test, function(obj, index){if(typeof obj === 'object') return(index)})[0] < 0) return false;
+    	var specialTile = $.map(test, function(obj, index){if(typeof obj === 'object') return(obj.tile)})[0]
+    	return specialTile;
+    }
 
     for (col in positions.tiles) {
         for (row in positions.tiles[col]) {
             // draw floor tile underneath certain tiles
             // but don't draw tile outside bounds of the map
+            // also whether to draw team tiles / end zones instead of regular tile
             if (positions.tiles[col][row].tile == 'diagonalWall') {
+            	positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(col, row, positions.map[col][row]);
                 positions.tiles[col][row].drawTileFirst = true
                 if (positions.map[col][row] == '1.1') {
                     if (col != positions.map.length - 1) {
@@ -270,6 +307,8 @@ function drawMap(posx, posy, positions) {
                             positions.tiles[col][row].drawTileFirst = false
                         }
                     }
+                    if (row == 0 && col == positions.map.length - 1)
+                    	positions.tiles[col][row].drawTileFirst = false;
                 } else if (positions.map[col][row] == '1.2') {
                     if (col != positions.map.length - 1) {
                         if (positions.map[+col + 1][row] == '0') {
@@ -281,6 +320,8 @@ function drawMap(posx, posy, positions) {
                             positions.tiles[col][row].drawTileFirst = false
                         }
                     }
+                    if (col == positions.map.length - 1 && row == positions.map[col].length - 1)
+                    	positions.tiles[col][row].drawTileFirst = false
                 } else if (positions.map[col][row] == '1.3') {
                     if (col != 0) {
                         if (positions.map[+col - 1][row] == '0') {
@@ -292,6 +333,8 @@ function drawMap(posx, posy, positions) {
                             positions.tiles[col][row].drawTileFirst = false
                         }
                     }
+                    if (col == 0 && row == positions.map[col].length - 1)
+                    	positions.tiles[col][row].drawTileFirst = false;
                 } else if (positions.map[col][row] == '1.4') {
                     if (col != 0) {
                         if (positions.map[+col - 1][row] == '0') {
@@ -303,9 +346,11 @@ function drawMap(posx, posy, positions) {
                             positions.tiles[col][row].drawTileFirst = false
                         }
                     }
+                    if (row == 0 && col == 0) 
+                    	positions.tiles[col][row].drawTileFirst = false;
                 }
             }
-            if (positions.tiles[col][row].drawTileFirst) {
+            if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
                 tileSize = 40
                 newcontext.drawImage(img, 										// image
                     13 * tileSize, 									// x coordinate of image
@@ -316,6 +361,17 @@ function drawMap(posx, posy, positions) {
                     row * tileSize + posy,							// destination y coordinate
                     tileSize,										// width of destination
                     tileSize) 									// height of destination
+            }
+            if (positions.tiles[col][row].drawSpecialTileFirst) {
+            	newcontext.drawImage(img,
+            		specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * tileSize,
+            		specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * tileSize,
+            		tileSize,
+            		tileSize,
+            		col * tileSize + posx,
+            		row * tileSize + posy,
+            		tileSize,
+            		tileSize)
             }
             if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
                 tileSize = positions.tiles[col][row].tileSize
