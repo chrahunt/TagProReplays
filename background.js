@@ -200,8 +200,12 @@ function listItems() {
         		if(request.result.value === undefined || request.result.value === "undefined") {
         			var duration = 0;
         		} else {
-	        		var data = JSON.parse(request.result.value);
-            		var duration = getDuration(data);
+        			try {
+                		var data = JSON.parse(request.result.value);
+                		var duration = getDuration(data);
+            		} catch (err) {
+                		var duration = 6039;
+            		}
             	}
             	localStorage.setItem(request.result.key, duration);
             } 
