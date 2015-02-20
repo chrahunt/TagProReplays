@@ -519,7 +519,7 @@ function createMenu() {
                 // Populate rows
                 for (dat in replayList) {
                     thisReplay = replayList[dat].replay
-                    var metadata = JSON.parse(replayList[dat].metadata);
+                    var metadata = $.isPlainObject(replayList[dat].metadata) ? replayList[dat].metadata : JSON.parse(replayList[dat].metadata);
                     thisDuration = metadata.duration;
                     var titleText = formatMetaDataTitle(metadata);
                     var newRow = cloneRow.clone(true);
