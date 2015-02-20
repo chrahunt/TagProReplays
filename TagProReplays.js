@@ -483,10 +483,10 @@ function createMenu() {
 
 
         // This puts the current replays into the menu
-        populateList = function (storageData, movieNames, durations) {
+        populateList = function (storageData, movieNames, metadata) {
             replayList = [];
             for (dat in storageData) {
-                replayList.push({replay:storageData[dat], duration:durations[dat]});
+                replayList.push({replay:storageData[dat], metadata:metadata[dat]});
             }
 
             if (!(replayList.length > 0)) {
@@ -519,7 +519,9 @@ function createMenu() {
                 // Populate rows
                 for (dat in replayList) {
                     thisReplay = replayList[dat].replay
-                    thisDuration = replayList[dat].duration
+                    var metadata = JSON.parse(replayList[dat].metadata);
+                    thisDuration = metadata.duration;
+                    var titleText = formatMetaDataTitle(metadata);
                     var newRow = cloneRow.clone(true);
                     newRow.data("replay", thisReplay);
                     newRow.attr("id", thisReplay);
@@ -542,6 +544,7 @@ function createMenu() {
                     newRow.find('.duration').text(durationFormatted);
 
                     newRow.find('.replay-date').text(datevalue);
+                    newRow[0].title = titleText;
                     $('#replayList tbody').append(newRow);
                 }
 
@@ -619,7 +622,7 @@ function createMenu() {
                 }
                 
                 setReplayMenuWidth = function() {
-                	$('#menuContainer .modal-dialog').width(.75*$(window).width());
+                	$('#menuContainer .modal-dialog').width(.70*$(window).width());
                 }
                 
 				setReplayMenuWidth();
@@ -699,7 +702,7 @@ function createMenu() {
 
 				chrome.runtime.sendMessage(message, function(response) {
 					console.log('got "data added" response from background script')
-					addRow(response.replayName, response.duration, 'top');
+					addRow(response.replayName, JSON.parse(response.metadata), 'top');
         			sortReplays();
         			readImportedFile(files, i);
 				});
@@ -887,16 +890,28 @@ function getReplayId(elt) {
 	return replayRow.data("replay");
 }
 
+// function to format metadata to put into title text
+function formatMetaDataTitle(metadata) {
+    var title = '';
+    title += "Map: " + metadata.map + "\n";
+    title += "FPS: " + metadata.fps + "\n";
+    title += "Red Team:\n\t" + metadata.redTeam.join('\n\t') + "\n";
+    title += "Blue Team:\n\t" + metadata.blueTeam.join('\n\t') + "\n";
+    return(title)
+}
+
 // function to add a row to the replay list
 // the second argument tells the function where to put the new row
 // if it equals "top", then the row goes at the top
 // if it is a replay name, it will go before that replay 
-function addRow(replayName, duration, insertionPoint) {
+function addRow(replayName, metadata, insertionPoint) {
 	var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
     var date = new Date(ms);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
+    var duration = metadata.duration;
     var durationDate = new Date(duration * 1000);
     var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2)
+    var titleText = formatMetaDataTitle(metadata);
 	
 	if(insertionPoint === 'top' || insertionPoint !== replayName) {
 		var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
@@ -910,6 +925,7 @@ function addRow(replayName, duration, insertionPoint) {
 		newRow.find('.download-movie-button').prop('disabled', true);
     	newRow.find('.replay-date').text(datevalue);
     	newRow.find('.duration').text(durationFormatted);
+    	newRow[0].title = titleText;
     	if(insertionPoint === 'top') {
     		$('#replayList tbody').prepend(newRow);
     	} else {
@@ -939,17 +955,6 @@ function addRow(replayName, duration, insertionPoint) {
 			chrome.runtime.sendMessage({
 				method: 'downloadMovie',
 				name: fileNameToDownload
-			});
-		});
-
-		// Set handler for raw data download button.
-		$('#'+replayName+' .download-button').click(function () {
-			var replayId = getReplayId(this);
-			fileNameToDownload = replayId;
-			console.log('requesting ' + fileNameToDownload);
-			chrome.runtime.sendMessage({
-				method: 'requestDataForDownload',
-				fileName: fileNameToDownload
 			});
 		});
 
@@ -989,7 +994,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.method == 'itemsList') {
         console.log('got itemList message')
         storeTextures(message.textures);
-        populateList(message.positionKeys, message.movieNames, message.durations);
+        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
     } else if (message.method == 'positionData') {
         console.log('got positionData message')
         localStorage.setItem('currentReplayName', message.movieName)
@@ -1002,7 +1007,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('got data set confirmation from background script. sending confirmation to injected script.')
         //closeAndReopenMenu();
         if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-        	addRow(message.replayName, message.duration, 'top');
+        	addRow(message.replayName, JSON.parse(message.metadata), 'top');
         	sortReplays()
         }
         emit('positionDataConfirmation', true)
@@ -1013,7 +1018,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('data were deleted')
         //closeAndReopenMenu();
         if(typeof message.newName !== 'undefined') {
-        	addRow(message.newName, message.duration, message.deletedFiles)
+        	addRow(message.newName, message.metadata, message.deletedFiles)
         	sortReplays()
         } else {
         	deleteRows(message.deletedFiles);

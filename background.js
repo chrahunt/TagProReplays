@@ -189,31 +189,31 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
 function listItems() {
 	var textures = retrieveTextures();
     var allKeys = [];
-    var allDurations = [];
+    var allMetaData = [];
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
     var request = store.openCursor(null);
     request.onsuccess = function () {
         if (request.result) {
-        	var duration = localStorage.getItem(request.result.key);
-        	if(duration === null) {
+        	var metadata = localStorage.getItem(request.result.key);
+        	if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
         		if(request.result.value === undefined || request.result.value === "undefined") {
-        			var duration = 0;
+        			var metadata = extractMetaData(null);
         		} else {
         			try {
                 		var data = JSON.parse(request.result.value);
-                		var duration = getDuration(data);
+                		var metadata = extractMetaData(data);
             		} catch (err) {
-                		var duration = 6039;
+                		var metadata = extractMetaData(null);
             		}
             	}
-            	localStorage.setItem(request.result.key, duration);
+            	localStorage.setItem(request.result.key, JSON.stringify(metadata));
             } 
-            allDurations.push(duration);
+            allMetaData.push(metadata);
             allKeys.push(request.result.key);
             request.result.continue();
         } else {
-            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures, allDurations]);
+            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures, allMetaData]);
         }
     }
 }
@@ -298,10 +298,10 @@ function deleteData(dataFileName, tabNum) {
     var store = transaction.objectStore("positions");
     if($.isPlainObject(dataFileName)) {
     	var newName = dataFileName.newName;
-    	var duration = dataFileName.duration;
+    	var metadata = dataFileName.metadata;
     	dataFileName = dataFileName.fileName;
     	if(dataFileName === newName) {
-    		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, duration: duration});
+    		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata});
         	console.log('sent crop and replace reply');
         	return;
     	}
@@ -324,7 +324,7 @@ function deleteData(dataFileName, tabNum) {
         request.onsuccess = function () {
         	if(typeof newName !== 'undefined') {
         		if(newName !== dataFileName) localStorage.removeItem(dataFileName);
-        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, duration: duration});
+        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata});
         		console.log('sent crop and replace reply');
         	} else {
         		localStorage.removeItem(dataFileName);
@@ -513,6 +513,38 @@ function getDuration(positions) {
     return(duration);
 }
 
+// this takes a positions file and returns the metadata of that file, including:
+//     players, their teams at the start of the replay, the map name, the fps of the 
+//     recording, and the duration of the recording
+function extractMetaData(positions) {
+    var metadata = {};
+    metadata.redTeam = [];
+    metadata.blueTeam = [];
+    var blankResponse = {redTeam: [''], blueTeam: [''], map: 'ERROR', fps: 0, duration: 0};
+    if(!$.isPlainObject(positions)) return(blankResponse);
+    for(var x in positions) {
+        if(x.search('player')==0) {
+        	var name = $.map(positions[x].name, function(obj, index){if(obj !== 'null') return(obj)});
+        	if(name[0] == undefined) continue;
+            var team = positions[x].team[0];
+            var name = (positions[x].me == 'me' ? '* ' : '  ') + name[0];
+            if(positions[x].me=='me') {
+                var me = x;
+                var duration = Math.round(positions[x].x.length/positions[x].fps);
+            }
+            if(team == 1) {
+            	metadata.redTeam.push(name);
+            } else {
+            	metadata.blueTeam.push(name);
+            }
+        }
+    }
+    if(typeof me === 'undefined') return(blankResponse)
+    metadata.map = positions[me].map;
+    metadata.fps = positions[me].fps;
+    metadata.duration = duration;
+    return metadata;
+}
 
 // Set up indexedDB
 var openRequest = indexedDB.open("ReplayDatabase");
@@ -597,19 +629,19 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         objectStore = transaction.objectStore('positions')
         console.log('got data from content script.')
         positions = cleanPositionData(JSON.parse(message.positionData))
-        var duration = getDuration(positions);
-        localStorage.setItem(name, duration);
+        var metadata = extractMetaData(positions);
+        localStorage.setItem(name, JSON.stringify(metadata));
         
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
         	if(deleteTheseData) {
         		console.log('new replay saved, deleting old replay...');
-        		deleteData({fileName: message.oldName, newName: message.newName, duration: duration}, tabNum);
+        		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata}, tabNum);
         	} else {
         		if(message.method === 'setPositionDataFromImport') {
-        			sendResponse({replayName: name, duration: duration});
+        			sendResponse({replayName: name, metadata: JSON.stringify(metadata)});
         		} else {
-                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, duration: duration});
+                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, metadata: JSON.stringify(metadata)});
                 	console.log('sent confirmation');
                 }
             }

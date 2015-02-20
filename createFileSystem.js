@@ -47,7 +47,7 @@ function getRenderedMovieNames(fs, directory, secondArguments) {
     cont = []
     var allKeys = secondArguments[0];
     var textures = secondArguments[1];
-    var durations = secondArguments[2];
+    var metadata = secondArguments[2];
     fs.root.getDirectory(directory, {}, function (dirEntry) {
         var dirReader = dirEntry.createReader();
         dirReader.readEntries(function (entries) {
@@ -59,7 +59,7 @@ function getRenderedMovieNames(fs, directory, secondArguments) {
             								 positionKeys: allKeys, 
             								 movieNames: cont, 
             								 textures: textures,
-            								 durations: durations
+            								 metadata: JSON.stringify(metadata)
             })
             console.log('sent reply: ' + allKeys)
         }, function () {
