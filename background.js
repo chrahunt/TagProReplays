@@ -751,6 +751,14 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }
 });
 
-tabNum = 0;
-listItems();
+
+(initialStart = function() {
+	if(typeof db !== 'undefined') {
+		console.log('starting up');
+		tabNum = 0;
+		listItems();
+	} else {
+		setTimeout(initialStart, 100);
+	}
+})()
 
