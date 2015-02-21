@@ -314,8 +314,6 @@ function getRawDataAndZip(files) {
 // this was called during a crop and replace process. we need to send the new
 // name for this replay back to the content script
 function deleteData(dataFileName, tabNum) {
-    var transaction = db.transaction(["positions"], "readwrite");
-    var store = transaction.objectStore("positions");
     if($.isPlainObject(dataFileName)) {
     	var newName = dataFileName.newName;
     	var metadata = dataFileName.metadata;
@@ -344,6 +342,8 @@ function deleteData(dataFileName, tabNum) {
             }
         }
     } else {
+    	var transaction = db.transaction(["positions"], "readwrite");
+    	var store = transaction.objectStore("positions");
         request = store.delete(dataFileName);
         request.onsuccess = function () {
         	if(typeof newName !== 'undefined') {
@@ -666,7 +666,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         request.onsuccess = function () {
         	if(deleteTheseData) {
         		console.log('new replay saved, deleting old replay...');
-        		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata, preview: preview}, tabNum);
+        		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata, preview: thisPreview}, tabNum);
         	} else {
         		if(message.method === 'setPositionDataFromImport') {
         			sendResponse({replayName: name, 
