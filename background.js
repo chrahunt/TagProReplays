@@ -332,6 +332,8 @@ function deleteData(dataFileName, tabNum) {
         for (fTD in dataFileName) {
         	localStorage.removeItem(dataFileName[fTD]);
     		chrome.storage.local.remove(dataFileName[fTD]);
+    		var transaction = db.transaction(["positions"], "readwrite");
+    		var store = transaction.objectStore("positions");
             request = store.delete(dataFileName[fTD]);
             request.onsuccess = function () {
                 deleted.push(fTD);
