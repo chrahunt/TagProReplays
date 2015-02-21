@@ -89,3 +89,8 @@
 #tpr-container .hidden-file-input {
     display: none;
 }
+
+#tpr-container .popover {
+	max-width: 800px;
+	width: auto;
+}

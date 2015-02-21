@@ -483,10 +483,10 @@ function createMenu() {
 
 
         // This puts the current replays into the menu
-        populateList = function (storageData, movieNames, metadata) {
+        populateList = function (storageData, movieNames, metadata, previews) {
             replayList = [];
             for (dat in storageData) {
-                replayList.push({replay:storageData[dat], metadata:metadata[dat]});
+                replayList.push({replay:storageData[dat], metadata:metadata[dat], preview:previews[dat]});
             }
 
             if (!(replayList.length > 0)) {
@@ -522,11 +522,21 @@ function createMenu() {
                     var metadata = $.isPlainObject(replayList[dat].metadata) ? replayList[dat].metadata : JSON.parse(replayList[dat].metadata);
                     thisDuration = metadata.duration;
                     var titleText = formatMetaDataTitle(metadata);
+                    var thisPreview = replayList[dat].preview;
                     var newRow = cloneRow.clone(true);
                     newRow.data("replay", thisReplay);
                     newRow.attr("id", thisReplay);
                     // Set playback link text
                     newRow.find('a.playback-link').text(thisReplay.replace(/DATE.*/, ''));
+                    newRow.find('a.playback-link').data('preview', thisPreview);
+                    newRow.find('a.playback-link').popover({
+  						html: true,
+  						trigger: 'hover',
+       					placement : 'right',
+  						content: function () {
+    						return '<img src="'+$(this).data('preview') + '"/>';
+  						}
+					});
 
                     ms = +thisReplay.replace('replays', '').replace(/.*DATE/, '');
                     date = new Date(ms);
@@ -572,19 +582,6 @@ function createMenu() {
                         name: fileNameToDownload
                     });
                 });
-				
-				/*
-                // Set handler for raw data download button.
-                $('.replayRow:not(.clone) .download-button').click(function () {
-                    var replayId = getReplayId(this);
-                    fileNameToDownload = replayId;
-                    console.log('requesting ' + fileNameToDownload);
-                    chrome.runtime.sendMessage({
-                        method: 'requestDataForDownload',
-                        fileName: fileNameToDownload
-                    });
-                });
-				*/
 				
                 // Set handler for rename button.
                 $('.replayRow:not(.clone) .rename-button').click(function () {
@@ -702,7 +699,7 @@ function createMenu() {
 
 				chrome.runtime.sendMessage(message, function(response) {
 					console.log('got "data added" response from background script')
-					addRow(response.replayName, JSON.parse(response.metadata), 'top');
+					addRow(response.replayName, JSON.parse(response.metadata), response.preview, 'top');
         			sortReplays();
         			readImportedFile(files, i);
 				});
@@ -904,7 +901,7 @@ function formatMetaDataTitle(metadata) {
 // the second argument tells the function where to put the new row
 // if it equals "top", then the row goes at the top
 // if it is a replay name, it will go before that replay 
-function addRow(replayName, metadata, insertionPoint) {
+function addRow(replayName, metadata, thisPreview, insertionPoint) {
 	var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
     var date = new Date(ms);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
@@ -921,7 +918,15 @@ function addRow(replayName, metadata, insertionPoint) {
     	newRow.attr("id", replayName);
     	// Set playback link text
     	newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
-		newRow.find('a.playback-link').title = datevalue;
+		newRow.find('a.playback-link').data('preview', thisPreview);
+		newRow.find('a.playback-link').popover({
+  						html: true,
+  						trigger: 'hover',
+       					placement : 'right',
+  						content: function () {
+    						return '<img src="'+$(this).data('preview') + '"/>';
+  						}
+					});
 		newRow.find('.download-movie-button').prop('disabled', true);
     	newRow.find('.replay-date').text(datevalue);
     	newRow.find('.duration').text(durationFormatted);
@@ -994,7 +999,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.method == 'itemsList') {
         console.log('got itemList message')
         storeTextures(message.textures);
-        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
+        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata), message.previews);
     } else if (message.method == 'positionData') {
         console.log('got positionData message')
         localStorage.setItem('currentReplayName', message.movieName)
@@ -1007,7 +1012,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('got data set confirmation from background script. sending confirmation to injected script.')
         //closeAndReopenMenu();
         if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-        	addRow(message.replayName, JSON.parse(message.metadata), 'top');
+        	addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
         	sortReplays()
         }
         emit('positionDataConfirmation', true)
@@ -1018,7 +1023,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('data were deleted')
         //closeAndReopenMenu();
         if(typeof message.newName !== 'undefined') {
-        	addRow(message.newName, message.metadata, message.deletedFiles)
+        	addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
         	sortReplays()
         } else {
         	deleteRows(message.deletedFiles);

@@ -190,32 +190,52 @@ function listItems() {
 	var textures = retrieveTextures();
     var allKeys = [];
     var allMetaData = [];
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.openCursor(null);
-    request.onsuccess = function () {
-        if (request.result) {
-        	var metadata = localStorage.getItem(request.result.key);
-        	if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
-        		if(request.result.value === undefined || request.result.value === "undefined") {
-        			var metadata = extractMetaData(null);
-        		} else {
-        			try {
-                		var data = JSON.parse(request.result.value);
-                		var metadata = extractMetaData(data);
-            		} catch (err) {
-                		var metadata = extractMetaData(null);
-            		}
-            	}
-            	localStorage.setItem(request.result.key, JSON.stringify(metadata));
-            } 
-            allMetaData.push(metadata);
-            allKeys.push(request.result.key);
-            request.result.continue();
-        } else {
-            createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures, allMetaData]);
-        }
-    }
+    var allPreviews = [];
+    chrome.storage.local.get(function(previewStorage) {
+    	var transaction = db.transaction(["positions"], "readonly");
+    	var store = transaction.objectStore("positions");
+    	var request = store.openCursor(null);
+		request.onsuccess = function () {
+			if (request.result) {
+				var metadata = localStorage.getItem(request.result.key);
+				if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
+					if(request.result.value === undefined || request.result.value === "undefined") {
+						var metadata = extractMetaData(null);
+					} else {
+						try {
+							var data = JSON.parse(request.result.value);
+							var metadata = extractMetaData(data);
+						} catch (err) {
+							var metadata = extractMetaData(null);
+						}
+					}
+					localStorage.setItem(request.result.key, JSON.stringify(metadata));
+				}
+				var thisPreview = previewStorage[request.result.key]; 
+				if(thisPreview === undefined) {
+					if(request.result.value === undefined || request.result.value === "undefined") {
+						var thisPreview = null;
+					} else {
+						try {
+							if(!data) var data = JSON.parse(request.result.value);
+							var thisPreview = drawPreview(data);
+						} catch (err) {
+							var thisPreview = null;
+						}
+					}
+					var obj = {};
+					obj[request.result.key] = thisPreview;
+					chrome.storage.local.set(obj);
+				}
+				allPreviews.push(thisPreview);
+				allMetaData.push(metadata);
+				allKeys.push(request.result.key);
+				request.result.continue();
+			} else {
+				createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures, allMetaData, allPreviews]);
+			}
+		}
+	});
 }
 
 // this function gets all positions keys in object store
@@ -299,9 +319,12 @@ function deleteData(dataFileName, tabNum) {
     if($.isPlainObject(dataFileName)) {
     	var newName = dataFileName.newName;
     	var metadata = dataFileName.metadata;
+    	var preview = dataFileName.preview;
     	dataFileName = dataFileName.fileName;
     	if(dataFileName === newName) {
-    		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata});
+    		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata, preview: preview});
+    		localStorage.removeItem(dataFileName);
+    		chrome.storage.local.remove(dataFileName);
         	console.log('sent crop and replace reply');
         	return;
     	}
@@ -309,8 +332,9 @@ function deleteData(dataFileName, tabNum) {
     if ($.isArray(dataFileName)) {
         deleted = []
         for (fTD in dataFileName) {
+        	localStorage.removeItem(dataFileName[fTD]);
+    		chrome.storage.local.remove(dataFileName[fTD]);
             request = store.delete(dataFileName[fTD]);
-            localStorage.removeItem(dataFileName[fTD]);
             request.onsuccess = function () {
                 deleted.push(fTD);
                 if (deleted.length == dataFileName.length) {
@@ -323,11 +347,13 @@ function deleteData(dataFileName, tabNum) {
         request = store.delete(dataFileName);
         request.onsuccess = function () {
         	if(typeof newName !== 'undefined') {
-        		if(newName !== dataFileName) localStorage.removeItem(dataFileName);
-        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata});
+        		localStorage.removeItem(dataFileName);
+        		chrome.storage.local.remove(dataFileName);
+        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata, preview: preview});
         		console.log('sent crop and replace reply');
         	} else {
         		localStorage.removeItem(dataFileName);
+        		chrome.storage.local.remove(dataFileName);
             	chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
             	console.log('sent single delete reply')
             }
@@ -350,8 +376,8 @@ function renameData(oldName, newName, tabNum) {
             objectStore = transaction3.objectStore('positions')
             request = objectStore.add(thisObj, newName)
             request.onsuccess = function () {
-            	localStorage.setItem(newName, localStorage.getItem(oldName));
             	localStorage.removeItem(oldName);
+            	chrome.storage.local.remove(oldName);
                 chrome.tabs.sendMessage(tabNum, {method: "fileRenameSuccess", 
                 								 oldName: oldName, 
                 								 newName: newName
@@ -630,18 +656,27 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('got data from content script.')
         positions = cleanPositionData(JSON.parse(message.positionData))
         var metadata = extractMetaData(positions);
+        var thisPreview = drawPreview(positions);
         localStorage.setItem(name, JSON.stringify(metadata));
+        var obj = {};
+        obj[name] = thisPreview;
+        chrome.storage.local.set(obj);
         
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
         	if(deleteTheseData) {
         		console.log('new replay saved, deleting old replay...');
-        		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata}, tabNum);
+        		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata, preview: preview}, tabNum);
         	} else {
         		if(message.method === 'setPositionDataFromImport') {
-        			sendResponse({replayName: name, metadata: JSON.stringify(metadata)});
+        			sendResponse({replayName: name, 
+        			              metadata: JSON.stringify(metadata), 
+        			              preview: thisPreview});
         		} else {
-                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", replayName: name, metadata: JSON.stringify(metadata)});
+                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", 
+                	                                 replayName: name, 
+                	                                 metadata: JSON.stringify(metadata), 
+                	                                 preview: thisPreview});
                 	console.log('sent confirmation');
                 }
             }
@@ -716,4 +751,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }
 });
 
+tabNum = 0;
+listItems();
 
