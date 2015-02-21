@@ -72,7 +72,11 @@ function createReplay(positions) {
         mapImg.src = mapImgData
         imgDiv.appendChild(mapImg)
         mapImg.onload = function () {
-            animateReplay(thisI, positions, mapImg)
+        	var useSpin = readCookie('useSpin') == 'true';
+    		var useSplats = readCookie('useSplats') == 'true';
+    		var useClockAndScore = readCookie('useClockAndScore') == 'true';
+    		var useChat = readCookie('useChat') == 'true';
+            animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
         }
     }
 
@@ -188,7 +192,11 @@ function createReplay(positions) {
     }
     slider.onchange = function () {
         thisI = this.value
-        animateReplay(thisI, positions, mapImg)
+        var useSpin = readCookie('useSpin') == 'true';
+    	var useSplats = readCookie('useSplats') == 'true';
+    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
+    	var useChat = readCookie('useChat') == 'true';
+        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
     }
 
     function clearSliderArea() {
@@ -213,11 +221,15 @@ function createReplay(positions) {
 
     // Start replay animation.
     function updateMap(mapImg) {
+    	var useSpin = readCookie('useSpin') == 'true';
+    	var useSplats = readCookie('useSplats') == 'true';
+    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
+    	var useChat = readCookie('useChat') == 'true';
         thingy = setInterval(function () {
             if (thisI == positions.clock.length - 1) {
                 clearInterval(thingy)
             }
-            animateReplay(thisI, positions, mapImg)
+            animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
             thisI++
             slider.value = thisI
         }, 1000 / positions[me].fps)
@@ -279,9 +291,13 @@ function createReplay(positions) {
 
     // functions to control replay playback
     function resetReplay() {
+    	var useSpin = readCookie('useSpin') == 'true';
+    	var useSplats = readCookie('useSplats') == 'true';
+    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
+    	var useChat = readCookie('useChat') == 'true';
         thisI = 0
         if(typeof thingy !== 'undefined') clearInterval(thingy)
-        animateReplay(thisI, positions, mapImg)
+        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
         slider.value = 0
         delete(thingy)
         isPlaying = false
@@ -367,6 +383,10 @@ function createReplay(positions) {
     }
 
     function playCroppedMovie() {
+    	var useSpin = readCookie('useSpin') == 'true';
+    	var useSplats = readCookie('useSplats') == 'true';
+    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
+		var useChat = readCookie('useChat') == 'true';
         if (typeof thingy === 'undefined') {
             if (typeof currentCropStart === 'undefined') {
                 if (typeof currentCropEnd === 'undefined') {
@@ -384,7 +404,7 @@ function createReplay(positions) {
                             clearInterval(thingy)
                             delete(thingy)
                         }
-                        animateReplay(thisI, positions, mapImg)
+                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
                         thisI++
                         slider.value = thisI
                     }, 1000 / positions[me].fps)
@@ -398,7 +418,7 @@ function createReplay(positions) {
                             clearInterval(thingy)
                             delete(thingy)
                         }
-                        animateReplay(thisI, positions, mapImg)
+                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
                         thisI++
                         slider.value = thisI
                     }, 1000 / positions[me].fps)
@@ -412,7 +432,7 @@ function createReplay(positions) {
                             clearInterval(thingy)
                             delete(thingy)
                         }
-                        animateReplay(thisI, positions, mapImg)
+                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
                         thisI++
                         slider.value = thisI
                     }, 1000 / positions[me].fps)

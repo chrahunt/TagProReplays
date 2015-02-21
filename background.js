@@ -164,7 +164,7 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
                 name: name
             })
         }
-        animateReplay(thisI, positions, mapImg)
+        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
         encoder.add(context)
     }
     delete output;

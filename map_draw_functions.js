@@ -841,7 +841,7 @@ function drawBalls(positions) {
  * positions - replay data
  * mapImg - html img element reflecting the image of the map
  */
-function animateReplay(thisI, positions, mapImg, spin) {
+function animateReplay(thisI, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
     for (j in positions) {
         if (positions[j].me == 'me') {
             me = j
@@ -854,18 +854,18 @@ function animateReplay(thisI, positions, mapImg, spin) {
         posx,
         posy,
         mapImg.width, mapImg.height)
-    if (localStorage.getItem('useSplats') == 'true' || readCookie('useSplats') == 'true') {
+    if (showSplats) {
         drawSplats(positions)
     }
     drawFloorTiles(positions)
     drawSpawns(positions)
     drawBalls(positions)
-    if (localStorage.getItem('useClockAndScore') == 'true' || readCookie('useClockAndScore') == 'true') {
+    if (showClockAndScore) {
     	drawClock(positions)
     	drawScore(positions)
     	drawScoreFlag(positions)
     }
-    if (localStorage.getItem('useChat') == 'true' || readCookie('useChat') == 'true') {
+    if (showChat) {
 	    drawChats(positions)
 	}
     bombPop(positions)
