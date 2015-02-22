@@ -8,10 +8,10 @@
       "background.js",
       "map_draw_functions.js",
       "createFileSystem.js",
-      "whammy.js",
-      "jquery.js",
-      "jszip.min.js",
-      "FileSaver.min.js",
+      "lib/whammy.js",
+      "lib/jquery.js",
+      "lib/jszip.min.js",
+      "lib/FileSaver.min.js",
       "drawPreview.js"
     ],
     "persistent": true
@@ -28,7 +28,7 @@
         "http://tangent.jukejuice.com/*"
       ],
       "js": [
-        "jquery.js",
+        "lib/jquery.js",
         "map_draw_functions.js",
         "TagProReplays.js",
         "in-page-preview.js",
