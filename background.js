@@ -298,8 +298,8 @@ function getRawDataAndZip(files) {
 			}
             request.result.continue()
         } else {
-            var content = zip.generate({type:"blob"});
-            saveAs(content, 'raw_data.zip')
+            var content = zip.generate({type:"blob", compression:"DEFLATE"});  
+            saveAs(content, 'raw_data.zip');
         }
     }
 }
