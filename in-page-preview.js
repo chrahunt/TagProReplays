@@ -228,19 +228,15 @@ function createReplay(positions) {
     	var useClockAndScore = readCookie('useClockAndScore') == 'true';
     	var useChat = readCookie('useChat') == 'true';
     	var fps = positions[me].fps;
-    	//var frames = [];
         thingy = setInterval(function () {
             if (thisI >= positions.clock.length - 1) {
                 clearInterval(thingy);
-                //console.log(frames, frames.length)
-                //console.log((Date.now()-startTime)/1000)
             }
             animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
             dt = Date.now() - time;
         	time = Date.now();
         	var nFramesToAdvance = Math.round( dt / (1000 / fps) );
             thisI += nFramesToAdvance;
-            //frames.push(thisI);
             slider.value = thisI;
         }, 1000 / fps)
     }
