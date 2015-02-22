@@ -236,7 +236,7 @@ function createReplay(positions) {
             dt = Date.now() - time;
         	time = Date.now();
         	var nFramesToAdvance = Math.round( dt / (1000 / fps) );
-            thisI += nFramesToAdvance;
+            thisI = +thisI + nFramesToAdvance;
             slider.value = thisI;
         }, 1000 / fps)
     }
