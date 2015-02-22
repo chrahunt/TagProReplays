@@ -147,7 +147,6 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
     mapImgData = drawMap(0, 0, positions)
     mapImg = new Image()
     mapImg.src = mapImgData
-    console.log(positions)
     for (j in positions) {
         if (positions[j].me == 'me') {
             me = j
@@ -169,7 +168,6 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
     }
     delete output;
     output = encoder.compile()
-    console.log('movie: ', output)
     createFileSystem('savedMovies', saveMovieFile, [name, output])
     if (lastOne) {
         chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
@@ -250,7 +248,6 @@ function getCurrentReplaysForCleaning() {
             allKeys.push(request.result.key);
             request.result.continue()
         } else {
-            console.log(allKeys)
             createFileSystem('savedMovies', cleanMovieFiles, [allKeys])
         }
     }
@@ -297,13 +294,11 @@ function getRawDataAndZip(files) {
         if (request.result) {
         	if($.inArray(request.result.key, files) >= 0) {
 				//console.log(request.result.value)
-				console.log(request.result.key)
 				zip.file(request.result.key+'.txt', request.result.value);
 			}
             request.result.continue()
         } else {
             var content = zip.generate({type:"blob"});
-            console.log(content)
             saveAs(content, 'raw_data.zip')
         }
     }
@@ -652,7 +647,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
             var name = 'replays' + new Date().getTime()
         }
         var deleteTheseData = (message.oldName !== null && typeof message.oldName !== 'undefined') ? true : false;
-        console.log('new key is ' + name)
         transaction = db.transaction(["positions"], "readwrite")
         objectStore = transaction.objectStore('positions')
         console.log('got data from content script.')
@@ -754,6 +748,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 });
 
 
+/*
 (initialStart = function() {
 	if(typeof db !== 'undefined') {
 		console.log('starting up');
@@ -763,4 +758,5 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 		setTimeout(initialStart, 100);
 	}
 })()
+*/
 
