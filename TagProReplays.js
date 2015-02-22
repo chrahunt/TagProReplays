@@ -52,6 +52,7 @@ function createMenu() {
     // Retrieve html of all items
     $('#tpr-container').load(chrome.extension.getURL("ui/menus.html"), function () {
         console.log("Loaded.");
+       	$('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
 
         /* UI-specific code */
         // Code to set the header row to the same width as the replay table, if needed.
