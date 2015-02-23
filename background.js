@@ -218,6 +218,7 @@ function listItems() {
 							if(!data) var data = JSON.parse(request.result.value);
 							var thisPreview = drawPreview(data);
 						} catch (err) {
+                            console.log(err);
 							var thisPreview = null;
 						}
 					}

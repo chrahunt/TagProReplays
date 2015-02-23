@@ -1,7 +1,18 @@
+/**
+ * This file contains the functions used to draw the replay data onto
+ * the canvas for the in-page preview as well as for the replay
+ * rendering.
+ */
 (function(window) {
 
 // Constant tile size.
 var TILE_SIZE = 40;
+
+// Draw-function global. Set in drawReplay and animateReplay.
+var thisI = 0;
+
+// Draw-function global. Set in 
+var posx, posy;
 
 /**
  * Check whether spin should be used when drawing balls.
@@ -98,9 +109,9 @@ function prettyText(text, textx, texty, color) {
     return (context.measureText(text).width)
 }
 
-// Scope: file, drawPreview.js
+// Scope: file
 // Uses: thisI (var), prettyText (fn) - by extension context
-window.drawChats = function(positions) {
+function drawChats(positions) {
     if (positions.chat) {
         var chats = positions.chat;
         var thisTime = new Date(positions.clock[thisI]).getTime();
@@ -184,9 +195,9 @@ function drawPowerups(ball, ballx, bally, positions) {
     }
 }
 
-// Scope: file, drawPreview
+// Scope: file
 // Uses: $, thisI, context
-window.drawClock = function(positions) {
+function drawClock(positions) {
     if (!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[thisI]).getTime()) {
         var curTimeMilli;
         if (!$.isArray(positions.gameEndsAt)) {
@@ -220,9 +231,9 @@ window.drawClock = function(positions) {
     context.fillText(curTime, context.canvas.width / 2, context.canvas.height - 25);
 }
 
-// Scope: file, drawPreview
+// Scope: file
 // Uses: thisI, context
-window.drawScore = function(positions) {
+function drawScore(positions) {
     var thisScore = positions.score[thisI]
     context.textAlign = "center"
     context.fillStyle = "rgba(255, 0, 0, .5)"
@@ -232,9 +243,9 @@ window.drawScore = function(positions) {
         context.fillText(thisScore.b, context.canvas.width / 2 + 120, context.canvas.height - 50)
 }
 
-// Scope: file, drawPreview
+// Scope: file
 // Uses: thisI, context, tileSize
-window.drawScoreFlag = function(positions) {
+function drawScoreFlag(positions) {
     for (var j in positions) {
         var flagCoords;
         if (typeof positions[j].flag != 'undefined') {
@@ -297,7 +308,7 @@ function drawFlag(ball, ballx, bally, positions) {
  * posy - offset of actual map image from top of generated image
  * positions - replay data
  */
-// Scope: background, drawPreview, inpagepreview
+// Scope: background, inpagepreview
 // Uses: tileSize, $
 // Need to finish this one.
 window.drawMap = function(posx, posy, positions) {
@@ -480,7 +491,7 @@ window.drawMap = function(posx, posy, positions) {
     return (newcontext.canvas.toDataURL())
 }
 
-// Scope: file, drawPreview
+// Scope: file
 // Uses: thisI, img, speedpadImg, portalImg, speedpadredImg, speedpadblueImg
 function drawFloorTiles(positions) {
     var floorTileElements = {
@@ -716,7 +727,7 @@ function ballPop(player, data) {
     }
 }
 
-// Scope: drawPreview, file
+// Scope: file
 // Uses: thisI, context, splatsImg
 function drawSplats(positions) {
     if (positions.splats) {
@@ -743,7 +754,7 @@ function drawSplats(positions) {
     }
 }
 
-// Scope: file, drawPreview
+// Scope: file
 // Uses: context, thisI, tileSize, img
 function drawSpawns(positions) {
     if (positions.spawns) {
@@ -769,9 +780,9 @@ function drawSpawns(positions) {
     }
 }
 
-// Scope: file, drawPreview
+// Scope: file
 // Uses: context, thisI
-window.drawEndText = function(positions) {
+function drawEndText(positions) {
     if (positions.end) {
         var endTime = new Date(positions.end.time).getTime()
         var thisTime = new Date(positions.clock[thisI]).getTime()
@@ -803,10 +814,10 @@ window.drawEndText = function(positions) {
     }
 }
 
-// scope: file: drawpreview
+// scope: file
 // uses: 
 // TODO
-window.drawBalls = function(positions) {
+function drawBalls(positions) {
 	var spin = useSpin();
 
     var player = getPlayer(positions);
@@ -934,13 +945,15 @@ window.drawBalls = function(positions) {
 
 /**
  * Edit mapCanvas to reflect the replay at the given frame.
- * thisI - frame of replay
+ * frame - frame number of replay
  * positions - replay data
  * mapImg - html img element reflecting the image of the map
  */
 // Scope: background, in-page-preview, TagProReplays
 // uses: context, mapImg, 
-window.animateReplay = function(thisI, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
+window.animateReplay = function(frame, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
+    // Update drawing function global with frame number.
+    thisI = frame;
     var player = getPlayer(positions);
     context.clearRect(0, 0, context.canvas.width, context.canvas.height)
     // Coordinates for center of canvas.
@@ -966,6 +979,95 @@ window.animateReplay = function(thisI, positions, mapImg, spin, showSplats, show
 	}
     bombPop(positions)
     drawEndText(positions)
+}
+
+/**
+ * Edit mapCanvas to reflect the replay at the given frame.
+ * frame - frame number of replay
+ * positions - replay data
+ * mapImg - html img element reflecting the image of the map
+ */
+// function to draw stuff onto the canvas
+function drawReplay(frame, positions, mapImg, thisContext) {
+    thisI = frame;
+    for (j in positions) {
+        if (positions[j].me == 'me') {
+            me = j;
+        }
+    }
+    context = thisContext;
+    context.clearRect(0, 0, context.canvas.width, context.canvas.height)
+    posx = -(positions[me].x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2)
+    posy = -(positions[me].y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2)
+    context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
+        posx,
+        posy,
+        mapImg.width, mapImg.height)
+    drawSplats(positions)
+    drawFloorTiles(positions)
+    drawSpawns(positions)
+    drawBalls(positions)
+    drawClock(positions)
+    drawScore(positions)
+    drawScoreFlag(positions)
+    drawChats(positions)
+    bombPop(positions)
+    drawEndText(positions)
+    return (context.canvas.toDataURL());
+}
+
+// function that takes positions file and draws the frame 75% of the way through the 
+// replay at full size. then redraws that at reduced size.
+// returns a dataURL of the resulting image
+// used by: background
+window.drawPreview = function(positions) {
+    console.log("Drawing preview.");
+    $('#tiles')[0].src = defaultTextures.tiles
+    $('#portal')[0].src = defaultTextures.portal
+    $('#speedpad')[0].src = defaultTextures.speedpad
+    $('#speedpadred')[0].src = defaultTextures.speedpadred
+    $('#speedpadblue')[0].src = defaultTextures.speedpadblue
+    $('#splats')[0].src = defaultTextures.splats
+
+    // create two canvases - one to draw full size preview, one to draw the half size one.
+    var fullPreviewCanvas = document.createElement('canvas');
+    fullPreviewCanvas.width = 1280;
+    fullPreviewCanvas.height = 800;
+    fullPreviewContext = fullPreviewCanvas.getContext('2d');
+
+    var smallPreviewCanvas = document.createElement('canvas');
+    smallPreviewCanvas.width = fullPreviewCanvas.width / 2;
+    smallPreviewCanvas.height = fullPreviewCanvas.height / 2;
+    smallPreviewContext = smallPreviewCanvas.getContext('2d');
+    var thisI = 0;
+
+    smallPreviewContext.rect(0, 0, smallPreviewCanvas.width, smallPreviewCanvas.height);
+    smallPreviewContext.fillStyle = 'black';
+    smallPreviewContext.fill();
+    
+    var replayLength = positions.clock.length;
+    thisI = Math.round(replayLength * 0.75);
+    
+    var previewMapData = drawMap(0,0,positions);
+    var previewMap = document.createElement('img');
+    previewMap.src = previewMapData;
+
+    var fullImageData = drawReplay(thisI, positions, previewMap, fullPreviewContext);
+    var img = document.createElement('img');
+    img.src = fullImageData;
+    smallPreviewContext.drawImage(img,
+                                  0, 
+                                  0,
+                                  fullPreviewCanvas.width,
+                                  fullPreviewCanvas.height,
+                                  0,
+                                  0,
+                                  smallPreviewCanvas.width,
+                                  smallPreviewCanvas.height);
+    var result = smallPreviewCanvas.toDataURL();
+    previewMap.remove();
+    img.remove();
+    return result;
 }
 
 })(window);

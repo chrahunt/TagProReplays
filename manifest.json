@@ -11,8 +11,7 @@
       "lib/whammy.js",
       "lib/jquery.js",
       "lib/jszip.min.js",
-      "lib/FileSaver.min.js",
-      "drawPreview.js"
+      "lib/FileSaver.min.js"
     ],
     "persistent": true
   },
