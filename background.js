@@ -1,14 +1,3 @@
-function readCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-}
-
 tileSize = 40
 
 can = document.createElement('canvas')
@@ -82,7 +71,14 @@ flairImg.id = 'flair'
 flairImg = document.body.appendChild(flairImg)
 
 
-// This function opens a download dialog
+/**
+ * This function opens a dialog box for the user to save the data given
+ * by `data`.
+ * @param {[type]} name - The default filename to present in the dialog
+ *   box.
+ * @param {Blob} data - The data to be downloaded. The `type` property
+ *   of the blob should be set appropriately.
+ */
 function saveVideoData(name, data) {
     var file = data
     var a = document.createElement('a');
@@ -94,10 +90,14 @@ function saveVideoData(name, data) {
     (window.URL || window.webkitURL).revokeObjectURL(a.href);
 }
 
-
-// Function to test integrity of position data before attempting to render
-// Returns false if a vital piece is missing, true if no problems were found
-// CUrrently does not do a very thorough test
+/**
+ * Test the integrity of position data. Should be used before
+ * attempting to render a replay. This function does not currently do
+ * a very thorough check, only ensuring that the necessary properties
+ * are present.
+ * @param {Position} positions - The position data to check.
+ * @return {boolean} - Whether or not the position data is valid.
+ */
 function checkData(positions) {
 	var obs = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
 	obs.forEach(function(ob){
@@ -746,17 +746,3 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
     }
 });
-
-
-/*
-(initialStart = function() {
-	if(typeof db !== 'undefined') {
-		console.log('starting up');
-		tabNum = 0;
-		listItems();
-	} else {
-		setTimeout(initialStart, 100);
-	}
-})()
-*/
-
