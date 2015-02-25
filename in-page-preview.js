@@ -21,15 +21,15 @@ function readCookie(name) {
 //   if it is, it checks if a saved custom texture exists
 //   if so, use that. if not, use default
 function assignTexture(imgElement, textureName) {
-	if(readCookie('useTextures') == 'true') {
-		if(typeof localStorage.getItem(textureName) !== "undefined" & localStorage.getItem(textureName) !== null) {
-			imgElement.src = localStorage.getItem(textureName);
-		} else {
-			imgElement.src = 'images/'+textureName+'.png';
-		}
-	} else {
-		imgElement.src = 'images/'+textureName+'.png';
-	}
+    if(readCookie('useTextures') == 'true') {
+        if(typeof localStorage.getItem(textureName) !== "undefined" & localStorage.getItem(textureName) !== null) {
+            imgElement.src = localStorage.getItem(textureName);
+        } else {
+            imgElement.src = 'images/'+textureName+'.png';
+        }
+    } else {
+        imgElement.src = 'images/'+textureName+'.png';
+    }
 }
 
 // Create and display UI for in-browser preview.
@@ -78,10 +78,10 @@ function createReplay(positions) {
         mapImg.src = mapImgData
         imgDiv.appendChild(mapImg)
         mapImg.onload = function () {
-        	var useSpin = readCookie('useSpin') == 'true';
-    		var useSplats = readCookie('useSplats') == 'true';
-    		var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    		var useChat = readCookie('useChat') == 'true';
+            var useSpin = readCookie('useSpin') == 'true';
+            var useSplats = readCookie('useSplats') == 'true';
+            var useClockAndScore = readCookie('useClockAndScore') == 'true';
+            var useChat = readCookie('useChat') == 'true';
             animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
         }
     }
@@ -199,9 +199,9 @@ function createReplay(positions) {
     slider.onchange = function () {
         thisI = this.value
         var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    	var useChat = readCookie('useChat') == 'true';
+        var useSplats = readCookie('useSplats') == 'true';
+        var useClockAndScore = readCookie('useClockAndScore') == 'true';
+        var useChat = readCookie('useChat') == 'true';
         animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
     }
 
@@ -227,21 +227,21 @@ function createReplay(positions) {
 
     // Start replay animation.
     function updateMap(mapImg) {
-    	var time = Date.now();
-    	var startTime = time;
-    	var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    	var useChat = readCookie('useChat') == 'true';
-    	var fps = positions[me].fps;
+        var time = Date.now();
+        var startTime = time;
+        var useSpin = readCookie('useSpin') == 'true';
+        var useSplats = readCookie('useSplats') == 'true';
+        var useClockAndScore = readCookie('useClockAndScore') == 'true';
+        var useChat = readCookie('useChat') == 'true';
+        var fps = positions[me].fps;
         thingy = setInterval(function () {
             if (thisI >= positions.clock.length - 1) {
                 clearInterval(thingy);
             }
             animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
             dt = Date.now() - time;
-        	time = Date.now();
-        	var nFramesToAdvance = Math.round( dt / (1000 / fps) );
+            time = Date.now();
+            var nFramesToAdvance = Math.round( dt / (1000 / fps) );
             thisI = +thisI + nFramesToAdvance;
             slider.value = thisI;
         }, 1000 / fps)
@@ -303,10 +303,10 @@ function createReplay(positions) {
 
     // functions to control replay playback
     function resetReplay() {
-    	var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    	var useChat = readCookie('useChat') == 'true';
+        var useSpin = readCookie('useSpin') == 'true';
+        var useSplats = readCookie('useSplats') == 'true';
+        var useClockAndScore = readCookie('useClockAndScore') == 'true';
+        var useChat = readCookie('useChat') == 'true';
         thisI = 0
         if(typeof thingy !== 'undefined') clearInterval(thingy)
         animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
@@ -395,10 +395,10 @@ function createReplay(positions) {
     }
 
     function playCroppedMovie() {
-    	var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-		var useChat = readCookie('useChat') == 'true';
+        var useSpin = readCookie('useSpin') == 'true';
+        var useSplats = readCookie('useSplats') == 'true';
+        var useClockAndScore = readCookie('useClockAndScore') == 'true';
+        var useChat = readCookie('useChat') == 'true';
         if (typeof thingy === 'undefined') {
             if (typeof currentCropStart === 'undefined') {
                 if (typeof currentCropEnd === 'undefined') {
@@ -503,11 +503,11 @@ function createReplay(positions) {
             if (confirm('Are you sure you want to delete this replay?')) {
                 stopReplay(false)
                 setTimeout(function(){
-                	console.log('requesting to delete ' + replayToDelete)
-                	chrome.runtime.sendMessage({
-                    	method: 'requestDataDelete',
-                    	fileName: replayToDelete
-                	});
+                    console.log('requesting to delete ' + replayToDelete)
+                    chrome.runtime.sendMessage({
+                        method: 'requestDataDelete',
+                        fileName: replayToDelete
+                    });
                 }, 500);
             }
         }
@@ -692,16 +692,16 @@ function createReplay(positions) {
         var newName = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
         if(newName === null) return;
         if(newName === '') {
-        	newName = 'replays' + Date.now();
+            newName = 'replays' + Date.now();
         } else {
-        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
-        	newName += 'DATE' + Date.now();
+            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
+            newName += 'DATE' + Date.now();
         }
         stopReplay(false)
         chrome.runtime.sendMessage({
-        	method: 'setPositionData', 
-        	positionData: JSON.stringify(positions2),
-        	newName: newName
+            method: 'setPositionData', 
+            positionData: JSON.stringify(positions2),
+            newName: newName
         })
         delete currentCropStart
         delete currentCropEnd
@@ -727,14 +727,14 @@ function createReplay(positions) {
         var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
         if(newName === null) return;
         if(newName === '') {
-        	var oldName = localStorage.getItem('currentReplayName');
-        	newName = localStorage.getItem('currentReplayName');
-        	var replaceName = false;
+            var oldName = localStorage.getItem('currentReplayName');
+            newName = localStorage.getItem('currentReplayName');
+            var replaceName = false;
         } else {
-        	var oldName = localStorage.getItem('currentReplayName');
-        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
-        	newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
-        	var replaceName = true;
+            var oldName = localStorage.getItem('currentReplayName');
+            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
+            newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
+            var replaceName = true;
         }
         stopReplay(false)
         chrome.runtime.sendMessage({

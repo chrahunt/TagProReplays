@@ -3,7 +3,6 @@
  */
 (function(window) {
 
-function getMoviePath(directory, )
 // create file system.
 // scope: background.
 /**
@@ -223,6 +222,6 @@ function cleanMovieFiles(fs, directory, indexedDBContents) {
     }, function () {
         console.log('error2')
     });
-}		
-	    
+}        
+        
 })(window);

@@ -59,7 +59,7 @@
 }
 
 #tpr-container .duration {
-	text-align: center;
+    text-align: center;
 }
 
 #tpr-container .progressbar {
@@ -91,6 +91,6 @@
 }
 
 #tpr-container .popover {
-	max-width: 800px;
-	width: auto;
+    max-width: 800px;
+    width: auto;
 }

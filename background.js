@@ -5,15 +5,15 @@
  * 
  * This script is included as a background script.
  */
-tileSize = 40
+var TILE_SIZE = 40
 
 can = document.createElement('canvas')
 can.id = 'mapCanvas'
 document.body.appendChild(can)
 
 can = document.getElementById('mapCanvas')
-can.width = localStorage.getItem('canvasWidth') || 32 * tileSize;
-can.height = localStorage.getItem('canvasHeight') || 20 * tileSize;
+can.width = localStorage.getItem('canvasWidth') || 32 * TILE_SIZE;
+can.height = localStorage.getItem('canvasHeight') || 20 * TILE_SIZE;
 can.style.zIndex = 200
 can.style.position = 'absolute'
 can.style.top = 0
@@ -106,23 +106,23 @@ function saveVideoData(name, data) {
  * @return {boolean} - Whether or not the position data is valid.
  */
 function checkData(positions) {
-	var obs = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
-	obs.forEach(function(ob){
-		if(!positions[ob]) {
-			return(false);
-		}
-	})
-	if(positions.map.length == 0 || positions.wallMap.length == 0 || positions.clock.length == 0) {
-		return(false);
-	}
-	var val = false;
-	Object.keys(positions).forEach(function(key){
-		if(key.search('player')==0){
-			val = true;
-		}
-	})
-	
-	return(val)
+    var obs = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
+    obs.forEach(function(ob){
+        if(!positions[ob]) {
+            return(false);
+        }
+    })
+    if(positions.map.length == 0 || positions.wallMap.length == 0 || positions.clock.length == 0) {
+        return(false);
+    }
+    var val = false;
+    Object.keys(positions).forEach(function(key){
+        if(key.search('player')==0){
+            val = true;
+        }
+    })
+    
+    return(val)
 }
 
 
@@ -136,19 +136,19 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
     
     // check position data and abort rendering if not good
     if(!checkData(positions)) {
-    	if (lastOne) {
-        	chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
-    	} else {
-        	chrome.tabs.sendMessage(tabNum, {
-            	method: "movieRenderConfirmationNotLastOne",
-            	replaysToRender: replaysToRender,
-            	replayI: replayI,
-            	failure: true,
-            	name:name
-	        })
-    	}
-    	console.log(name+' was a bad positions file. Very bad boy.');
-    	return
+        if (lastOne) {
+            chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
+        } else {
+            chrome.tabs.sendMessage(tabNum, {
+                method: "movieRenderConfirmationNotLastOne",
+                replaysToRender: replaysToRender,
+                replayI: replayI,
+                failure: true,
+                name:name
+            })
+        }
+        console.log(name+' was a bad positions file. Very bad boy.');
+        return
     }
     
     mapImgData = drawMap(0, 0, positions)
@@ -179,7 +179,9 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
         saveMovieFile(fs, directory, name, output);
     });
     if (lastOne) {
-        chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
+        chrome.tabs.sendMessage(tabNum, {
+            method: "movieRenderConfirmation"
+        });
     } else {
         chrome.tabs.sendMessage(tabNum, {
             method: "movieRenderConfirmationNotLastOne",
@@ -194,59 +196,59 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
 //   It sends a message to the content script once it gets the keys and movie names
 //   It also sends custom texture files as well.
 function listItems() {
-	var textures = retrieveTextures();
+    var textures = retrieveTextures();
     var allKeys = [];
     var allMetaData = [];
     var allPreviews = [];
     chrome.storage.local.get(function(previewStorage) {
-    	var transaction = db.transaction(["positions"], "readonly");
-    	var store = transaction.objectStore("positions");
-    	var request = store.openCursor(null);
-		request.onsuccess = function () {
-			if (request.result) {
-				var metadata = localStorage.getItem(request.result.key);
-				if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
-					if(request.result.value === undefined || request.result.value === "undefined") {
-						var metadata = extractMetaData(null);
-					} else {
-						try {
-							var data = JSON.parse(request.result.value);
-							var metadata = extractMetaData(data);
-						} catch (err) {
-							var metadata = extractMetaData(null);
-						}
-					}
-					localStorage.setItem(request.result.key, JSON.stringify(metadata));
-				}
-				var thisPreview = previewStorage[request.result.key]; 
-				if(thisPreview === undefined) {
-					if(request.result.value === undefined || request.result.value === "undefined") {
-						var thisPreview = null;
-					} else {
-						try {
-							if(!data) var data = JSON.parse(request.result.value);
-							var thisPreview = drawPreview(data);
-						} catch (err) {
+        var transaction = db.transaction(["positions"], "readonly");
+        var store = transaction.objectStore("positions");
+        var request = store.openCursor(null);
+        request.onsuccess = function () {
+            if (request.result) {
+                var metadata = localStorage.getItem(request.result.key);
+                if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
+                    if(request.result.value === undefined || request.result.value === "undefined") {
+                        var metadata = extractMetaData(null);
+                    } else {
+                        try {
+                            var data = JSON.parse(request.result.value);
+                            var metadata = extractMetaData(data);
+                        } catch (err) {
+                            var metadata = extractMetaData(null);
+                        }
+                    }
+                    localStorage.setItem(request.result.key, JSON.stringify(metadata));
+                }
+                var thisPreview = previewStorage[request.result.key]; 
+                if(thisPreview === undefined) {
+                    if(request.result.value === undefined || request.result.value === "undefined") {
+                        var thisPreview = null;
+                    } else {
+                        try {
+                            if(!data) var data = JSON.parse(request.result.value);
+                            var thisPreview = drawPreview(data);
+                        } catch (err) {
                             console.log(err);
-							var thisPreview = null;
-						}
-					}
-					var obj = {};
-					obj[request.result.key] = thisPreview;
-					chrome.storage.local.set(obj);
-				}
-				allPreviews.push(thisPreview);
-				allMetaData.push(metadata);
-				allKeys.push(request.result.key);
-				request.result.continue();
-			} else {
-				createFileSystem('savedMovies', function(fs, directory) {
+                            var thisPreview = null;
+                        }
+                    }
+                    var obj = {};
+                    obj[request.result.key] = thisPreview;
+                    chrome.storage.local.set(obj);
+                }
+                allPreviews.push(thisPreview);
+                allMetaData.push(metadata);
+                allKeys.push(request.result.key);
+                request.result.continue();
+            } else {
+                createFileSystem('savedMovies', function(fs, directory) {
                     getRenderedMovieNames(fs, directory, allKeys,
                         textures, allMetaData, allPreviews);
                 });
-			}
-		}
-	});
+            }
+        }
+    });
 }
 
 // this function gets all positions keys in object store
@@ -277,7 +279,11 @@ function getPosData(dataFileName, tabNum) {
     var request = store.get(dataFileName);
     request.onsuccess = function () {
         thisObj = request.result.value
-        chrome.tabs.sendMessage(tabNum, {method: "positionData", title: request.result, movieName: dataFileName})
+        chrome.tabs.sendMessage(tabNum, {
+            method: "positionData",
+            title: request.result,
+            movieName: dataFileName
+        });
         console.log('sent reply')
     }
 }
@@ -293,7 +299,7 @@ function getPosDataForDownload(dataFileName, tabNum) {
             method: "positionDataForDownload",
             fileName: dataFileName,
             title: request.result
-        })
+        });
         console.log('sent reply - ' + dataFileName)
     }
 }
@@ -301,16 +307,16 @@ function getPosDataForDownload(dataFileName, tabNum) {
 // gets position data from object store for multiple files and zips it into blob
 // saves as zip file
 function getRawDataAndZip(files) {
-	var zip = new JSZip();
-	var transaction = db.transaction(["positions"], "readonly");
+    var zip = new JSZip();
+    var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
     var request = store.openCursor(null);
     request.onsuccess = function () {
         if (request.result) {
-        	if($.inArray(request.result.key, files) >= 0) {
-				//console.log(request.result.value)
-				zip.file(request.result.key+'.txt', request.result.value);
-			}
+            if($.inArray(request.result.key, files) >= 0) {
+                //console.log(request.result.value)
+                zip.file(request.result.key+'.txt', request.result.value);
+            }
             request.result.continue()
         } else {
             var content = zip.generate({type:"blob", compression:"DEFLATE"});  
@@ -325,49 +331,67 @@ function getRawDataAndZip(files) {
 // name for this replay back to the content script
 function deleteData(dataFileName, tabNum) {
     if($.isPlainObject(dataFileName)) {
-    	var newName = dataFileName.newName;
-    	var metadata = dataFileName.metadata;
-    	var preview = dataFileName.preview;
-    	dataFileName = dataFileName.fileName;
-    	if(dataFileName === newName) {
-    		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata, preview: preview});
-    		localStorage.removeItem(dataFileName);
-    		chrome.storage.local.remove(dataFileName);
-        	console.log('sent crop and replace reply');
-        	return;
-    	}
+        var newName = dataFileName.newName;
+        var metadata = dataFileName.metadata;
+        var preview = dataFileName.preview;
+        dataFileName = dataFileName.fileName;
+        if(dataFileName === newName) {
+            chrome.tabs.sendMessage(tabNum, {
+                method: 'dataDeleted',
+                deletedFiles: dataFileName,
+                newName: newName,
+                metadata: metadata,
+                preview: preview
+            });
+            localStorage.removeItem(dataFileName);
+            chrome.storage.local.remove(dataFileName);
+            console.log('sent crop and replace reply');
+            return;
+        }
     };
     if ($.isArray(dataFileName)) {
         deleted = []
         for (fTD in dataFileName) {
-        	localStorage.removeItem(dataFileName[fTD]);
-    		chrome.storage.local.remove(dataFileName[fTD]);
-    		var transaction = db.transaction(["positions"], "readwrite");
-    		var store = transaction.objectStore("positions");
+            localStorage.removeItem(dataFileName[fTD]);
+            chrome.storage.local.remove(dataFileName[fTD]);
+            var transaction = db.transaction(["positions"], "readwrite");
+            var store = transaction.objectStore("positions");
             request = store.delete(dataFileName[fTD]);
             request.onsuccess = function () {
                 deleted.push(fTD);
                 if (deleted.length == dataFileName.length) {
-                    chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
+                    chrome.tabs.sendMessage(tabNum, {
+                        method: 'dataDeleted',
+                        deletedFiles: dataFileName
+                    });
                     console.log('sent reply')
                 }
             }
         }
     } else {
-    	var transaction = db.transaction(["positions"], "readwrite");
-    	var store = transaction.objectStore("positions");
+        var transaction = db.transaction(["positions"], "readwrite");
+        var store = transaction.objectStore("positions");
         request = store.delete(dataFileName);
         request.onsuccess = function () {
-        	if(typeof newName !== 'undefined') {
-        		localStorage.removeItem(dataFileName);
-        		chrome.storage.local.remove(dataFileName);
-        		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata, preview: preview});
-        		console.log('sent crop and replace reply');
-        	} else {
-        		localStorage.removeItem(dataFileName);
-        		chrome.storage.local.remove(dataFileName);
-            	chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
-            	console.log('sent single delete reply')
+            if(typeof newName !== 'undefined') {
+                localStorage.removeItem(dataFileName);
+                chrome.storage.local.remove(dataFileName);
+                chrome.tabs.sendMessage(tabNum, {
+                    method: 'dataDeleted',
+                    deletedFiles: dataFileName,
+                    newName: newName,
+                    metadata: metadata,
+                    preview: preview
+                });
+                console.log('sent crop and replace reply');
+            } else {
+                localStorage.removeItem(dataFileName);
+                chrome.storage.local.remove(dataFileName);
+                chrome.tabs.sendMessage(tabNum, {
+                    method: 'dataDeleted',
+                    deletedFiles: dataFileName
+                });
+                console.log('sent single delete reply')
             }
         }
     }
@@ -388,11 +412,12 @@ function renameData(oldName, newName, tabNum) {
             objectStore = transaction3.objectStore('positions')
             request = objectStore.add(thisObj, newName)
             request.onsuccess = function () {
-            	localStorage.removeItem(oldName);
-            	chrome.storage.local.remove(oldName);
-                chrome.tabs.sendMessage(tabNum, {method: "fileRenameSuccess", 
-                								 oldName: oldName, 
-                								 newName: newName
+                localStorage.removeItem(oldName);
+                chrome.storage.local.remove(oldName);
+                chrome.tabs.sendMessage(tabNum, {
+                    method: "fileRenameSuccess",
+                    oldName: oldName,
+                    newName: newName
                 });
                 console.log('sent rename reply');
             }
@@ -454,7 +479,9 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
                     renderVideo(request.result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne)
                 }
             } else {
-                chrome.tabs.sendMessage(tabNum, {method: "movieRenderFailure"})
+                chrome.tabs.sendMessage(tabNum, {
+                    method: "movieRenderFailure"
+                });
                 console.log('sent movie render failure notice')
             }
         }
@@ -529,22 +556,22 @@ function saveTextures(textureData) {
 
 // this retrieves custom textures from localStorage and returns them as an object
 function retrieveTextures() {
-	var textures = {};
-	textures.tiles        = localStorage.getItem('tiles');
-	textures.portal       = localStorage.getItem('portal');
-	textures.speedpad     = localStorage.getItem('speedpad');
-	textures.speedpadred  = localStorage.getItem('speedpadred');
-	textures.speedpadblue = localStorage.getItem('speedpadblue');
-	textures.splats       = localStorage.getItem('splats');
-	return(textures)
+    var textures = {};
+    textures.tiles        = localStorage.getItem('tiles');
+    textures.portal       = localStorage.getItem('portal');
+    textures.speedpad     = localStorage.getItem('speedpad');
+    textures.speedpadred  = localStorage.getItem('speedpadred');
+    textures.speedpadblue = localStorage.getItem('speedpadblue');
+    textures.splats       = localStorage.getItem('splats');
+    return(textures)
 }
 
 // this takes a positions file and returns the duration in seconds of that replay
 function getDuration(positions) {
-	for(var iii in positions) {
+    for(var iii in positions) {
         if(iii.search("player")===0) {
-        	var player = positions[iii];
-        	break;
+            var player = positions[iii];
+            break;
         }
     }
     if(typeof player === 'undefined') return(0)
@@ -577,8 +604,8 @@ function extractMetaData(positions) {
     if (!$.isPlainObject(positions)) return blankResponse;
     for(var x in positions) {
         if(x.search('player')==0) {
-        	var name = $.map(positions[x].name, function(obj, index){if(obj !== 'null') return(obj)});
-        	if(name[0] == undefined) continue;
+            var name = $.map(positions[x].name, function(obj, index){if(obj !== 'null') return(obj)});
+            if(name[0] == undefined) continue;
             var team = positions[x].team[0];
             var name = (positions[x].me == 'me' ? '* ' : '  ') + name[0];
             if(positions[x].me=='me') {
@@ -586,9 +613,9 @@ function extractMetaData(positions) {
                 var duration = Math.round(positions[x].x.length/positions[x].fps);
             }
             if(team == 1) {
-            	metadata.redTeam.push(name);
+                metadata.redTeam.push(name);
             } else {
-            	metadata.blueTeam.push(name);
+                metadata.blueTeam.push(name);
             }
         }
     }
@@ -667,10 +694,10 @@ openRequest.onsuccess = function (e) {
     }
 }
 
-var title;
+// Interface between background page and content script.
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.method == 'setPositionData' || message.method == 'setPositionDataFromImport') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         if (typeof message.newName !== 'undefined') {
             var name = message.newName
         } else {
@@ -690,74 +717,83 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
-        	if(deleteTheseData) {
-        		console.log('new replay saved, deleting old replay...');
-        		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata, preview: thisPreview}, tabNum);
-        	} else {
-        		if(message.method === 'setPositionDataFromImport') {
-        			sendResponse({replayName: name, 
-        			              metadata: JSON.stringify(metadata), 
-        			              preview: thisPreview});
-        		} else {
-                	chrome.tabs.sendMessage(tabNum, {method: "dataSetConfirmationFromBG", 
-                	                                 replayName: name, 
-                	                                 metadata: JSON.stringify(metadata), 
-                	                                 preview: thisPreview});
-                	console.log('sent confirmation');
+            if(deleteTheseData) {
+                console.log('new replay saved, deleting old replay...');
+                deleteData({
+                    fileName: message.oldName,
+                    newName: message.newName,
+                    metadata: metadata,
+                    preview: thisPreview
+                }, tabNum);
+            } else {
+                if(message.method === 'setPositionDataFromImport') {
+                    sendResponse({
+                        replayName: name,
+                        metadata: JSON.stringify(metadata),
+                        preview: thisPreview
+                    });
+                } else {
+                    chrome.tabs.sendMessage(tabNum, {
+                        method: "dataSetConfirmationFromBG",
+                        replayName: name,
+                        metadata: JSON.stringify(metadata),
+                        preview: thisPreview
+                    });
+                    console.log('sent confirmation');
                 }
             }
         }
         return true;
     } else if (message.method == 'requestData') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got data request for ' + message.fileName);
         getPosData(message.fileName, tabNum);
     } else if (message.method == 'requestList') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got list request');
         listItems();
     } else if (message.method == 'requestDataForDownload') {
-    	tabNum = sender.tab.id;
-    	if(message.fileName || message.files.length == 1) { // old, single button
-        	console.log('got data request for download - ' + message.fileName || message.files[0]);
-        	getPosDataForDownload(message.fileName || message.files[0], tabNum);
-        	return;
+        tabNum = sender.tab.id;
+        if(message.fileName || message.files.length == 1) { // old, single button
+            console.log('got data request for download - ' + message.fileName || message.files[0]);
+            getPosDataForDownload(message.fileName || message.files[0], tabNum);
+            return;
         }
         if(message.files) {
-        	console.log('got request to download raw data for: ' + message.files)
-        	getRawDataAndZip(message.files);
+            console.log('got request to download raw data for: ' + message.files)
+            getRawDataAndZip(message.files);
         }
         return true;
     } else if (message.method == 'requestDataDelete') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got delete request for ' + message.fileName);
         deleteData(message.fileName, tabNum);
     } else if (message.method == 'requestFileRename') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
         renameData(message.oldName, message.newName, tabNum);
     } else if (message.method == 'renderMovie') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got request to render Movie for ' + message.name);
         localStorage.setItem('canvasWidth', message.canvasWidth);
         localStorage.setItem('canvasHeight', message.canvasHeight);
         can.width = message.canvasWidth;
-		can.height = message.canvasHeight;
+        can.height = message.canvasHeight;
         renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, true);
     } else if (message.method == 'downloadMovie') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got request to download Movie for ' + message.name);
         downloadMovie(message.name);
     } else if (message.method == 'setTextureData') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got request to save texture image files')
         saveTextures(JSON.parse(message.textureData));
     } else if (message.method == 'cleanRenderedReplays') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got request to clean rendered replays')
         getCurrentReplaysForCleaning()
     } else if (message.method == 'renderAllInitial') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got request to render these replays: ' + message.data)
         console.log('rendering the first one: ' + message.data[0])
         if (message.data.length == 1) {
@@ -768,10 +804,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         localStorage.setItem('canvasWidth', message.canvasWidth);
         localStorage.setItem('canvasHeight', message.canvasHeight);
         can.width = message.canvasWidth;
-		can.height = message.canvasHeight;
+        can.height = message.canvasHeight;
         renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, lastOne, message.data, 0, tabNum);
     } else if (message.method == 'renderAllSubsequent') {
-    	tabNum = sender.tab.id;
+        tabNum = sender.tab.id;
         console.log('got request to render subsequent replay: ' + message.data[message.replayI])
         renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
     }

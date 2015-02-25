@@ -329,37 +329,37 @@ window.drawMap = function(posx, posy, positions) {
     
     var specialTiles = ['11', '12', '17', '18'];
     var specialTileElements = {
-	    11: {tile: "redtile", coordinates: {x: 14, y: 4}, tileSize: 40, drawTileFirst: false},
-    	12: {tile: "bluetile", coordinates: {x: 15, y: 4}, tileSize: 40, drawTileFirst: false},
-	    17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
-    	18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
+        11: {tile: "redtile", coordinates: {x: 14, y: 4}, tileSize: 40, drawTileFirst: false},
+        12: {tile: "bluetile", coordinates: {x: 15, y: 4}, tileSize: 40, drawTileFirst: false},
+        17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
+        18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
     }
     
     function drawSpecialTile(col, row, type) {
-    	if ( type == '1.1' && col != positions.tiles.length-1 && row != 0 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	} else if ( type == '1.2' && col != positions.tiles.length-1 && row != positions.tiles[col].length-1 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	} else if ( type == '1.3' && col != 0 && row != positions.tiles[col].length-1 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	} else if ( type == '1.4' && col != 0 && row != 0 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	};
-    	if(typeof test === 'undefined' || $.map(test, function(obj, index){if(typeof obj === 'object') return(index)})[0] < 0) return false;
-    	var specialTile = $.map(test, function(obj, index){if(typeof obj === 'object') return(obj.tile)})[0]
-    	return specialTile;
+        if ( type == '1.1' && col != positions.tiles.length-1 && row != 0 ) {
+            var test = specialTiles.map(function(tile) {
+                if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
+                    return ({test:true,tile:tile});
+            });
+        } else if ( type == '1.2' && col != positions.tiles.length-1 && row != positions.tiles[col].length-1 ) {
+            var test = specialTiles.map(function(tile) {
+                if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
+                    return ({test:true,tile:tile});
+            });
+        } else if ( type == '1.3' && col != 0 && row != positions.tiles[col].length-1 ) {
+            var test = specialTiles.map(function(tile) {
+                if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
+                    return ({test:true,tile:tile});
+            });
+        } else if ( type == '1.4' && col != 0 && row != 0 ) {
+            var test = specialTiles.map(function(tile) {
+                if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
+                    return ({test:true,tile:tile});
+            });
+        };
+        if(typeof test === 'undefined' || $.map(test, function(obj, index){if(typeof obj === 'object') return(index)})[0] < 0) return false;
+        var specialTile = $.map(test, function(obj, index){if(typeof obj === 'object') return(obj.tile)})[0]
+        return specialTile;
     }
 
     for (col in positions.tiles) {
@@ -368,7 +368,7 @@ window.drawMap = function(posx, posy, positions) {
             // but don't draw tile outside bounds of the map
             // also whether to draw team tiles / end zones instead of regular tile
             if (positions.tiles[col][row].tile == 'diagonalWall') {
-            	positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(col, row, positions.map[col][row]);
+                positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(col, row, positions.map[col][row]);
                 positions.tiles[col][row].drawTileFirst = true
                 if (positions.map[col][row] == '1.1') {
                     if (col != positions.map.length - 1) {
@@ -382,7 +382,7 @@ window.drawMap = function(posx, posy, positions) {
                         }
                     }
                     if (row == 0 && col == positions.map.length - 1)
-                    	positions.tiles[col][row].drawTileFirst = false;
+                        positions.tiles[col][row].drawTileFirst = false;
                 } else if (positions.map[col][row] == '1.2') {
                     if (col != positions.map.length - 1) {
                         if (positions.map[+col + 1][row] == '0') {
@@ -395,7 +395,7 @@ window.drawMap = function(posx, posy, positions) {
                         }
                     }
                     if (col == positions.map.length - 1 && row == positions.map[col].length - 1)
-                    	positions.tiles[col][row].drawTileFirst = false
+                        positions.tiles[col][row].drawTileFirst = false
                 } else if (positions.map[col][row] == '1.3') {
                     if (col != 0) {
                         if (positions.map[+col - 1][row] == '0') {
@@ -408,7 +408,7 @@ window.drawMap = function(posx, posy, positions) {
                         }
                     }
                     if (col == 0 && row == positions.map[col].length - 1)
-                    	positions.tiles[col][row].drawTileFirst = false;
+                        positions.tiles[col][row].drawTileFirst = false;
                 } else if (positions.map[col][row] == '1.4') {
                     if (col != 0) {
                         if (positions.map[+col - 1][row] == '0') {
@@ -421,42 +421,42 @@ window.drawMap = function(posx, posy, positions) {
                         }
                     }
                     if (row == 0 && col == 0) 
-                    	positions.tiles[col][row].drawTileFirst = false;
+                        positions.tiles[col][row].drawTileFirst = false;
                 }
             }
             if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
-                newcontext.drawImage(img, 										// image
-                    13 * TILE_SIZE, 									// x coordinate of image
-                    4 * TILE_SIZE,									// y coordinate of image
-                    TILE_SIZE,										// width of image
-                    TILE_SIZE,										// height of image
-                    col * TILE_SIZE + posx,							// destination x coordinate
-                    row * TILE_SIZE + posy,							// destination y coordinate
-                    TILE_SIZE,										// width of destination
-                    TILE_SIZE) 									// height of destination
+                newcontext.drawImage(img,                                         // image
+                    13 * TILE_SIZE,                                     // x coordinate of image
+                    4 * TILE_SIZE,                                    // y coordinate of image
+                    TILE_SIZE,                                        // width of image
+                    TILE_SIZE,                                        // height of image
+                    col * TILE_SIZE + posx,                            // destination x coordinate
+                    row * TILE_SIZE + posy,                            // destination y coordinate
+                    TILE_SIZE,                                        // width of destination
+                    TILE_SIZE)                                     // height of destination
             }
             if (positions.tiles[col][row].drawSpecialTileFirst) {
-            	newcontext.drawImage(img,
-            		specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * TILE_SIZE,
-            		specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * TILE_SIZE,
-            		TILE_SIZE,
-            		TILE_SIZE,
-            		col * TILE_SIZE + posx,
-            		row * TILE_SIZE + posy,
-            		TILE_SIZE,
-            		TILE_SIZE)
+                newcontext.drawImage(img,
+                    specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * TILE_SIZE,
+                    specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE,
+                    col * TILE_SIZE + posx,
+                    row * TILE_SIZE + posy,
+                    TILE_SIZE,
+                    TILE_SIZE)
             }
             if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
                 var tileSize = positions.tiles[col][row].tileSize
-                newcontext.drawImage(img, 											// image
-                    positions.tiles[col][row].coordinates.x * tileSize, 		// x coordinate of image
-                    positions.tiles[col][row].coordinates.y * tileSize,		// y coordinate of image
-                    tileSize,										// width of image
-                    tileSize,										// height of image
-                    col * tileSize + posx,							// destination x coordinate
-                    row * tileSize + posy,							// destination y coordinate
-                    tileSize,										// width of destination
-                    tileSize) 									// height of destination
+                newcontext.drawImage(img,                                             // image
+                    positions.tiles[col][row].coordinates.x * tileSize,         // x coordinate of image
+                    positions.tiles[col][row].coordinates.y * tileSize,        // y coordinate of image
+                    tileSize,                                        // width of image
+                    tileSize,                                        // height of image
+                    col * tileSize + posx,                            // destination x coordinate
+                    row * tileSize + posy,                            // destination y coordinate
+                    tileSize,                                        // width of destination
+                    tileSize)                                     // height of destination
             }
             if (positions.tiles[col][row].tile == 'wall' | positions.tiles[col][row].tile == 'diagonalWall') {
                 var thisTileSize = positions.tiles[col][row].tileSize
@@ -591,27 +591,27 @@ function bombPop(positions) {
         var bTime = new Date(bmb.time).getTime();
         var cTime = new Date(positions.clock[thisI]).getTime();
         if(bTime <= cTime && cTime - bTime < 200 && bmb.type === 2) {
-        	if(typeof bmb.bombAnimation === 'undefined') {
-        		bmb.bombAnimation = {
-        			length: Math.round(positions[me].fps / 10),
-        			frame: 0
-        		}
-        	}
-        	
-        	if(bmb.bombAnimation.frame < bmb.bombAnimation.length) {
-        		bmb.bombAnimation.frame++;
-        		bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length));
-            	bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length;
-            	context.fillStyle = "#FF8000";
-            	context.globalAlpha = bombOpacity;
-            	context.beginPath();
-            	bombX = bmb.x + posx + TILE_SIZE / 2;
-            	bombY = bmb.y + posy + TILE_SIZE / 2;
-            	context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, true);
-            	context.closePath();
-            	context.fill();
-            	context.globalAlpha = 1;
-            	context.fillStyle = "#ffffff";
+            if(typeof bmb.bombAnimation === 'undefined') {
+                bmb.bombAnimation = {
+                    length: Math.round(positions[me].fps / 10),
+                    frame: 0
+                }
+            }
+            
+            if(bmb.bombAnimation.frame < bmb.bombAnimation.length) {
+                bmb.bombAnimation.frame++;
+                bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length));
+                bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length;
+                context.fillStyle = "#FF8000";
+                context.globalAlpha = bombOpacity;
+                context.beginPath();
+                bombX = bmb.x + posx + TILE_SIZE / 2;
+                bombY = bmb.y + posy + TILE_SIZE / 2;
+                context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, true);
+                context.closePath();
+                context.fill();
+                context.globalAlpha = 1;
+                context.fillStyle = "#ffffff";
             } 
         } else {
             delete bmb.bombAnimation;
@@ -820,7 +820,7 @@ function drawEndText(positions) {
 // uses: 
 // TODO
 function drawBalls(positions) {
-	var spin = useSpin();
+    var spin = useSpin();
 
     var player = getPlayer(positions);
     // what team?
@@ -832,31 +832,31 @@ function drawBalls(positions) {
     }
     if (player.dead[thisI] == false) {
     
-    	// draw own ball with or without spin
-    	if(spin === false || typeof player.angle === 'undefined') {
-        	context.drawImage(img,
-            	(myTeam == 1 ? 14 : 15) * TILE_SIZE,
-            	0,
-            	TILE_SIZE,
-            	TILE_SIZE,
-            	context.canvas.width / 2 - TILE_SIZE / 2,
-            	context.canvas.height / 2 - TILE_SIZE / 2,
-            	TILE_SIZE,
-            	TILE_SIZE);
+        // draw own ball with or without spin
+        if(spin === false || typeof player.angle === 'undefined') {
+            context.drawImage(img,
+                (myTeam == 1 ? 14 : 15) * TILE_SIZE,
+                0,
+                TILE_SIZE,
+                TILE_SIZE,
+                context.canvas.width / 2 - TILE_SIZE / 2,
+                context.canvas.height / 2 - TILE_SIZE / 2,
+                TILE_SIZE,
+                TILE_SIZE);
         } else {
-        	context.translate(context.canvas.width/2, context.canvas.height/2);
-        	context.rotate(player.angle[thisI]);
-        	context.drawImage(img,
-        		(myTeam == 1 ? 14 : 15) * TILE_SIZE,	
-        		0,
-        		TILE_SIZE,
-        		TILE_SIZE,
-        		-20,
-        		-20,
-        		TILE_SIZE,
-        		TILE_SIZE);
-        	context.rotate(-player.angle[thisI]);
-        	context.translate(-context.canvas.width/2, -context.canvas.height/2);		
+            context.translate(context.canvas.width/2, context.canvas.height/2);
+            context.rotate(player.angle[thisI]);
+            context.drawImage(img,
+                (myTeam == 1 ? 14 : 15) * TILE_SIZE,    
+                0,
+                TILE_SIZE,
+                TILE_SIZE,
+                -20,
+                -20,
+                TILE_SIZE,
+                TILE_SIZE);
+            context.rotate(-player.angle[thisI]);
+            context.translate(-context.canvas.width/2, -context.canvas.height/2);        
         }
 
         drawPowerups(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
@@ -893,31 +893,31 @@ function drawBalls(positions) {
                             
                             // draw with or without spin
                             if(spin === false || typeof otherPlayer.angle === 'undefined') {
-                            	context.drawImage(img,																		// image
-                                	(thisTeam == 1 ? 14 : 15) * TILE_SIZE,														// x coordinate of image
-                                	0,																						// y coordinate of image
-                                	TILE_SIZE,																				// width of image
-                                	TILE_SIZE,																				// height of image
-                                	otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2,	// destination x coordinate
-                                	otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2,	// destination y coordinate
-                                	TILE_SIZE,																				// width of destination
-                                	TILE_SIZE)																				// height of destination
+                                context.drawImage(img,                                                                        // image
+                                    (thisTeam == 1 ? 14 : 15) * TILE_SIZE,                                                        // x coordinate of image
+                                    0,                                                                                        // y coordinate of image
+                                    TILE_SIZE,                                                                                // width of image
+                                    TILE_SIZE,                                                                                // height of image
+                                    otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2,    // destination x coordinate
+                                    otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2,    // destination y coordinate
+                                    TILE_SIZE,                                                                                // width of destination
+                                    TILE_SIZE)                                                                                // height of destination
                             } else {
-                            	context.translate(otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2, 
-                            					  otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2);
-        						context.rotate(otherPlayer.angle[thisI]);
-        						context.drawImage(img,
-        							(thisTeam == 1 ? 14 : 15) * TILE_SIZE,	
-        							0,
-        							TILE_SIZE,
-        							TILE_SIZE,
-        							-20,
-        							-20,
-        							TILE_SIZE,
-        							TILE_SIZE);
-        						context.rotate(-otherPlayer.angle[thisI]);
-        						context.translate(-(otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2), 
-                            					  -(otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2));	
+                                context.translate(otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2, 
+                                                  otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2);
+                                context.rotate(otherPlayer.angle[thisI]);
+                                context.drawImage(img,
+                                    (thisTeam == 1 ? 14 : 15) * TILE_SIZE,    
+                                    0,
+                                    TILE_SIZE,
+                                    TILE_SIZE,
+                                    -20,
+                                    -20,
+                                    TILE_SIZE,
+                                    TILE_SIZE);
+                                context.rotate(-otherPlayer.angle[thisI]);
+                                context.translate(-(otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2), 
+                                                  -(otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2));    
                             }
 
                             drawPowerups(j, otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2,
@@ -972,13 +972,13 @@ window.animateReplay = function(frame, positions, mapImg, spin, showSplats, show
     drawSpawns(positions)
     drawBalls(positions)
     if (showClockAndScore) {
-    	drawClock(positions)
-    	drawScore(positions)
-    	drawScoreFlag(positions)
+        drawClock(positions)
+        drawScore(positions)
+        drawScoreFlag(positions)
     }
     if (showChat) {
-	    drawChats(positions)
-	}
+        drawChats(positions)
+    }
     bombPop(positions)
     drawEndText(positions)
 }

@@ -61,7 +61,7 @@ function createMenu() {
     // Retrieve html of all items
     $('#tpr-container').load(chrome.extension.getURL("ui/menus.html"), function () {
         console.log("Loaded.");
-       	$('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
+           $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
 
         /* UI-specific code */
         // Code to set the header row to the same width as the replay table, if needed.
@@ -108,11 +108,11 @@ function createMenu() {
         
         // allow 'select all' checkbox to work
         $('#selectAllCheckbox')[0].onchange=function(e) {
-        					$('#replayList .selected-checkbox').each(function(num) {
-        						if(num !== 0) {
-        							this.checked = e.target.checked 
-        						}
-        					})
+                            $('#replayList .selected-checkbox').each(function(num) {
+                                if(num !== 0) {
+                                    this.checked = e.target.checked 
+                                }
+                            })
 
         }
 
@@ -120,17 +120,17 @@ function createMenu() {
         saveSettings = function () {
             // Save form fields
             var fpsInputValue = $('#fpsInput')[0].value,
-            	durationInputValue = $('#durationInput')[0].value,
-            	recordInputValue = $('#recordCheckbox')[0].checked,
-            	useTexturesInputValue = $('#useTextureCheckbox')[0].checked,
-            	useRecordKeyValue = $('#recordKeyChooserInput').data('record'),
-            	currentRecordKey = $('#recordKeyChooserInput').text(),
-            	useSplatsValue = $('#useSplatsCheckbox')[0].checked,
-            	useSpinValue = $('#useSpinCheckbox')[0].checked,
-            	useClockAndScoreValue = $('#useClockAndScoreCheckbox')[0].checked,
-            	useChatValue = $('#useChatCheckbox')[0].checked,
-            	canvasWidthValue = Number($('#canvasWidthInput').val()),
-            	canvasHeightValue = Number($('#canvasHeightInput').val());
+                durationInputValue = $('#durationInput')[0].value,
+                recordInputValue = $('#recordCheckbox')[0].checked,
+                useTexturesInputValue = $('#useTextureCheckbox')[0].checked,
+                useRecordKeyValue = $('#recordKeyChooserInput').data('record'),
+                currentRecordKey = $('#recordKeyChooserInput').text(),
+                useSplatsValue = $('#useSplatsCheckbox')[0].checked,
+                useSpinValue = $('#useSpinCheckbox')[0].checked,
+                useClockAndScoreValue = $('#useClockAndScoreCheckbox')[0].checked,
+                useChatValue = $('#useChatCheckbox')[0].checked,
+                canvasWidthValue = Number($('#canvasWidthInput').val()),
+                canvasHeightValue = Number($('#canvasHeightInput').val());
             
             // Set cookies for replayRecording
             if (!isNaN(fpsInputValue) && fpsInputValue != "") {
@@ -150,10 +150,10 @@ function createMenu() {
             setCookie('useClockAndScore', useClockAndScoreValue, cookieDomain);
             setCookie('useChat', useChatValue, cookieDomain);
             if (!isNaN(canvasWidthValue) && canvasWidthValue !== "") {
-            	setCookie('canvasWidth', canvasWidthValue, cookieDomain);
+                setCookie('canvasWidth', canvasWidthValue, cookieDomain);
             }
             if (!isNaN(canvasHeightValue) && canvasHeightValue !== "") {
-            	setCookie('canvasHeight', canvasHeightValue, cookieDomain);
+                setCookie('canvasHeight', canvasHeightValue, cookieDomain);
             } 
 
             chrome.runtime.sendMessage({
@@ -168,18 +168,18 @@ function createMenu() {
         // none have yet been set.
         setSettings = function () {
             var fpsValue = readCookie('fps') || "60",
-        		durationValue = readCookie('duration') || "30",
-            	recordValue = readCookie('record') || 'true',
-            	// Record key default is '/'
-            	replayRecordKey = readCookie('replayRecordKey') || 47,
-            	useTexturesValue = readCookie('useTextures') || 'true',
-            	useRecordKeyValue = 'true',
-            	useSplatsValue = readCookie('useSplats') || 'true',
-            	useSpinValue = readCookie('useSpin') || 'true',
-            	useClockAndScoreValue = readCookie('useClockAndScore') || 'true',
-            	useChatValue = readCookie('useChat') || 'true', 
-            	canvasWidthValue = readCookie('canvasWidth') || 1280,
-            	canvasHeightValue = readCookie('canvasHeight') || 800;
+                durationValue = readCookie('duration') || "30",
+                recordValue = readCookie('record') || 'true',
+                // Record key default is '/'
+                replayRecordKey = readCookie('replayRecordKey') || 47,
+                useTexturesValue = readCookie('useTextures') || 'true',
+                useRecordKeyValue = 'true',
+                useSplatsValue = readCookie('useSplats') || 'true',
+                useSpinValue = readCookie('useSpin') || 'true',
+                useClockAndScoreValue = readCookie('useClockAndScore') || 'true',
+                useChatValue = readCookie('useChat') || 'true', 
+                canvasWidthValue = readCookie('canvasWidth') || 1280,
+                canvasHeightValue = readCookie('canvasHeight') || 800;
 
             $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 60;
             $('#durationInput')[0].value = (!isNaN(durationValue) & durationValue != "") ? durationValue : 30;
@@ -280,22 +280,22 @@ function createMenu() {
         
         //function to download multiple raw data at once
         function downloadRawData() {
-        	var rawDataToDownload = [];
-        	$('.selected-checkbox').each(function () {
-        		if (this.checked) {
-        			var row = $(this).closest('tr');
-        			var replayId = row.data('replay');
-        			rawDataToDownload.push(replayId);
-        		}
-        	});
-        	
-        	if (rawDataToDownload.length > 0) {
-        		console.log('requesting to download raw data for ' + rawDataToDownload);
-        		chrome.runtime.sendMessage({
-        			method: 'requestDataForDownload',
-        			files: rawDataToDownload
-        		});
-        	}
+            var rawDataToDownload = [];
+            $('.selected-checkbox').each(function () {
+                if (this.checked) {
+                    var row = $(this).closest('tr');
+                    var replayId = row.data('replay');
+                    rawDataToDownload.push(replayId);
+                }
+            });
+            
+            if (rawDataToDownload.length > 0) {
+                console.log('requesting to download raw data for ' + rawDataToDownload);
+                chrome.runtime.sendMessage({
+                    method: 'requestDataForDownload',
+                    files: rawDataToDownload
+                });
+            }
         }
         
         /*
@@ -313,43 +313,43 @@ function createMenu() {
         These next functions allow toggling of the various sort methods.
         A cookie is used to store the current sort preference.
         Values of this cookie include:
-        	- "alphaA"  : alphabetical ascending - normal alphabetical order
-        	- "alphaD"  : alphabetical descending - reverse alphabetical
-        	- "chronoA" : chronological ascending - older replays appear at the top
-        	- "chronoD" : chronological descending - newer replays appear at the top
-        	- "durA"    : duration ascending - shorter replays appear at the top
-        	- "durD"    : duration descending - longer replays appear at the top
-        	- "renA"    : rendered ascending - unrendered replays appear at the top
-        	- "renD"    : rendered descending - rendered replays appear at the top
+            - "alphaA"  : alphabetical ascending - normal alphabetical order
+            - "alphaD"  : alphabetical descending - reverse alphabetical
+            - "chronoA" : chronological ascending - older replays appear at the top
+            - "chronoD" : chronological descending - newer replays appear at the top
+            - "durA"    : duration ascending - shorter replays appear at the top
+            - "durD"    : duration descending - longer replays appear at the top
+            - "renA"    : rendered ascending - unrendered replays appear at the top
+            - "renD"    : rendered descending - rendered replays appear at the top
         
         */
         
         // function for toggling sorting - name (alphabetical)
         function nameSortToggle() {
-        	var curSortMethod = readCookie('sortMethod');
-        	setCookie('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
-        	sortReplays();
-        }        		
+            var curSortMethod = readCookie('sortMethod');
+            setCookie('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
+            sortReplays();
+        }                
         
         // function for toggling sorting - date (chronological) 
         function dateSortToggle() {
-        	var curSortMethod = readCookie('sortMethod');
-        	setCookie('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
-        	sortReplays();
+            var curSortMethod = readCookie('sortMethod');
+            setCookie('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
+            sortReplays();
         }
         
         // function for toggling sorting - duration 
         function durationSortToggle() {
-        	var curSortMethod = readCookie('sortMethod');
-        	setCookie('sortMethod', (curSortMethod === 'durD') ? "durA" : "durD", cookieDomain);
-        	sortReplays();
+            var curSortMethod = readCookie('sortMethod');
+            setCookie('sortMethod', (curSortMethod === 'durD') ? "durA" : "durD", cookieDomain);
+            sortReplays();
         }
         
         // function for toggling sorting - rendered status
         function renderedSortToggle() {
-        	var curSortMethod = readCookie('sortMethod');
-        	setCookie('sortMethod', (curSortMethod === 'renD') ? "renA" : "renD", cookieDomain);
-        	sortReplays();
+            var curSortMethod = readCookie('sortMethod');
+            setCookie('sortMethod', (curSortMethod === 'renD') ? "renA" : "renD", cookieDomain);
+            sortReplays();
         }
         
         // tie sorting toggle functions to the headers
@@ -364,132 +364,132 @@ function createMenu() {
         
         // if no sortmethod cookie exists, default is chronoD
         if(!readCookie('sortMethod')) {
-        	setCookie('sortMethod', 'chronoD', cookieDomain);
+            setCookie('sortMethod', 'chronoD', cookieDomain);
         }
         
         // this function grabs ids, dates, and durations and calls the doSorting function with 
         // the appropriate arguments. then it rearranges the replay rows in the menu according to that order.
         sortReplays = function() {
-        	var entries = [];
-        	$('#replayList .replayRow').not('.clone').map(function(a, b) {
-        		var thisDurationString = $(b).find('.duration').text();
-        		var thisMinutes = Number(thisDurationString.split(':')[0]);
-        		var thisSeconds = Number(thisDurationString.split(':')[1]);
-        		var thisDuration = 60*thisMinutes + thisSeconds;
-        		var thisRendered = $(b).find('.rendered-check').text() !== '';
-        		entries.push({
-        			replay: b.id, 
-        		    duration: thisDuration,
-        		    rendered: thisRendered
-        		});
-        	});
-        	var sortedEntries = doSorting(entries, readCookie('sortMethod'));
-        	for(var entry in sortedEntries) {
-        		var thisEntry = $('#replayList #'+sortedEntries[entry].replay);
-        		if(entry === 0) {
-        			$('#replayList tBody').prepend(thisEntry);
-        			var oldEntry = thisEntry;
-        		} else {
-        			$(oldEntry).after(thisEntry);
-        			oldEntry = thisEntry;
-        		};
-        	};
-        	$('#replayList tBody').prepend($('#replayList .clone'));
-        };		
+            var entries = [];
+            $('#replayList .replayRow').not('.clone').map(function(a, b) {
+                var thisDurationString = $(b).find('.duration').text();
+                var thisMinutes = Number(thisDurationString.split(':')[0]);
+                var thisSeconds = Number(thisDurationString.split(':')[1]);
+                var thisDuration = 60*thisMinutes + thisSeconds;
+                var thisRendered = $(b).find('.rendered-check').text() !== '';
+                entries.push({
+                    replay: b.id, 
+                    duration: thisDuration,
+                    rendered: thisRendered
+                });
+            });
+            var sortedEntries = doSorting(entries, readCookie('sortMethod'));
+            for(var entry in sortedEntries) {
+                var thisEntry = $('#replayList #'+sortedEntries[entry].replay);
+                if(entry === 0) {
+                    $('#replayList tBody').prepend(thisEntry);
+                    var oldEntry = thisEntry;
+                } else {
+                    $(oldEntry).after(thisEntry);
+                    oldEntry = thisEntry;
+                };
+            };
+            $('#replayList tBody').prepend($('#replayList .clone'));
+        };        
         
         // this function handles sorting and the toggling of 
         doSorting = function(replaylist, sortmethod) {
-        	if(sortmethod === "alphaA") {
-        		$('#nameHeader')[0].textContent = 'Name '+UPARROW;
-        		$('#dateHeader')[0].textContent = 'Date';
-        		$('#durationHeader')[0].textContent = 'Duration';
-        		$('#renderedHeader')[0].textContent = 'Rendered';
-        		return(replaylist.sort(function(a,b) {
-        			aREP = a.replay;
-        			bREP = b.replay;
-        			if(aREP < bREP) return(-1);
-        			if(aREP > bREP) return(1);
-        			return(0);
-        		}));
-        	}
-        	if(sortmethod === "alphaD") {
-        		$('#nameHeader')[0].textContent = 'Name '+DOWNARROW;
-        		$('#dateHeader')[0].textContent = 'Date';
-        		$('#durationHeader')[0].textContent = 'Duration';
-        		$('#renderedHeader')[0].textContent = 'Rendered';
-        		return(replaylist.sort(function(a,b) {
-        			aREP = a.replay;
-        			bREP = b.replay;
-        			if(aREP < bREP) return(-1);
-        			if(aREP > bREP) return(1);
-        			return(0);
-        		}).reverse());
-        	}
-        	if(sortmethod === "chronoA") {
-        		$('#dateHeader')[0].textContent = 'Date '+UPARROW;
-            	$('#nameHeader')[0].textContent = 'Name';
-            	$('#durationHeader')[0].textContent = 'Duration';
-            	$('#renderedHeader')[0].textContent = 'Rendered';
-        		return(replaylist.sort(function(a,b) {
-                	aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
-                	bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
-                	return(aNum - bNum);
+            if(sortmethod === "alphaA") {
+                $('#nameHeader')[0].textContent = 'Name '+UPARROW;
+                $('#dateHeader')[0].textContent = 'Date';
+                $('#durationHeader')[0].textContent = 'Duration';
+                $('#renderedHeader')[0].textContent = 'Rendered';
+                return(replaylist.sort(function(a,b) {
+                    aREP = a.replay;
+                    bREP = b.replay;
+                    if(aREP < bREP) return(-1);
+                    if(aREP > bREP) return(1);
+                    return(0);
+                }));
+            }
+            if(sortmethod === "alphaD") {
+                $('#nameHeader')[0].textContent = 'Name '+DOWNARROW;
+                $('#dateHeader')[0].textContent = 'Date';
+                $('#durationHeader')[0].textContent = 'Duration';
+                $('#renderedHeader')[0].textContent = 'Rendered';
+                return(replaylist.sort(function(a,b) {
+                    aREP = a.replay;
+                    bREP = b.replay;
+                    if(aREP < bREP) return(-1);
+                    if(aREP > bREP) return(1);
+                    return(0);
+                }).reverse());
+            }
+            if(sortmethod === "chronoA") {
+                $('#dateHeader')[0].textContent = 'Date '+UPARROW;
+                $('#nameHeader')[0].textContent = 'Name';
+                $('#durationHeader')[0].textContent = 'Duration';
+                $('#renderedHeader')[0].textContent = 'Rendered';
+                return(replaylist.sort(function(a,b) {
+                    aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
+                    bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
+                    return(aNum - bNum);
                 }))
             }
             if(sortmethod === "chronoD") {
-            	$('#dateHeader')[0].textContent = 'Date '+DOWNARROW;
-            	$('#nameHeader')[0].textContent = 'Name';
-            	$('#durationHeader')[0].textContent = 'Duration';
-            	$('#renderedHeader')[0].textContent = 'Rendered';
-            	return(replaylist.sort(function(a,b) {
-                	aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
-                	bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
-                	return(bNum - aNum);
+                $('#dateHeader')[0].textContent = 'Date '+DOWNARROW;
+                $('#nameHeader')[0].textContent = 'Name';
+                $('#durationHeader')[0].textContent = 'Duration';
+                $('#renderedHeader')[0].textContent = 'Rendered';
+                return(replaylist.sort(function(a,b) {
+                    aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
+                    bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
+                    return(bNum - aNum);
                 }))
             }
             if(sortmethod === 'durA') {
-            	$('#durationHeader')[0].textContent = 'Duration '+UPARROW;
-            	$('#dateHeader')[0].textContent = 'Date';
-            	$('#nameHeader')[0].textContent = 'Name';
-            	$('#renderedHeader')[0].textContent = 'Rendered';
-            	return(replaylist.sort(function(a,b) {
-            		return(Number(a.duration) - Number(b.duration));
-            	}));
+                $('#durationHeader')[0].textContent = 'Duration '+UPARROW;
+                $('#dateHeader')[0].textContent = 'Date';
+                $('#nameHeader')[0].textContent = 'Name';
+                $('#renderedHeader')[0].textContent = 'Rendered';
+                return(replaylist.sort(function(a,b) {
+                    return(Number(a.duration) - Number(b.duration));
+                }));
             }
             if(sortmethod === 'durD') {
-            	$('#durationHeader')[0].textContent = 'Duration '+DOWNARROW;
-            	$('#dateHeader')[0].textContent = 'Date';
-            	$('#nameHeader')[0].textContent = 'Name';
-            	$('#renderedHeader')[0].textContent = 'Rendered';
-            	return(replaylist.sort(function(a,b) {
-            		return(Number(b.duration) - Number(a.duration));
-            	}));
+                $('#durationHeader')[0].textContent = 'Duration '+DOWNARROW;
+                $('#dateHeader')[0].textContent = 'Date';
+                $('#nameHeader')[0].textContent = 'Name';
+                $('#renderedHeader')[0].textContent = 'Rendered';
+                return(replaylist.sort(function(a,b) {
+                    return(Number(b.duration) - Number(a.duration));
+                }));
             }
             if(sortmethod === 'renA') {
-            	$('#renderedHeader')[0].textContent = 'Rendered '+UPARROW;
-            	$('#durationHeader')[0].textContent = 'Duration';
-            	$('#dateHeader')[0].textContent = 'Date';
-            	$('#nameHeader')[0].textContent = 'Name';
-            	return(replaylist.sort(function(a,b) {
-            		return(a.rendered - b.rendered);
-            	}));
+                $('#renderedHeader')[0].textContent = 'Rendered '+UPARROW;
+                $('#durationHeader')[0].textContent = 'Duration';
+                $('#dateHeader')[0].textContent = 'Date';
+                $('#nameHeader')[0].textContent = 'Name';
+                return(replaylist.sort(function(a,b) {
+                    return(a.rendered - b.rendered);
+                }));
             }
             if(sortmethod === 'renD') {
-            	$('#renderedHeader')[0].textContent = 'Rendered '+DOWNARROW;
-            	$('#durationHeader')[0].textContent = 'Duration';
-            	$('#dateHeader')[0].textContent = 'Date';
-            	$('#nameHeader')[0].textContent = 'Name';
-            	return(replaylist.sort(function(a,b) {
-            		return(b.rendered - a.rendered);
-            	}));
+                $('#renderedHeader')[0].textContent = 'Rendered '+DOWNARROW;
+                $('#durationHeader')[0].textContent = 'Duration';
+                $('#dateHeader')[0].textContent = 'Date';
+                $('#nameHeader')[0].textContent = 'Name';
+                return(replaylist.sort(function(a,b) {
+                    return(b.rendered - a.rendered);
+                }));
             }
         }
 
-		/*
-		End of Sorting Section
-		**
-		**
-		*/
+        /*
+        End of Sorting Section
+        **
+        **
+        */
 
 
         // This puts the current replays into the menu
@@ -540,13 +540,13 @@ function createMenu() {
                     newRow.find('a.playback-link').text(thisReplay.replace(/DATE.*/, ''));
                     newRow.find('a.playback-link').data('preview', thisPreview);
                     newRow.find('a.playback-link').popover({
-  						html: true,
-  						trigger: 'hover',
-       					placement : 'right',
-  						content: function () {
-    						return '<img src="'+$(this).data('preview') + '"/>';
-  						}
-					});
+                          html: true,
+                          trigger: 'hover',
+                           placement : 'right',
+                          content: function () {
+                            return '<img src="'+$(this).data('preview') + '"/>';
+                          }
+                    });
 
                     ms = +thisReplay.replace('replays', '').replace(/.*DATE/, '');
                     date = new Date(ms);
@@ -592,7 +592,7 @@ function createMenu() {
                         name: fileNameToDownload
                     });
                 });
-				
+                
                 // Set handler for rename button.
                 $('.replayRow:not(.clone) .rename-button').click(function () {
                     var replayId = getReplayId(this);
@@ -629,10 +629,10 @@ function createMenu() {
                 }
                 
                 setReplayMenuWidth = function() {
-                	$('#menuContainer .modal-dialog').width(.70*$(window).width());
+                    $('#menuContainer .modal-dialog').width(.70*$(window).width());
                 }
                 
-				setReplayMenuWidth();
+                setReplayMenuWidth();
                 $(window).resize(setReplayListHeight);
                 $(window).resize(setReplayMenuWidth);
                 setReplayListHeight();
@@ -689,7 +689,7 @@ function createMenu() {
          *   the replay list.
          */
         rawParse = function (fileData, fileName, i, files) {
-        	i++;
+            i++;
             try {
                 var parsedData = JSON.parse(fileData);
             } catch (err) {
@@ -707,28 +707,28 @@ function createMenu() {
                 }
                 if(typeof fileName !== 'undefined') message.newName = fileName;
 
-				chrome.runtime.sendMessage(message, function(response) {
-					console.log('got "data added" response from background script')
-					addRow(response.replayName, JSON.parse(response.metadata), response.preview, 'top');
-        			sortReplays();
-        			readImportedFile(files, i);
-				});
+                chrome.runtime.sendMessage(message, function(response) {
+                    console.log('got "data added" response from background script')
+                    addRow(response.replayName, JSON.parse(response.metadata), response.preview, 'top');
+                    sortReplays();
+                    readImportedFile(files, i);
+                });
             }
         }
         
         // function for preparing a file to be read by the rawParse function
         readImportedFile = function(files, i) {
-			if(i==files.length) return
-        	var rawFileReader = new FileReader();
-			var newFileName = files[i].name.replace(/\.txt$/, '');
-			if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
-				newFileName += 'DATE' + new Date().getTime()
-			}
-			rawFileReader.onload = function (e) {
-				rawParse(e.target.result, newFileName, i, files);
-			}
-			rawFileReader.readAsText(files[i]);
-		};
+            if(i==files.length) return
+            var rawFileReader = new FileReader();
+            var newFileName = files[i].name.replace(/\.txt$/, '');
+            if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
+                newFileName += 'DATE' + new Date().getTime()
+            }
+            rawFileReader.onload = function (e) {
+                rawParse(e.target.result, newFileName, i, files);
+            }
+            rawFileReader.readAsText(files[i]);
+        };
         
         // Visible button invokes the actual file input.
         $('#raw-upload-button').click(function (e) {
@@ -861,40 +861,40 @@ function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
 
 // this function stores custom texture files sent by the background script
 function storeTextures(textures) {
-	Object.keys(textures).forEach(function(key){
-		if(textures[key] != undefined) {
-			localStorage.setItem(key, textures[key]);
-		}
-	})
+    Object.keys(textures).forEach(function(key){
+        if(textures[key] != undefined) {
+            localStorage.setItem(key, textures[key]);
+        }
+    })
 }
 
-// function to delete replays from menu after their data are deleted from IndexedDB	
+// function to delete replays from menu after their data are deleted from IndexedDB    
 // this gets called in reponse to a message from the background script confirming a
-// data deletion	
+// data deletion    
 function deleteRows(deletedFiles) {
-	if(!$.isArray(deletedFiles)) {
-		$('#'+deletedFiles).remove();
-		return
-	}
-	deletedFiles.map(function(deletedFile){
-		$('#'+deletedFile).remove()
-	});
+    if(!$.isArray(deletedFiles)) {
+        $('#'+deletedFiles).remove();
+        return
+    }
+    deletedFiles.map(function(deletedFile){
+        $('#'+deletedFile).remove()
+    });
 };
 
 // function to change the name text and id of a replay when a user renames the replay
 // this gets called in response to a message from the background script confirming a 
 // successful renaming
 function renameRow(oldName, newName) {
-	var oldRow = $('#' + oldName);
-	$('#'+oldName + ' .playback-link').text(newName.replace(/DATE.*/, ''));
-	oldRow.data("replay", newName);
-	oldRow[0].id = newName;
+    var oldRow = $('#' + oldName);
+    $('#'+oldName + ' .playback-link').text(newName.replace(/DATE.*/, ''));
+    oldRow.data("replay", newName);
+    oldRow[0].id = newName;
 };
 
 //Get replay id for row, given an element in it.
 function getReplayId(elt) {
-	var replayRow = $(elt).closest('tr');
-	return replayRow.data("replay");
+    var replayRow = $(elt).closest('tr');
+    return replayRow.data("replay");
 }
 
 // function to format metadata to put into title text
@@ -912,88 +912,88 @@ function formatMetaDataTitle(metadata) {
 // if it equals "top", then the row goes at the top
 // if it is a replay name, it will go before that replay 
 function addRow(replayName, metadata, thisPreview, insertionPoint) {
-	var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
+    var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
     var date = new Date(ms);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
     var duration = metadata.duration;
     var durationDate = new Date(duration * 1000);
     var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2)
     var titleText = formatMetaDataTitle(metadata);
-	
-	if(insertionPoint === 'top' || insertionPoint !== replayName) {
-		var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
-    	cloneRow.removeClass('clone');
-		var newRow = cloneRow.clone(true);
-    	newRow.data("replay", replayName);
-    	newRow.attr("id", replayName);
-    	// Set playback link text
-    	newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
-		newRow.find('a.playback-link').data('preview', thisPreview);
-		newRow.find('a.playback-link').popover({
-  						html: true,
-  						trigger: 'hover',
-       					placement : 'right',
-  						content: function () {
-    						return '<img src="'+$(this).data('preview') + '"/>';
-  						}
-					});
-		newRow.find('.download-movie-button').prop('disabled', true);
-    	newRow.find('.replay-date').text(datevalue);
-    	newRow.find('.duration').text(durationFormatted);
-    	newRow[0].title = titleText;
-    	if(insertionPoint === 'top') {
-    		$('#replayList tbody').prepend(newRow);
-    	} else {
-    		$('#'+insertionPoint).replaceWith(newRow);
-    	}
     
-		// Set replay row element click handlers.
-		// Set handler for in-browser-preview link.
-		$('#'+replayName+' .playback-link').click(function () {
-			var replayId = getReplayId(this);
-			console.log(replayId)
-			//$('#menuContainer').modal('hide');
-			$('#menuContainer').hide();
-			console.log('sending data request for ' + replayId);
-			sessionStorage.setItem('currentReplay', replayId);
-			chrome.runtime.sendMessage({
-				method: 'requestData',
-				fileName: replayId
-			});
-		});
+    if(insertionPoint === 'top' || insertionPoint !== replayName) {
+        var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
+        cloneRow.removeClass('clone');
+        var newRow = cloneRow.clone(true);
+        newRow.data("replay", replayName);
+        newRow.attr("id", replayName);
+        // Set playback link text
+        newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
+        newRow.find('a.playback-link').data('preview', thisPreview);
+        newRow.find('a.playback-link').popover({
+                          html: true,
+                          trigger: 'hover',
+                           placement : 'right',
+                          content: function () {
+                            return '<img src="'+$(this).data('preview') + '"/>';
+                          }
+                    });
+        newRow.find('.download-movie-button').prop('disabled', true);
+        newRow.find('.replay-date').text(datevalue);
+        newRow.find('.duration').text(durationFormatted);
+        newRow[0].title = titleText;
+        if(insertionPoint === 'top') {
+            $('#replayList tbody').prepend(newRow);
+        } else {
+            $('#'+insertionPoint).replaceWith(newRow);
+        }
+    
+        // Set replay row element click handlers.
+        // Set handler for in-browser-preview link.
+        $('#'+replayName+' .playback-link').click(function () {
+            var replayId = getReplayId(this);
+            console.log(replayId)
+            //$('#menuContainer').modal('hide');
+            $('#menuContainer').hide();
+            console.log('sending data request for ' + replayId);
+            sessionStorage.setItem('currentReplay', replayId);
+            chrome.runtime.sendMessage({
+                method: 'requestData',
+                fileName: replayId
+            });
+        });
 
-		// Set handler for movie download button.
-		$('#'+replayName+' .download-movie-button').click(function () {
-			var replayId = getReplayId(this);
-			fileNameToDownload = replayId;
-			console.log('asking background script to download video for ' + fileNameToDownload)
-			chrome.runtime.sendMessage({
-				method: 'downloadMovie',
-				name: fileNameToDownload
-			});
-		});
+        // Set handler for movie download button.
+        $('#'+replayName+' .download-movie-button').click(function () {
+            var replayId = getReplayId(this);
+            fileNameToDownload = replayId;
+            console.log('asking background script to download video for ' + fileNameToDownload)
+            chrome.runtime.sendMessage({
+                method: 'downloadMovie',
+                name: fileNameToDownload
+            });
+        });
 
-		// Set handler for rename button.
-		$('#'+replayName+' .rename-button').click(function () {
-			var replayId = getReplayId(this);
-			fileNameToRename = replayId;
-			datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-			newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-			if (newName != null) {
-				newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-				console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
-				chrome.runtime.sendMessage({
-					method: 'requestFileRename',
-					oldName: fileNameToRename,
-					newName: newName
-				});
-			}
-		});
-	} else {
-    	var oldRow = $('#'+insertionPoint);
-    	oldRow.find('.rendered-check').text('');
-    	oldRow.find('.download-movie-button').prop('disabled', true);
-    	oldRow.find('.duration').text(durationFormatted);
+        // Set handler for rename button.
+        $('#'+replayName+' .rename-button').click(function () {
+            var replayId = getReplayId(this);
+            fileNameToRename = replayId;
+            datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
+            newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
+            if (newName != null) {
+                newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
+                console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+                chrome.runtime.sendMessage({
+                    method: 'requestFileRename',
+                    oldName: fileNameToRename,
+                    newName: newName
+                });
+            }
+        });
+    } else {
+        var oldRow = $('#'+insertionPoint);
+        oldRow.find('.rendered-check').text('');
+        oldRow.find('.download-movie-button').prop('disabled', true);
+        oldRow.find('.duration').text(durationFormatted);
     }
 }
 
@@ -1022,8 +1022,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('got data set confirmation from background script. sending confirmation to injected script.')
         //closeAndReopenMenu();
         if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-        	addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
-        	sortReplays()
+            addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
+            sortReplays()
         }
         emit('positionDataConfirmation', true)
     } else if (message.method == "positionDataForDownload") {
@@ -1033,10 +1033,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.log('data were deleted')
         //closeAndReopenMenu();
         if(typeof message.newName !== 'undefined') {
-        	addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
-        	sortReplays()
+            addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
+            sortReplays()
         } else {
-        	deleteRows(message.deletedFiles);
+            deleteRows(message.deletedFiles);
         }
     } else if (message.method == "fileRenameSuccess") {
         console.log('got confirmation of data file rename from background script')
@@ -1067,10 +1067,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
             $('#' + message.name + ' .progressbar')[0].value = message.progress
         }
     } else if (message.method == "movieRenderConfirmationNotLastOne") {
-    	if( message.failure ) {
-    		console.log(message.name+' was a failure.');
-    		$('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
-    	}
+        if( message.failure ) {
+            console.log(message.name+' was a failure.');
+            $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
+        }
         newReplayI = +message.replayI + 1
         lastOne = false
         if (newReplayI == message.replaysToRender.length - 1) {
@@ -1091,19 +1091,19 @@ if (!readCookie('useSplats')) {
     setCookie('useSplats', true, cookieDomain)
 }
 if (!readCookie('useSpin')) {
-	setCookie('useSpin', true, cookieDomain)
+    setCookie('useSpin', true, cookieDomain)
 }
 if (!readCookie('useClockAndScore')) {
-	setCookie('useClockAndScore', true, cookieDomain)
+    setCookie('useClockAndScore', true, cookieDomain)
 }
 if (!readCookie('canvasWidth')) {
-	setCookie('canvasWidth', 1280, cookieDomain)
+    setCookie('canvasWidth', 1280, cookieDomain)
 }
 if (!readCookie('canvasHeight')) {
-	setCookie('canvasHeight', 800, cookieDomain)
+    setCookie('canvasHeight', 800, cookieDomain)
 }
 if (!readCookie('useChat')) {
-	setCookie('useChat', true, cookieDomain)
+    setCookie('useChat', true, cookieDomain)
 }
 
 // this function sets up a listener wrapper
