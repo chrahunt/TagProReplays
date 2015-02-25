@@ -1,3 +1,12 @@
+/**
+ * Constructs the user interface accessible on the main page of any
+ * TagPro server. Also responsible for injecting the listener script
+ * onto game pages, and relaying information and actions from the
+ * listener script and user interface to the background page for
+ * processing.
+ *
+ * This script is included as a content script.
+ */
 // Cookie functions.
 function readCookie(name) {
     var nameEQ = name + "=";

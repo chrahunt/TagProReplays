@@ -1,3 +1,10 @@
+/**
+ * Acts as the intermediary for content script and background page
+ * storage holding replay data and rendered webm movies. Also listens
+ * for requests to initiate rendering.
+ * 
+ * This script is included as a background script.
+ */
 tileSize = 40
 
 can = document.createElement('canvas')
@@ -74,7 +81,7 @@ flairImg = document.body.appendChild(flairImg)
 /**
  * This function opens a dialog box for the user to save the data given
  * by `data`.
- * @param {[type]} name - The default filename to present in the dialog
+ * @param {string} name - The default filename to present in the dialog
  *   box.
  * @param {Blob} data - The data to be downloaded. The `type` property
  *   of the blob should be set appropriately.
@@ -168,7 +175,9 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
     }
     delete output;
     output = encoder.compile()
-    createFileSystem('savedMovies', saveMovieFile, [name, output])
+    createFileSystem('savedMovies', function(fs, directory) {
+        saveMovieFile(fs, directory, name, output);
+    });
     if (lastOne) {
         chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
     } else {
@@ -231,7 +240,10 @@ function listItems() {
 				allKeys.push(request.result.key);
 				request.result.continue();
 			} else {
-				createFileSystem('savedMovies', getRenderedMovieNames, [allKeys, textures, allMetaData, allPreviews]);
+				createFileSystem('savedMovies', function(fs, directory) {
+                    getRenderedMovieNames(fs, directory, allKeys,
+                        textures, allMetaData, allPreviews);
+                });
 			}
 		}
 	});
@@ -249,7 +261,9 @@ function getCurrentReplaysForCleaning() {
             allKeys.push(request.result.key);
             request.result.continue()
         } else {
-            createFileSystem('savedMovies', cleanMovieFiles, [allKeys])
+            createFileSystem('savedMovies', function(fs, directory) {
+                cleanMovieFiles(fs, directory, allKeys);
+            });
         }
     }
 }
@@ -450,32 +464,33 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
 
 // this downloads a rendered movie (found in the FileSystem) to disk
 function downloadMovie(name) {
-    //var nameDate = name.replace(/.*DATE/,'').replace('replays','')
-    createFileSystem('savedMovies', getMovieFile, [name])
+    createFileSystem('savedMovies', function(fs, directory) {
+        getMovieFile(fs, directory, name);
+    });
 }
 
 // this function "cleans" position data when user clicked record too soon after start of game
 function cleanPositionData(positionDAT) {
-    for (cleanI = 0; cleanI < positionDAT.clock.length; cleanI++) {
+    for (var cleanI = 0; cleanI < positionDAT.clock.length; cleanI++) {
         if (positionDAT.clock[cleanI] == 0) {
-            for (positionStat in positionDAT) {
+            for (var positionStat in positionDAT) {
                 if (positionStat.search('player') == 0) {
-                    for (playerStat in positionDAT[positionStat]) {
+                    for (var playerStat in positionDAT[positionStat]) {
                         if ($.isArray(positionDAT[positionStat][playerStat])) {
                             positionDAT[positionStat][playerStat].shift()
                         }
                     }
                 }
             }
-            for (cleanFloorTile in positionDAT.floorTiles) {
-                positionDAT.floorTiles[cleanFloorTile].value.shift()
+            for (var cleanFloorTile in positionDAT.floorTiles) {
+                positionDAT.floorTiles[cleanFloorTile].value.shift();
             }
-            positionDAT.clock.shift()
-            positionDAT.score.shift()
-            cleanI--
+            positionDAT.clock.shift();
+            positionDAT.score.shift();
+            cleanI--;
         }
     }
-    return (positionDAT)
+    return positionDAT;
 }
 
 // this saves custom texture files to localStorage
@@ -537,15 +552,29 @@ function getDuration(positions) {
     return(duration);
 }
 
-// this takes a positions file and returns the metadata of that file, including:
-//     players, their teams at the start of the replay, the map name, the fps of the 
-//     recording, and the duration of the recording
+/**
+ * @typedef ReplayMetadata
+ * @type {object}
+ * @property {string} map - The name of the map the replay took place
+ *   on.
+ * @property {number} fps - The FPS the replay was recorded at.
+ * @property {number} duration - The duration (in seconds) of the replay.
+ * @property {Array.<string>} redTeam - An array of names of players on
+ *   the red team.
+ * @property {Array.<string>} blueTeam - An array of names of players on
+ *   the blue team.
+ */
+/**
+ * Take recorded replay data and extract metadata from the information.
+ * @param {Positions} positions - The positions to get data from.
+ * @return {ReplayMetadata}
+ */
 function extractMetaData(positions) {
     var metadata = {};
     metadata.redTeam = [];
     metadata.blueTeam = [];
     var blankResponse = {redTeam: [''], blueTeam: [''], map: 'ERROR', fps: 0, duration: 0};
-    if(!$.isPlainObject(positions)) return(blankResponse);
+    if (!$.isPlainObject(positions)) return blankResponse;
     for(var x in positions) {
         if(x.search('player')==0) {
         	var name = $.map(positions[x].name, function(obj, index){if(obj !== 'null') return(obj)});
@@ -563,7 +592,7 @@ function extractMetaData(positions) {
             }
         }
     }
-    if(typeof me === 'undefined') return(blankResponse)
+    if (typeof me === 'undefined') return blankResponse;
     metadata.map = positions[me].map;
     metadata.fps = positions[me].fps;
     metadata.duration = duration;
@@ -573,7 +602,7 @@ function extractMetaData(positions) {
 // Set up indexedDB
 var openRequest = indexedDB.open("ReplayDatabase");
 openRequest.onupgradeneeded = function (e) {
-    console.log("running onupgradeneeded");
+    // Ensure database contains correct object stores.
     var thisDb = e.target.result;
     //Create Object Store
     if (!thisDb.objectStoreNames.contains("positions")) {

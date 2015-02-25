@@ -1,3 +1,9 @@
+/**
+ * Constructs and sets the interactive elements of the in-browser
+ * replay previewer.
+ * 
+ * This script is included as a content script.
+ */
 function readCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');

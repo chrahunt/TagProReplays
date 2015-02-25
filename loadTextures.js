@@ -1,3 +1,6 @@
+/**
+ * This file is included as a content script.
+ */
 saveTextureSettings = function () {
     // read files values
     imageData = {}

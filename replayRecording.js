@@ -1,3 +1,11 @@
+/**
+ * Record and save the state of the game, emitting an event to the
+ * window with the replay data.
+ * 
+ * This file is injected into the page by the content script
+ * TagProReplays. This is necessary in order to listen to the game
+ * socket which provides game state information.
+ */
 ////////////////////////////////////////////
 //           Recording Section            //
 ////////////////////////////////////////////
