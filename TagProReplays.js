@@ -99,10 +99,8 @@ function createMenu() {
         
         // allow 'select all' checkbox to work
         $('#selectAllCheckbox')[0].onchange=function(e) {
-        					$('#replayList .selected-checkbox').each(function(num) {
-        						if(num !== 0) {
-        							this.checked = e.target.checked 
-        						}
+        					$('.replayRow:not(.clone) .selected-checkbox').each(function() {
+        						this.checked = e.target.checked 
         					})
 
         }
@@ -599,6 +597,28 @@ function createMenu() {
                             newName: newName
                         });
                     }
+                });
+                
+                // Set handler for checkbox.
+                $('.replayRow:not(.clone) .selected-checkbox').click(function(e) {
+                	if( this.checked && e.shiftKey && $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1 ) {
+                		var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
+                		    closestBox = undefined,
+                		    thisBox = undefined;
+                		for(var i = 0; i < boxes.length; i++) {
+                			if ( this == boxes[i] ) { 
+                				var thisBox = i; 
+                				if ( closestBox ) break;
+                				continue
+                			}
+                			if (boxes[i].checked) var closestBox = i;
+                			if ( thisBox && closestBox ) break;
+                		}
+                		var bounds = [closestBox, thisBox].sort(function(a,b){return(a-b)});
+                		boxes.map(function(num, box) { 
+                			if(num > bounds[0] && num < bounds[1]) box.checked = true;
+                		});
+                	}
                 });
 
                 $('#replayList').height('auto');
