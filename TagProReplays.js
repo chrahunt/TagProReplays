@@ -1000,6 +1000,28 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
 				});
 			}
 		});
+		
+		// Set handler for checkbox.
+		$('#'+replayName+' .selected-checkbox').click(function(e) {
+			if( this.checked && e.shiftKey && $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1 ) {
+				var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
+					closestBox = undefined,
+					thisBox = undefined;
+				for(var i = 0; i < boxes.length; i++) {
+					if ( this == boxes[i] ) { 
+						var thisBox = i; 
+						if ( closestBox ) break;
+						continue
+					}
+					if (boxes[i].checked) var closestBox = i;
+					if ( thisBox && closestBox ) break;
+				}
+				var bounds = [closestBox, thisBox].sort(function(a,b){return(a-b)});
+				boxes.map(function(num, box) { 
+					if(num > bounds[0] && num < bounds[1]) box.checked = true;
+				});
+			}
+		});
 	} else {
     	var oldRow = $('#'+insertionPoint);
     	oldRow.find('.rendered-check').text('');
