@@ -7,7 +7,7 @@
     "scripts": [
       "background.js",
       "map_draw_functions.js",
-      "createFileSystem.js",
+      "filesystem.js",
       "lib/whammy.js",
       "lib/jquery.js",
       "lib/jszip.min.js",

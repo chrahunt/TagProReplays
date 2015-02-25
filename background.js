@@ -77,26 +77,6 @@ flairImg.src = defaultTextures.flair
 flairImg.id = 'flair'
 flairImg = document.body.appendChild(flairImg)
 
-
-/**
- * This function opens a dialog box for the user to save the data given
- * by `data`.
- * @param {string} name - The default filename to present in the dialog
- *   box.
- * @param {Blob} data - The data to be downloaded. The `type` property
- *   of the blob should be set appropriately.
- */
-function saveVideoData(name, data) {
-    var file = data
-    var a = document.createElement('a');
-    a.download = name;
-    a.href = (window.URL || window.webkitURL).createObjectURL(file);
-    var event = document.createEvent('MouseEvents');
-    event.initEvent('click', true, false);
-    a.dispatchEvent(event);
-    (window.URL || window.webkitURL).revokeObjectURL(a.href);
-}
-
 /**
  * Test the integrity of position data. Should be used before
  * attempting to render a replay. This function does not currently do
@@ -174,10 +154,10 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
         encoder.add(context)
     }
     delete output;
-    output = encoder.compile()
-    createFileSystem('savedMovies', function(fs, directory) {
-        saveMovieFile(fs, directory, name, output);
-    });
+    output = encoder.compile();
+    var filename = name.replace(/.*DATE/, '').replace('replays', '');
+    saveMovieFile(filename, output);
+
     if (lastOne) {
         chrome.tabs.sendMessage(tabNum, {
             method: "movieRenderConfirmation"
@@ -242,9 +222,16 @@ function listItems() {
                 allKeys.push(request.result.key);
                 request.result.continue();
             } else {
-                createFileSystem('savedMovies', function(fs, directory) {
-                    getRenderedMovieNames(fs, directory, allKeys,
-                        textures, allMetaData, allPreviews);
+                getRenderedMovieNames(function(names) {
+                    chrome.tabs.sendMessage(tabNum, {
+                        method: "itemsList", 
+                        positionKeys: allKeys, 
+                        movieNames: names, 
+                        textures: textures,
+                        metadata: JSON.stringify(allMetaData),
+                        previews: allPreviews
+                    });
+                    console.log('sent reply: ' + allKeys);
                 });
             }
         }
@@ -254,18 +241,20 @@ function listItems() {
 // this function gets all positions keys in object store
 //   it then cleans out filesystem of any rendered replay that isn't in indexedDB object store
 function getCurrentReplaysForCleaning() {
-    var allKeys = []
+    var keys = [];
     var transaction = db.transaction(["positions"], "readonly");
     var store = transaction.objectStore("positions");
     var request = store.openCursor(null);
     request.onsuccess = function () {
         if (request.result) {
-            allKeys.push(request.result.key);
-            request.result.continue()
+            keys.push(request.result.key);
+            request.result.continue();
         } else {
-            createFileSystem('savedMovies', function(fs, directory) {
-                cleanMovieFiles(fs, directory, allKeys);
+            // All keys retrieved.
+            var filenames = keys.map(function(key) {
+                return key.replace(/.*DATE/, '').replace('replays', '');
             });
+            deleteMovieFiles(filenames);
         }
     }
 }
@@ -488,12 +477,36 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
     },2000)
 }
 
+// converts dataURL to blob
+function dataURItoBlob(dataURI) {
+    var byteString = atob(dataURI.split(',')[1]);
+    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+    var ab = new ArrayBuffer(byteString.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], {type: 'video/webm'});
+}
 
 // this downloads a rendered movie (found in the FileSystem) to disk
 function downloadMovie(name) {
-    createFileSystem('savedMovies', function(fs, directory) {
-        getMovieFile(fs, directory, name);
-    });
+    function errorHandler(err) {
+        chrome.tabs.sendMessage(tabNum, {
+            method: "movieDownloadFailure"
+        });
+        console.log('sent movie download failure notice');
+    };
+    var filename = name.replace(/.*DATE/, '').replace('replays', '');
+    getMovieFile(filename, function(dataUri) {
+        var movie = dataURItoBlob(dataUri);
+        movie.type = 'video/webm'
+        if (typeof movie !== "undefined") {
+            saveAs(movie, filename + '.webm');
+        } else {
+            errorHandler();
+        }
+    }, errorHandler);
 }
 
 // this function "cleans" position data when user clicked record too soon after start of game

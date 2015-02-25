@@ -1053,8 +1053,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         //closeAndReopenMenu();
     } else if (message.method == "movieRenderFailure") {
         alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
-    } else if (message.method == "movieDownloadConfirmation") {
-        console.log('got movie download confirmation')
     } else if (message.method == "movieDownloadFailure") {
         alert('Download failed. Most likely you haven\'t rendered that movie yet.')
     } else if (message.method == "progressBarCreate") {

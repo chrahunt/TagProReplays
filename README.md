@@ -19,7 +19,7 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 * **lib/**: Directory to hold third-party libraries used by the extension.
 * **ui/**: Holds the assets and html that correspond to the in-page user interface for the extension.
 * **background.js**: The background page for the extension. It handles initial setup of the database that holds the extension data as well as the rendered movie data. It also has functions for getting and setting the textures, rendering movies, and other tasks to support the user interface.
-* **createFileSystem.js**: Contains functions that support the background script in interacting with the database.
+* **filesystem.js**: Contains functions that support the background script in interacting with the database.
 * **in-page-preview.js**: Create the in-browser replay viewer UI and provide additional functions for editing the replay from the replay viewer.
 * **loadTextures.js**: Single function for saving textures uploaded via the settings UI.
 * **map_draw_functions.js**: Contains methods for drawing and animating replays from the raw position/game state data.
