@@ -158,42 +158,42 @@ function drawChats(positions) {
 }
 
 // Scope: file
-// Uses: thisI, img, tagproImg, rollingbombImg, img, context, tileSize
+// Uses: thisI, img, tagproImg, rollingbombImg, img, context
 function drawPowerups(ball, ballx, bally, positions) {
     if (positions[ball].tagpro[thisI] == true) {
         context.drawImage(tagproImg,
             0,
             0,
-            tileSize,
-            tileSize,
+            TILE_SIZE,
+            TILE_SIZE,
             ballx,
             bally,
-            tileSize,
-            tileSize)
+            TILE_SIZE,
+            TILE_SIZE)
     }
     if (positions[ball].bomb[thisI] == true) {
         if (Math.round(Math.random() * 4) == 1) {
             context.drawImage(rollingbombImg,
                 0,
                 0,
-                tileSize,
-                tileSize,
+                TILE_SIZE,
+                TILE_SIZE,
                 ballx,
                 bally,
-                tileSize,
-                tileSize)
+                TILE_SIZE,
+                TILE_SIZE)
         }
     }
     if (positions[ball].grip[thisI] == true) {
         context.drawImage(img,
-            12 * tileSize,
-            4 * tileSize,
-            tileSize,
-            tileSize,
+            12 * TILE_SIZE,
+            4 * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE,
             ballx,
             bally + 20,
-            tileSize / 2,
-            tileSize / 2)
+            TILE_SIZE / 2,
+            TILE_SIZE / 2)
     }
 }
 
@@ -246,7 +246,7 @@ function drawScore(positions) {
 }
 
 // Scope: file
-// Uses: thisI, context, tileSize
+// Uses: thisI, context
 function drawScoreFlag(positions) {
     for (var j in positions) {
         var flagCoords;
@@ -267,8 +267,8 @@ function drawScoreFlag(positions) {
                     }
                     context.globalAlpha = 0.5
                     context.drawImage(img,
-                        flagCoords.x * tileSize,
-                        1 * tileSize,
+                        flagCoords.x * TILE_SIZE,
+                        1 * TILE_SIZE,
                         TILE_SIZE,
                         TILE_SIZE,
                         flagPos.x,
@@ -311,7 +311,7 @@ function drawFlag(ball, ballx, bally, positions) {
  * positions - replay data
  */
 // Scope: background, inpagepreview
-// Uses: tileSize, $
+// Uses: $
 // Need to finish this one.
 window.drawMap = function(posx, posy, positions) {
     var newcan = document.createElement('canvas')
@@ -447,16 +447,16 @@ window.drawMap = function(posx, posy, positions) {
                     TILE_SIZE)
             }
             if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
-                var tileSize = positions.tiles[col][row].tileSize
+                var thisTileSize = positions.tiles[col][row].tileSize
                 newcontext.drawImage(img,                                             // image
-                    positions.tiles[col][row].coordinates.x * tileSize,         // x coordinate of image
-                    positions.tiles[col][row].coordinates.y * tileSize,        // y coordinate of image
-                    tileSize,                                        // width of image
-                    tileSize,                                        // height of image
-                    col * tileSize + posx,                            // destination x coordinate
-                    row * tileSize + posy,                            // destination y coordinate
-                    tileSize,                                        // width of destination
-                    tileSize)                                     // height of destination
+                    positions.tiles[col][row].coordinates.x * thisTileSize,         // x coordinate of image
+                    positions.tiles[col][row].coordinates.y * thisTileSize,        // y coordinate of image
+                    thisTileSize,                                        // width of image
+                    thisTileSize,                                        // height of image
+                    col * thisTileSize + posx,                            // destination x coordinate
+                    row * thisTileSize + posy,                            // destination y coordinate
+                    thisTileSize,                                        // width of destination
+                    thisTileSize)                                     // height of destination
             }
             if (positions.tiles[col][row].tile == 'wall' | positions.tiles[col][row].tile == 'diagonalWall') {
                 var thisTileSize = positions.tiles[col][row].tileSize
@@ -757,7 +757,7 @@ function drawSplats(positions) {
 }
 
 // Scope: file
-// Uses: context, thisI, tileSize, img
+// Uses: context, thisI, img
 function drawSpawns(positions) {
     if (positions.spawns) {
         context.globalAlpha = .25
