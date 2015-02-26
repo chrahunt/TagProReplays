@@ -117,7 +117,9 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
     // check position data and abort rendering if not good
     if(!checkData(positions)) {
         if (lastOne) {
-            chrome.tabs.sendMessage(tabNum, {method: "movieRenderConfirmation"})
+            chrome.tabs.sendMessage(tabNum, {
+                method: "movieRenderConfirmation"
+            });
         } else {
             chrome.tabs.sendMessage(tabNum, {
                 method: "movieRenderConfirmationNotLastOne",
@@ -125,7 +127,7 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
                 replayI: replayI,
                 failure: true,
                 name:name
-            })
+            });
         }
         console.log(name+' was a bad positions file. Very bad boy.');
         return
@@ -167,10 +169,11 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
             method: "movieRenderConfirmationNotLastOne",
             replaysToRender: replaysToRender,
             replayI: replayI
-        })
+        });
     }
 }
 
+// TODO: Simplify and separate.
 // this is a function to get all the keys in the object store
 //   It also gets the list of names of rendered movies
 //   It sends a message to the content script once it gets the keys and movie names
@@ -181,60 +184,54 @@ function listItems() {
     var allMetaData = [];
     var allPreviews = [];
     chrome.storage.local.get(function(previewStorage) {
-        var transaction = db.transaction(["positions"], "readonly");
-        var store = transaction.objectStore("positions");
-        var request = store.openCursor(null);
-        request.onsuccess = function () {
-            if (request.result) {
-                var metadata = localStorage.getItem(request.result.key);
-                if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
-                    if(request.result.value === undefined || request.result.value === "undefined") {
+        iterateData(function(result) {
+            var metadata = localStorage.getItem(result.key);
+            if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
+                if(result.value === undefined || result.value === "undefined") {
+                    var metadata = extractMetaData(null);
+                } else {
+                    try {
+                        var data = JSON.parse(result.value);
+                        var metadata = extractMetaData(data);
+                    } catch (err) {
                         var metadata = extractMetaData(null);
-                    } else {
-                        try {
-                            var data = JSON.parse(request.result.value);
-                            var metadata = extractMetaData(data);
-                        } catch (err) {
-                            var metadata = extractMetaData(null);
-                        }
                     }
-                    localStorage.setItem(request.result.key, JSON.stringify(metadata));
                 }
-                var thisPreview = previewStorage[request.result.key]; 
-                if(thisPreview === undefined) {
-                    if(request.result.value === undefined || request.result.value === "undefined") {
-                        var thisPreview = null;
-                    } else {
-                        try {
-                            if(!data) var data = JSON.parse(request.result.value);
-                            var thisPreview = drawPreview(data);
-                        } catch (err) {
-                            console.log(err);
-                            var thisPreview = null;
-                        }
-                    }
-                    var obj = {};
-                    obj[request.result.key] = thisPreview;
-                    chrome.storage.local.set(obj);
-                }
-                allPreviews.push(thisPreview);
-                allMetaData.push(metadata);
-                allKeys.push(request.result.key);
-                request.result.continue();
-            } else {
-                getRenderedMovieNames(function(names) {
-                    chrome.tabs.sendMessage(tabNum, {
-                        method: "itemsList", 
-                        positionKeys: allKeys, 
-                        movieNames: names, 
-                        textures: textures,
-                        metadata: JSON.stringify(allMetaData),
-                        previews: allPreviews
-                    });
-                    console.log('sent reply: ' + allKeys);
-                });
+                localStorage.setItem(result.key, JSON.stringify(metadata));
             }
-        }
+            var thisPreview = previewStorage[result.key]; 
+            if(thisPreview === undefined) {
+                if(result.value === undefined || result.value === "undefined") {
+                    var thisPreview = null;
+                } else {
+                    try {
+                        if(!data) var data = JSON.parse(result.value);
+                        var thisPreview = drawPreview(data);
+                    } catch (err) {
+                        console.log(err);
+                        var thisPreview = null;
+                    }
+                }
+                var obj = {};
+                obj[result.key] = thisPreview;
+                chrome.storage.local.set(obj);
+            }
+            allPreviews.push(thisPreview);
+            allMetaData.push(metadata);
+            allKeys.push(result.key);
+        }, function() {
+            getRenderedMovieNames(function(names) {
+                chrome.tabs.sendMessage(tabNum, {
+                    method: "itemsList", 
+                    positionKeys: allKeys, 
+                    movieNames: names, 
+                    textures: textures,
+                    metadata: JSON.stringify(allMetaData),
+                    previews: allPreviews
+                });
+                console.log('sent reply: ' + allKeys);
+            });
+        });
     });
 }
 
@@ -242,76 +239,32 @@ function listItems() {
 //   it then cleans out filesystem of any rendered replay that isn't in indexedDB object store
 function getCurrentReplaysForCleaning() {
     var keys = [];
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.openCursor(null);
-    request.onsuccess = function () {
-        if (request.result) {
-            keys.push(request.result.key);
-            request.result.continue();
-        } else {
-            // All keys retrieved.
-            var filenames = keys.map(function(key) {
-                return key.replace(/.*DATE/, '').replace('replays', '');
-            });
-            deleteMovieFiles(filenames);
-        }
-    }
-}
-
-// this is a function to get position data from the object store
-//   It sends a message to the content script once it gets the data 
-function getPosData(dataFileName, tabNum) {
-    positionData = []
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.get(dataFileName);
-    request.onsuccess = function () {
-        thisObj = request.result.value
-        chrome.tabs.sendMessage(tabNum, {
-            method: "positionData",
-            title: request.result,
-            movieName: dataFileName
+    iterateData(function(result) {
+        keys.push(result.key);
+    }, function() {
+        // All keys retrieved.
+        var filenames = keys.map(function(key) {
+            return key.replace(/.*DATE/, '').replace('replays', '');
         });
-        console.log('sent reply')
-    }
-}
-
-// this gets position data from object store so that it can be downloaded by user.
-function getPosDataForDownload(dataFileName, tabNum) {
-    positionData = []
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.get(dataFileName);
-    request.onsuccess = function () {
-        chrome.tabs.sendMessage(tabNum, {
-            method: "positionDataForDownload",
-            fileName: dataFileName,
-            title: request.result
-        });
-        console.log('sent reply - ' + dataFileName)
-    }
+        deleteMovieFiles(filenames);
+    });
 }
 
 // gets position data from object store for multiple files and zips it into blob
 // saves as zip file
 function getRawDataAndZip(files) {
     var zip = new JSZip();
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.openCursor(null);
-    request.onsuccess = function () {
-        if (request.result) {
-            if($.inArray(request.result.key, files) >= 0) {
-                //console.log(request.result.value)
-                zip.file(request.result.key+'.txt', request.result.value);
-            }
-            request.result.continue()
-        } else {
-            var content = zip.generate({type:"blob", compression:"DEFLATE"});  
-            saveAs(content, 'raw_data.zip');
+    iterateData(function(result) {
+        if (files.indexOf(result.key) !== -1) {
+            zip.file(result.key + '.txt', result.value);
         }
-    }
+    }, function() {
+        var content = zip.generate({
+            type:"blob",
+            compression:"DEFLATE"
+        });
+        saveAs(content, 'raw_data.zip');
+    });
 }
 
 // this deletes data from the object store
@@ -339,32 +292,23 @@ function deleteData(dataFileName, tabNum) {
         }
     };
     if ($.isArray(dataFileName)) {
-        deleted = []
-        for (fTD in dataFileName) {
-            localStorage.removeItem(dataFileName[fTD]);
-            chrome.storage.local.remove(dataFileName[fTD]);
-            var transaction = db.transaction(["positions"], "readwrite");
-            var store = transaction.objectStore("positions");
-            request = store.delete(dataFileName[fTD]);
-            request.onsuccess = function () {
-                deleted.push(fTD);
-                if (deleted.length == dataFileName.length) {
-                    chrome.tabs.sendMessage(tabNum, {
-                        method: 'dataDeleted',
-                        deletedFiles: dataFileName
-                    });
-                    console.log('sent reply')
-                }
-            }
-        }
+        idbDelete(dataFileName, function() {
+            dataFileName.forEach(function(filename) {
+                localStorage.removeItem(filename);
+                chrome.storage.local.remove(filename);
+            });
+            chrome.tabs.sendMessage(tabNum, {
+                method: 'dataDeleted',
+                deletedFiles: dataFileName
+            });
+            console.log('sent reply')
+        });
     } else {
-        var transaction = db.transaction(["positions"], "readwrite");
-        var store = transaction.objectStore("positions");
-        request = store.delete(dataFileName);
-        request.onsuccess = function () {
+        idbDelete(dataFileName, function() {
+            localStorage.removeItem(filename);
+            chrome.storage.local.remove(filename);
+
             if(typeof newName !== 'undefined') {
-                localStorage.removeItem(dataFileName);
-                chrome.storage.local.remove(dataFileName);
                 chrome.tabs.sendMessage(tabNum, {
                     method: 'dataDeleted',
                     deletedFiles: dataFileName,
@@ -374,43 +318,13 @@ function deleteData(dataFileName, tabNum) {
                 });
                 console.log('sent crop and replace reply');
             } else {
-                localStorage.removeItem(dataFileName);
-                chrome.storage.local.remove(dataFileName);
                 chrome.tabs.sendMessage(tabNum, {
                     method: 'dataDeleted',
                     deletedFiles: dataFileName
                 });
                 console.log('sent single delete reply')
             }
-        }
-    }
-}
-
-// this renames data in the object store
-function renameData(oldName, newName, tabNum) {
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.get(oldName);
-    request.onsuccess = function () {
-        thisObj = request.result
-        var transaction2 = db.transaction(["positions"], "readwrite");
-        var store = transaction2.objectStore("positions");
-        request = store.delete(oldName)
-        request.onsuccess = function () {
-            transaction3 = db.transaction(["positions"], "readwrite")
-            objectStore = transaction3.objectStore('positions')
-            request = objectStore.add(thisObj, newName)
-            request.onsuccess = function () {
-                localStorage.removeItem(oldName);
-                chrome.storage.local.remove(oldName);
-                chrome.tabs.sendMessage(tabNum, {
-                    method: "fileRenameSuccess",
-                    oldName: oldName,
-                    newName: newName
-                });
-                console.log('sent rename reply');
-            }
-        }
+        });
     }
 }
 
@@ -456,16 +370,14 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
         splatsImg.src = defaultTextures.splats
     }
 
+    // Timeout to allow for image loading.
     setTimeout(function () {
-        var transaction = db.transaction(["positions"], "readonly");
-        var store = transaction.objectStore("positions");
-        var request = store.get(name);
-        request.onsuccess = function () {
-            if (typeof JSON.parse(request.result).clock !== "undefined") {
+        idbGet(function(result) {
+            if (typeof JSON.parse(result).clock !== "undefined") {
                 if (typeof replaysToRender !== 'undefined') {
-                    renderVideo(request.result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum)
+                    renderVideo(result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum);
                 } else {
-                    renderVideo(request.result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne)
+                    renderVideo(result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne);
                 }
             } else {
                 chrome.tabs.sendMessage(tabNum, {
@@ -473,8 +385,8 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
                 });
                 console.log('sent movie render failure notice')
             }
-        }
-    },2000)
+        });
+    }, 2000);
 }
 
 // converts dataURL to blob
@@ -639,73 +551,8 @@ function extractMetaData(positions) {
     return metadata;
 }
 
-// Set up indexedDB
-var openRequest = indexedDB.open("ReplayDatabase");
-openRequest.onupgradeneeded = function (e) {
-    // Ensure database contains correct object stores.
-    var thisDb = e.target.result;
-    //Create Object Store
-    if (!thisDb.objectStoreNames.contains("positions")) {
-        console.log("I need to make the positions objectstore");
-        var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
-    }
-    if (!thisDb.objectStoreNames.contains("savedMovies")) {
-        console.log("I need to make the savedMovies objectstore");
-        var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
-    }
-}
-
-openRequest.onsuccess = function (e) {
-    db = e.target.result;
-    db.onerror = function (e) {
-        alert("Sorry, an unforseen error was thrown.");
-        console.log("***ERROR***");
-        console.dir(e.target);
-    }
-
-    if (!db.objectStoreNames.contains("positions")) {
-        version = db.version
-        db.close()
-        secondRequest = indexedDB.open("ReplayDatabase", version + 1)
-        secondRequest.onupgradeneeded = function (e) {
-            console.log("running onupgradeneeded");
-            var thisDb = e.target.result;
-            //Create Object Store
-            if (!thisDb.objectStoreNames.contains("positions")) {
-                console.log("I need to make the positions objectstore");
-                var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
-            }
-            if (!thisDb.objectStoreNames.contains("savedMovies")) {
-                console.log("I need to make the savedMovies objectstore");
-                var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
-            }
-        }
-        secondRequest.onsuccess = function (e) {
-            db = e.target.result
-        }
-    }
-    if (!db.objectStoreNames.contains("savedMovies")) {
-        version = db.version
-        db.close()
-        secondRequest = indexedDB.open("ReplayDatabase", version + 1)
-        secondRequest.onupgradeneeded = function (e) {
-            console.log("running onupgradeneeded");
-            var thisDb = e.target.result;
-            //Create Object Store
-            if (!thisDb.objectStoreNames.contains("positions")) {
-                console.log("I need to make the positions objectstore");
-                var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
-            }
-            if (!thisDb.objectStoreNames.contains("savedMovies")) {
-                console.log("I need to make the savedMovies objectstore");
-                var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
-            }
-        }
-        secondRequest.onsuccess = function (e) {
-            db = e.target.result
-        }
-    }
-}
+// Initialize IndexedDB.
+idbOpen();
 
 // Interface between background page and content script.
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
@@ -716,9 +563,12 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         } else {
             var name = 'replays' + new Date().getTime()
         }
-        var deleteTheseData = (message.oldName !== null && typeof message.oldName !== 'undefined') ? true : false;
-        transaction = db.transaction(["positions"], "readwrite")
-        objectStore = transaction.objectStore('positions')
+        var deleteTheseData;
+        if (message.oldName !== null && typeof message.oldName !== 'undefined') {
+            deleteTheseData = true;
+        } else {
+            deleteTheseData = false;
+        }
         console.log('got data from content script.')
         positions = cleanPositionData(JSON.parse(message.positionData))
         var metadata = extractMetaData(positions);
@@ -727,9 +577,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         var obj = {};
         obj[name] = thisPreview;
         chrome.storage.local.set(obj);
-        
-        request = objectStore.put(JSON.stringify(positions), name)
-        request.onsuccess = function () {
+
+        idbPut(name, JSON.stringify(positions), function() {
             if(deleteTheseData) {
                 console.log('new replay saved, deleting old replay...');
                 deleteData({
@@ -755,12 +604,19 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
                     console.log('sent confirmation');
                 }
             }
-        }
+        });
         return true;
     } else if (message.method == 'requestData') {
         tabNum = sender.tab.id;
-        console.log('got data request for ' + message.fileName);
-        getPosData(message.fileName, tabNum);
+        var name = message.fileName;
+        console.log('got data request for ' + name);
+        getData(name, function(data) {
+            chrome.tabs.sendMessage(tabNum, {
+                method: "positionData",
+                title: data,
+                movieName: name
+            });
+        });
     } else if (message.method == 'requestList') {
         tabNum = sender.tab.id;
         console.log('got list request');
@@ -768,11 +624,12 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     } else if (message.method == 'requestDataForDownload') {
         tabNum = sender.tab.id;
         if(message.fileName || message.files.length == 1) { // old, single button
-            console.log('got data request for download - ' + message.fileName || message.files[0]);
-            getPosDataForDownload(message.fileName || message.files[0], tabNum);
-            return;
-        }
-        if(message.files) {
+            var name = message.fileName || message.files[0];
+            console.log('got data request for download - ' + name);
+            getData(name, function(data) {
+                saveAs(data, name + '.txt');
+            });
+        } else if (message.files) {
             console.log('got request to download raw data for: ' + message.files)
             getRawDataAndZip(message.files);
         }
@@ -784,7 +641,16 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     } else if (message.method == 'requestFileRename') {
         tabNum = sender.tab.id;
         console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
-        renameData(message.oldName, message.newName, tabNum);
+        renameData(message.oldName, message.newName, function() {
+            localStorage.removeItem(oldName);
+            chrome.storage.local.remove(oldName);
+            chrome.tabs.sendMessage(tabNum, {
+                method: "fileRenameSuccess",
+                oldName: oldName,
+                newName: newName
+            });
+            console.log('sent rename reply');
+        });
     } else if (message.method == 'renderMovie') {
         tabNum = sender.tab.id;
         console.log('got request to render Movie for ' + message.name);

@@ -5,8 +5,10 @@
   "manifest_version": 2,
   "background": {
     "scripts": [
+      "indexedDBUtils.js",
       "background.js",
       "map_draw_functions.js",
+      "messaging.js",
       "filesystem.js",
       "lib/whammy.js",
       "lib/jquery.js",
@@ -28,6 +30,7 @@
       ],
       "js": [
         "lib/jquery.js",
+        "messaging.js",
         "map_draw_functions.js",
         "TagProReplays.js",
         "in-page-preview.js",
