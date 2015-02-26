@@ -824,19 +824,6 @@ function closeAndReopenMenu() {
     }, 500);
 }
 
-// This is in case we want the user to download something 
-function saveData(name, data) {
-    var file = new Blob([data], {type: "data:text/txt;charset=utf-8"});
-    var a = document.createElement('a');
-    a.download = name + '.txt';
-    a.href = (window.URL || window.webkitURL).createObjectURL(file);
-    var event = document.createEvent('MouseEvents');
-    event.initEvent('click', true, false);
-    // trigger download
-    a.dispatchEvent(event);
-    (window.URL || window.webkitURL).revokeObjectURL(a.href);
-}
-
 // This is an easy method wrapper to dispatch events
 function emit(event, data) {
     var e = new CustomEvent(event, {detail: data});
@@ -874,10 +861,10 @@ function storeTextures(textures) {
 function deleteRows(deletedFiles) {
     if(!$.isArray(deletedFiles)) {
         $('#'+deletedFiles).remove();
-        return
+        return;
     }
-    deletedFiles.map(function(deletedFile){
-        $('#'+deletedFile).remove()
+    deletedFiles.forEach(function(deletedFile){
+        $('#'+deletedFile).remove();
     });
 };
 
@@ -1001,81 +988,106 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
 // set global scope for some variables and functions
 // then set up listeners for info from background script
 var positions
-var savePlayerPositions
 var populateList
-var initiateAnimation
-var videofile
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    if (message.method == 'itemsList') {
-        console.log('got itemList message')
-        storeTextures(message.textures);
-        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata), message.previews);
-    } else if (message.method == 'positionData') {
-        console.log('got positionData message')
-        localStorage.setItem('currentReplayName', message.movieName)
-        console.log(typeof message.title)
-        positions = JSON.parse(message.title)
-        console.log(positions)
-        createReplay(positions)
-        animateReplay(thisI, positions, mapImg)
-    } else if (message.method == "dataSetConfirmationFromBG") {
-        console.log('got data set confirmation from background script. sending confirmation to injected script.')
-        //closeAndReopenMenu();
-        if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-            addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
-            sortReplays()
-        }
-        emit('positionDataConfirmation', true)
-    } else if (message.method == "positionDataForDownload") {
-        console.log('got data for download - ' + message.fileName)
-        saveData(message.fileName, message.title)
-    } else if (message.method == 'dataDeleted') {
-        console.log('data were deleted')
-        //closeAndReopenMenu();
-        if(typeof message.newName !== 'undefined') {
-            addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
-            sortReplays()
-        } else {
-            deleteRows(message.deletedFiles);
-        }
-    } else if (message.method == "fileRenameSuccess") {
-        console.log('got confirmation of data file rename from background script')
-        //closeAndReopenMenu();
-        renameRow(message.oldName, message.newName);
-        sortReplays();
-    } else if (message.method == "picture") {
-        console.log('got picture file from background script')
-        picture = message.file
-    } else if (message.method == "movieRenderConfirmation") {
-        console.log('got movie render confirmation')
-        $('.replayRow').not('.clone').remove();
-        getListData();
-        //closeAndReopenMenu();
-    } else if (message.method == "movieRenderFailure") {
-        alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
-    } else if (message.method == "movieDownloadFailure") {
-        alert('Download failed. Most likely you haven\'t rendered that movie yet.')
-    } else if (message.method == "progressBarCreate") {
-        // CREATE PROGRESS BAR AND GREY OUT BUTTONS
-        $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-        console.log('got request to create progress Bar for ' + message.name)
-    } else if (message.method == "progressBarUpdate") {
-        // UPDATE PROGRESS BAR
-        if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
-            $('#' + message.name + ' .progressbar')[0].value = message.progress
-        }
-    } else if (message.method == "movieRenderConfirmationNotLastOne") {
-        if( message.failure ) {
-            console.log(message.name+' was a failure.');
-            $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
-        }
-        newReplayI = +message.replayI + 1
-        lastOne = false
-        if (newReplayI == message.replaysToRender.length - 1) {
-            lastOne = true
-        }
-        renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
+
+messageListener("itemsList",
+function(message, sender, sendResponse) {
+    console.log('got itemList message')
+    storeTextures(message.textures);
+    populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata), message.previews);
+});
+
+messageListener("positionData",
+function(message, sender, sendResponse) {
+    console.log('got positionData message')
+    localStorage.setItem('currentReplayName', message.movieName)
+    console.log(typeof message.title)
+    positions = JSON.parse(message.title)
+    console.log(positions)
+    createReplay(positions)
+    animateReplay(thisI, positions, mapImg)
+});
+
+messageListener("dataSetConfirmationFromBG",
+function(message, sender, sendResponse) {
+    console.log('got data set confirmation from background script. sending confirmation to injected script.')
+    if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
+        addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
+        sortReplays()
     }
+    emit('positionDataConfirmation', true);
+});
+
+messageListener("dataDeleted",
+function(message, sender, sendResponse) {
+    console.log('data were deleted')
+    //closeAndReopenMenu();
+    if(typeof message.newName !== 'undefined') {
+        addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
+        sortReplays()
+    } else {
+        deleteRows(message.deletedFiles);
+    }
+});
+
+messageListener("fileRenameSuccess",
+function(message, sender, sendResponse) {
+    console.log('got confirmation of data file rename from background script')
+    renameRow(message.oldName, message.newName);
+    sortReplays();
+});
+
+messageListener("picture",
+function(message, sender, sendResponse) {
+    console.log('got picture file from background script')
+    picture = message.file
+});
+
+messageListener("movieRenderConfirmation",
+function(message, sender, sendResponse) {
+    console.log('got movie render confirmation')
+    $('.replayRow').not('.clone').remove();
+    getListData();
+});
+
+messageListener("movieRenderFailure",
+function(message, sender, sendResponse) {
+    alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
+});
+
+messageListener("movieDownloadFailure",
+function(message, sender, sendResponse) {
+    alert('Download failed. Most likely you haven\'t rendered that movie yet.')
+});
+
+messageListener("progressBarCreate",
+function(message, sender, sendResponse) {
+    $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
+    console.log('got request to create progress Bar for ' + message.name)
+});
+
+/**
+ * Update progress bar.
+ */
+messageListener("progressBarUpdate",
+function(message, sender, sendResponse) {
+    if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
+        $('#' + message.name + ' .progressbar')[0].value = message.progress
+    }
+});
+
+messageListener("movieRenderConfirmationNotLastOne",
+function(message, sender, sendResponse) {
+    if( message.failure ) {
+        console.log(message.name+' was a failure.');
+        $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
+    }
+    newReplayI = +message.replayI + 1
+    lastOne = false
+    if (newReplayI == message.replaysToRender.length - 1) {
+        lastOne = true
+    }
+    renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
 });
 
 // set fps and duration if they're not already

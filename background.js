@@ -554,140 +554,172 @@ function extractMetaData(positions) {
 // Initialize IndexedDB.
 idbOpen();
 
-// Interface between background page and content script.
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    if (message.method == 'setPositionData' || message.method == 'setPositionDataFromImport') {
-        tabNum = sender.tab.id;
-        if (typeof message.newName !== 'undefined') {
-            var name = message.newName
-        } else {
-            var name = 'replays' + new Date().getTime()
-        }
-        var deleteTheseData;
-        if (message.oldName !== null && typeof message.oldName !== 'undefined') {
-            deleteTheseData = true;
-        } else {
-            deleteTheseData = false;
-        }
-        console.log('got data from content script.')
-        positions = cleanPositionData(JSON.parse(message.positionData))
-        var metadata = extractMetaData(positions);
-        var thisPreview = drawPreview(positions);
-        localStorage.setItem(name, JSON.stringify(metadata));
-        var obj = {};
-        obj[name] = thisPreview;
-        chrome.storage.local.set(obj);
-
-        idbPut(name, JSON.stringify(positions), function() {
-            if(deleteTheseData) {
-                console.log('new replay saved, deleting old replay...');
-                deleteData({
-                    fileName: message.oldName,
-                    newName: message.newName,
-                    metadata: metadata,
-                    preview: thisPreview
-                }, tabNum);
-            } else {
-                if(message.method === 'setPositionDataFromImport') {
-                    sendResponse({
-                        replayName: name,
-                        metadata: JSON.stringify(metadata),
-                        preview: thisPreview
-                    });
-                } else {
-                    chrome.tabs.sendMessage(tabNum, {
-                        method: "dataSetConfirmationFromBG",
-                        replayName: name,
-                        metadata: JSON.stringify(metadata),
-                        preview: thisPreview
-                    });
-                    console.log('sent confirmation');
-                }
-            }
-        });
-        return true;
-    } else if (message.method == 'requestData') {
-        tabNum = sender.tab.id;
-        var name = message.fileName;
-        console.log('got data request for ' + name);
-        getData(name, function(data) {
-            chrome.tabs.sendMessage(tabNum, {
-                method: "positionData",
-                title: data,
-                movieName: name
-            });
-        });
-    } else if (message.method == 'requestList') {
-        tabNum = sender.tab.id;
-        console.log('got list request');
-        listItems();
-    } else if (message.method == 'requestDataForDownload') {
-        tabNum = sender.tab.id;
-        if(message.fileName || message.files.length == 1) { // old, single button
-            var name = message.fileName || message.files[0];
-            console.log('got data request for download - ' + name);
-            getData(name, function(data) {
-                saveAs(data, name + '.txt');
-            });
-        } else if (message.files) {
-            console.log('got request to download raw data for: ' + message.files)
-            getRawDataAndZip(message.files);
-        }
-        return true;
-    } else if (message.method == 'requestDataDelete') {
-        tabNum = sender.tab.id;
-        console.log('got delete request for ' + message.fileName);
-        deleteData(message.fileName, tabNum);
-    } else if (message.method == 'requestFileRename') {
-        tabNum = sender.tab.id;
-        console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
-        renameData(message.oldName, message.newName, function() {
-            localStorage.removeItem(oldName);
-            chrome.storage.local.remove(oldName);
-            chrome.tabs.sendMessage(tabNum, {
-                method: "fileRenameSuccess",
-                oldName: oldName,
-                newName: newName
-            });
-            console.log('sent rename reply');
-        });
-    } else if (message.method == 'renderMovie') {
-        tabNum = sender.tab.id;
-        console.log('got request to render Movie for ' + message.name);
-        localStorage.setItem('canvasWidth', message.canvasWidth);
-        localStorage.setItem('canvasHeight', message.canvasHeight);
-        can.width = message.canvasWidth;
-        can.height = message.canvasHeight;
-        renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, true);
-    } else if (message.method == 'downloadMovie') {
-        tabNum = sender.tab.id;
-        console.log('got request to download Movie for ' + message.name);
-        downloadMovie(message.name);
-    } else if (message.method == 'setTextureData') {
-        tabNum = sender.tab.id;
-        console.log('got request to save texture image files')
-        saveTextures(JSON.parse(message.textureData));
-    } else if (message.method == 'cleanRenderedReplays') {
-        tabNum = sender.tab.id;
-        console.log('got request to clean rendered replays')
-        getCurrentReplaysForCleaning()
-    } else if (message.method == 'renderAllInitial') {
-        tabNum = sender.tab.id;
-        console.log('got request to render these replays: ' + message.data)
-        console.log('rendering the first one: ' + message.data[0])
-        if (message.data.length == 1) {
-            lastOne = true
-        } else {
-            lastOne = false
-        }
-        localStorage.setItem('canvasWidth', message.canvasWidth);
-        localStorage.setItem('canvasHeight', message.canvasHeight);
-        can.width = message.canvasWidth;
-        can.height = message.canvasHeight;
-        renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, lastOne, message.data, 0, tabNum);
-    } else if (message.method == 'renderAllSubsequent') {
-        tabNum = sender.tab.id;
-        console.log('got request to render subsequent replay: ' + message.data[message.replayI])
-        renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
+messageListener(["setPositionData", "setPositionDataFromImport"],
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    if (typeof message.newName !== 'undefined') {
+        var name = message.newName
+    } else {
+        var name = 'replays' + new Date().getTime()
     }
+    var deleteTheseData;
+    if (message.oldName !== null && typeof message.oldName !== 'undefined') {
+        deleteTheseData = true;
+    } else {
+        deleteTheseData = false;
+    }
+    console.log('got data from content script.')
+    positions = cleanPositionData(JSON.parse(message.positionData))
+    var metadata = extractMetaData(positions);
+    var thisPreview = drawPreview(positions);
+    localStorage.setItem(name, JSON.stringify(metadata));
+    var obj = {};
+    obj[name] = thisPreview;
+    chrome.storage.local.set(obj);
+
+    idbPut(name, JSON.stringify(positions), function() {
+        if(deleteTheseData) {
+            console.log('new replay saved, deleting old replay...');
+            deleteData({
+                fileName: message.oldName,
+                newName: message.newName,
+                metadata: metadata,
+                preview: thisPreview
+            }, tabNum);
+        } else {
+            if(message.method === 'setPositionDataFromImport') {
+                sendResponse({
+                    replayName: name,
+                    metadata: JSON.stringify(metadata),
+                    preview: thisPreview
+                });
+            } else {
+                chrome.tabs.sendMessage(tabNum, {
+                    method: "dataSetConfirmationFromBG",
+                    replayName: name,
+                    metadata: JSON.stringify(metadata),
+                    preview: thisPreview
+                });
+                console.log('sent confirmation');
+            }
+        }
+    });
+    return true;
+});
+
+messageListener("requestData",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    var name = message.fileName;
+    console.log('got data request for ' + name);
+    getData(name, function(data) {
+        chrome.tabs.sendMessage(tabNum, {
+            method: "positionData",
+            title: data,
+            movieName: name
+        });
+    });
+});
+
+messageListener("requestList",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got list request');
+    listItems();
+})
+
+messageListener("requestDataForDownload",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    if(message.fileName || message.files.length == 1) { // old, single button
+        var name = message.fileName || message.files[0];
+        console.log('got data request for download - ' + name);
+        getData(name, function(data) {
+            saveAs(data, name + '.txt');
+        });
+    } else if (message.files) {
+        console.log('got request to download raw data for: ' + message.files)
+        getRawDataAndZip(message.files);
+    }
+    return true;
+});
+
+messageListener("requestDataDelete",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got delete request for ' + message.fileName);
+    deleteData(message.fileName, tabNum);
+});
+
+messageListener("requestFileRename",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
+    renameData(message.oldName, message.newName, function() {
+        localStorage.removeItem(oldName);
+        chrome.storage.local.remove(oldName);
+        chrome.tabs.sendMessage(tabNum, {
+            method: "fileRenameSuccess",
+            oldName: oldName,
+            newName: newName
+        });
+        console.log('sent rename reply');
+    });
+});
+
+
+messageListener("renderMovie",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got request to render Movie for ' + message.name);
+    localStorage.setItem('canvasWidth', message.canvasWidth);
+    localStorage.setItem('canvasHeight', message.canvasHeight);
+    can.width = message.canvasWidth;
+    can.height = message.canvasHeight;
+    renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, true);
+});
+
+messageListener("downloadMovie",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got request to download Movie for ' + message.name);
+    downloadMovie(message.name);
+});
+
+messageListener("setTextureData",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got request to save texture image files')
+    saveTextures(JSON.parse(message.textureData));
+});
+
+messageListener("cleanRenderedReplays",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got request to clean rendered replays')
+    getCurrentReplaysForCleaning()
+});
+
+messageListener("renderAllInitial",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got request to render these replays: ' + message.data)
+    console.log('rendering the first one: ' + message.data[0])
+    if (message.data.length == 1) {
+        lastOne = true
+    } else {
+        lastOne = false
+    }
+    localStorage.setItem('canvasWidth', message.canvasWidth);
+    localStorage.setItem('canvasHeight', message.canvasHeight);
+    can.width = message.canvasWidth;
+    can.height = message.canvasHeight;
+    renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, lastOne, message.data, 0, tabNum);
+});
+
+messageListener("renderAllSubsequent",
+function(message, sender, sendResponse) {
+    tabNum = sender.tab.id;
+    console.log('got request to render subsequent replay: ' + message.data[message.replayI])
+    renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
 });

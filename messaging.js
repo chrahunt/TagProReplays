@@ -14,7 +14,7 @@
      */
     function listener(message, sender, sendResponse) {
         if (message.method && listeners[message.method]) {
-            listeners[message.method].call(this, message, sender, sendResponse);
+            return listeners[message.method].call(this, message, sender, sendResponse);
         }
     }
 
@@ -24,11 +24,16 @@
      * Register a function as a listener for the specific message. If
      * a callback listening for the specified message is already
      * present then it will be overwritten.
-     * @param  {string}   name     The message type to listen for.
-     * @param  {Function} callback Function which will be forwarded the
+     * @param  {(string|Array.<string>} name - The message type(s) to
+     *   listen for. If an array of strings is passed then the callback
+     *   will be set for each of the names given in the array.
+     * @param  {Function} callback - Function which will be forwarded the
      *   parameters passed from `onMessage`.
      */
-    window.messageListener = function(name, callback) {
-        listeners[name] = callback;
+    window.messageListener = function(names, callback) {
+        if (typeof names == 'string') names = [names];
+        names.forEach(function(name) {
+            listeners[name] = callback;
+        });
     }
 })(window);

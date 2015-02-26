@@ -54,7 +54,7 @@ function idbGet(name, callback) {
  * @param  {Function} callback - Function called after successful
  *   storage of the data.
  */
-function idbPut(name, data, callback) {
+window.idbPut = function(name, data, callback) {
     var transaction = db.transaction([STORE_NAME], "readwrite");
     var store = transaction.objectStore(STORE_NAME);
     var request = store.put(data, name);

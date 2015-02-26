@@ -6,9 +6,9 @@
   "background": {
     "scripts": [
       "indexedDBUtils.js",
+      "messaging.js",
       "background.js",
       "map_draw_functions.js",
-      "messaging.js",
       "filesystem.js",
       "lib/whammy.js",
       "lib/jquery.js",
