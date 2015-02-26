@@ -5,6 +5,8 @@
  * 
  * This script is included as a background script.
  */
+(function(window) {
+
 var TILE_SIZE = 40
 
 can = document.createElement('canvas')
@@ -372,7 +374,7 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
 
     // Timeout to allow for image loading.
     setTimeout(function () {
-        idbGet(function(result) {
+        getData(name, function(result) {
             if (typeof JSON.parse(result).clock !== "undefined") {
                 if (typeof replaysToRender !== 'undefined') {
                     renderVideo(result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum);
@@ -723,3 +725,5 @@ function(message, sender, sendResponse) {
     console.log('got request to render subsequent replay: ' + message.data[message.replayI])
     renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
 });
+
+})(window);
