@@ -6,9 +6,7 @@
  * TagProReplays. This is necessary in order to listen to the game
  * socket which provides game state information.
  */
-////////////////////////////////////////////
-//           Recording Section            //
-////////////////////////////////////////////
+(function(window, document, undefined) {
 
 function createZeroArray(N) {
     return (Array.apply(null, {length: N}).map(Number.call, function () {
@@ -27,10 +25,42 @@ function readCookie(name) {
     return null;
 }
 
+// Get options from cookies.
+function getOptions() {
+    function getBooleanCookie(name, defaultValue) {
+        var cookie = readCookie(name);
+        if (cookie) {
+            return cookie == "true";
+        } else {
+            return defaultValue;
+        }
+    }
+
+    var fps = +readCookie('fps') || 60;
+    var duration = +readCookie('duration') || 30;
+    var record_key_enabled = getBooleanCookie('useRecordKey', true);
+    var record_key = +readCookie('replayRecordKey') || 47;
+    var record = getBooleanCookie('record', true);
+    // What is this for?
+    var treter = getBooleanCookie('treter', false);
+
+    var options = {
+        fps: fps,
+        duration: duration,
+        record_key_enabled: record_key_enabled,
+        record_key: record_key,
+        record: record,
+        treter: treter
+    };
+    return options;
+}
+
+var options = getOptions();
+
 function recordReplayData() {
     var savingIndex = 0;
-    var fps = +readCookie('fps');
-    var saveDuration = +readCookie('duration');
+    var fps = options.fps;
+    var saveDuration = options.duration;
 
     // set up map data
     positions.chat = [];
@@ -516,20 +546,20 @@ function recordButton() {
     $('body').append(savedFeedback)
     $(savedFeedback).hide()
 
-    if (readCookie('useRecordKey') == "true") {
+    if (options.record_key_enabled) {
         $(document).on("keypress", function (e) {
-            if (e.which == readCookie('replayRecordKey')) {
+            if (e.which == options.record_key) {
                 saveReplayData(positions)
             }
         })
     }
 }
 
-if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
+if(options.record && !options.treter) {
     tagpro.ready(function() {
         var startInterval = setInterval(function() {
-            console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
-            console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
+            //console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
+            //console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
             if(tagpro.map && tagpro.wallMap) {
                 clearInterval(startInterval);
                 positions = {};
@@ -537,6 +567,7 @@ if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
                 recordReplayData();
             }
         }, 1000);
-    })
+    });
 }
 
+})(window, document);

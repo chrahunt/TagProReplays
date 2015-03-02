@@ -31,6 +31,57 @@ function setCookie(name, value, domain) {
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
 
+// Callback for options update event, updates the cookies needed
+// by the recording script.
+function updateCookies(options) {
+    setCookie('fps', options.fps, cookieDomain);
+    setCookie('duration', options.duration, cookieDomain);
+    setCookie('useRecordKey', options.shortcut_key_enabled, cookieDomain);
+    setCookie('replayRecordKey', options.shortcut_key, cookieDomain);
+    setCookie('record', options.record, cookieDomain);
+}
+
+// Set listener to update cookies when options are updated.
+chrome.storage.onChanged.addListener(function(changes, areaName) {
+    if (changes.options && changes.options.newValue) {
+        updateCookies(changes.options.newValue);
+    }
+});
+
+// Options management.
+// Get default options object.
+function getDefaultOptions() {
+    var options = {
+        fps: 60,
+        duration: 30,
+        shortcut_key_enabled: true,
+        shortcut_key: 47, // '/' key.
+        custom_textures: false,
+        canvas_width: 1280,
+        canvas_height: 800,
+        splats: true,
+        ui: true,
+        chat: true,
+        spin: true,
+        record: true // Recording enabled.
+    };
+    return options;
+}
+
+// Ensure extension options are set, setting to default if needed.
+function checkOptions() {
+    chrome.storage.local.get("options", function(items) {
+        if (!items.hasOwnProperty("options") ||
+            typeof items.options !== "object") {
+            chrome.storage.local.set({
+                options: getDefaultOptions()
+            });
+        }
+    });
+}
+
+checkOptions();
+
 // Inserts Replay button in main page
 function createReplayPageButton() {
     function findInsertionPoint() {
@@ -108,83 +159,81 @@ function createMenu() {
         
         // allow 'select all' checkbox to work
         $('#selectAllCheckbox')[0].onchange=function(e) {
-                            $('#replayList .selected-checkbox').each(function(num) {
-                                if(num !== 0) {
-                                    this.checked = e.target.checked 
-                                }
-                            })
-
+            $('#replayList .selected-checkbox').each(function(num) {
+                if(num !== 0) {
+                    this.checked = e.target.checked;
+                }
+            });
         }
 
-        // Save form fields.
+        // Save form fields to chrome local storage.
         saveSettings = function () {
-            // Save form fields
-            var fpsInputValue = $('#fpsInput')[0].value,
-                durationInputValue = $('#durationInput')[0].value,
-                recordInputValue = $('#recordCheckbox')[0].checked,
-                useTexturesInputValue = $('#useTextureCheckbox')[0].checked,
-                useRecordKeyValue = $('#recordKeyChooserInput').data('record'),
-                currentRecordKey = $('#recordKeyChooserInput').text(),
-                useSplatsValue = $('#useSplatsCheckbox')[0].checked,
-                useSpinValue = $('#useSpinCheckbox')[0].checked,
-                useClockAndScoreValue = $('#useClockAndScoreCheckbox')[0].checked,
-                useChatValue = $('#useChatCheckbox')[0].checked,
-                canvasWidthValue = Number($('#canvasWidthInput').val()),
-                canvasHeightValue = Number($('#canvasHeightInput').val());
-            
-            // Set cookies for replayRecording
-            if (!isNaN(fpsInputValue) && fpsInputValue != "") {
-                setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
-            }
-            if (!isNaN(durationInputValue) && durationInputValue != "") {
-                setCookie('duration', $('#durationInput')[0].value, cookieDomain);
-            }
-            setCookie('record', recordInputValue, cookieDomain);
-            setCookie('useTextures', useTexturesInputValue, cookieDomain);
-            setCookie('useRecordKey', useRecordKeyValue, cookieDomain);
-            if (currentRecordKey !== 'None') {
-                setCookie('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain);
-            }
-            setCookie('useSplats', useSplatsValue, cookieDomain);
-            setCookie('useSpin', useSpinValue, cookieDomain);
-            setCookie('useClockAndScore', useClockAndScoreValue, cookieDomain);
-            setCookie('useChat', useChatValue, cookieDomain);
-            if (!isNaN(canvasWidthValue) && canvasWidthValue !== "") {
-                setCookie('canvasWidth', canvasWidthValue, cookieDomain);
-            }
-            if (!isNaN(canvasHeightValue) && canvasHeightValue !== "") {
-                setCookie('canvasHeight', canvasHeightValue, cookieDomain);
-            } 
+            chrome.storage.local.get("options", function(items) {
+                var options;
+                if (items.options) {
+                    options = items.options;
+                } else {
+                    options = getDefaultOptions();
+                }
+                var inputs = {
+                    fps: $('#fpsInput')[0].value,
+                    duration: $('#durationInput')[0].value,
+                    record: $('#recordCheckbox')[0].checked,
+                    custom_textures: $('#useTextureCheckbox')[0].checked,
+                    shortcut_key_enabled: $('#recordKeyChooserInput').data('record'),
+                    shortcut_key: $('#recordKeyChooserInput').text(),
+                    splats: $('#useSplatsCheckbox')[0].checked,
+                    spin: $('#useSpinCheckbox')[0].checked,
+                    ui: $('#useClockAndScoreCheckbox')[0].checked,
+                    chat: $('#useChatCheckbox')[0].checked,
+                    canvas_width: Number($('#canvasWidthInput').val()),
+                    canvas_height: Number($('#canvasHeightInput').val())
+                };
 
-            chrome.runtime.sendMessage({
-                method: 'cleanRenderedReplays'
+                if (!isNaN(inputs.fps) && inputs.fps != "") {
+                    options.fps = +inputs.fps;
+                }
+                if (!isNaN(inputs.duration) && inputs.duration != "") {
+                    options.duration = +inputs.duration;
+                }
+                options.record = inputs.record;
+                options.custom_textures = inputs.custom_textures;
+                options.shortcut_key_enabled = inputs.shortcut_key_enabled;
+                if (inputs.shortcut_key !== 'None') {
+                    options.shortcut_key = inputs.shortcut_key.charCodeAt(0);
+                }
+                options.splats = inputs.splats;
+                options.spin = inputs.spin;
+                options.ui = inputs.ui;
+                options.chat = inputs.chat;
+                if (!isNaN(inputs.canvas_width) && inputs.canvas_width !== "") {
+                    options.canvas_width = inputs.canvas_width;
+                }
+                if (!isNaN(inputs.canvas_height) && inputs.canvas_height !== "") {
+                    options.canvas_height = inputs.canvas_height;
+                }
+
+                chrome.storage.local.set({
+                    options: options
+                }, function() {
+                    chrome.runtime.sendMessage({
+                        method: 'cleanRenderedReplays'
+                    });
+                    $('#settingsContainer').modal('hide');
+                });
             });
-            $('#settingsContainer').modal('hide');
         }
 
         $('#saveSettingsButton').click(saveSettings);
 
         // Set value of settings when dialog opened, using default values if
         // none have yet been set.
-        setSettings = function () {
-            var fpsValue = readCookie('fps') || "60",
-                durationValue = readCookie('duration') || "30",
-                recordValue = readCookie('record') || 'true',
-                // Record key default is '/'
-                replayRecordKey = readCookie('replayRecordKey') || 47,
-                useTexturesValue = readCookie('useTextures') || 'true',
-                useRecordKeyValue = 'true',
-                useSplatsValue = readCookie('useSplats') || 'true',
-                useSpinValue = readCookie('useSpin') || 'true',
-                useClockAndScoreValue = readCookie('useClockAndScore') || 'true',
-                useChatValue = readCookie('useChat') || 'true', 
-                canvasWidthValue = readCookie('canvasWidth') || 1280,
-                canvasHeightValue = readCookie('canvasHeight') || 800;
-
-            $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 60;
-            $('#durationInput')[0].value = (!isNaN(durationValue) & durationValue != "") ? durationValue : 30;
-            if (useRecordKeyValue === 'true') {
-                $('#recordKeyChooserInput').text(String.fromCharCode(replayRecordKey));
+        setSettings = function (options) {
+            $('#fpsInput')[0].value = options.fps;
+            $('#durationInput')[0].value = options.duration;
+            if (options.shortcut_key_enabled) {
+                $('#recordKeyChooserInput').text(
+                    String.fromCharCode(options.shortcut_key));
                 $('#recordKeyChooserInput').data('record', true);
                 $('#record-key-remove').show();
             } else {
@@ -192,20 +241,29 @@ function createMenu() {
                 $('#recordKeyChooserInput').data('record', false);
                 $('#record-key-remove').hide();
             }
-            $('#useTextureCheckbox')[0].checked = (useTexturesValue === 'true');
-            $('#useSplatsCheckbox')[0].checked = (useSplatsValue === 'true');
-            $('#recordCheckbox')[0].checked = (recordValue === 'true');
-            $('#useSpinCheckbox')[0].checked = (useSpinValue === 'true');
-            $('#useClockAndScoreCheckbox')[0].checked = (useClockAndScoreValue === 'true');
-            $('#useChatCheckbox')[0].checked = (useChatValue === 'true');
-            $('#canvasWidthInput').val(canvasWidthValue);
-            $('#canvasHeightInput').val(canvasHeightValue);
+            $('#useTextureCheckbox')[0].checked = options.custom_textures;
+            $('#useSplatsCheckbox')[0].checked = options.splats;
+            $('#recordCheckbox')[0].checked = options.record;
+            $('#useSpinCheckbox')[0].checked = options.spin;
+            $('#useClockAndScoreCheckbox')[0].checked = options.ui;
+            $('#useChatCheckbox')[0].checked = options.chat;
+            $('#canvasWidthInput').val(options.canvas_width);
+            $('#canvasHeightInput').val(options.canvas_height);
         }
 
-        $('#settingsContainer').on('show.bs.modal', setSettings);
-        // Set settings so other areas that use the settings directly from the
-        // elements will work properly.
-        setSettings();
+        // Set initial settings values.
+        chrome.storage.local.get("options", function(items) {
+            if (items.options) {
+                setSettings(items.options);
+            }
+        });
+
+        // Update options fields if options are updated.
+        chrome.storage.onChanged.addListener(function(changes, areaName) {
+            if (changes.options && changes.options.newValue) {
+                setSettings(changes.options.newValue);
+            }
+        });
 
         // Update list of replays when menu is opened.
         $('#menuContainer').on('show.bs.modal', function () {
@@ -241,15 +299,10 @@ function createMenu() {
                 console.log(replaysToRender);
                 if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
                     chrome.runtime.sendMessage({
-                        method: 'renderAllInitial',
+                        method: 'render',
                         data: replaysToRender,
-                        useTextures: $('#useTextureCheckbox')[0].checked,
-                        useSplats: $('#useSplatsCheckbox')[0].checked,
-                        useSpin: $('#useSpinCheckbox')[0].checked,
-                        useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
-                        useChat: $('#useChatCheckbox')[0].checked,
-                        canvasWidth: isNaN($('#canvasWidthInput').val()) ? 1280 : Number($('#canvasWidthInput').val()),
-                        canvasHeight: isNaN($('#canvasHeightInput').val()) ? 800 : Number($('#canvasHeightInput').val())
+                        index: 0,
+                        last: replaysToRender.length == 1
                     });
                     console.log('sent request to render multiple replays: ' + replaysToRender);
                 }
@@ -493,10 +546,10 @@ function createMenu() {
 
 
         // This puts the current replays into the menu
-        populateList = function (storageData, movieNames, metadata, previews) {
+        populateList = function (storageData, movieNames, metadata) {
             replayList = [];
             for (dat in storageData) {
-                replayList.push({replay:storageData[dat], metadata:metadata[dat], preview:previews[dat]});
+                replayList.push({replay:storageData[dat], metadata:metadata[dat]});
             }
 
             if (!(replayList.length > 0)) {
@@ -538,14 +591,28 @@ function createMenu() {
                     newRow.attr("id", thisReplay);
                     // Set playback link text
                     newRow.find('a.playback-link').text(thisReplay.replace(/DATE.*/, ''));
-                    newRow.find('a.playback-link').data('preview', thisPreview);
                     newRow.find('a.playback-link').popover({
-                          html: true,
-                          trigger: 'hover',
-                           placement : 'right',
-                          content: function () {
-                            return '<img src="'+$(this).data('preview') + '"/>';
-                          }
+                        html: true,
+                        trigger: 'hover',
+                        placement : 'right',
+                        content: function () {
+                            if (!$(this).data('preview')) {
+                                var key = "preview:" + dat;
+                                chrome.storage.local.get(key, function(items) {
+                                    if (!items[key]) {
+                                        // Generate preview.
+                                    } else {
+                                        // Set preview as data on this element and replace html content.
+                                        newRow.find('a.playback-link').data('preview', items[key]);
+                                        newRow.find('.popover').html('<img src="' + items[key] + '"/>');
+                                    }
+                                });
+                                // Return loading icon.
+                                return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
+                            } else {
+                                return '<img src="' + $(this).data('preview') + '"/>';
+                            }
+                        }
                     });
 
                     ms = +thisReplay.replace('replays', '').replace(/.*DATE/, '');
@@ -808,51 +875,10 @@ function openReplayMenu() {
     }
 }
 
-// Function to close and reopen the TagPro Replays menu.
-// THIS FUNCTION IS NO LONGER USED - IT REMAINS HERE IN CASE I NEED IT LATER FOR SOME REASON
-function closeAndReopenMenu() {
-    // first, clear out saved rendered replays whose raw files have been deleted
-    chrome.runtime.sendMessage({
-        method: 'cleanRenderedReplays'
-    });
-
-    $('#menuContainer').modal('hide');
-    // A delay here is necessary otherwise there is an issue with the
-    // modal not re-appearing.
-    setTimeout(function () {
-        $('#menuContainer').modal('show');
-    }, 500);
-}
-
 // This is an easy method wrapper to dispatch events
 function emit(event, data) {
     var e = new CustomEvent(event, {detail: data});
     window.dispatchEvent(e);
-}
-
-// this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
-function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
-    chrome.runtime.sendMessage({
-        method: 'renderAllSubsequent',
-        data: replaysToRender,
-        replayI: replayI,
-        lastOne: lastOne,
-        useTextures: $('#useTextureCheckbox')[0].checked,
-        useSplats: $('#useSplatsCheckbox')[0].checked,
-        useSpin: $('#useSpinCheckbox')[0].checked,
-        useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
-        useChat: $('#useChatCheckbox')[0].checked
-    });
-    console.log('sent request to render replay: ' + replaysToRender[replayI])
-}
-
-// this function stores custom texture files sent by the background script
-function storeTextures(textures) {
-    Object.keys(textures).forEach(function(key){
-        if(textures[key] != undefined) {
-            localStorage.setItem(key, textures[key]);
-        }
-    })
 }
 
 // function to delete replays from menu after their data are deleted from IndexedDB    
@@ -898,7 +924,8 @@ function formatMetaDataTitle(metadata) {
 // the second argument tells the function where to put the new row
 // if it equals "top", then the row goes at the top
 // if it is a replay name, it will go before that replay 
-function addRow(replayName, metadata, thisPreview, insertionPoint) {
+function addRow(replayName, metadata, insertionPoint) {
+    if (typeof insertionPoint == "undefined" ) insertionPoint = "top";
     var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
     var date = new Date(ms);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
@@ -917,13 +944,28 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
         newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
         newRow.find('a.playback-link').data('preview', thisPreview);
         newRow.find('a.playback-link').popover({
-                          html: true,
-                          trigger: 'hover',
-                           placement : 'right',
-                          content: function () {
-                            return '<img src="'+$(this).data('preview') + '"/>';
-                          }
+            html: true,
+            trigger: 'hover',
+            placement : 'right',
+            content: function () {
+                if (!$(this).data('preview')) {
+                    var key = "preview:" + replayName;
+                    chrome.storage.local.get(key, function(items) {
+                        if (!items[key]) {
+                            // Generate preview.
+                        } else {
+                            // Set preview as data on this element and replace html content.
+                            newRow.find('a.playback-link').data('preview', items[key]);
+                            newRow.find('.popover').html('<img src="' + items[key] + '"/>');
+                        }
                     });
+                    // Return loading icon.
+                    return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
+                } else {
+                    return '<img src="' + $(this).data('preview') + '"/>';
+                }
+            }
+        });
         newRow.find('.download-movie-button').prop('disabled', true);
         newRow.find('.replay-date').text(datevalue);
         newRow.find('.duration').text(durationFormatted);
@@ -984,7 +1026,10 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
     }
 }
 
+// Generate a preview and call the callback function with it.
+function generatePreview(replayId, callback) {
 
+}
 // set global scope for some variables and functions
 // then set up listeners for info from background script
 var positions
@@ -992,9 +1037,8 @@ var populateList
 
 messageListener("itemsList",
 function(message, sender, sendResponse) {
-    console.log('got itemList message')
-    storeTextures(message.textures);
-    populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata), message.previews);
+    console.log('got itemList mefstoressage')
+    populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
 });
 
 messageListener("positionData",
@@ -1005,14 +1049,13 @@ function(message, sender, sendResponse) {
     positions = JSON.parse(message.title)
     console.log(positions)
     createReplay(positions)
-    animateReplay(thisI, positions, mapImg)
 });
 
 messageListener("dataSetConfirmationFromBG",
 function(message, sender, sendResponse) {
     console.log('got data set confirmation from background script. sending confirmation to injected script.')
     if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-        addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
+        addRow(message.replayName, JSON.parse(message.metadata), 'top');
         sortReplays()
     }
     emit('positionDataConfirmation', true);
@@ -1020,11 +1063,10 @@ function(message, sender, sendResponse) {
 
 messageListener("dataDeleted",
 function(message, sender, sendResponse) {
-    console.log('data were deleted')
-    //closeAndReopenMenu();
+    console.log('Replays have been deleted.');
     if(typeof message.newName !== 'undefined') {
-        addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
-        sortReplays()
+        addRow(message.newName, message.metadata, message.deletedFiles);
+        sortReplays();
     } else {
         deleteRows(message.deletedFiles);
     }
@@ -1032,27 +1074,15 @@ function(message, sender, sendResponse) {
 
 messageListener("fileRenameSuccess",
 function(message, sender, sendResponse) {
-    console.log('got confirmation of data file rename from background script')
+    console.log('Received confirmation of replay rename from background script.');
     renameRow(message.oldName, message.newName);
     sortReplays();
 });
 
 messageListener("picture",
 function(message, sender, sendResponse) {
-    console.log('got picture file from background script')
-    picture = message.file
-});
-
-messageListener("movieRenderConfirmation",
-function(message, sender, sendResponse) {
-    console.log('got movie render confirmation')
-    $('.replayRow').not('.clone').remove();
-    getListData();
-});
-
-messageListener("movieRenderFailure",
-function(message, sender, sendResponse) {
-    alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
+    console.log('Received picture file from background script.');
+    picture = message.file;
 });
 
 messageListener("movieDownloadFailure",
@@ -1062,8 +1092,8 @@ function(message, sender, sendResponse) {
 
 messageListener("progressBarCreate",
 function(message, sender, sendResponse) {
+    console.log('Received request to create progress bar for ' + message.name)
     $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-    console.log('got request to create progress Bar for ' + message.name)
 });
 
 /**
@@ -1076,45 +1106,33 @@ function(message, sender, sendResponse) {
     }
 });
 
-messageListener("movieRenderConfirmationNotLastOne",
+messageListener("renderConfirmation",
 function(message, sender, sendResponse) {
-    if( message.failure ) {
-        console.log(message.name+' was a failure.');
-        $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
+    $('#' + message.name + ' .progressbar').remove();
+    if (message.failure) {
+        console.log('Rendering of ' + message.name + ' was a failure.');
+        $('#' + message.name + ' .rendered-check').text('✘');
+        $('#' + message.name + ' .rendered-check').css('color', 'red');
+    } else {
+        $('#' + message.name + ' .rendered-check').text('✓');
+        $('#' + message.name + ' .download-movie-button').prop('disabled', false);
     }
-    newReplayI = +message.replayI + 1
-    lastOne = false
-    if (newReplayI == message.replaysToRender.length - 1) {
-        lastOne = true
-    }
-    renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
-});
 
-// set fps and duration if they're not already
-if (!readCookie('fps')) {
-    setCookie('fps', 60, cookieDomain)
-}
-if (!readCookie('duration')) {
-    setCookie('duration', 30, cookieDomain)
-}
-if (!readCookie('useSplats')) {
-    setCookie('useSplats', true, cookieDomain)
-}
-if (!readCookie('useSpin')) {
-    setCookie('useSpin', true, cookieDomain)
-}
-if (!readCookie('useClockAndScore')) {
-    setCookie('useClockAndScore', true, cookieDomain)
-}
-if (!readCookie('canvasWidth')) {
-    setCookie('canvasWidth', 1280, cookieDomain)
-}
-if (!readCookie('canvasHeight')) {
-    setCookie('canvasHeight', 800, cookieDomain)
-}
-if (!readCookie('useChat')) {
-    setCookie('useChat', true, cookieDomain)
-}
+    if (!message.last) {
+        var index = message.index + 1;
+        var last = false;
+        if (index == message.replaysToRender.length - 1) {
+            last = true;
+        }
+        chrome.runtime.sendMessage({
+            method: 'render',
+            data: message.replaysToRender,
+            index: index,
+            last: last
+        });
+        console.log('Sent request to render replay: ' + replaysToRender[index]);
+    }
+});
 
 // this function sets up a listener wrapper
 function listen(event, listener) {

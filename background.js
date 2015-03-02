@@ -9,21 +9,6 @@
 
 var TILE_SIZE = 40
 
-can = document.createElement('canvas')
-can.id = 'mapCanvas'
-document.body.appendChild(can)
-
-can = document.getElementById('mapCanvas')
-can.width = localStorage.getItem('canvasWidth') || 32 * TILE_SIZE;
-can.height = localStorage.getItem('canvasHeight') || 20 * TILE_SIZE;
-can.style.zIndex = 200
-can.style.position = 'absolute'
-can.style.top = 0
-can.style.left = 0
-
-
-context = can.getContext('2d')
-
 defaultTextures = {
     tiles: 'img/tiles.png',
     portal: 'img/portal.png',
@@ -32,7 +17,7 @@ defaultTextures = {
     speedpadblue: 'img/speedpadblue.png',
     splats: 'img/splats.png',
     flair: 'img/flair.png'
-}
+};
 
 img = new Image()
 img.src = defaultTextures.tiles
@@ -91,88 +76,20 @@ function checkData(positions) {
     var obs = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
     obs.forEach(function(ob){
         if(!positions[ob]) {
-            return(false);
+            return false;
         }
-    })
+    });
     if(positions.map.length == 0 || positions.wallMap.length == 0 || positions.clock.length == 0) {
-        return(false);
+        return false;
     }
     var val = false;
     Object.keys(positions).forEach(function(key){
         if(key.search('player')==0){
             val = true;
         }
-    })
+    });
     
-    return(val)
-}
-
-
-// Actually does the rendering of the movie 
-function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum) {
-    localStorage.setItem('useSplats', useSplats);
-    localStorage.setItem('useSpin', useSpin);
-    localStorage.setItem('useClockAndScore', useClockAndScore);
-    localStorage.setItem('useChat', useChat);
-    positions = JSON.parse(positions);
-    
-    // check position data and abort rendering if not good
-    if(!checkData(positions)) {
-        if (lastOne) {
-            chrome.tabs.sendMessage(tabNum, {
-                method: "movieRenderConfirmation"
-            });
-        } else {
-            chrome.tabs.sendMessage(tabNum, {
-                method: "movieRenderConfirmationNotLastOne",
-                replaysToRender: replaysToRender,
-                replayI: replayI,
-                failure: true,
-                name:name
-            });
-        }
-        console.log(name+' was a bad positions file. Very bad boy.');
-        return
-    }
-    
-    mapImgData = drawMap(0, 0, positions)
-    mapImg = new Image()
-    mapImg.src = mapImgData
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j
-        }
-    }
-    var encoder = new Whammy.Video(positions[me].fps);
-
-    chrome.tabs.sendMessage(tabNum, {method: "progressBarCreate", name: name})
-    for (thisI = 0; thisI < positions.clock.length; thisI++) {
-        if (thisI / Math.round(positions.clock.length / 100) % 1 == 0) {
-            chrome.tabs.sendMessage(tabNum, {
-                method: "progressBarUpdate",
-                progress: thisI / positions.clock.length,
-                name: name
-            })
-        }
-        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
-        encoder.add(context)
-    }
-    delete output;
-    output = encoder.compile();
-    var filename = name.replace(/.*DATE/, '').replace('replays', '');
-    saveMovieFile(filename, output);
-
-    if (lastOne) {
-        chrome.tabs.sendMessage(tabNum, {
-            method: "movieRenderConfirmation"
-        });
-    } else {
-        chrome.tabs.sendMessage(tabNum, {
-            method: "movieRenderConfirmationNotLastOne",
-            replaysToRender: replaysToRender,
-            replayI: replayI
-        });
-    }
+    return val;
 }
 
 // TODO: Simplify and separate.
@@ -181,58 +98,34 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
 //   It sends a message to the content script once it gets the keys and movie names
 //   It also sends custom texture files as well.
 function listItems() {
-    var textures = retrieveTextures();
     var allKeys = [];
     var allMetaData = [];
-    var allPreviews = [];
-    chrome.storage.local.get(function(previewStorage) {
-        iterateData(function(result) {
-            var metadata = localStorage.getItem(result.key);
-            if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
-                if(result.value === undefined || result.value === "undefined") {
+    iterateData(function(result) {
+        var metadata = localStorage.getItem(result.key);
+        if(!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
+            if(result.value === undefined || result.value === "undefined") {
+                var metadata = extractMetaData(null);
+            } else {
+                try {
+                    var data = JSON.parse(result.value);
+                    var metadata = extractMetaData(data);
+                } catch (err) {
                     var metadata = extractMetaData(null);
-                } else {
-                    try {
-                        var data = JSON.parse(result.value);
-                        var metadata = extractMetaData(data);
-                    } catch (err) {
-                        var metadata = extractMetaData(null);
-                    }
                 }
-                localStorage.setItem(result.key, JSON.stringify(metadata));
             }
-            var thisPreview = previewStorage[result.key]; 
-            if(thisPreview === undefined) {
-                if(result.value === undefined || result.value === "undefined") {
-                    var thisPreview = null;
-                } else {
-                    try {
-                        if(!data) var data = JSON.parse(result.value);
-                        var thisPreview = drawPreview(data);
-                    } catch (err) {
-                        console.log(err);
-                        var thisPreview = null;
-                    }
-                }
-                var obj = {};
-                obj[result.key] = thisPreview;
-                chrome.storage.local.set(obj);
-            }
-            allPreviews.push(thisPreview);
-            allMetaData.push(metadata);
-            allKeys.push(result.key);
-        }, function() {
-            getRenderedMovieNames(function(names) {
-                chrome.tabs.sendMessage(tabNum, {
-                    method: "itemsList", 
-                    positionKeys: allKeys, 
-                    movieNames: names, 
-                    textures: textures,
-                    metadata: JSON.stringify(allMetaData),
-                    previews: allPreviews
-                });
-                console.log('sent reply: ' + allKeys);
+            localStorage.setItem(result.key, JSON.stringify(metadata));
+        }
+        allMetaData.push(metadata);
+        allKeys.push(result.key);
+    }, function() {
+        getRenderedMovieNames(function(names) {
+            chrome.tabs.sendMessage(tabNum, {
+                method: "itemsList", 
+                positionKeys: allKeys, 
+                movieNames: names, 
+                metadata: JSON.stringify(allMetaData)
             });
+            console.log('sent reply: ' + allKeys);
         });
     });
 }
@@ -277,18 +170,15 @@ function deleteData(dataFileName, tabNum) {
     if($.isPlainObject(dataFileName)) {
         var newName = dataFileName.newName;
         var metadata = dataFileName.metadata;
-        var preview = dataFileName.preview;
         dataFileName = dataFileName.fileName;
         if(dataFileName === newName) {
             chrome.tabs.sendMessage(tabNum, {
                 method: 'dataDeleted',
                 deletedFiles: dataFileName,
                 newName: newName,
-                metadata: metadata,
-                preview: preview
+                metadata: metadata
             });
             localStorage.removeItem(dataFileName);
-            chrome.storage.local.remove(dataFileName);
             console.log('sent crop and replace reply');
             return;
         }
@@ -297,7 +187,6 @@ function deleteData(dataFileName, tabNum) {
         idbDelete(dataFileName, function() {
             dataFileName.forEach(function(filename) {
                 localStorage.removeItem(filename);
-                chrome.storage.local.remove(filename);
             });
             chrome.tabs.sendMessage(tabNum, {
                 method: 'dataDeleted',
@@ -308,15 +197,13 @@ function deleteData(dataFileName, tabNum) {
     } else {
         idbDelete(dataFileName, function() {
             localStorage.removeItem(filename);
-            chrome.storage.local.remove(filename);
 
             if(typeof newName !== 'undefined') {
                 chrome.tabs.sendMessage(tabNum, {
                     method: 'dataDeleted',
                     deletedFiles: dataFileName,
                     newName: newName,
-                    metadata: metadata,
-                    preview: preview
+                    metadata: metadata
                 });
                 console.log('sent crop and replace reply');
             } else {
@@ -330,65 +217,108 @@ function deleteData(dataFileName, tabNum) {
     }
 }
 
-// this renders a movie and stores it in the savedMovies FileSystem
-function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum) {
-    if (useTextures) {
-        if (typeof localStorage.getItem('tiles') !== "undefined" & localStorage.getItem('tiles') !== null) {
-            img.src = localStorage.getItem('tiles')
-        } else {
-            img.src = defaultTextures.tiles
+/**
+ * @callback RenderCallback
+ * @param {boolean} result - Whether or not the rendering completed
+ *   successfully.
+ */
+/**
+ * Renders the replay with the given name, giving progress updates to
+ * the tab identified by tabId. When the rendering has finished or
+ * failed, the callback is called.
+ * @param  {string}   name - The name of the replay to render.
+ * @param  {integer}   tabId - The id of the tab to update while
+ *   rendering.
+ * @param  {RenderCallback} callback - Called when the rendering is
+ *  complete.
+ */
+function renderMovie(name, tabId, callback) {
+    // Given replay data, retrieve the FPS the replay was recorded at.
+    function getFPS(data) {
+        for (var j in data) {
+            if (data[j].me == 'me') {
+                return data[j].fps;
+            }
         }
-        if (typeof localStorage.getItem('portal') !== "undefined" & localStorage.getItem('portal') !== null) {
-            portalImg.src = localStorage.getItem('portal')
-        } else {
-            portalImg.src = defaultTextures.portal
-        }
-        if (typeof localStorage.getItem('speedpad') !== "undefined" & localStorage.getItem('speedpad') !== null) {
-            speedpadImg.src = localStorage.getItem('speedpad')
-        } else {
-            speedpadImg.src = defaultTextures.speedpad
-        }
-        if (typeof localStorage.getItem('speedpadred') !== "undefined" & localStorage.getItem('speedpadred') !== null) {
-            speedpadredImg.src = localStorage.getItem('speedpadred')
-        } else {
-            speedpadredImg.src = defaultTextures.speedpadred
-        }
-        if (typeof localStorage.getItem('speedpadblue') !== "undefined" & localStorage.getItem('speedpadblue') !== null) {
-            speedpadblueImg.src = localStorage.getItem('speedpadblue')
-        } else {
-            speedpadblueImg.src = defaultTextures.speedpadblue
-        }
-        if (typeof localStorage.getItem('splats') !== "undefined" & localStorage.getItem('splats') !== null) {
-            splatsImg.src = localStorage.getItem('splats')
-        } else {
-            splatsImg.src = defaultTextures.splats
-        }
-    } else {
-        img.src = defaultTextures.tiles
-        portalImg.src = defaultTextures.portal
-        speedpadImg.src = defaultTextures.speedpad
-        speedpadredImg.src = defaultTextures.speedpadred
-        speedpadblueImg.src = defaultTextures.speedpadblue
-        splatsImg.src = defaultTextures.splats
     }
 
-    // Timeout to allow for image loading.
-    setTimeout(function () {
-        getData(name, function(result) {
-            if (typeof JSON.parse(result).clock !== "undefined") {
-                if (typeof replaysToRender !== 'undefined') {
-                    renderVideo(result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne, replaysToRender, replayI, tabNum);
-                } else {
-                    renderVideo(result, name, useSplats, useSpin, useClockAndScore, useChat, lastOne);
-                }
-            } else {
-                chrome.tabs.sendMessage(tabNum, {
-                    method: "movieRenderFailure"
+    // Given replay data, retrieve the number of frames in the replay.
+    function getFrames(data) {
+        return data.clock.length;
+    }
+
+    // Retrieve replay data that corresponds to the given name.
+    getData(name, function(result) {
+        var positions = JSON.parse(result);
+        
+        // Check position data and abort rendering if not good
+        if(!checkData(positions)) {
+            callback(false);
+            return;
+        }
+
+        var fps = getFPS(positions);
+        var frames = getFrames(positions);
+
+        // Construct canvas.
+        var canvas = document.createElement('canvas');
+
+        context = canvas.getContext('2d');
+
+        // Retrieve options and textures and render the movie.
+        chrome.storage.local.get(["options", "textures"], function(items) {
+            var options = items.options;
+            var textures;
+
+            function render() {
+                // Set rendering canvas dimensions.
+                canvas.width = options.canvas_width;
+                canvas.height = options.canvas_height;
+
+                var mapImgData = drawMap(positions, textures.tiles);
+                mapImg = new Image()
+                mapImg.src = mapImgData
+                
+                var encoder = new Whammy.Video(fps);
+
+                chrome.tabs.sendMessage(tabId, {
+                    method: "progressBarCreate",
+                    name: name
                 });
-                console.log('sent movie render failure notice')
+
+                for (var thisI = 0; thisI < frames; thisI++) {
+                    if (thisI / Math.round(frames / 100) % 1 == 0) {
+                        chrome.tabs.sendMessage(tabNum, {
+                            method: "progressBarUpdate",
+                            progress: thisI / positions.clock.length,
+                            name: name
+                        });
+                    }
+                    animateReplay(thisI, positions, mapImg, options, textures);
+                    encoder.add(context)
+                }
+
+                var output = encoder.compile();
+                var filename = name.replace(/.*DATE/, '').replace('replays', '');
+                saveMovieFile(filename, output);
+                callback(true);
+            }
+
+            if (!options.custom_textures) {
+                getDefaultTextures(function(defaultTextures) {
+                    getTextureImages(defaultTextures, function(textureImages) {
+                        textures = textureImages;
+                        render();
+                    });
+                });
+            } else {
+                getTextureImages(items.textures, function(textureImages) {
+                    textures = textureImages;
+                    render();
+                });
             }
         });
-    }, 2000);
+    });
 }
 
 // converts dataURL to blob
@@ -445,52 +375,6 @@ function cleanPositionData(positionDAT) {
         }
     }
     return positionDAT;
-}
-
-// this saves custom texture files to localStorage
-function saveTextures(textureData) {
-    if (typeof textureData.tiles !== 'undefined') {
-        localStorage.setItem('tiles', textureData.tiles)
-    } else {
-        localStorage.removeItem('tiles')
-    }
-    if (typeof textureData.portal !== 'undefined') {
-        localStorage.setItem('portal', textureData.portal)
-    } else {
-        localStorage.removeItem('portal')
-    }
-    if (typeof textureData.speedpad !== 'undefined') {
-        localStorage.setItem('speedpad', textureData.speedpad)
-    } else {
-        localStorage.removeItem('speedpad')
-    }
-    if (typeof textureData.speedpadred !== 'undefined') {
-        localStorage.setItem('speedpadred', textureData.speedpadred)
-    } else {
-        localStorage.removeItem('speedpadred')
-    }
-    if (typeof textureData.speedpadblue !== 'undefined') {
-        localStorage.setItem('speedpadblue', textureData.speedpadblue)
-    } else {
-        localStorage.removeItem('speedpadblue')
-    }
-    if (typeof textureData.splats !== 'undefined') {
-        localStorage.setItem('splats', textureData.splats)
-    } else {
-        localStorage.removeItem('splats')
-    }
-}
-
-// this retrieves custom textures from localStorage and returns them as an object
-function retrieveTextures() {
-    var textures = {};
-    textures.tiles        = localStorage.getItem('tiles');
-    textures.portal       = localStorage.getItem('portal');
-    textures.speedpad     = localStorage.getItem('speedpad');
-    textures.speedpadred  = localStorage.getItem('speedpadred');
-    textures.speedpadblue = localStorage.getItem('speedpadblue');
-    textures.splats       = localStorage.getItem('splats');
-    return(textures)
 }
 
 // this takes a positions file and returns the duration in seconds of that replay
@@ -553,9 +437,31 @@ function extractMetaData(positions) {
     return metadata;
 }
 
+// Ensure textures are set.
+chrome.storage.local.get(["default_textures", "textures"], function(items) {
+    if (!items.textures || !items.default_textures) {
+        getDefaultTextures(function(textures) {
+            var default_textures = {};
+            for (var t in textures) {
+                default_textures[t] = textures[t];
+            }
+            chrome.storage.local.set({
+                textures: textures,
+                default_textures: default_textures
+            }, function() {
+                if (chrome.runtime.lastError) {
+                    console.log("Error initializing textures " +
+                        chrome.runtime.lastError);
+                }
+            });
+        });
+    }
+});
+
 // Initialize IndexedDB.
 idbOpen();
 
+// TODO: Simplify and separate this into different functions.
 messageListener(["setPositionData", "setPositionDataFromImport"],
 function(message, sender, sendResponse) {
     tabNum = sender.tab.id;
@@ -573,11 +479,7 @@ function(message, sender, sendResponse) {
     console.log('got data from content script.')
     positions = cleanPositionData(JSON.parse(message.positionData))
     var metadata = extractMetaData(positions);
-    var thisPreview = drawPreview(positions);
     localStorage.setItem(name, JSON.stringify(metadata));
-    var obj = {};
-    obj[name] = thisPreview;
-    chrome.storage.local.set(obj);
 
     idbPut(name, JSON.stringify(positions), function() {
         if(deleteTheseData) {
@@ -585,22 +487,19 @@ function(message, sender, sendResponse) {
             deleteData({
                 fileName: message.oldName,
                 newName: message.newName,
-                metadata: metadata,
-                preview: thisPreview
+                metadata: metadata
             }, tabNum);
         } else {
             if(message.method === 'setPositionDataFromImport') {
                 sendResponse({
                     replayName: name,
-                    metadata: JSON.stringify(metadata),
-                    preview: thisPreview
+                    metadata: JSON.stringify(metadata)
                 });
             } else {
                 chrome.tabs.sendMessage(tabNum, {
                     method: "dataSetConfirmationFromBG",
                     replayName: name,
-                    metadata: JSON.stringify(metadata),
-                    preview: thisPreview
+                    metadata: JSON.stringify(metadata)
                 });
                 console.log('sent confirmation');
             }
@@ -670,29 +569,11 @@ function(message, sender, sendResponse) {
 });
 
 
-messageListener("renderMovie",
-function(message, sender, sendResponse) {
-    tabNum = sender.tab.id;
-    console.log('got request to render Movie for ' + message.name);
-    localStorage.setItem('canvasWidth', message.canvasWidth);
-    localStorage.setItem('canvasHeight', message.canvasHeight);
-    can.width = message.canvasWidth;
-    can.height = message.canvasHeight;
-    renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, true);
-});
-
 messageListener("downloadMovie",
 function(message, sender, sendResponse) {
     tabNum = sender.tab.id;
     console.log('got request to download Movie for ' + message.name);
     downloadMovie(message.name);
-});
-
-messageListener("setTextureData",
-function(message, sender, sendResponse) {
-    tabNum = sender.tab.id;
-    console.log('got request to save texture image files')
-    saveTextures(JSON.parse(message.textureData));
 });
 
 messageListener("cleanRenderedReplays",
@@ -702,28 +583,31 @@ function(message, sender, sendResponse) {
     getCurrentReplaysForCleaning()
 });
 
-messageListener("renderAllInitial",
+/**
+ * Initial request to render movie(s).
+ * @param  {object} message - object with a property `data` which is an
+ *   array of strings
+ * @param  {[type]} sender        [description]
+ * @return {[type]}               [description]
+ */
+messageListener("render",
 function(message, sender, sendResponse) {
-    tabNum = sender.tab.id;
-    console.log('got request to render these replays: ' + message.data)
-    console.log('rendering the first one: ' + message.data[0])
-    if (message.data.length == 1) {
-        lastOne = true
-    } else {
-        lastOne = false
-    }
-    localStorage.setItem('canvasWidth', message.canvasWidth);
-    localStorage.setItem('canvasHeight', message.canvasHeight);
-    can.width = message.canvasWidth;
-    can.height = message.canvasHeight;
-    renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, lastOne, message.data, 0, tabNum);
-});
+    console.log('Received request to render these replays: ' + message.data);
 
-messageListener("renderAllSubsequent",
-function(message, sender, sendResponse) {
-    tabNum = sender.tab.id;
-    console.log('got request to render subsequent replay: ' + message.data[message.replayI])
-    renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
+    var tabNum = sender.tab.id;
+    // Whether this is the last replay to be rendered.
+    var last = message.last;
+    var replayName = message.data[message.index];
+    renderMovie(replayName, tabNum, function(success) {
+        chrome.tabs.sendMessage(tabNum, {
+            method: "renderConfirmation",
+            replaysToRender: message.data,
+            index: message.index,
+            last: last,
+            failure: !success,
+            name: replayName
+        });
+    });
 });
 
 })(window);

@@ -5,6 +5,7 @@
  *
  * This script is included as a content script and a background script.
  */
+// TODO: Texture and setting interface. interval determination interface.
 (function(window) {
 
 // Constant tile size.
@@ -13,28 +14,8 @@ var TILE_SIZE = 40;
 // Draw-function global. Set in drawReplay and animateReplay.
 var thisI = 0;
 
-// Draw-function global. Set in 
+// Draw-function globals.
 var posx, posy;
-
-/**
- * Check whether spin should be used when drawing balls.
- * @return {boolean} - Whether to use spin.
- */
-// Scope: file
-// Uses: localStorage for whether to use spin
-function useSpin() {
-    var spin = false;
-    // Check for function presence for use in content script.
-    if (typeof readCookie !== 'undefined') {
-        if (readCookie('useSpin') == 'true') {
-            spin = true;
-        }
-    }
-    if (localStorage.getItem('useSpin') == 'true') {
-        spin = true;
-    }
-    return spin;
-}
 
 /**
  * Get the player object that corresponds to the recording player
@@ -53,47 +34,86 @@ function getPlayer(data) {
     return null;
 }
 
-// Scope: file
-// Uses: context
-function drawText(ballname, namex, namey, auth, degree) {
-    context.textAlign = 'left'
-    context.fillStyle = (auth == true) ? "#BFFF00" : "#ffffff"
-    context.strokeStyle = "#000000"
-    context.shadowColor = "#000000"
-    context.shadowOffsetX = 0
-    context.shadowOffsetY = 0
-    context.lineWidth = 2
-    context.font = "bold 8pt Arial"
-    context.shadowBlur = 10
-    context.strokeText(ballname, namex + 3, namey)
-    if (typeof degree != "undefined" && degree != 0) {
-        context.strokeText(degree + "°", namex + 10, namey + 12)
+/**
+ * Get the player objects from the data. If no players are found then
+ * an empty array is returned.
+ * @param {PositionData} data - The position data to get the players
+ *   from.
+ * @return {Array.<Player>} - The players.
+ */
+function getPlayers(data) {
+    var players = [];
+    for (var j in data) {
+        if (j.search("player") === 0) {
+            players.push(data[j]);
+        }
     }
-    context.shadowBlur = 0
-    context.fillText(ballname, namex + 3, namey)
-    if (typeof degree != "undefined" && degree != 0) {
-        context.fillStyle = "#ffffff"
-        context.fillText(degree + "°", namex + 10, namey + 12)
+    return players;
+}
+
+/**
+ * @typedef PlayerInfo
+ * @type {object}
+ * @property {string} name - The name of the player.
+ * @property {?integer} degree - The degree of the player, or null if
+ *   not visible.
+ * @property {?auth} auth - Whether or not the player was
+ *   authenticated, or null if not available.
+ */
+// Uses: context
+/**
+ * Draw the text around the player.
+ * @param {Point} position - The draw position for the player.
+ * @param {PlayerInfo} info - The information to draw.
+ */
+function drawText(position, info) {
+    // Move from player position to text drawing position.
+    position = {
+        x: position.x + 30,
+        y: position.y - 5
+    };
+    context.textAlign = 'left';
+    context.fillStyle = info.auth ? "#BFFF00" : "#ffffff";
+    context.strokeStyle = "#000000";
+    context.shadowColor = "#000000";
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+    context.lineWidth = 2;
+    context.font = "bold 8pt Arial";
+    context.shadowBlur = 10;
+    context.strokeText(info.name, position.x + 3, position.y);
+    if (info.degree && info.degree != 0) {
+        context.strokeText(info.degree + "°", position.x + 10, position.y + 12);
+    }
+    context.shadowBlur = 0;
+    context.fillText(info.name, position.x + 3, position.y);
+    if (info.degree && info.degree != 0) {
+        context.fillStyle = "#ffffff";
+        context.fillText(info.degree + "°", position.x + 10, position.y + 12);
     }
 }
 
-// Scope: file
 // Uses: context
-function drawFlair(ballFlair, flairx, flairy) {
+/**
+ * [drawFlair description]
+ * @param  {Point} ballFlair - Location of flair on sprite.
+ * @param  {Point} pos - Location to draw flair on canvas.
+ * @param  {Image} flair - Image representing the flair textures.
+ */
+function drawFlair(ballFlair, pos, flair) {
     if (ballFlair !== null) {
-        context.drawImage(flairImg,
+        context.drawImage(flair,
             ballFlair.x * 16,
             ballFlair.y * 16,
             16,
             16,
-            flairx,
-            flairy,
+            pos.x,
+            pos.y,
             16,
             16)
     }
 }
 
-// Scope: file
 // Uses: context
 function prettyText(text, textx, texty, color) {
     context.textAlign = 'left'
@@ -108,10 +128,9 @@ function prettyText(text, textx, texty, color) {
     context.strokeText(text, textx, texty)
     context.shadowBlur = 0
     context.fillText(text, textx, texty)
-    return (context.measureText(text).width)
+    return context.measureText(text).width;
 }
 
-// Scope: file
 // Uses: thisI (var), prettyText (fn) - by extension context
 function drawChats(positions) {
     if (positions.chat) {
@@ -157,47 +176,70 @@ function drawChats(positions) {
     }
 }
 
-// Scope: file
-// Uses: thisI, img, tagproImg, rollingbombImg, img, context
-function drawPowerups(ball, ballx, bally, positions) {
-    if (positions[ball].tagpro[thisI] == true) {
-        context.drawImage(tagproImg,
+// Uses: context
+/**
+ * Draw the juke juice image at the position specified, which should be
+ * the player draw position.
+ * @param  {Point} point - The location to draw the powerup over the
+ *   player.
+ * @param {Image} tiles - The image representing the tiles textures.
+ */
+function drawGrip(point, tiles) {
+    context.drawImage(tiles,
+        12 * TILE_SIZE,
+        4 * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE,
+        point.x,
+        point.y + 20,
+        TILE_SIZE / 2,
+        TILE_SIZE / 2);
+}
+
+// Uses: context
+/**
+ * Draw the rolling bomb powerup image at the position specified, which
+ * should be the player draw position.
+ * @param  {Point} point - The location to draw the powerup over the
+ *   player.
+ * @param {Image} rollingbomb - The texture representing the rolling
+ *   bomb overlay.
+ */
+function drawBomb(point, rollingbomb) {
+    // Draw 25% of the time.
+    if (Math.round(Math.random() * 4) == 1) {
+        context.drawImage(rollingbomb,
             0,
             0,
             TILE_SIZE,
             TILE_SIZE,
-            ballx,
-            bally,
+            point.x,
+            point.y,
             TILE_SIZE,
             TILE_SIZE)
     }
-    if (positions[ball].bomb[thisI] == true) {
-        if (Math.round(Math.random() * 4) == 1) {
-            context.drawImage(rollingbombImg,
-                0,
-                0,
-                TILE_SIZE,
-                TILE_SIZE,
-                ballx,
-                bally,
-                TILE_SIZE,
-                TILE_SIZE)
-        }
-    }
-    if (positions[ball].grip[thisI] == true) {
-        context.drawImage(img,
-            12 * TILE_SIZE,
-            4 * TILE_SIZE,
-            TILE_SIZE,
-            TILE_SIZE,
-            ballx,
-            bally + 20,
-            TILE_SIZE / 2,
-            TILE_SIZE / 2)
-    }
 }
 
-// Scope: file
+// Uses: context
+/**
+ * Draw the tagpro powerup image at the position specified, which
+ * should be the player draw position.
+ * @param  {Point} point - The location to draw the powerup over the
+ *   player.
+ * @param {Image} tagpro - The image representing the tagpro overlay.
+ */
+function drawTagpro(point, tagpro) {
+    context.drawImage(tagpro,
+        0,
+        0,
+        TILE_SIZE,
+        TILE_SIZE,
+        point.x,
+        point.y,
+        TILE_SIZE,
+        TILE_SIZE);
+}
+
 // Uses: $, thisI, context
 function drawClock(positions) {
     if (!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[thisI]).getTime()) {
@@ -233,87 +275,110 @@ function drawClock(positions) {
     context.fillText(curTime, context.canvas.width / 2, context.canvas.height - 25);
 }
 
-// Scope: file
-// Uses: thisI, context
-function drawScore(positions) {
-    var thisScore = positions.score[thisI]
-    context.textAlign = "center"
-    context.fillStyle = "rgba(255, 0, 0, .5)"
-    context.font = "bold 40pt Arial"
-    context.fillText(thisScore.r, context.canvas.width / 2 - 120, context.canvas.height - 50)
-    context.fillStyle = "rgba(0, 0, 255, .5)",
-        context.fillText(thisScore.b, context.canvas.width / 2 + 120, context.canvas.height - 50)
+/**
+ * An object that holds the current score for a game.
+ * @typedef ScoreObj
+ * @type {object}
+ * @property {integer} r - The score for the red team.
+ * @property {integer} b - The score for the blue team.
+ */
+// Uses: context
+/**
+ * Takes a score object and 
+ * @param  {ScoreObj} score - The score object for the current frame.
+ */
+function drawScore(score) {
+    context.textAlign = "center";
+    context.fillStyle = "rgba(255, 0, 0, .5)";
+    context.font = "bold 40pt Arial";
+    context.fillText(score.r, context.canvas.width / 2 - 120, context.canvas.height - 50);
+    context.fillStyle = "rgba(0, 0, 255, .5)";
+    context.fillText(score.b, context.canvas.width / 2 + 120, context.canvas.height - 50);
 }
 
-// Scope: file
-// Uses: thisI, context
-function drawScoreFlag(positions) {
-    for (var j in positions) {
-        var flagCoords;
-        if (typeof positions[j].flag != 'undefined') {
-            if (positions[j].flag[thisI] != null) {
-                if (positions[j].flag[thisI] == '3') {
-                    flagCoords = {x: 13, y: 1}
-                } else if (positions[j].flag[thisI] == '1') {
-                    flagCoords = {x: 14, y: 1}
-                } else if (positions[j].flag[thisI] == '2') {
-                    flagCoords = {x: 15, y: 1}
+// Uses: thisI, context, img
+/**
+ * Draw flags at bottom of UI  indicating which flags are held.
+ * @param {PositionData} positions
+ * @param {Image} tiles
+ */
+function drawScoreFlag(positions, tiles) {
+    var players = getPlayers(positions);
+    players.forEach(function(player) {
+        // Flag status for this player for this frame.
+        var flagStatus = player.flag[thisI];
+        // Check if they had the flag this frame.
+        if (flagStatus !== null) {
+            var flagCoords;
+            if (flagStatus == '3') {
+                flagCoords = {x: 13, y: 1}
+            } else if (flagStatus == '1') {
+                flagCoords = {x: 14, y: 1}
+            } else if (flagStatus == '2') {
+                flagCoords = {x: 15, y: 1}
+            }
+            if (typeof flagCoords !== 'undefined') {
+                // Get team of player with flag.
+                var flagTeam = typeof player.team.length === 'undefined' ? player.team : player.team[thisI]
+                var flagPos = {
+                    x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
+                    y: context.canvas.height - 50
                 }
-                if (typeof flagCoords !== 'undefined') {
-                    var flagTeam = typeof positions[j].team.length === 'undefined' ? positions[j].team : positions[j].team[thisI]
-                    var flagPos = {
-                        x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
-                        y: context.canvas.height - 50
-                    }
-                    context.globalAlpha = 0.5
-                    context.drawImage(img,
-                        flagCoords.x * TILE_SIZE,
-                        1 * TILE_SIZE,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        flagPos.x,
-                        flagPos.y,
-                        TILE_SIZE * .8,
-                        TILE_SIZE * .8)
-                    context.globalAlpha = 1
-                }
+                context.globalAlpha = 0.5
+                context.drawImage(tiles,
+                    flagCoords.x * TILE_SIZE,
+                    1 * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE,
+                    flagPos.x,
+                    flagPos.y,
+                    TILE_SIZE * .8,
+                    TILE_SIZE * .8)
+                context.globalAlpha = 1
             }
         }
-    }
+    });
 }
 
-// Scope: file
-// uses: thisI, context
-function drawFlag(ball, ballx, bally, positions) {
+// Uses: thisI, context
+/**
+ * Draw flag being carried by player.
+ * @param  {Player} player  - The player to draw the flag for.
+ * @param  {Point} point - The point to draw the flag.
+ * @param {Image} tiles - The image representing the tiles texture.
+ */
+function drawFlag(player, point, tiles) {
+    // Flag image locations on source image.
     var flagCodes = {
         1: {x: 14, y: 1},
         2: {x: 15, y: 1},
         3: {x: 13, y: 1}
     };
-    if (positions[ball].flag[thisI] != null) {
-        var flagCoords = flagCodes[positions[ball].flag[thisI]]
-        context.drawImage(img,
+    if (player.flag[thisI] != null) {
+        var flagCoords = flagCodes[player.flag[thisI]];
+        context.drawImage(tiles,
             flagCoords.x * TILE_SIZE,
             flagCoords.y * TILE_SIZE,
             TILE_SIZE,
             TILE_SIZE,
-            ballx + 10,
-            bally - 30,
+            point.x + 10,
+            point.y - 30,
             TILE_SIZE,
             TILE_SIZE)
     }
 }
 
+// Scope: background, inpagepreview
+// Uses: $, 
 /**
  * Takes in the replay data and returns a DataURL (png) representing the map.
- * posx - offset of actual map image from left side of generated image
- * posy - offset of actual map image from top of generated image
- * positions - replay data
+ * @param {PositionData} positions - The replay data.
+ * @param {Image} tiles - The image representing the tiles texture.
+ * @return {string} - DataURL representing the map.
  */
-// Scope: background, inpagepreview
-// Uses: $
-// Need to finish this one.
-window.drawMap = function(posx, posy, positions) {
+window.drawMap = function(positions, tiles) {
+    var posx = 0;
+    var posy = 0;
     var newcan = document.createElement('canvas')
     newcan.id = 'newCanvas'
     newcan.style.display = 'none'
@@ -425,7 +490,7 @@ window.drawMap = function(posx, posy, positions) {
                 }
             }
             if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
-                newcontext.drawImage(img,                                         // image
+                newcontext.drawImage(tiles,                                         // image
                     13 * TILE_SIZE,                                     // x coordinate of image
                     4 * TILE_SIZE,                                    // y coordinate of image
                     TILE_SIZE,                                        // width of image
@@ -436,7 +501,7 @@ window.drawMap = function(posx, posy, positions) {
                     TILE_SIZE)                                     // height of destination
             }
             if (positions.tiles[col][row].drawSpecialTileFirst) {
-                newcontext.drawImage(img,
+                newcontext.drawImage(tiles,
                     specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * TILE_SIZE,
                     specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * TILE_SIZE,
                     TILE_SIZE,
@@ -448,7 +513,7 @@ window.drawMap = function(posx, posy, positions) {
             }
             if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
                 var thisTileSize = positions.tiles[col][row].tileSize
-                newcontext.drawImage(img,                                             // image
+                newcontext.drawImage(tiles,                                             // image
                     positions.tiles[col][row].coordinates.x * thisTileSize,         // x coordinate of image
                     positions.tiles[col][row].coordinates.y * thisTileSize,        // y coordinate of image
                     thisTileSize,                                        // width of image
@@ -477,7 +542,7 @@ window.drawMap = function(posx, posy, positions) {
                     } else {
                         continue
                     }
-                    newcontext.drawImage(img,
+                    newcontext.drawImage(tiles,
                         positions.tiles[col][row].coordinates[quadrant][0] * thisTileSize * 2,
                         positions.tiles[col][row].coordinates[quadrant][1] * thisTileSize * 2,
                         thisTileSize,
@@ -493,9 +558,13 @@ window.drawMap = function(posx, posy, positions) {
     return (newcontext.canvas.toDataURL())
 }
 
-// Scope: file
-// Uses: thisI, img, speedpadImg, portalImg, speedpadredImg, speedpadblueImg
-function drawFloorTiles(positions) {
+// Uses: thisI
+/**
+ * Draw the floor tiles.
+ * @param  {PositionData} positions
+ * @return {TextureImages} textures
+ */
+function drawFloorTiles(positions, textures) {
     var floorTileElements = {
         3: {tile: "redflag", coordinates: {x: 14, y: 1}, tileSize: 40, tilesImg: "tiles"},
         3.1: {tile: "redflagtaken", coordinates: {x: 14, y: 2}, tileSize: 40, tilesImg: "tiles"},
@@ -545,24 +614,24 @@ function drawFloorTiles(positions) {
         } else {
             var thisImg;
             if (thisFloorTile.tilesImg == 'tiles') {
-                thisImg = img;
+                thisImg = textures.tiles;
             } else if (thisFloorTile.tilesImg == 'speedpad') {
-                thisImg = speedpadImg;
+                thisImg = textures.speedpad;
                 if (thisFloorTile.coordinates.x != 4) {
                     thisFloorTile.coordinates.x = animationTile
                 }
             } else if (thisFloorTile.tilesImg == 'portal') {
-                thisImg = portalImg;
+                thisImg = textures.portal;
                 if (thisFloorTile.coordinates.x != 4) {
                     thisFloorTile.coordinates.x = animationTile
                 }
             } else if (thisFloorTile.tilesImg == 'speedpadred') {
-                thisImg = speedpadredImg;
+                thisImg = textures.speedpadred;
                 if (thisFloorTile.coordinates.x != 4) {
                     thisFloorTile.coordinates.x = animationTile
                 }
             } else if (thisFloorTile.tilesImg == 'speedpadblue') {
-                thisImg = speedpadblueImg;
+                thisImg = textures.speedpadblue;
                 if (thisFloorTile.coordinates.x != 4) {
                     thisFloorTile.coordinates.x = animationTile
                 }
@@ -650,12 +719,12 @@ function ballCollision(player, data) {
     return false;
 }
 
+// Uses: thisI
 /**
  * Initiate or continue a rolling bomb explosion animation for the
  * given player.
  * @param  {Player} player - The player to do the animation update for.
  * @param  {PositionData} data - The replay data.
- * @return {[type]}           [description]
  */
 function rollingBombPop(player, data) {
     var recordingPlayer = getPlayer(data);
@@ -688,15 +757,15 @@ function rollingBombPop(player, data) {
     }
 }
 
-// Scope: file
-// Uses: thisI, img, context
+// Uses: thisI, context
 /**
  * Initiate or continue a ball pop animation for the given player.
  * @param {Player} player - The player to update the ball pop 
  *   animation for.
  * @param {PositionData} data - The replay data.
+ * @param {Image} tiles - The image representing the tiles textures.
  */
-function ballPop(player, data) {
+function ballPop(player, data, tiles) {
     // Get the recording player so we can put the view relative to them.
     var recordingPlayer = getPlayer(data);
     // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
@@ -713,7 +782,7 @@ function ballPop(player, data) {
         popOpacity = 1 - player.popAnimation.frame / player.popAnimation.length
 
         context.globalAlpha = popOpacity
-        context.drawImage(img,
+        context.drawImage(tiles,
             (player.team[thisI] == 1 ? 14 : 15) * TILE_SIZE,
             0,
             TILE_SIZE,
@@ -729,20 +798,25 @@ function ballPop(player, data) {
     }
 }
 
-// Scope: file
-// Uses: thisI, context, splatsImg
-function drawSplats(positions) {
+// Uses: thisI, context, posx, poxy
+/**
+ * Draw splats.
+ * @param  {PositionData} positions
+ * @param  {Image} img - The splats image to use.
+ */
+function drawSplats(positions, img) {
     if (positions.splats) {
         // Draw the splats that occurred up to this point in time.
         for (var splatI in positions.splats) {
+            // Cache the number corresponding to the splat image used.
             if (!positions.splats[splatI].img) {
-                positions.splats[splatI].img = Math.floor(Math.random() * 7)
+                positions.splats[splatI].img = Math.floor(Math.random() * 7);
             }
-            var thisSplat = positions.splats[splatI]
-            var thisTime = new Date(positions.clock[thisI]).getTime()
-            var thisSplatTime = new Date(thisSplat.time).getTime()
+            var thisSplat = positions.splats[splatI];
+            var thisTime = new Date(positions.clock[thisI]).getTime();
+            var thisSplatTime = new Date(thisSplat.time).getTime();
             if (thisSplatTime <= thisTime) {
-                context.drawImage(splatsImg,
+                context.drawImage(img,
                     thisSplat.img * 120,
                     (thisSplat.t - 1) * 120,
                     120,
@@ -750,24 +824,28 @@ function drawSplats(positions) {
                     thisSplat.x + posx - 60 + 20,
                     thisSplat.y + posy - 60 + 20,
                     120,
-                    120)
+                    120);
             }
         }
     }
 }
 
-// Scope: file
-// Uses: context, thisI, img
-function drawSpawns(positions) {
+// Uses: context, thisI
+/**
+ * Draw spawning players.
+ * @param  {PositioinData} positions
+ * @param  {Image} tiles - The tiles texture image.
+ */
+function drawSpawns(positions, tiles) {
     if (positions.spawns) {
-        context.globalAlpha = .25
+        context.globalAlpha = .25;
         for (var spawnI in positions.spawns) {
-            var thisSpawn = positions.spawns[spawnI]
+            var thisSpawn = positions.spawns[spawnI];
             var thisTime = new Date(positions.clock[thisI]).getTime()
             var thisSpawnTime = new Date(thisSpawn.time).getTime()
             var timeDiff = thisTime - thisSpawnTime // positive if spawn has already happened
             if (timeDiff >= 0 & timeDiff <= thisSpawn.w) {
-                context.drawImage(img,
+                context.drawImage(tiles,
                     (thisSpawn.t == 1 ? 14 : 15) * TILE_SIZE,
                     0,
                     40,
@@ -778,7 +856,7 @@ function drawSpawns(positions) {
                     40)
             }
         }
-        context.globalAlpha = 1
+        context.globalAlpha = 1;
     }
 }
 
@@ -817,146 +895,214 @@ function drawEndText(positions) {
 }
 
 // scope: file
-// uses: 
-// TODO
-function drawBalls(positions) {
-    var spin = useSpin();
-
-    var player = getPlayer(positions);
-    // what team?
-    var myTeam;
-    if (typeof player.team.length === 'undefined') {
-        myTeam = player.team
-    } else {
-        myTeam = player.team[thisI]
-    }
-    if (player.dead[thisI] == false) {
-    
-        // draw own ball with or without spin
-        if(spin === false || typeof player.angle === 'undefined') {
-            context.drawImage(img,
-                (myTeam == 1 ? 14 : 15) * TILE_SIZE,
-                0,
-                TILE_SIZE,
-                TILE_SIZE,
-                context.canvas.width / 2 - TILE_SIZE / 2,
-                context.canvas.height / 2 - TILE_SIZE / 2,
-                TILE_SIZE,
-                TILE_SIZE);
+// uses: context, img, thisI
+/**
+ * Draw players.
+ * @param  {PositionData} positions
+ * @param {TextureImages} textures
+ * @param  {boolean} spin
+ */
+function drawBalls(positions, textures, spin) {
+    // Get the team for a player object.
+    function getTeam(player, frame) {
+        // Handling the possibility that player team is not an array?
+        if (typeof player.team.length === 'undefined') {
+            return player.team;
         } else {
-            context.translate(context.canvas.width/2, context.canvas.height/2);
-            context.rotate(player.angle[thisI]);
-            context.drawImage(img,
-                (myTeam == 1 ? 14 : 15) * TILE_SIZE,    
-                0,
-                TILE_SIZE,
-                TILE_SIZE,
-                -20,
-                -20,
-                TILE_SIZE,
-                TILE_SIZE);
-            context.rotate(-player.angle[thisI]);
-            context.translate(-context.canvas.width/2, -context.canvas.height/2);        
-        }
-
-        drawPowerups(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
-        drawFlag(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
-        thisName = (typeof player.name == 'string') ? player.name : player.name[thisI]
-        drawText(thisName,
-            context.canvas.width / 2 - TILE_SIZE / 2 + 30,
-            context.canvas.height / 2 - TILE_SIZE / 2 - 5,
-            (typeof player.auth != 'undefined') ? player.auth[thisI] : undefined,
-            (typeof player.degree != 'undefined') ? player.degree[thisI] : undefined)
-        if (typeof player.flair !== 'undefined') {
-            drawFlair(player.flair[thisI],
-                context.canvas.width / 2 - 16 / 2,
-                context.canvas.height / 2 - TILE_SIZE / 2 - 17)
+            return player.team[frame];
         }
     }
-    ballPop(player, positions);
-    rollingBombPop(player, positions);
 
-    // draw other balls
-    for (var j in positions) {
-        if (typeof positions[j].me != undefined & positions[j].me == 'other') {
-            var otherPlayer = positions[j];
-            if (otherPlayer.dead[thisI] == false) {
-                if (otherPlayer.draw[thisI] == true) {
-                    if (thisI == 0 || otherPlayer.draw[thisI - 1] == true) {
-                        if ((otherPlayer.dead[thisI - 1] == true & otherPlayer.x[thisI] != otherPlayer.x[thisI - otherPlayer.fps]) | otherPlayer.dead[thisI - 1] != true) {
-                            // what team?
-                            if (typeof otherPlayer.team.length === 'undefined') {
-                                thisTeam = otherPlayer.team
-                            } else {
-                                thisTeam = otherPlayer.team[thisI]
-                            }
-                            
-                            // draw with or without spin
-                            if(spin === false || typeof otherPlayer.angle === 'undefined') {
-                                context.drawImage(img,                                                                        // image
-                                    (thisTeam == 1 ? 14 : 15) * TILE_SIZE,                                                        // x coordinate of image
-                                    0,                                                                                        // y coordinate of image
-                                    TILE_SIZE,                                                                                // width of image
-                                    TILE_SIZE,                                                                                // height of image
-                                    otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2,    // destination x coordinate
-                                    otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2,    // destination y coordinate
-                                    TILE_SIZE,                                                                                // width of destination
-                                    TILE_SIZE)                                                                                // height of destination
-                            } else {
-                                context.translate(otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2, 
-                                                  otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2);
-                                context.rotate(otherPlayer.angle[thisI]);
-                                context.drawImage(img,
-                                    (thisTeam == 1 ? 14 : 15) * TILE_SIZE,    
-                                    0,
-                                    TILE_SIZE,
-                                    TILE_SIZE,
-                                    -20,
-                                    -20,
-                                    TILE_SIZE,
-                                    TILE_SIZE);
-                                context.rotate(-otherPlayer.angle[thisI]);
-                                context.translate(-(otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2), 
-                                                  -(otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2));    
-                            }
+    // Get the name for a player object.
+    function getName(player, frame) {
+        if (typeof player.name == 'string') {
+            return player.name;
+        } else {
+            return player.name[frame];
+        }
+    }
 
-                            drawPowerups(j, otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2,
-                                otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2, positions)
-                            drawFlag(j, otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2,
-                                otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2, positions)
-                            thisName = (typeof otherPlayer.name === 'string') ? otherPlayer.name : otherPlayer.name[thisI]
-                            drawText(thisName,
-                                otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - TILE_SIZE / 2 + 30,
-                                otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2 - 5,
-                                (typeof otherPlayer.auth != 'undefined') ? otherPlayer.auth[thisI] : undefined,
-                                (typeof otherPlayer.degree != 'undefined') ? otherPlayer.degree[thisI] : undefined)
-                            if (typeof otherPlayer.flair !== 'undefined') {
-                                drawFlair(otherPlayer.flair[thisI],
-                                    otherPlayer.x[thisI] - player.x[thisI] + context.canvas.width / 2 - 16 / 2,
-                                    otherPlayer.y[thisI] - player.y[thisI] + context.canvas.height / 2 - TILE_SIZE / 2 - 20)
-                            }
-                            rollingBombPop(otherPlayer, positions);
-                        }
+    function getDead(player, frame) {
+        return player.dead[frame];
+    }
+
+    function getDraw(player, frame) {
+        return player.draw[frame];
+    }
+
+    /**
+     * Get position for the player, in global coordinates.
+     * @param  {Player} player - The player to get the position for.
+     * @param  {integer} frame - The grame to get the position for.
+     * @return {Point} - The position of the player.
+     */
+    function getPos(player, frame) {
+        return {
+            x: player.x[frame],
+            y: player.y[frame]
+        };
+    }
+
+    /**
+     * Get the angle for the player. If no angle is found, returns null.
+     * @param  {Player} player - The player to get the angle for.
+     * @param  {integer} frame - The frame to get the angle for.
+     * @return {?number} - The angle of the player.
+     */
+    function getAngle(player, frame) {
+        if (player.angle) {
+            return player.angle[frame];
+        } else {
+            return null;
+        }
+    }
+
+    function getDegree(player, frame) {
+        if (typeof player.degree !== 'undefined') {
+            return player.degree[frame];
+        } else {
+            return null;
+        }
+    }
+
+    function getAuth(player, frame) {
+        if (typeof player.auth !== 'undefined') {
+            return player.auth[frame];
+        } else {
+            return null;
+        }
+    }
+
+    function getGrip(player, frame) {
+        return player.grip[thisI];
+    }
+
+    function getBomb(player, frame) {
+        return player.bomb[thisI];
+    }
+
+    function getTagpro(player, frame) {
+        return player.tagpro[thisI];
+    }
+
+    function getDrawPosition(center, position) {
+        return {
+            x: position.x + center.x - TILE_SIZE / 2,
+            y: position.y + center.y - TILE_SIZE / 2
+        };
+    }
+
+    // Get the world coordinates that are at the center of the canvas.
+    function getScreenCenter(data, frame) {
+        var player = getPlayer(data);
+        // Center of canvas.
+        var center = {
+            x: context.canvas.width / 2,
+            y: context.canvas.height / 2
+        };
+        var pos = getPos(player, frame);
+        return {
+            x: -pos.x + center.x,
+            y: -pos.y + center.y
+        };
+    }
+
+    var screenCenter = getScreenCenter(positions, thisI);
+    var players = getPlayers(positions);
+    players.forEach(function(player) {
+        var position = getPos(player, thisI);
+        var drawPos = getDrawPosition(screenCenter, position);
+        var team = getTeam(player, thisI);
+        var name = getName(player, thisI);
+        var dead = getDead(player, thisI);
+        var angle = getAngle(player, thisI);
+        var draw = getDraw(player, thisI);
+        var auth = getAuth(player, thisI);
+        var degree = getDegree(player, thisI);
+        var grip = getGrip(player, thisI);
+        var bomb = getBomb(player, thisI);
+        var tagpro = getTagpro(player, thisI);
+
+        if (!dead && draw) {
+            // If at the start of the replay or the player was drawn last frame.
+            if (thisI == 0 || getDraw(player, thisI - 1)) {
+                if ((getDead(player, thisI - 1) &&
+                     position.x !== getPos(player, thisI - player.fps)) ||
+                    !getDead(player, thisI - 1)) {
+                    
+                    // draw with or without spin
+                    if(!spin || !angle) {
+                        context.drawImage(textures.tiles,
+                            (team == 1 ? 14 : 15) * TILE_SIZE,
+                            0,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                            drawPos.x,
+                            drawPos.y,
+                            TILE_SIZE,
+                            TILE_SIZE);
+                    } else {
+                        context.translate(drawPos.x, drawPos.y);
+                        context.rotate(angle);
+                        context.drawImage(textures.tiles,
+                            (team == 1 ? 14 : 15) * TILE_SIZE,    
+                            0,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                            0,
+                            0,
+                            TILE_SIZE,
+                            TILE_SIZE);
+                        context.rotate(-angle);
+                        context.translate(-drawPos.x, -drawPos.y);    
+                    }
+
+                    if (grip) {
+                        drawGrip(drawPos, textures.tiles);
+                    }
+                    if (tagpro) {
+                        drawTagpro(drawPos, textures.tagpro);
+                    }
+                    if (bomb) {
+                        drawBomb(drawPos, textures.rollingbomb);
+                    }
+
+                    drawFlag(player, drawPos, textures.tiles);
+                    drawText(drawPos, {
+                        name: name,
+                        degree: degree,
+                        auth: auth
+                    });
+
+                    if (typeof player.flair !== 'undefined') {
+                        drawFlair(player.flair[thisI], {
+                            x: drawPos.x + 12,
+                            y: drawPos.y - 20
+                        }, textures.flair);
                     }
                 }
             }
-            ballPop(otherPlayer, positions);
         }
-    }
+        rollingBombPop(player, positions);
+        ballPop(player, positions, textures.tiles);
+    });
 }
 
+// Scope: background, in-page-preview
+// uses: context
 /**
- * Edit mapCanvas to reflect the replay at the given frame.
- * frame - frame number of replay
- * positions - replay data
- * mapImg - html img element reflecting the image of the map
+ * Edit canvas to reflect the replay at the given frame.
+ * @param  {integer} frame - The frame of the replay to render.
+ * @param  {PositionData} positions - The replay data.
+ * @param  {?} mapImg
+ * @param {Options} [options] - Options for the rendering.
  */
-// Scope: background, in-page-preview, TagProReplays
-// uses: context, mapImg, 
-window.animateReplay = function(frame, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
+window.animateReplay = function(frame, positions, mapImg, options, textures) {
+    if (typeof options == 'undefined') options = {};
     // Update drawing function global with frame number.
     thisI = frame;
     var player = getPlayer(positions);
+    // Clear canvas.
     context.clearRect(0, 0, context.canvas.width, context.canvas.height)
     // Coordinates for center of canvas.
     posx = -(player.x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2)
@@ -965,18 +1111,18 @@ window.animateReplay = function(frame, positions, mapImg, spin, showSplats, show
         posx,
         posy,
         mapImg.width, mapImg.height)
-    if (showSplats) {
-        drawSplats(positions)
+    if (options.splats) {
+        drawSplats(positions, textures.splats)
     }
-    drawFloorTiles(positions)
-    drawSpawns(positions)
-    drawBalls(positions)
-    if (showClockAndScore) {
+    drawFloorTiles(positions, textures);
+    drawSpawns(positions, textures.tiles);
+    drawBalls(positions, textures, options.spin);
+    if (options.ui) {
         drawClock(positions)
-        drawScore(positions)
-        drawScoreFlag(positions)
+        drawScore(positions.score[thisI]);
+        drawScoreFlag(positions, textures.tiles);
     }
-    if (showChat) {
+    if (options.chat) {
         drawChats(positions)
     }
     bombPop(positions)
@@ -992,15 +1138,11 @@ window.animateReplay = function(frame, positions, mapImg, spin, showSplats, show
 // function to draw stuff onto the canvas
 function drawReplay(frame, positions, mapImg, thisContext) {
     thisI = frame;
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j;
-        }
-    }
+    var player = getPlayer(positions);
     context = thisContext;
     context.clearRect(0, 0, context.canvas.width, context.canvas.height)
-    posx = -(positions[me].x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2)
-    posy = -(positions[me].y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2)
+    posx = -(player.x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2)
+    posy = -(player.y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2)
     context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
         posx,
         posy,
@@ -1010,7 +1152,7 @@ function drawReplay(frame, positions, mapImg, thisContext) {
     drawSpawns(positions)
     drawBalls(positions)
     drawClock(positions)
-    drawScore(positions)
+    drawScore(positions.score[thisI]);
     drawScoreFlag(positions)
     drawChats(positions)
     bombPop(positions)

@@ -4,6 +4,8 @@
  * 
  * This script is included as a content script.
  */
+(function(window) {
+
 function readCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
@@ -15,37 +17,47 @@ function readCookie(name) {
     return null;
 }
 
-
-// function for assigning texture sources
-//   it first checks if the cookie to use custom textures is true
-//   if it is, it checks if a saved custom texture exists
-//   if so, use that. if not, use default
-function assignTexture(imgElement, textureName) {
-    if(readCookie('useTextures') == 'true') {
-        if(typeof localStorage.getItem(textureName) !== "undefined" & localStorage.getItem(textureName) !== null) {
-            imgElement.src = localStorage.getItem(textureName);
-        } else {
-            imgElement.src = 'images/'+textureName+'.png';
-        }
-    } else {
-        imgElement.src = 'images/'+textureName+'.png';
-    }
+/**
+ * Holds the options for the renderer.
+ * @typedef Options
+ * @type {object}
+ * @property {boolean} spin - Whether or not to use spin.
+ * @property {boolean} splats - Whether or not to display splats.
+ * @property {boolean} ui - Whether or not to display the clock and
+ *   score.
+ * @property {boolean} chat - Whether or not to display chat.
+ */
+/**
+ * Get the currently set options.
+ * @return {Options} - The currently-set options.
+ */
+function getOptions() {
+    var useSpin = readCookie('useSpin') == 'true';
+    var useSplats = readCookie('useSplats') == 'true';
+    var useClockAndScore = readCookie('useClockAndScore') == 'true';
+    var useChat = readCookie('useChat') == 'true';
+    return {
+        spin: useSpin,
+        splats: useSplats,
+        ui: useClockAndScore,
+        chat: useChat
+    };
 }
 
 // Create and display UI for in-browser preview.
-function createReplay(positions) {
+window.createReplay = function(positions) {
     // Initialize values
-    thisI = 0
+    var thisI = 0
     // Get player that corresponds to recording user ball.
-    for (j in positions) {
+    for (var j in positions) {
         if (positions[j].me == 'me') {
-            me = j
+            me = j;
         }
     }
     tileSize = 40
 
     // Canvas for main display
-    can = document.createElement('canvas')
+    var can = document.createElement('canvas')
     can.id = 'mapCanvas'
     can.style.background = 'black'
     can.style.border = "10px solid white"
@@ -60,71 +72,38 @@ function createReplay(positions) {
     can.style.opacity = 0
     can.title = "replay: " + sessionStorage.getItem('currentReplay').replace(/DATE.*/, '')
 
-    document.body.appendChild(can)
-    can = document.getElementById('mapCanvas')
-    context = can.getContext('2d')
+    document.body.appendChild(can);
+    can = document.getElementById('mapCanvas');
+    context = can.getContext('2d');
 
-    imgDiv = document.createElement('div')
+    // Holds options and textures for this replay preview.
+    var options, textures, mapImg;
 
-    img = new Image()
-    assignTexture(img, 'tiles');
-    img.id = 'tiles'
-    img.style.display = 'none'
-    img = document.body.appendChild(img)
-    // Get map image and draw initial replay image
-    img.onload = function () {
-        mapImgData = drawMap(0, 0, positions)
-        mapImg = new Image()
-        mapImg.src = mapImgData
-        imgDiv.appendChild(mapImg)
-        mapImg.onload = function () {
-            var useSpin = readCookie('useSpin') == 'true';
-            var useSplats = readCookie('useSplats') == 'true';
-            var useClockAndScore = readCookie('useClockAndScore') == 'true';
-            var useChat = readCookie('useChat') == 'true';
-            animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+    // Get options and textures.
+    chrome.storage.local.get(["options", "textures", "default_textures"], function(items) {
+        function render() {
+            // Get map image and draw initial replay image
+            var mapImgData = drawMap(positions, textures.tiles);
+            mapImg = new Image()
+            mapImg.onload = function () {
+                animateReplay(thisI, positions, mapImg, options, textures);
+            };
+            mapImg.src = mapImgData;
         }
-    }
-
-    portalImg = new Image()
-    assignTexture(portalImg, 'portal');
-    portalImg.id = 'portal'
-    imgDiv.appendChild(portalImg)
-
-    speedpadImg = new Image()
-    assignTexture(speedpadImg, 'speedpad');
-    speedpadImg.id = 'speedpad'
-    speedpadImg = imgDiv.appendChild(speedpadImg)
-
-    speedpadredImg = new Image()
-    assignTexture(speedpadredImg, 'speedpadred');
-    speedpadredImg.id = 'speedpadred'
-    speedpadredImg = imgDiv.appendChild(speedpadredImg)
-
-    speedpadblueImg = new Image()
-    assignTexture(speedpadblueImg, 'speedpadblue');
-    speedpadblueImg.id = 'speedpadblue'
-    speedpadblueImg = imgDiv.appendChild(speedpadblueImg)
-
-    splatsImg = new Image()
-    assignTexture(splatsImg, 'splats');
-    splatsImg.id = 'splats'
-    splatsImg = imgDiv.appendChild(splatsImg)
-
-    flairImg = new Image()
-    flairImg.src = 'images/flair.png'
-    flairImg.id = 'flair'
-    flairImg = imgDiv.appendChild(flairImg)
-
-    tagproImg = new Image()
-    tagproImg.src = 'http://i.imgur.com/N11aYYg.png'
-    tagproImg.id = 'tagpro'
-    tagproImg = imgDiv.appendChild(tagproImg)
-
-    rollingbombImg = new Image()
-    rollingbombImg.src = 'http://i.imgur.com/kIkEHPK.png'
-    rollingbombImg.id = 'rollingbomb'
-    rollingbombImg = imgDiv.appendChild(rollingbombImg)
+        options = items.options;
+        if (!options.custom_textures) {
+            getTextureImages(items.default_textures, function(textureImages) {
+                textures = textureImages;
+                render();
+            });
+        } else {
+            getTextureImages(items.textures, function(textureImages) {
+                textures = textureImages;
+                render();
+            });
+        }
+    });
+    
 
     ////////////////////////////////
     /////     Playback bar     /////
@@ -198,11 +177,8 @@ function createReplay(positions) {
     }
     slider.onchange = function () {
         thisI = this.value
-        var useSpin = readCookie('useSpin') == 'true';
-        var useSplats = readCookie('useSplats') == 'true';
-        var useClockAndScore = readCookie('useClockAndScore') == 'true';
-        var useChat = readCookie('useChat') == 'true';
-        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+        var options = getOptions();
+        animateReplay(thisI, positions, mapImg, options, textures)
     }
 
     function clearSliderArea() {
@@ -229,16 +205,13 @@ function createReplay(positions) {
     function updateMap(mapImg) {
         var time = Date.now();
         var startTime = time;
-        var useSpin = readCookie('useSpin') == 'true';
-        var useSplats = readCookie('useSplats') == 'true';
-        var useClockAndScore = readCookie('useClockAndScore') == 'true';
-        var useChat = readCookie('useChat') == 'true';
+        var options = getOptions();
         var fps = positions[me].fps;
         thingy = setInterval(function () {
             if (thisI >= positions.clock.length - 1) {
                 clearInterval(thingy);
             }
-            animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+            animateReplay(thisI, positions, mapImg, options, textures);
             dt = Date.now() - time;
             time = Date.now();
             var nFramesToAdvance = Math.round( dt / (1000 / fps) );
@@ -303,13 +276,10 @@ function createReplay(positions) {
 
     // functions to control replay playback
     function resetReplay() {
-        var useSpin = readCookie('useSpin') == 'true';
-        var useSplats = readCookie('useSplats') == 'true';
-        var useClockAndScore = readCookie('useClockAndScore') == 'true';
-        var useChat = readCookie('useChat') == 'true';
+        var options = getOptions();
         thisI = 0
         if(typeof thingy !== 'undefined') clearInterval(thingy)
-        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+        animateReplay(thisI, positions, mapImg, options, textures);
         slider.value = 0
         delete(thingy)
         isPlaying = false
@@ -331,10 +301,8 @@ function createReplay(positions) {
         hideButtons()
         can.style.opacity = 0
         setTimeout(function () {
-            imgDiv.remove()
             removeButtons()
             can.remove()
-            newcan.remove()
             img.remove()
             delete(mapImg)
         }, 600)
@@ -395,10 +363,7 @@ function createReplay(positions) {
     }
 
     function playCroppedMovie() {
-        var useSpin = readCookie('useSpin') == 'true';
-        var useSplats = readCookie('useSplats') == 'true';
-        var useClockAndScore = readCookie('useClockAndScore') == 'true';
-        var useChat = readCookie('useChat') == 'true';
+        var options = getOptions();
         if (typeof thingy === 'undefined') {
             if (typeof currentCropStart === 'undefined') {
                 if (typeof currentCropEnd === 'undefined') {
@@ -416,7 +381,7 @@ function createReplay(positions) {
                             clearInterval(thingy)
                             delete(thingy)
                         }
-                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+                        animateReplay(thisI, positions, mapImg, options, textures);
                         thisI++
                         slider.value = thisI
                     }, 1000 / positions[me].fps)
@@ -430,7 +395,7 @@ function createReplay(positions) {
                             clearInterval(thingy)
                             delete(thingy)
                         }
-                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+                        animateReplay(thisI, positions, mapImg, options, textures);
                         thisI++
                         slider.value = thisI
                     }, 1000 / positions[me].fps)
@@ -444,7 +409,7 @@ function createReplay(positions) {
                             clearInterval(thingy)
                             delete(thingy)
                         }
-                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+                        animateReplay(thisI, positions, mapImg, options, textures);
                         thisI++
                         slider.value = thisI
                     }, 1000 / positions[me].fps)
@@ -802,3 +767,5 @@ function createReplay(positions) {
     can.style.opacity = 1
     showButtons()
 }
+
+})(window);
