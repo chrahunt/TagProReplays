@@ -93,11 +93,14 @@ function checkData(positions) {
 }
 
 // TODO: Simplify and separate.
-// this is a function to get all the keys in the object store
-//   It also gets the list of names of rendered movies
-//   It sends a message to the content script once it gets the keys and movie names
-//   It also sends custom texture files as well.
-function listItems() {
+/**
+ * Get all the keys in the object store, list of rendered movies,
+ * and metadata for replays, and sends the data to the requesting
+ * tab via the response callback function.
+ * @param  {ResponseCallback} callback - The callback function to pass
+ *   the response.
+ */
+function listItems(callback) {
     var allKeys = [];
     var allMetaData = [];
     iterateData(function(result) {
@@ -119,13 +122,12 @@ function listItems() {
         allKeys.push(result.key);
     }, function() {
         getRenderedMovieNames(function(names) {
-            chrome.tabs.sendMessage(tabNum, {
-                method: "itemsList", 
-                positionKeys: allKeys, 
-                movieNames: names, 
+            callback({
+                positionKeys: allKeys,
+                movieNames: names,
                 metadata: JSON.stringify(allMetaData)
             });
-            console.log('sent reply: ' + allKeys);
+            console.log('Sent reply: ' + allKeys);
         });
     });
 }
@@ -166,34 +168,38 @@ function getRawDataAndZip(files) {
 // if the `dataFileName` argument is an object (not a string or array), then
 // this was called during a crop and replace process. we need to send the new
 // name for this replay back to the content script
-function deleteData(dataFileName, tabNum) {
-    if($.isPlainObject(dataFileName)) {
-        var newName = dataFileName.newName;
-        var metadata = dataFileName.metadata;
-        dataFileName = dataFileName.fileName;
-        if(dataFileName === newName) {
-            chrome.tabs.sendMessage(tabNum, {
-                method: 'dataDeleted',
-                deletedFiles: dataFileName,
-                newName: newName,
-                metadata: metadata
-            });
-            localStorage.removeItem(dataFileName);
-            console.log('sent crop and replace reply');
-            return;
-        }
-    };
-    if ($.isArray(dataFileName)) {
-        idbDelete(dataFileName, function() {
-            dataFileName.forEach(function(filename) {
-                localStorage.removeItem(filename);
-            });
-            chrome.tabs.sendMessage(tabNum, {
-                method: 'dataDeleted',
-                deletedFiles: dataFileName
-            });
-            console.log('sent reply')
+// TODO: Use a different function for the crop and replace process.
+// 
+function deleteData(filenames, tabNum) {
+    if (typeof filenames == "string") filenames = [filenames];
+    idbDelete(filenames, function() {
+        filenames.forEach(function(filename) {
+            localStorage.removeItem(filename);
         });
+        chrome.tabs.sendMessage(tabNum, {
+            method: 'dataDeleted',
+            deletedFiles: filenames
+        });
+        console.log('sent reply')
+    });
+}
+
+// this deletes data from the object store
+// the `info` argument is an object this was called during a crop and replace process.
+// we need to send the new name for this replay back to the content script
+function specialDeleteData(info, tabNum) {
+    var newName = info.newName;
+    var metadata = info.metadata;
+    var dataFileName = info.fileName;
+    if(dataFileName === newName) {
+        chrome.tabs.sendMessage(tabNum, {
+            method: 'dataDeleted',
+            deletedFiles: dataFileName,
+            newName: newName,
+            metadata: metadata
+        });
+        localStorage.removeItem(dataFileName);
+        console.log('sent crop and replace reply');
     } else {
         idbDelete(dataFileName, function() {
             localStorage.removeItem(filename);
@@ -462,48 +468,67 @@ chrome.storage.local.get(["default_textures", "textures"], function(items) {
 idbOpen();
 
 // TODO: Simplify and separate this into different functions.
-messageListener(["setPositionData", "setPositionDataFromImport"],
+// Request to replace an existing replay from the in-page editor.
+messageListener("replaceReplay",
 function(message, sender, sendResponse) {
     tabNum = sender.tab.id;
-    if (typeof message.newName !== 'undefined') {
-        var name = message.newName
-    } else {
-        var name = 'replays' + new Date().getTime()
-    }
-    var deleteTheseData;
-    if (message.oldName !== null && typeof message.oldName !== 'undefined') {
-        deleteTheseData = true;
-    } else {
-        deleteTheseData = false;
-    }
-    console.log('got data from content script.')
+    // Save the information.
+    var name = message.newName
+    var replacedName = message.oldName;
     positions = cleanPositionData(JSON.parse(message.positionData))
     var metadata = extractMetaData(positions);
     localStorage.setItem(name, JSON.stringify(metadata));
 
     idbPut(name, JSON.stringify(positions), function() {
-        if(deleteTheseData) {
-            console.log('new replay saved, deleting old replay...');
-            deleteData({
-                fileName: message.oldName,
-                newName: message.newName,
-                metadata: metadata
-            }, tabNum);
-        } else {
-            if(message.method === 'setPositionDataFromImport') {
-                sendResponse({
-                    replayName: name,
-                    metadata: JSON.stringify(metadata)
-                });
-            } else {
-                chrome.tabs.sendMessage(tabNum, {
-                    method: "dataSetConfirmationFromBG",
-                    replayName: name,
-                    metadata: JSON.stringify(metadata)
-                });
-                console.log('sent confirmation');
-            }
+        console.log('new replay saved, deleting old replay...');
+        // Delete the old information if not being overwritten.
+        if (name !== replacedName) {
+            deleteData(replacedName, tabNum);
         }
+    });
+    return true;
+});
+
+/**
+ * Listen for new replay data.
+ * @param {object} message - Object with 'data' and 'name' properties
+ *   for the new replay.
+ * @param {} sender
+ * @param {Function} sendResponse - Callback function for result.
+ */
+messageListener("saveReplay",
+function(message, sender, sendResponse) {
+    var name = message.name;
+    var positions = cleanPositionData(JSON.parse(message.data))
+    var metadata = extractMetaData(positions);
+    // Save metadata to local storage.
+    localStorage.setItem(name, JSON.stringify(metadata));
+    // Save replay data to IndexedDB.
+    idbPut(name, JSON.stringify(positions), function() {
+        // Send confirmation to 
+        // TODO: Handle possible failures.
+        sendResponse({
+            failed: false
+        });
+        // Send new replay notification to any tabs that may have menu.
+        chrome.tabs.query({
+            url: [
+                "http://*.koalabeast.com/*",
+                "http://*.newcompte.fr/*",
+                "http://tangent.jukejuice.com/*"
+            ]
+        }, function(tabs) {
+            tabs.forEach(function(tab) {
+                if (tab.id) {
+                    var id = tab.id;
+                    chrome.tabs.sendMessage(id, {
+                        method: "replayAdded",
+                        name: name,
+                        metadata: JSON.stringify(metadata)
+                    });
+                }
+            });
+        });
     });
     return true;
 });
@@ -522,12 +547,16 @@ function(message, sender, sendResponse) {
     });
 });
 
+/**
+ * Sent by modal when opened. Nothing included in message, but a
+ * response is expected via the sendResponse callback.
+ */
 messageListener("requestList",
 function(message, sender, sendResponse) {
-    tabNum = sender.tab.id;
-    console.log('got list request');
-    listItems();
-})
+    console.log('Got request for list.');
+    listItems(sendResponse);
+    return true;
+});
 
 messageListener("requestDataForDownload",
 function(message, sender, sendResponse) {
@@ -545,6 +574,11 @@ function(message, sender, sendResponse) {
     return true;
 });
 
+/**
+ * Request for data to be deleted.
+ * Message has a fileName property which can be a string or an array of
+ * strings corresponding to the ids of the replays to be deleted.
+ */
 messageListener("requestDataDelete",
 function(message, sender, sendResponse) {
     tabNum = sender.tab.id;
@@ -567,7 +601,6 @@ function(message, sender, sendResponse) {
         console.log('sent rename reply');
     });
 });
-
 
 messageListener("downloadMovie",
 function(message, sender, sendResponse) {

@@ -655,18 +655,26 @@ window.createReplay = function(positions) {
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
         var newName = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
+        // Cancelled window.
         if(newName === null) return;
+        // Generate generic name if blank.
         if(newName === '') {
             newName = 'replays' + Date.now();
         } else {
+            // Append the date generated if not blank.
             newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
             newName += 'DATE' + Date.now();
         }
         stopReplay(false)
         chrome.runtime.sendMessage({
-            method: 'setPositionData', 
+            method: 'saveReplay', 
             positionData: JSON.stringify(positions2),
-            newName: newName
+            name: name
+        }, function(response) {
+            // TODO: Handle successful saving.
+            if (!response.failed) {
+                // Indicate operation completed.
+            }
         })
         delete currentCropStart
         delete currentCropEnd
@@ -690,7 +698,9 @@ window.createReplay = function(positions) {
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
         var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
+        // Return if cancelled.
         if(newName === null) return;
+        // Generate 
         if(newName === '') {
             var oldName = localStorage.getItem('currentReplayName');
             newName = localStorage.getItem('currentReplayName');
@@ -703,7 +713,7 @@ window.createReplay = function(positions) {
         }
         stopReplay(false)
         chrome.runtime.sendMessage({
-            method: 'setPositionData',
+            method: 'replaceReplay',
             positionData: JSON.stringify(positions2),
             newName: newName,
             oldName: oldName

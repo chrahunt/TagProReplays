@@ -7,38 +7,16 @@
  *
  * This script is included as a content script.
  */
-// Cookie functions.
-function readCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-}
-
-function setCookie(name, value, domain) {
-    var now = new Date();
-    var time = now.getTime();
-    var expireTime = time + 1000 * 60 * 60 * 24 * 365;
-    now.setTime(expireTime);
-    document.cookie = name + '=' + value + ';expires=' + now.toGMTString() + ';path=/; domain=' + domain;
-    console.log('cookie: name=' + name + ' value=' + value + ' expires=' + now.toGMTString() + ' domain=' + domain);
-}
-
-// Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
-var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
+(function(window, document, undefined) {
 
 // Callback for options update event, updates the cookies needed
 // by the recording script.
 function updateCookies(options) {
-    setCookie('fps', options.fps, cookieDomain);
-    setCookie('duration', options.duration, cookieDomain);
-    setCookie('useRecordKey', options.shortcut_key_enabled, cookieDomain);
-    setCookie('replayRecordKey', options.shortcut_key, cookieDomain);
-    setCookie('record', options.record, cookieDomain);
+    setCookie('fps', options.fps);
+    setCookie('duration', options.duration);
+    setCookie('useRecordKey', options.shortcut_key_enabled);
+    setCookie('replayRecordKey', options.shortcut_key);
+    setCookie('record', options.record);
 }
 
 // Set listener to update cookies when options are updated.
@@ -82,8 +60,11 @@ function checkOptions() {
 
 checkOptions();
 
-// Inserts Replay button in main page
-function createReplayPageButton() {
+/**
+ * Inserts Replay button in main page
+ * @param  {Menu} menu - The menu to open.
+ */
+function createReplayPageButton(menu) {
     function findInsertionPoint() {
         buttons = $('article>div.buttons.smaller>a')
         for (var i = 0; i < buttons.length; i++) {
@@ -97,788 +78,8 @@ function createReplayPageButton() {
     $(findInsertionPoint()).after('<a class=button id=ReplayMenuButton>Replays')
     $('#ReplayMenuButton').append('<span>watch yourself')
     $('#ReplayMenuButton').click(function () {
-        // Show menu.
-        if ($('#menuContainer').length) {
-            $('#menuContainer').modal('show');
-        }
+        menu.open();
     });
-}
-
-// Function to create the menu.
-function createMenu() {
-    // Create Container for Replay Menu.
-    $('article').append('<div id="tpr-container" class="bootstrap-container">');
-
-    // Retrieve html of all items
-    $('#tpr-container').load(chrome.extension.getURL("ui/menus.html"), function () {
-        console.log("Loaded.");
-           $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
-
-        /* UI-specific code */
-        // Code to set the header row to the same width as the replay table, if needed.
-        /*$('#menuContainer').on('shown.bs.modal', function() {
-         $('#replay-headers').width($('#replayList table').width());
-         });*/
-
-        // Handling multiple modals
-        // http://miles-by-motorcycle.com/fv-b-8-670/stacking-bootstrap-dialogs-using-event-callbacks
-        $(function () {
-            $('.modal').on('hidden.bs.modal', function (e) {
-                $(this).removeClass('fv-modal-stack');
-                $('#tpr-container').data('open_modals', $('#tpr-container').data('open_modals') - 1);
-            });
-
-            $('.modal').on('shown.bs.modal', function (e) {
-                // keep track of the number of open modals
-                if (typeof($('#tpr-container').data('open_modals')) == 'undefined') {
-                    $('#tpr-container').data('open_modals', 0);
-                }
-
-                // if the z-index of this modal has been set, ignore.
-                if ($(this).hasClass('fv-modal-stack')) {
-                    return;
-                }
-
-                $(this).addClass('fv-modal-stack');
-
-                $('#tpr-container').data('open_modals', $('#tpr-container').data('open_modals') + 1);
-
-                $(this).css('z-index', 1040 + (10 * $('#tpr-container').data('open_modals')));
-
-                $('.modal-backdrop').not('.fv-modal-stack').css(
-                    'z-index',
-                    1039 + (10 * $('#tpr-container').data('open_modals'))
-                );
-
-                $('.modal-backdrop').not('fv-modal-stack').addClass('fv-modal-stack');
-            });
-        });
-
-        //
-        setFormTitles();
-        
-        // allow 'select all' checkbox to work
-        $('#selectAllCheckbox')[0].onchange=function(e) {
-            $('#replayList .selected-checkbox').each(function(num) {
-                if(num !== 0) {
-                    this.checked = e.target.checked;
-                }
-            });
-        }
-
-        // Save form fields to chrome local storage.
-        saveSettings = function () {
-            chrome.storage.local.get("options", function(items) {
-                var options;
-                if (items.options) {
-                    options = items.options;
-                } else {
-                    options = getDefaultOptions();
-                }
-                var inputs = {
-                    fps: $('#fpsInput')[0].value,
-                    duration: $('#durationInput')[0].value,
-                    record: $('#recordCheckbox')[0].checked,
-                    custom_textures: $('#useTextureCheckbox')[0].checked,
-                    shortcut_key_enabled: $('#recordKeyChooserInput').data('record'),
-                    shortcut_key: $('#recordKeyChooserInput').text(),
-                    splats: $('#useSplatsCheckbox')[0].checked,
-                    spin: $('#useSpinCheckbox')[0].checked,
-                    ui: $('#useClockAndScoreCheckbox')[0].checked,
-                    chat: $('#useChatCheckbox')[0].checked,
-                    canvas_width: Number($('#canvasWidthInput').val()),
-                    canvas_height: Number($('#canvasHeightInput').val())
-                };
-
-                if (!isNaN(inputs.fps) && inputs.fps != "") {
-                    options.fps = +inputs.fps;
-                }
-                if (!isNaN(inputs.duration) && inputs.duration != "") {
-                    options.duration = +inputs.duration;
-                }
-                options.record = inputs.record;
-                options.custom_textures = inputs.custom_textures;
-                options.shortcut_key_enabled = inputs.shortcut_key_enabled;
-                if (inputs.shortcut_key !== 'None') {
-                    options.shortcut_key = inputs.shortcut_key.charCodeAt(0);
-                }
-                options.splats = inputs.splats;
-                options.spin = inputs.spin;
-                options.ui = inputs.ui;
-                options.chat = inputs.chat;
-                if (!isNaN(inputs.canvas_width) && inputs.canvas_width !== "") {
-                    options.canvas_width = inputs.canvas_width;
-                }
-                if (!isNaN(inputs.canvas_height) && inputs.canvas_height !== "") {
-                    options.canvas_height = inputs.canvas_height;
-                }
-
-                chrome.storage.local.set({
-                    options: options
-                }, function() {
-                    chrome.runtime.sendMessage({
-                        method: 'cleanRenderedReplays'
-                    });
-                    $('#settingsContainer').modal('hide');
-                });
-            });
-        }
-
-        $('#saveSettingsButton').click(saveSettings);
-
-        // Set value of settings when dialog opened, using default values if
-        // none have yet been set.
-        setSettings = function (options) {
-            $('#fpsInput')[0].value = options.fps;
-            $('#durationInput')[0].value = options.duration;
-            if (options.shortcut_key_enabled) {
-                $('#recordKeyChooserInput').text(
-                    String.fromCharCode(options.shortcut_key));
-                $('#recordKeyChooserInput').data('record', true);
-                $('#record-key-remove').show();
-            } else {
-                $('#recordKeyChooserInput').text('None');
-                $('#recordKeyChooserInput').data('record', false);
-                $('#record-key-remove').hide();
-            }
-            $('#useTextureCheckbox')[0].checked = options.custom_textures;
-            $('#useSplatsCheckbox')[0].checked = options.splats;
-            $('#recordCheckbox')[0].checked = options.record;
-            $('#useSpinCheckbox')[0].checked = options.spin;
-            $('#useClockAndScoreCheckbox')[0].checked = options.ui;
-            $('#useChatCheckbox')[0].checked = options.chat;
-            $('#canvasWidthInput').val(options.canvas_width);
-            $('#canvasHeightInput').val(options.canvas_height);
-        }
-
-        // Set initial settings values.
-        chrome.storage.local.get("options", function(items) {
-            if (items.options) {
-                setSettings(items.options);
-            }
-        });
-
-        // Update options fields if options are updated.
-        chrome.storage.onChanged.addListener(function(changes, areaName) {
-            if (changes.options && changes.options.newValue) {
-                setSettings(changes.options.newValue);
-            }
-        });
-
-        // Update list of replays when menu is opened.
-        $('#menuContainer').on('show.bs.modal', function () {
-            $('.replayRow').not('.clone').remove();
-            getListData();
-        });
-
-        // these buttons allow rendering/deleting multiple replays
-        $('#renderSelectedButton').click(renderSelectedInitial);
-        $('#deleteSelectedButton').click(deleteSelected);
-        $('#downloadRawButton').click(downloadRawData);
-
-        // function for determining if a position file name is in an array of rendered movie names
-        function positionFileIsRendered(positionFileName, movieNames) {
-            for (m in movieNames) {
-                if (positionFileName.replace('replays', '').replace(/.*DATE/, '') == movieNames[m]) {
-                    return (true);
-                }
-            }
-            return (false);
-        }
-
-        // function that initially sends list of replays to background script for mass rendering
-        // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
-        function renderSelectedInitial() {
-            replaysToRender = []
-            $('.selected-checkbox').each(function () {
-                if (this.checked) {
-                    replaysToRender.push(getReplayId(this));
-                }
-            });
-            if (replaysToRender.length > 0) {
-                console.log(replaysToRender);
-                if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
-                    chrome.runtime.sendMessage({
-                        method: 'render',
-                        data: replaysToRender,
-                        index: 0,
-                        last: replaysToRender.length == 1
-                    });
-                    console.log('sent request to render multiple replays: ' + replaysToRender);
-                }
-            }
-        }
-
-        // function to delete multiple files at once
-        function deleteSelected() {
-            replaysToDelete = []
-            $('.selected-checkbox').each(function () {
-                if (this.checked) {
-                    var row = $(this).closest('tr');
-                    var replayId = row.data("replay");
-                    replaysToDelete.push(replayId);
-                }
-            });
-
-            if (replaysToDelete.length > 0) {
-                if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-                    console.log('requesting to delete ' + replaysToDelete);
-                    chrome.runtime.sendMessage({
-                        method: 'requestDataDelete',
-                        fileName: replaysToDelete
-                    });
-                }
-            }
-        }
-        
-        //function to download multiple raw data at once
-        function downloadRawData() {
-            var rawDataToDownload = [];
-            $('.selected-checkbox').each(function () {
-                if (this.checked) {
-                    var row = $(this).closest('tr');
-                    var replayId = row.data('replay');
-                    rawDataToDownload.push(replayId);
-                }
-            });
-            
-            if (rawDataToDownload.length > 0) {
-                console.log('requesting to download raw data for ' + rawDataToDownload);
-                chrome.runtime.sendMessage({
-                    method: 'requestDataForDownload',
-                    files: rawDataToDownload
-                });
-            }
-        }
-        
-        /*
-        Sorting Section
-        **
-        **
-        **
-        */
-        
-        // unicode arrows to use for sort indicators
-        UPARROW   = "\u25B2"
-        DOWNARROW = "\u25BC"
-        
-        /*
-        These next functions allow toggling of the various sort methods.
-        A cookie is used to store the current sort preference.
-        Values of this cookie include:
-            - "alphaA"  : alphabetical ascending - normal alphabetical order
-            - "alphaD"  : alphabetical descending - reverse alphabetical
-            - "chronoA" : chronological ascending - older replays appear at the top
-            - "chronoD" : chronological descending - newer replays appear at the top
-            - "durA"    : duration ascending - shorter replays appear at the top
-            - "durD"    : duration descending - longer replays appear at the top
-            - "renA"    : rendered ascending - unrendered replays appear at the top
-            - "renD"    : rendered descending - rendered replays appear at the top
-        
-        */
-        
-        // function for toggling sorting - name (alphabetical)
-        function nameSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
-            sortReplays();
-        }                
-        
-        // function for toggling sorting - date (chronological) 
-        function dateSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
-            sortReplays();
-        }
-        
-        // function for toggling sorting - duration 
-        function durationSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'durD') ? "durA" : "durD", cookieDomain);
-            sortReplays();
-        }
-        
-        // function for toggling sorting - rendered status
-        function renderedSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'renD') ? "renA" : "renD", cookieDomain);
-            sortReplays();
-        }
-        
-        // tie sorting toggle functions to the headers
-        $('#nameHeader')[0].onclick = nameSortToggle;
-        $('#nameHeader')[0].style.cursor = 'pointer';
-        $('#dateHeader')[0].onclick = dateSortToggle;
-        $('#dateHeader')[0].style.cursor = 'pointer';
-        $('#durationHeader')[0].onclick = durationSortToggle;
-        $('#durationHeader')[0].style.cursor = 'pointer';
-        $('#renderedHeader')[0].onclick = renderedSortToggle;
-        $('#renderedHeader')[0].style.cursor = 'pointer';
-        
-        // if no sortmethod cookie exists, default is chronoD
-        if(!readCookie('sortMethod')) {
-            setCookie('sortMethod', 'chronoD', cookieDomain);
-        }
-        
-        // this function grabs ids, dates, and durations and calls the doSorting function with 
-        // the appropriate arguments. then it rearranges the replay rows in the menu according to that order.
-        sortReplays = function() {
-            var entries = [];
-            $('#replayList .replayRow').not('.clone').map(function(a, b) {
-                var thisDurationString = $(b).find('.duration').text();
-                var thisMinutes = Number(thisDurationString.split(':')[0]);
-                var thisSeconds = Number(thisDurationString.split(':')[1]);
-                var thisDuration = 60*thisMinutes + thisSeconds;
-                var thisRendered = $(b).find('.rendered-check').text() !== '';
-                entries.push({
-                    replay: b.id, 
-                    duration: thisDuration,
-                    rendered: thisRendered
-                });
-            });
-            var sortedEntries = doSorting(entries, readCookie('sortMethod'));
-            for(var entry in sortedEntries) {
-                var thisEntry = $('#replayList #'+sortedEntries[entry].replay);
-                if(entry === 0) {
-                    $('#replayList tBody').prepend(thisEntry);
-                    var oldEntry = thisEntry;
-                } else {
-                    $(oldEntry).after(thisEntry);
-                    oldEntry = thisEntry;
-                };
-            };
-            $('#replayList tBody').prepend($('#replayList .clone'));
-        };        
-        
-        // this function handles sorting and the toggling of 
-        doSorting = function(replaylist, sortmethod) {
-            if(sortmethod === "alphaA") {
-                $('#nameHeader')[0].textContent = 'Name '+UPARROW;
-                $('#dateHeader')[0].textContent = 'Date';
-                $('#durationHeader')[0].textContent = 'Duration';
-                $('#renderedHeader')[0].textContent = 'Rendered';
-                return(replaylist.sort(function(a,b) {
-                    aREP = a.replay;
-                    bREP = b.replay;
-                    if(aREP < bREP) return(-1);
-                    if(aREP > bREP) return(1);
-                    return(0);
-                }));
-            }
-            if(sortmethod === "alphaD") {
-                $('#nameHeader')[0].textContent = 'Name '+DOWNARROW;
-                $('#dateHeader')[0].textContent = 'Date';
-                $('#durationHeader')[0].textContent = 'Duration';
-                $('#renderedHeader')[0].textContent = 'Rendered';
-                return(replaylist.sort(function(a,b) {
-                    aREP = a.replay;
-                    bREP = b.replay;
-                    if(aREP < bREP) return(-1);
-                    if(aREP > bREP) return(1);
-                    return(0);
-                }).reverse());
-            }
-            if(sortmethod === "chronoA") {
-                $('#dateHeader')[0].textContent = 'Date '+UPARROW;
-                $('#nameHeader')[0].textContent = 'Name';
-                $('#durationHeader')[0].textContent = 'Duration';
-                $('#renderedHeader')[0].textContent = 'Rendered';
-                return(replaylist.sort(function(a,b) {
-                    aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
-                    bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
-                    return(aNum - bNum);
-                }))
-            }
-            if(sortmethod === "chronoD") {
-                $('#dateHeader')[0].textContent = 'Date '+DOWNARROW;
-                $('#nameHeader')[0].textContent = 'Name';
-                $('#durationHeader')[0].textContent = 'Duration';
-                $('#renderedHeader')[0].textContent = 'Rendered';
-                return(replaylist.sort(function(a,b) {
-                    aNum = Number(a.replay.replace('replays', '').replace(/.*DATE/, ''));
-                    bNum = Number(b.replay.replace('replays', '').replace(/.*DATE/, ''));
-                    return(bNum - aNum);
-                }))
-            }
-            if(sortmethod === 'durA') {
-                $('#durationHeader')[0].textContent = 'Duration '+UPARROW;
-                $('#dateHeader')[0].textContent = 'Date';
-                $('#nameHeader')[0].textContent = 'Name';
-                $('#renderedHeader')[0].textContent = 'Rendered';
-                return(replaylist.sort(function(a,b) {
-                    return(Number(a.duration) - Number(b.duration));
-                }));
-            }
-            if(sortmethod === 'durD') {
-                $('#durationHeader')[0].textContent = 'Duration '+DOWNARROW;
-                $('#dateHeader')[0].textContent = 'Date';
-                $('#nameHeader')[0].textContent = 'Name';
-                $('#renderedHeader')[0].textContent = 'Rendered';
-                return(replaylist.sort(function(a,b) {
-                    return(Number(b.duration) - Number(a.duration));
-                }));
-            }
-            if(sortmethod === 'renA') {
-                $('#renderedHeader')[0].textContent = 'Rendered '+UPARROW;
-                $('#durationHeader')[0].textContent = 'Duration';
-                $('#dateHeader')[0].textContent = 'Date';
-                $('#nameHeader')[0].textContent = 'Name';
-                return(replaylist.sort(function(a,b) {
-                    return(a.rendered - b.rendered);
-                }));
-            }
-            if(sortmethod === 'renD') {
-                $('#renderedHeader')[0].textContent = 'Rendered '+DOWNARROW;
-                $('#durationHeader')[0].textContent = 'Duration';
-                $('#dateHeader')[0].textContent = 'Date';
-                $('#nameHeader')[0].textContent = 'Name';
-                return(replaylist.sort(function(a,b) {
-                    return(b.rendered - a.rendered);
-                }));
-            }
-        }
-
-        /*
-        End of Sorting Section
-        **
-        **
-        */
-
-
-        // This puts the current replays into the menu
-        populateList = function (storageData, movieNames, metadata) {
-            replayList = [];
-            for (dat in storageData) {
-                replayList.push({replay:storageData[dat], metadata:metadata[dat]});
-            }
-
-            if (!(replayList.length > 0)) {
-                // Show "No replays" message.
-                $('#noReplays').show();
-                $('#renderSelectedButton').prop('disabled', true);
-                $('#deleteSelectedButton').prop('disabled', true);
-                $('#downloadRawButton').prop('disabled', true);
-                $('#replayList').hide();
-            } else {
-                console.log("got replays");
-                // Enable buttons for interacting with multiple selections.
-                $('#renderSelectedButton').prop('disabled', false);
-                $('#deleteSelectedButton').prop('disabled', false);
-                $('#downloadRawButton').prop('disabled', false);
-
-                // sort the results
-                replayList = doSorting(replayList, readCookie('sortMethod'));
-
-                // Display list of replays.
-                $('#replayList').show();
-
-                $('#noReplays').hide();
-
-                // Template row that other rows will clone and populate with their own information.
-                var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
-                cloneRow.removeClass('clone');
-                console.log(replayList);
-
-                // Populate rows
-                for (dat in replayList) {
-                    thisReplay = replayList[dat].replay
-                    var metadata = $.isPlainObject(replayList[dat].metadata) ? replayList[dat].metadata : JSON.parse(replayList[dat].metadata);
-                    thisDuration = metadata.duration;
-                    var titleText = formatMetaDataTitle(metadata);
-                    var thisPreview = replayList[dat].preview;
-                    var newRow = cloneRow.clone(true);
-                    newRow.data("replay", thisReplay);
-                    newRow.attr("id", thisReplay);
-                    // Set playback link text
-                    newRow.find('a.playback-link').text(thisReplay.replace(/DATE.*/, ''));
-                    newRow.find('a.playback-link').popover({
-                        html: true,
-                        trigger: 'hover',
-                        placement : 'right',
-                        content: function () {
-                            if (!$(this).data('preview')) {
-                                var key = "preview:" + dat;
-                                chrome.storage.local.get(key, function(items) {
-                                    if (!items[key]) {
-                                        // Generate preview.
-                                    } else {
-                                        // Set preview as data on this element and replace html content.
-                                        newRow.find('a.playback-link').data('preview', items[key]);
-                                        newRow.find('.popover').html('<img src="' + items[key] + '"/>');
-                                    }
-                                });
-                                // Return loading icon.
-                                return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
-                            } else {
-                                return '<img src="' + $(this).data('preview') + '"/>';
-                            }
-                        }
-                    });
-
-                    ms = +thisReplay.replace('replays', '').replace(/.*DATE/, '');
-                    date = new Date(ms);
-                    datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
-                    newRow.find('a.playback-link').title = datevalue;
-
-                    if (positionFileIsRendered(thisReplay, movieNames)) {
-                        newRow.find('.rendered-check').text('✓');
-                    } else {
-                        newRow.find('.download-movie-button').prop('disabled', true);
-                    }
-                    
-                    var durationDate = new Date(thisDuration * 1000);
-                    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2)
-                    newRow.find('.duration').text(durationFormatted);
-
-                    newRow.find('.replay-date').text(datevalue);
-                    newRow[0].title = titleText;
-                    $('#replayList tbody').append(newRow);
-                }
-
-                // Set replay row element click handlers.
-                // Set handler for in-browser-preview link.
-                $('.replayRow:not(.clone) .playback-link').click(function () {
-                    var replayId = getReplayId(this);
-                    //$('#menuContainer').modal('hide');
-                    $('#menuContainer').hide();
-                    console.log('sending data request for ' + replayId);
-                    sessionStorage.setItem('currentReplay', replayId);
-                    chrome.runtime.sendMessage({
-                        method: 'requestData',
-                        fileName: replayId
-                    });
-                });
-
-                // Set handler for movie download button.
-                $('.replayRow:not(.clone) .download-movie-button').click(function () {
-                    var replayId = getReplayId(this);
-                    fileNameToDownload = replayId;
-                    console.log('asking background script to download video for ' + fileNameToDownload)
-                    chrome.runtime.sendMessage({
-                        method: 'downloadMovie',
-                        name: fileNameToDownload
-                    });
-                });
-                
-                // Set handler for rename button.
-                $('.replayRow:not(.clone) .rename-button').click(function () {
-                    var replayId = getReplayId(this);
-                    fileNameToRename = replayId;
-                    datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-                    newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-                    if (newName != null) {
-                        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-                        console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
-                        chrome.runtime.sendMessage({
-                            method: 'requestFileRename',
-                            oldName: fileNameToRename,
-                            newName: newName
-                        });
-                    }
-                });
-
-                $('#replayList').height('auto');
-                // Automatic height adjustment for replay list.
-                $('#menuContainer .modal-dialog').data(
-                    'original-height',
-                    $('#menuContainer .modal-dialog').height()
-                );
-
-                setReplayListHeight = function () {
-                    if ($('#menuContainer .modal-dialog').data('original-height') > $(window).height()) {
-                        var setHeight = false;
-                        var newHeight = 185;
-                        if ($(window).height() > 500) {
-                            newHeight = $(window).height() - 315;
-                        }
-                        $('#replayList').height(newHeight);
-                    }
-                }
-                
-                setReplayMenuWidth = function() {
-                    $('#menuContainer .modal-dialog').width(.70*$(window).width());
-                }
-                
-                setReplayMenuWidth();
-                $(window).resize(setReplayListHeight);
-                $(window).resize(setReplayMenuWidth);
-                setReplayListHeight();
-            }
-        }
-        /* end populateList */
-
-        $('#textureSaveButton').click(function () {
-            saveTextureSettings();
-            $('#textureContainer').modal('hide');
-        });
-
-        // Record key functionality.
-        keyListener = function (e) {
-            currentRecordKey = e.which
-            $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
-            $('#recordKeyChooserInput').data('record', true);
-            $('#record-key-remove').show();
-            stopInputting();
-        }
-
-        stopInputting = function () {
-            $('#record-key-input-container').removeClass('focused');
-            $(document).off("keypress", keyListener);
-        }
-
-        $('#record-key-input-container').click(function (e) {
-            console.log("target: " + e.target);
-            console.log("test");
-            $(this).addClass('focused');
-            $(document).on("keypress", keyListener)
-        });
-
-        $('#record-key-remove').click(function (e) {
-            e.stopPropagation();
-            $('#recordKeyChooserInput').data('record', false);
-            $('#recordKeyChooserInput').text('None');
-            $('#record-key-remove').hide();
-            return false;
-        });
-
-        $(document).click(function (e) {
-            if (!$(e.target).parents().andSelf().is('#record-key-input-container')) {
-                stopInputting();
-            }
-        });
-
-        // Raw data import functionality.
-        /*
-         * Test a raw TagPro Replays data file for integrity and add to
-         * replays.
-         * fileData  the file data as read from the file input
-         * fileName  [optional]  the name of the file as it will appear in
-         *   the replay list.
-         */
-        rawParse = function (fileData, fileName, i, files) {
-            i++;
-            try {
-                var parsedData = JSON.parse(fileData);
-            } catch (err) {
-                alert('The file you uploaded was not a valid TagPro Replays raw file.');
-                return;
-            }
-
-            // Test for necessary replay parts.
-            if (!parsedData.tiles | !parsedData.clock | !parsedData.floorTiles | !parsedData.map | !parsedData.wallMap) {
-                alert('The file you uploaded was not a valid TagPro Replays raw file.');
-            } else {
-                var message = {
-                    method: 'setPositionDataFromImport',
-                    positionData: fileData
-                }
-                if(typeof fileName !== 'undefined') message.newName = fileName;
-
-                chrome.runtime.sendMessage(message, function(response) {
-                    console.log('got "data added" response from background script')
-                    addRow(response.replayName, JSON.parse(response.metadata), response.preview, 'top');
-                    sortReplays();
-                    readImportedFile(files, i);
-                });
-            }
-        }
-        
-        // function for preparing a file to be read by the rawParse function
-        readImportedFile = function(files, i) {
-            if(i==files.length) return
-            var rawFileReader = new FileReader();
-            var newFileName = files[i].name.replace(/\.txt$/, '');
-            if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
-                newFileName += 'DATE' + new Date().getTime()
-            }
-            rawFileReader.onload = function (e) {
-                rawParse(e.target.result, newFileName, i, files);
-            }
-            rawFileReader.readAsText(files[i]);
-        };
-        
-        // Visible button invokes the actual file input.
-        $('#raw-upload-button').click(function (e) {
-            // Empty file input so change listener is invoked even if same
-            // file is selected.
-            $('#raw-upload').val('');
-            $('#raw-upload').click();
-            e.preventDefault();
-        });
-        $('#raw-upload').attr('accept', '.txt');
-        $('#raw-upload').change(function () {
-            var files = $(this).prop('files');
-            if (files.length > 0) {
-                readImportedFile(files, 0)
-            }
-        });
-    });
-    /* end menu load */
-}
-
-// Function to set UI titles.
-function setFormTitles() {
-    fpsTitle = 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
-    'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
-    'or if your replays are sped up, try reducing this value.';
-    $('#fpsTxt').prop('title', fpsTitle);
-    $('#fpsInput').prop('title', fpsTitle);
-
-    durationTitle = 'Use this to set how long the replay will be in seconds. Values greater than 60 ' +
-    'seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
-    'replays that have already been recorded';
-    $('#durationText').prop('title', durationTitle);
-    $('#durationInput').prop('title', durationTitle);
-
-    recordTitle = 'This controls whether the extension is capable of recording replays during a tagpro game.\n\n' +
-    'Uncheck to disable the extension.';
-    $('#recordTxt').prop('title', recordTitle);
-    $('#recordCheckbox').prop('title', recordTitle);
-
-    useTextureTitle = 'This controls whether custom texture files will be used in rendered movies.\n\n' +
-    'Check to use textures, uncheck to use vanilla.\n\nThis only applies to rendered movies.';
-    $('#useTextureTxt').prop('title', useTextureTitle);
-    $('#useTextureCheckbox').prop('title', useTextureTitle);
-
-    textureMenuButtonTitle = 'This button allows you to upload your custom texture files';
-    $('#textureMenuButton').prop('title', textureMenuButtonTitle);
-
-    recordKeyTitle = 'This allows you to designate a key that acts exactly like clicking ' +
-    'the record button with the mouse.\n\nDon\'t use keys that have other uses in the ' +
-    'game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all, ' +
-    'because the extension will listen for that key even if you are typing in chat.';
-    $('#recordKeyTxt').prop('title', recordKeyTitle);
-    $('#recordKeyCheckbox').prop('title', recordKeyTitle);
-
-    useSplatsTitle = 'This toggles whether to show splats or not.\n\nCheck the box if you ' +
-    'want to show splats in the replay';
-    $('#useSplatsTxt').prop('title', useSplatsTitle);
-    $('#useSplatsCheckbox').prop('title', useSplatsTitle);
-    
-    canvasWidthAndHeightTitle = 'Set the width and height of the .webm movie file. The default is 1280 by 800, ' +
-    'but set it to 1280 by 720 for true 720p resolution';
-    $('#canvasWidthInput').prop('title', canvasWidthAndHeightTitle);
-    $('#canvasHeightInput').prop('title', canvasWidthAndHeightTitle);
-}
-
-// function for requesting indexdb datastore contents from background script.
-// Response from background script initiates population of replays into menu.
-function getListData() {
-    chrome.runtime.sendMessage({
-        method: 'requestList'
-    });
-}
-
-function openReplayMenu() {
-    if ($('#menuContainer').length) {
-        $('#menuContainer').modal('show');
-    }
-}
-
-// This is an easy method wrapper to dispatch events
-function emit(event, data) {
-    var e = new CustomEvent(event, {detail: data});
-    window.dispatchEvent(e);
 }
 
 // function to delete replays from menu after their data are deleted from IndexedDB    
@@ -910,136 +111,10 @@ function getReplayId(elt) {
     return replayRow.data("replay");
 }
 
-// function to format metadata to put into title text
-function formatMetaDataTitle(metadata) {
-    var title = '';
-    title += "Map: " + metadata.map + "\n";
-    title += "FPS: " + metadata.fps + "\n";
-    title += "Red Team:\n\t" + metadata.redTeam.join('\n\t') + "\n";
-    title += "Blue Team:\n\t" + metadata.blueTeam.join('\n\t') + "\n";
-    return(title)
-}
-
-// function to add a row to the replay list
-// the second argument tells the function where to put the new row
-// if it equals "top", then the row goes at the top
-// if it is a replay name, it will go before that replay 
-function addRow(replayName, metadata, insertionPoint) {
-    if (typeof insertionPoint == "undefined" ) insertionPoint = "top";
-    var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
-    var date = new Date(ms);
-    var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
-    var duration = metadata.duration;
-    var durationDate = new Date(duration * 1000);
-    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2)
-    var titleText = formatMetaDataTitle(metadata);
-    
-    if(insertionPoint === 'top' || insertionPoint !== replayName) {
-        var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
-        cloneRow.removeClass('clone');
-        var newRow = cloneRow.clone(true);
-        newRow.data("replay", replayName);
-        newRow.attr("id", replayName);
-        // Set playback link text
-        newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
-        newRow.find('a.playback-link').data('preview', thisPreview);
-        newRow.find('a.playback-link').popover({
-            html: true,
-            trigger: 'hover',
-            placement : 'right',
-            content: function () {
-                if (!$(this).data('preview')) {
-                    var key = "preview:" + replayName;
-                    chrome.storage.local.get(key, function(items) {
-                        if (!items[key]) {
-                            // Generate preview.
-                        } else {
-                            // Set preview as data on this element and replace html content.
-                            newRow.find('a.playback-link').data('preview', items[key]);
-                            newRow.find('.popover').html('<img src="' + items[key] + '"/>');
-                        }
-                    });
-                    // Return loading icon.
-                    return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
-                } else {
-                    return '<img src="' + $(this).data('preview') + '"/>';
-                }
-            }
-        });
-        newRow.find('.download-movie-button').prop('disabled', true);
-        newRow.find('.replay-date').text(datevalue);
-        newRow.find('.duration').text(durationFormatted);
-        newRow[0].title = titleText;
-        if(insertionPoint === 'top') {
-            $('#replayList tbody').prepend(newRow);
-        } else {
-            $('#'+insertionPoint).replaceWith(newRow);
-        }
-    
-        // Set replay row element click handlers.
-        // Set handler for in-browser-preview link.
-        $('#'+replayName+' .playback-link').click(function () {
-            var replayId = getReplayId(this);
-            console.log(replayId)
-            //$('#menuContainer').modal('hide');
-            $('#menuContainer').hide();
-            console.log('sending data request for ' + replayId);
-            sessionStorage.setItem('currentReplay', replayId);
-            chrome.runtime.sendMessage({
-                method: 'requestData',
-                fileName: replayId
-            });
-        });
-
-        // Set handler for movie download button.
-        $('#'+replayName+' .download-movie-button').click(function () {
-            var replayId = getReplayId(this);
-            fileNameToDownload = replayId;
-            console.log('asking background script to download video for ' + fileNameToDownload)
-            chrome.runtime.sendMessage({
-                method: 'downloadMovie',
-                name: fileNameToDownload
-            });
-        });
-
-        // Set handler for rename button.
-        $('#'+replayName+' .rename-button').click(function () {
-            var replayId = getReplayId(this);
-            fileNameToRename = replayId;
-            datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-            newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-            if (newName != null) {
-                newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-                console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
-                chrome.runtime.sendMessage({
-                    method: 'requestFileRename',
-                    oldName: fileNameToRename,
-                    newName: newName
-                });
-            }
-        });
-    } else {
-        var oldRow = $('#'+insertionPoint);
-        oldRow.find('.rendered-check').text('');
-        oldRow.find('.download-movie-button').prop('disabled', true);
-        oldRow.find('.duration').text(durationFormatted);
-    }
-}
-
-// Generate a preview and call the callback function with it.
-function generatePreview(replayId, callback) {
-
-}
 // set global scope for some variables and functions
 // then set up listeners for info from background script
 var positions
 var populateList
-
-messageListener("itemsList",
-function(message, sender, sendResponse) {
-    console.log('got itemList mefstoressage')
-    populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
-});
 
 messageListener("positionData",
 function(message, sender, sendResponse) {
@@ -1049,27 +124,6 @@ function(message, sender, sendResponse) {
     positions = JSON.parse(message.title)
     console.log(positions)
     createReplay(positions)
-});
-
-messageListener("dataSetConfirmationFromBG",
-function(message, sender, sendResponse) {
-    console.log('got data set confirmation from background script. sending confirmation to injected script.')
-    if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-        addRow(message.replayName, JSON.parse(message.metadata), 'top');
-        sortReplays()
-    }
-    emit('positionDataConfirmation', true);
-});
-
-messageListener("dataDeleted",
-function(message, sender, sendResponse) {
-    console.log('Replays have been deleted.');
-    if(typeof message.newName !== 'undefined') {
-        addRow(message.newName, message.metadata, message.deletedFiles);
-        sortReplays();
-    } else {
-        deleteRows(message.deletedFiles);
-    }
 });
 
 messageListener("fileRenameSuccess",
@@ -1134,6 +188,12 @@ function(message, sender, sendResponse) {
     }
 });
 
+// This is an easy method wrapper to dispatch events
+function emit(event, data) {
+    var e = new CustomEvent(event, {detail: data});
+    window.dispatchEvent(e);
+}
+
 // this function sets up a listener wrapper
 function listen(event, listener) {
     window.addEventListener(event, function (e) {
@@ -1143,13 +203,18 @@ function listen(event, listener) {
 
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
-listen('setPositionData', function (data) {
-    console.log('got position data from injected script. sending to background script')
+listen('saveReplay', function (data) {
+    console.log('Received position data from injected script. Sending to background script.');
+    // Generate new name for replay.
+    var name = 'replays' + Date.now();
     chrome.runtime.sendMessage({
-        method: 'setPositionData',
-        positionData: data
-    })
-})
+        method: 'saveReplay',
+        data: data,
+        name: name
+    }, function(response) {
+        emit('replaySaved', response.failed);
+    });
+});
 
 function injectScript(path) {
     var script = document.createElement('script');
@@ -1171,21 +236,28 @@ function injectStyleSheet(path) {
     (document.head || document.documentElement).appendChild(link);
 }
 
-// if we're on the main tagpro server screen, run the createReplayPageButton function
+// If we're on the main tagpro server screen, create the main menu and
+// the button that opens it.
 if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-    // make the body scrollable
+    // Make the body scrollable.
     $('body')[0].style.overflowY = "scroll"
-    // make the button
-    createReplayPageButton();
-    createMenu();
+
+    // Initialize the menu.
+    var menu = new Menu();
+    
+    // Make the menu-opening button.
+    createReplayPageButton(menu);
+
     // Include custom bootstrap.css scoped to #tpr-container
     injectStyleSheet("ui/bootstrap.css");
     injectStyleSheet("ui/menus.css");
 }
 
-
-// if we're in a game, as evidenced by there being a port number, inject the replayRecording.js script
+// if we're in a game, as evidenced by there being a port number,
+// inject the replayRecording.js script.
 if (document.URL.search(/\.\w+:/) >= 0) {
     var scripts = ["replayRecording.js"];
     scripts.forEach(injectScript);
 }
+
+})(window, document);

@@ -500,9 +500,9 @@ function emit(event, data) {
 
 // send position data to content script
 function saveReplayData(positions) {
-    var data = JSON.stringify(positions)
-    console.log('sending position data from injected script to content script.')
-    emit('setPositionData', data)
+    var data = JSON.stringify(positions);
+    console.log('Sending replay data from injected script to content script.');
+    emit('saveReplay', data);
 }
 
 // this function sets up a listener wrapper
@@ -512,11 +512,12 @@ function listen(event, listener) {
     });
 }
 
-listen('positionDataConfirmation', function () {
-    console.log('got message confirming data save')
-    $(savedFeedback).fadeIn(300)
-    $(savedFeedback).fadeOut(900)
-})
+// TODO: Handle possible failure alert from content script.
+listen('replaySaved', function() {
+    console.log('Got message confirming data save.')
+    $(savedFeedback).fadeIn(300);
+    $(savedFeedback).fadeOut(900);
+});
 
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.

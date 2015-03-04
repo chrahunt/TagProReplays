@@ -31,8 +31,10 @@
       ],
       "js": [
         "lib/jquery.js",
+        "cookies.js",
         "messaging.js",
         "textures.js",
+        "menu.js",
         "map_draw_functions.js",
         "TagProReplays.js",
         "in-page-preview.js",
