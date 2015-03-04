@@ -249,10 +249,8 @@ Menu.prototype._init = function() {
 Menu.prototype._initReplayList = function() {
     // allow 'select all' checkbox to work
     $('#selectAllCheckbox')[0].onchange = function(e) {
-        $('#replayList .selected-checkbox').each(function(num) {
-            if(num !== 0) {
-                this.checked = e.target.checked;
-            }
+        $('.replayRow:not(.clone) .selected-checkbox').each(function() {
+            this.checked = e.target.checked;
         });
     }
 
@@ -454,6 +452,38 @@ Menu.prototype._entry_Preview = function() {
             return '<img src="' + $(this).data('preview') + '"/>';
         }
     };
+};
+
+/**
+ * Returns callback for entry checkboxes to support the shift-click
+ * multi-select behavior.
+ * @return {Function} - The function to be used as a callback on entry
+ *   checkboxes.
+ */
+Menu.prototype._entry_Check = function() {
+    return function(e) {
+        var boxesChecked = $('.replayRow:not(.clone) .selected-checkbox:checked').length;
+        if(this.checked && e.shiftKey && boxesChecked > 1) {
+            var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
+                closestBox,
+                thisBox;
+            for(var i = 0; i < boxes.length; i++) {
+                if ( this == boxes[i] ) { 
+                    var thisBox = i; 
+                    if (closestBox) break;
+                    continue;
+                }
+                if (boxes[i].checked) var closestBox = i;
+                if ( thisBox && closestBox ) break;
+            }
+            var bounds = [closestBox, thisBox].sort(function(a, b){
+                return a - b;
+            });
+            boxes.map(function(num, box) { 
+                if(num > bounds[0] && num < bounds[1]) box.checked = true;
+            });
+        }
+    }
 };
 
 // TODO: Finish documenting.
@@ -948,6 +978,10 @@ Menu.prototype.addRow = function(entry, insertAfterId) {
         // Set handler for rename button.
         $('#' + id + ' .rename-button')
             .click(this._entry_Rename());
+
+        // Set handler for checkbox.
+        $('#' + id + ' .selected-checkbox')
+            .click(this._entry_Check());
     } else {
         var oldRow = $('#'+insertionPoint);
         oldRow.find('.rendered-check').text('');
