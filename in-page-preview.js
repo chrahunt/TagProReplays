@@ -17,33 +17,6 @@ function readCookie(name) {
     return null;
 }
 
-/**
- * Holds the options for the renderer.
- * @typedef Options
- * @type {object}
- * @property {boolean} spin - Whether or not to use spin.
- * @property {boolean} splats - Whether or not to display splats.
- * @property {boolean} ui - Whether or not to display the clock and
- *   score.
- * @property {boolean} chat - Whether or not to display chat.
- */
-/**
- * Get the currently set options.
- * @return {Options} - The currently-set options.
- */
-function getOptions() {
-    var useSpin = readCookie('useSpin') == 'true';
-    var useSplats = readCookie('useSplats') == 'true';
-    var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    var useChat = readCookie('useChat') == 'true';
-    return {
-        spin: useSpin,
-        splats: useSplats,
-        ui: useClockAndScore,
-        chat: useChat
-    };
-}
-
 // Create and display UI for in-browser preview.
 window.createReplay = function(positions) {
     // Initialize values
@@ -74,7 +47,7 @@ window.createReplay = function(positions) {
 
     document.body.appendChild(can);
     can = document.getElementById('mapCanvas');
-    context = can.getContext('2d');
+    var context = can.getContext('2d');
 
     // Holds options and textures for this replay preview.
     var options, textures, mapImg;
@@ -86,7 +59,7 @@ window.createReplay = function(positions) {
             var mapImgData = drawMap(positions, textures.tiles);
             mapImg = new Image()
             mapImg.onload = function () {
-                animateReplay(thisI, positions, mapImg, options, textures);
+                animateReplay(thisI, positions, mapImg, options, textures, context);
             };
             mapImg.src = mapImgData;
         }
@@ -177,8 +150,7 @@ window.createReplay = function(positions) {
     }
     slider.onchange = function () {
         thisI = this.value
-        var options = getOptions();
-        animateReplay(thisI, positions, mapImg, options, textures)
+        animateReplay(thisI, positions, mapImg, options, textures, context)
     }
 
     function clearSliderArea() {
@@ -205,13 +177,12 @@ window.createReplay = function(positions) {
     function updateMap(mapImg) {
         var time = Date.now();
         var startTime = time;
-        var options = getOptions();
         var fps = positions[me].fps;
         thingy = setInterval(function () {
             if (thisI >= positions.clock.length - 1) {
                 clearInterval(thingy);
             }
-            animateReplay(thisI, positions, mapImg, options, textures);
+            animateReplay(thisI, positions, mapImg, options, textures, context);
             dt = Date.now() - time;
             time = Date.now();
             var nFramesToAdvance = Math.round( dt / (1000 / fps) );
@@ -276,10 +247,9 @@ window.createReplay = function(positions) {
 
     // functions to control replay playback
     function resetReplay() {
-        var options = getOptions();
         thisI = 0
         if(typeof thingy !== 'undefined') clearInterval(thingy)
-        animateReplay(thisI, positions, mapImg, options, textures);
+        animateReplay(thisI, positions, mapImg, options, textures, context);
         slider.value = 0
         delete(thingy)
         isPlaying = false
@@ -317,7 +287,7 @@ window.createReplay = function(positions) {
     }
 
     function pauseReplay() {
-        if (thingy) {
+        if (typeof thingy !== 'undefined') {
             clearInterval(thingy)
         }
         delete(thingy)
@@ -363,57 +333,37 @@ window.createReplay = function(positions) {
     }
 
     function playCroppedMovie() {
-        var options = getOptions();
         if (typeof thingy === 'undefined') {
-            if (typeof currentCropStart === 'undefined') {
-                if (typeof currentCropEnd === 'undefined') {
-                    // just play the whole movie from the beginning
-                    thisI = 0
-                    if (typeof thingy === 'undefined') {
-                        playReplay()
-                    }
-                } else {
-                    // play only up until the crop end point
-                    thisI = 0
-                    endI = Math.floor(currentCropEnd * (positions.clock.length - 1))
-                    thingy = setInterval(function () {
-                        if (thisI == endI) {
-                            clearInterval(thingy)
-                            delete(thingy)
-                        }
-                        animateReplay(thisI, positions, mapImg, options, textures);
-                        thisI++
-                        slider.value = thisI
-                    }, 1000 / positions[me].fps)
+            var missingStart = (typeof currentCropStart === 'undefined');
+            var missingEnd = (typeof currentCropEnd === 'undefined');
+            if (missingStart && missingEnd) {
+                // just play the whole movie from the beginning
+                thisI = 0
+                if (typeof thingy === 'undefined') {
+                    playReplay()
                 }
             } else {
-                if (typeof currentCropEnd === 'undefined') {
-                    // play from crop start point until the end
-                    thisI = Math.floor(currentCropStart * (positions.clock.length - 1))
-                    thingy = setInterval(function () {
-                        if (thisI == positions.clock.length - 1) {
-                            clearInterval(thingy)
-                            delete(thingy)
-                        }
-                        animateReplay(thisI, positions, mapImg, options, textures);
-                        thisI++
-                        slider.value = thisI
-                    }, 1000 / positions[me].fps)
+                // Set start.
+                if (missingStart) {
+                    thisI = 0;
                 } else {
-                    // play in between crop start point and crop end point
-                    thisI = Math.floor(currentCropStart * (positions.clock.length - 1))
-                    endI = Math.floor(currentCropEnd * (positions.clock.length - 1))
-                    console.log(thisI)
-                    thingy = setInterval(function () {
-                        if (thisI == endI) {
-                            clearInterval(thingy)
-                            delete(thingy)
-                        }
-                        animateReplay(thisI, positions, mapImg, options, textures);
-                        thisI++
-                        slider.value = thisI
-                    }, 1000 / positions[me].fps)
+                    thisI = Math.floor(currentCropStart * (positions.clock.length - 1));
                 }
+                // Set end.
+                if (missingEnd) {
+                    endI = positions.clock.length - 1;
+                } else {
+                    endI = Math.floor(currentCropEnd * (positions.clock.length - 1));
+                }
+                thingy = setInterval(function () {
+                    if (thisI == endI) {
+                        clearInterval(thingy);
+                        delete thingy;
+                    }
+                    animateReplay(thisI, positions, mapImg, options, textures, context);
+                    thisI++;
+                    slider.value = thisI;
+                }, 1000 / positions[me].fps);
             }
         }
     }
@@ -513,9 +463,9 @@ window.createReplay = function(positions) {
                 newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion
                 console.log('requesting to rename from ' + replayToRename + ' to ' + newName)
                 chrome.runtime.sendMessage({
-                    method: 'requestFileRename',
-                    oldName: replayToRename,
-                    newName: newName
+                    method: 'renameReplay',
+                    id: replayToRename,
+                    name: newName
                 });
             }
         }

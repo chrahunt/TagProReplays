@@ -354,6 +354,7 @@ Menu.prototype._list_Sort = function(baseSortType) {
  * rendered movie file.
  */
 Menu.prototype._entry_Download = function() {
+    var menu = this;
     return function() {
         var replayId = menu._getReplayId(this);
         var fileNameToDownload = replayId;
@@ -369,7 +370,8 @@ Menu.prototype._entry_Download = function() {
  * Callback for rename button for individual replay list entry. Sends
  * a request to the background script to carry out the action.
  */
-Menu.prototype._entry_Rename = function(menu) {
+Menu.prototype._entry_Rename = function() {
+    var menu = this;
     return function() {
         var replayId = menu._getReplayId(this);
         var fileNameToRename = replayId;
@@ -379,9 +381,9 @@ Menu.prototype._entry_Rename = function(menu) {
             newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
             console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
             chrome.runtime.sendMessage({
-                method: 'requestFileRename',
-                oldName: fileNameToRename,
-                newName: newName
+                method: 'renameReplay',
+                id: replayId,
+                name: newName
             });
         }
     };
@@ -391,7 +393,8 @@ Menu.prototype._entry_Rename = function(menu) {
  * Callback for playback link which initiates the in-browser previewer
  * for the replay.
  */
-Menu.prototype._entry_Play = function(menu) {
+Menu.prototype._entry_Play = function() {
+    var menu = this;
     return function() {
         var replayId = menu._getReplayId(this);
         $('#menuContainer').hide();
@@ -399,7 +402,15 @@ Menu.prototype._entry_Play = function(menu) {
         sessionStorage.setItem('currentReplay', replayId);
         chrome.runtime.sendMessage({
             method: 'requestData',
-            fileName: replayId
+            id: replayId
+        }, function(response) {
+            console.log('Got requestData response.');
+            // Set local storage for in-page-preview.
+            localStorage.setItem('currentReplayName', replayId);
+            console.log(typeof response.data);
+            var positions = JSON.parse(response.data);
+            //console.log(positions);
+            createReplay(positions);
         });
     };
 };
@@ -409,7 +420,40 @@ Menu.prototype._entry_Play = function(menu) {
  * replay.
  */
 Menu.prototype._entry_Preview = function() {
-    // body...
+    var menu = this;
+    return function () {
+        // Check if image data has been cached on element data
+        // property.
+        if (!$(this).data('preview')) {
+            var id = menu._getReplayId(this);
+            var key = "preview:" + id;
+            // Check if preview has previously been generated and stored.
+            chrome.storage.local.get(key, function(items) {
+                if (!items[key]) {
+                    // Generate preview.
+                    // TODO: Handle generation failure.
+                    this._generatePreview(id, function(preview) {
+                        var store = {};
+                        store[key] = preview;
+                        // TODO: Handle save failure.
+                        chrome.storage.local.set(store);
+                        // Cache preview image.
+                        $('#' + id + ' a.playback-link').data('preview', preview);
+                        // Replace loading image with preview.
+                        $('#' + id + ' .popover-content').html('<img src="' + preview + '"/>');
+                    });
+                } else {
+                    // Set preview as data on this element and replace html content.
+                    $('#' + id + ' a.playback-link').data('preview', items[key]);
+                    $('#' + id + ' .popover-content').html('<img src="' + items[key] + '"/>');
+                }
+            }.bind(menu));
+            // Return loading icon.
+            return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
+        } else {
+            return '<img src="' + $(this).data('preview') + '"/>';
+        }
+    };
 };
 
 // TODO: Finish documenting.
@@ -718,13 +762,12 @@ Menu.prototype._getSortTypeFromDesired = function(type) {
  */
 /**
  * Get objects representing the sortable attributes of the replays.
- * @return {Array.<object>} - Objects with properties corresponding to
+ * @return {Array.<SortObject>} - Objects with properties corresponding to
  *   the sortable fields of the set of replays.
  */
 Menu.prototype._getSortableEntries = function() {
     var replays = this.getEntries();
-    var entries = [];
-    replays.map(function(index, row) {
+    var entries = replays.map(function(row) {
         var thisDurationString = $(row).find('.duration').text();
         var thisMinutes = Number(thisDurationString.split(':')[0]);
         var thisSeconds = Number(thisDurationString.split(':')[1]);
@@ -885,24 +928,7 @@ Menu.prototype.addRow = function(entry, insertAfterId) {
             html: true,
             trigger: 'hover',
             placement : 'right',
-            content: function () {
-                if (!$(this).data('preview')) {
-                    var key = "preview:" + id;
-                    chrome.storage.local.get(key, function(items) {
-                        if (!items[key]) {
-                            // Generate preview.
-                        } else {
-                            // Set preview as data on this element and replace html content.
-                            newRow.find('a.playback-link').data('preview', items[key]);
-                            newRow.find('.popover').html('<img src="' + items[key] + '"/>');
-                        }
-                    });
-                    // Return loading icon.
-                    return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
-                } else {
-                    return '<img src="' + $(this).data('preview') + '"/>';
-                }
-            }
+            content: this._entry_Preview()
         });
         newRow.find('.download-movie-button').prop('disabled', true);
         newRow.find('.replay-date').text(datevalue);
@@ -913,25 +939,21 @@ Menu.prototype.addRow = function(entry, insertAfterId) {
         // Set replay row element click handlers.
         // Set handler for in-browser-preview link.
         $('#' + id + ' .playback-link')
-            .click(this._entry_Play(this));
+            .click(this._entry_Play());
 
         // Set handler for movie download button.
         $('#' + id + ' .download-movie-button')
-            .click(this._entry_Download(this));
+            .click(this._entry_Download());
 
         // Set handler for rename button.
         $('#' + id + ' .rename-button')
-            .click(this._entry_Rename(this));
+            .click(this._entry_Rename());
     } else {
         var oldRow = $('#'+insertionPoint);
         oldRow.find('.rendered-check').text('');
         oldRow.find('.download-movie-button').prop('disabled', true);
         oldRow.find('.duration').text(durationFormatted);
     }
-};
-
-Menu.prototype.getRow = function() {
-  // body...
 };
 
 /**
@@ -955,19 +977,24 @@ Menu.prototype.removeRows = function(ids) {
 /**
  * Change the visible name text of a replay with the given id.
  * @param  {string} id      The id of the replay to change the name of.
- * @param  {string} newName The new name of the replay.
+ * @param  {string} name The new name of the replay.
  * @return {}         [description]
  */
-Menu.prototype.renameEntry = function(id, newName) {
-    // body...
+Menu.prototype.renameEntry = function(id, name) {
+    var row = $('#' + id);
+    // Change row name.
+    $('#' + id + ' .playback-link').text(this._getName(name));
+    // Replay name<>id
+    row.data("replay", name);
+    row[0].id = name;
 };
 
 /**
  * Retrieve all current table entries.
- * @return {[type]} [description]
+ * @return {Array.<DOMElement>} - jQuery object containing elements
  */
 Menu.prototype.getEntries = function() {
-  return $('#replayList .replayRow').not('.clone');
+  return $('#replayList .replayRow').not('.clone').toArray();
 };
 
 /**
@@ -1048,7 +1075,41 @@ Menu.prototype._getReplayId = function(elt) {
 };
 
 Menu.prototype._generatePreview = function(id, callback) {
-    // body...
+    function requestPreview(data, options, textures) {
+        var preview = drawPreview(data, options, textures);
+        callback(preview);
+    }
+
+    // First call that completes changes this to true, the next call
+    // to run sees that the other values were retrieved and executes
+    // the function above.
+    var retrieved = false;
+
+    var data, options, textures;
+    // Get Replay data.
+    chrome.runtime.sendMessage({
+        method: "requestData",
+        id: id
+    }, function(response) {
+        data = JSON.parse(response.data);
+        if (retrieved) {
+            requestPreview(data, options, textures);
+        } else {
+            retrieved = true;
+        }
+    });
+    // Get options and textures.
+    chrome.storage.local.get(["options", "default_textures"], function(items) {
+        options = items.options;
+        getTextureImages(items.default_textures, function(textureImages) {
+            textures = textureImages;
+            if (retrieved) {
+                requestPreview(data, options, textures);
+            } else {
+                retrieved = true;
+            }
+        });
+    });
 };
 
 /**
@@ -1093,6 +1154,62 @@ Menu.prototype._initListeners = function() {
             this.removeRows(deletedFiles);
         }
     }.bind(this));
+
+    messageListener("replayRenamed",
+    function(message, sender, sendResponse) {
+        console.log('Received confirmation of replay rename from background script.');
+        this.renameEntry(message.id, message.name);
+        this.sort(readCookie('sortMethod'));
+    }.bind(this));
+
+    messageListener("movieDownloadFailure",
+    function(message, sender, sendResponse) {
+        alert('Download failed. Most likely you haven\'t rendered that movie yet.')
+    });
+
+    messageListener("progressBarCreate",
+    function(message, sender, sendResponse) {
+        console.log('Received request to create progress bar for ' + message.name)
+        $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
+    });
+
+    /**
+     * Update progress bar.
+     */
+    messageListener("progressBarUpdate",
+    function(message, sender, sendResponse) {
+        if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
+            $('#' + message.name + ' .progressbar')[0].value = message.progress
+        }
+    });
+
+    messageListener("renderConfirmation",
+    function(message, sender, sendResponse) {
+        $('#' + message.name + ' .progressbar').remove();
+        if (message.failure) {
+            console.log('Rendering of ' + message.name + ' was a failure.');
+            $('#' + message.name + ' .rendered-check').text('✘');
+            $('#' + message.name + ' .rendered-check').css('color', 'red');
+        } else {
+            $('#' + message.name + ' .rendered-check').text('✓');
+            $('#' + message.name + ' .download-movie-button').prop('disabled', false);
+        }
+
+        if (!message.last) {
+            var index = message.index + 1;
+            var last = false;
+            if (index == message.replaysToRender.length - 1) {
+                last = true;
+            }
+            chrome.runtime.sendMessage({
+                method: 'render',
+                data: message.replaysToRender,
+                index: index,
+                last: last
+            });
+            console.log('Sent request to render replay: ' + replaysToRender[index]);
+        }
+    });
 };
 
 })(window, document);

@@ -7,63 +7,6 @@
  */
 (function(window) {
 
-var TILE_SIZE = 40
-
-defaultTextures = {
-    tiles: 'img/tiles.png',
-    portal: 'img/portal.png',
-    speedpad: 'img/speedpad.png',
-    speedpadred: 'img/speedpadred.png',
-    speedpadblue: 'img/speedpadblue.png',
-    splats: 'img/splats.png',
-    flair: 'img/flair.png'
-};
-
-img = new Image()
-img.src = defaultTextures.tiles
-img.id = 'tiles'
-img = document.body.appendChild(img)
-
-portalImg = new Image()
-portalImg.src = defaultTextures.portal
-portalImg.id = 'portal'
-portalImg = document.body.appendChild(portalImg)
-
-speedpadImg = new Image()
-speedpadImg.src = defaultTextures.speedpad
-speedpadImg.id = 'speedpad'
-speedpadImg = document.body.appendChild(speedpadImg)
-
-speedpadredImg = new Image()
-speedpadredImg.src = defaultTextures.speedpadred
-speedpadredImg.id = 'speedpadred'
-speedpadredImg = document.body.appendChild(speedpadredImg)
-
-speedpadblueImg = new Image()
-speedpadblueImg.src = defaultTextures.speedpadblue
-speedpadblueImg.id = 'speedpadblue'
-speedpadblueImg = document.body.appendChild(speedpadblueImg)
-
-tagproImg = new Image()
-tagproImg.src = 'img/tagpro.png'
-tagproImg.id = 'tagpro'
-tagproImg = document.body.appendChild(tagproImg)
-
-rollingbombImg = new Image()
-rollingbombImg.src = 'img/rollingbomb.png'
-rollingbombImg.id = 'rollingbomb'
-rollingbombImg = document.body.appendChild(rollingbombImg)
-
-splatsImg = new Image()
-splatsImg.src = defaultTextures.splats
-splatsImg.id = 'splats'
-splatsImg = document.body.appendChild(splatsImg)
-
-flairImg = new Image()
-flairImg.src = defaultTextures.flair
-flairImg.id = 'flair'
-flairImg = document.body.appendChild(flairImg)
-
 /**
  * Test the integrity of position data. Should be used before
  * attempting to render a replay. This function does not currently do
@@ -269,7 +212,7 @@ function renderMovie(name, tabId, callback) {
         // Construct canvas.
         var canvas = document.createElement('canvas');
 
-        context = canvas.getContext('2d');
+        var context = canvas.getContext('2d');
 
         // Retrieve options and textures and render the movie.
         chrome.storage.local.get(["options", "textures"], function(items) {
@@ -300,7 +243,7 @@ function renderMovie(name, tabId, callback) {
                             name: name
                         });
                     }
-                    animateReplay(thisI, positions, mapImg, options, textures);
+                    animateReplay(thisI, positions, mapImg, options, textures, context);
                     encoder.add(context)
                 }
 
@@ -467,6 +410,33 @@ chrome.storage.local.get(["default_textures", "textures"], function(items) {
 // Initialize IndexedDB.
 idbOpen();
 
+/**
+ * Callback function to send message to multiple tabs.
+ * @callback TabCallback
+ * @param {integer} id - The id of the matched tab.
+ */
+/**
+ * Call the callback function for each tab that may have a UI.
+ * @param {TabCallback} callback - The function to be called with the
+ *   tab information.
+ */
+function sendToTabs(callback) {
+    // Send new replay notification to any tabs that may have menu.
+    chrome.tabs.query({
+        url: [
+            "http://*.koalabeast.com/*",
+            "http://*.newcompte.fr/*",
+            "http://tangent.jukejuice.com/*"
+        ]
+    }, function(tabs) {
+        tabs.forEach(function(tab) {
+            if (tab.id) {
+                callback(tab.id);
+            }
+        });
+    });
+}
+
 // TODO: Simplify and separate this into different functions.
 // Request to replace an existing replay from the in-page editor.
 messageListener("replaceReplay",
@@ -511,40 +481,35 @@ function(message, sender, sendResponse) {
             failed: false
         });
         // Send new replay notification to any tabs that may have menu.
-        chrome.tabs.query({
-            url: [
-                "http://*.koalabeast.com/*",
-                "http://*.newcompte.fr/*",
-                "http://tangent.jukejuice.com/*"
-            ]
-        }, function(tabs) {
-            tabs.forEach(function(tab) {
-                if (tab.id) {
-                    var id = tab.id;
-                    chrome.tabs.sendMessage(id, {
-                        method: "replayAdded",
-                        name: name,
-                        metadata: JSON.stringify(metadata)
-                    });
-                }
+        sendToTabs(function(id) {
+            chrome.tabs.sendMessage(id, {
+                method: "replayAdded",
+                name: name,
+                metadata: JSON.stringify(metadata)
             });
         });
     });
     return true;
 });
 
+/**
+ * Request for replay data. response should be a function that will
+ * take an object with a 'data' property which is the JSON stringified
+ * replay information.
+ * @param {object} message - Should have an `id` property corresponding
+ *   to the replay data is being requested for.
+ */
 messageListener("requestData",
 function(message, sender, sendResponse) {
     tabNum = sender.tab.id;
-    var name = message.fileName;
-    console.log('got data request for ' + name);
-    getData(name, function(data) {
-        chrome.tabs.sendMessage(tabNum, {
-            method: "positionData",
-            title: data,
-            movieName: name
+    var id = message.id;
+    console.log('got data request for ' + id);
+    getData(id, function(data) {
+        sendResponse({
+            data: data
         });
     });
+    return true;
 });
 
 /**
@@ -586,19 +551,27 @@ function(message, sender, sendResponse) {
     deleteData(message.fileName, tabNum);
 });
 
-messageListener("requestFileRename",
+/**
+ * Rename file. message has id and name properties.
+ * @param {[type]} message [description]
+ * @param {[type]} sender [description]
+ * @param {[type]} sendResponse) {    tabNum [description]
+ * @return {[type]} [description]
+ */
+messageListener("renameReplay",
 function(message, sender, sendResponse) {
-    tabNum = sender.tab.id;
-    console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
-    renameData(message.oldName, message.newName, function() {
-        localStorage.removeItem(oldName);
-        chrome.storage.local.remove(oldName);
-        chrome.tabs.sendMessage(tabNum, {
-            method: "fileRenameSuccess",
-            oldName: oldName,
-            newName: newName
+    console.log('Got rename request for ' + message.id + ' to ' + message.name);
+    renameData(message.id, message.name, function() {
+        localStorage.removeItem(message.id);
+        chrome.storage.local.remove(message.id);
+        sendToTabs(function(id) {
+            chrome.tabs.sendMessage(id, {
+                method: "replayRenamed",
+                id: message.id,
+                name: message.name
+            });           
         });
-        console.log('sent rename reply');
+        console.log('Sent rename reply.');
     });
 });
 

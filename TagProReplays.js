@@ -1,9 +1,8 @@
 /**
  * Constructs the user interface accessible on the main page of any
  * TagPro server. Also responsible for injecting the listener script
- * onto game pages, and relaying information and actions from the
- * listener script and user interface to the background page for
- * processing.
+ * onto game pages and relaying the recorded game information to the
+ * background script for saving.
  *
  * This script is included as a content script.
  */
@@ -81,112 +80,6 @@ function createReplayPageButton(menu) {
         menu.open();
     });
 }
-
-// function to delete replays from menu after their data are deleted from IndexedDB    
-// this gets called in reponse to a message from the background script confirming a
-// data deletion    
-function deleteRows(deletedFiles) {
-    if(!$.isArray(deletedFiles)) {
-        $('#'+deletedFiles).remove();
-        return;
-    }
-    deletedFiles.forEach(function(deletedFile){
-        $('#'+deletedFile).remove();
-    });
-};
-
-// function to change the name text and id of a replay when a user renames the replay
-// this gets called in response to a message from the background script confirming a 
-// successful renaming
-function renameRow(oldName, newName) {
-    var oldRow = $('#' + oldName);
-    $('#'+oldName + ' .playback-link').text(newName.replace(/DATE.*/, ''));
-    oldRow.data("replay", newName);
-    oldRow[0].id = newName;
-};
-
-//Get replay id for row, given an element in it.
-function getReplayId(elt) {
-    var replayRow = $(elt).closest('tr');
-    return replayRow.data("replay");
-}
-
-// set global scope for some variables and functions
-// then set up listeners for info from background script
-var positions
-var populateList
-
-messageListener("positionData",
-function(message, sender, sendResponse) {
-    console.log('got positionData message')
-    localStorage.setItem('currentReplayName', message.movieName)
-    console.log(typeof message.title)
-    positions = JSON.parse(message.title)
-    console.log(positions)
-    createReplay(positions)
-});
-
-messageListener("fileRenameSuccess",
-function(message, sender, sendResponse) {
-    console.log('Received confirmation of replay rename from background script.');
-    renameRow(message.oldName, message.newName);
-    sortReplays();
-});
-
-messageListener("picture",
-function(message, sender, sendResponse) {
-    console.log('Received picture file from background script.');
-    picture = message.file;
-});
-
-messageListener("movieDownloadFailure",
-function(message, sender, sendResponse) {
-    alert('Download failed. Most likely you haven\'t rendered that movie yet.')
-});
-
-messageListener("progressBarCreate",
-function(message, sender, sendResponse) {
-    console.log('Received request to create progress bar for ' + message.name)
-    $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-});
-
-/**
- * Update progress bar.
- */
-messageListener("progressBarUpdate",
-function(message, sender, sendResponse) {
-    if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
-        $('#' + message.name + ' .progressbar')[0].value = message.progress
-    }
-});
-
-messageListener("renderConfirmation",
-function(message, sender, sendResponse) {
-    $('#' + message.name + ' .progressbar').remove();
-    if (message.failure) {
-        console.log('Rendering of ' + message.name + ' was a failure.');
-        $('#' + message.name + ' .rendered-check').text('✘');
-        $('#' + message.name + ' .rendered-check').css('color', 'red');
-    } else {
-        $('#' + message.name + ' .rendered-check').text('✓');
-        $('#' + message.name + ' .download-movie-button').prop('disabled', false);
-    }
-
-    if (!message.last) {
-        var index = message.index + 1;
-        var last = false;
-        if (index == message.replaysToRender.length - 1) {
-            last = true;
-        }
-        chrome.runtime.sendMessage({
-            method: 'render',
-            data: message.replaysToRender,
-            index: index,
-            last: last
-        });
-        console.log('Sent request to render replay: ' + replaysToRender[index]);
-    }
-});
 
 // This is an easy method wrapper to dispatch events
 function emit(event, data) {

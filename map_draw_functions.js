@@ -13,6 +13,7 @@ var TILE_SIZE = 40;
 
 // Draw-function global. Set in drawReplay and animateReplay.
 var thisI = 0;
+var context;
 
 // Draw-function globals.
 var posx, posy;
@@ -1096,11 +1097,15 @@ function drawBalls(positions, textures, spin) {
  * @param  {PositionData} positions - The replay data.
  * @param  {?} mapImg
  * @param {Options} [options] - Options for the rendering.
+ * @param {Textures} textures - the textures to use.
+ * @param {CanvasRenderingContext2D} ctx - The context to draw on.
  */
-window.animateReplay = function(frame, positions, mapImg, options, textures) {
+window.animateReplay = function(frame, positions, mapImg, options, textures, ctx) {
     if (typeof options == 'undefined') options = {};
     // Update drawing function global with frame number.
     thisI = frame;
+    context = ctx;
+
     var player = getPlayer(positions);
     // Clear canvas.
     context.clearRect(0, 0, context.canvas.width, context.canvas.height)
@@ -1129,49 +1134,12 @@ window.animateReplay = function(frame, positions, mapImg, options, textures) {
     drawEndText(positions)
 }
 
-/**
- * Edit mapCanvas to reflect the replay at the given frame.
- * frame - frame number of replay
- * positions - replay data
- * mapImg - html img element reflecting the image of the map
- */
-// function to draw stuff onto the canvas
-function drawReplay(frame, positions, mapImg, thisContext) {
-    thisI = frame;
-    var player = getPlayer(positions);
-    context = thisContext;
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height)
-    posx = -(player.x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2)
-    posy = -(player.y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2)
-    context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
-        posx,
-        posy,
-        mapImg.width, mapImg.height)
-    drawSplats(positions)
-    drawFloorTiles(positions)
-    drawSpawns(positions)
-    drawBalls(positions)
-    drawClock(positions)
-    drawScore(positions.score[thisI]);
-    drawScoreFlag(positions)
-    drawChats(positions)
-    bombPop(positions)
-    drawEndText(positions)
-    return (context.canvas.toDataURL());
-}
-
 // function that takes positions file and draws the frame 75% of the way through the 
 // replay at full size. then redraws that at reduced size.
 // returns a dataURL of the resulting image
-// used by: background
-window.drawPreview = function(positions) {
+// used by: menu
+window.drawPreview = function(positions, options, textures) {
     console.log("Drawing preview.");
-    $('#tiles')[0].src = defaultTextures.tiles
-    $('#portal')[0].src = defaultTextures.portal
-    $('#speedpad')[0].src = defaultTextures.speedpad
-    $('#speedpadred')[0].src = defaultTextures.speedpadred
-    $('#speedpadblue')[0].src = defaultTextures.speedpadblue
-    $('#splats')[0].src = defaultTextures.splats
 
     // create two canvases - one to draw full size preview, one to draw the half size one.
     var fullPreviewCanvas = document.createElement('canvas');
@@ -1192,14 +1160,16 @@ window.drawPreview = function(positions) {
     var replayLength = positions.clock.length;
     thisI = Math.round(replayLength * 0.75);
     
-    var previewMapData = drawMap(0,0,positions);
+    var previewMapData = drawMap(positions, textures.tiles);
     var previewMap = document.createElement('img');
     previewMap.src = previewMapData;
 
-    var fullImageData = drawReplay(thisI, positions, previewMap, fullPreviewContext);
-    var img = document.createElement('img');
-    img.src = fullImageData;
-    smallPreviewContext.drawImage(img,
+    animateReplay(thisI, positions, previewMap, options, textures, fullPreviewContext);
+    var fullImageData = fullPreviewCanvas.toDataURL();
+
+    var fullSizeImg = document.createElement('img');
+    fullSizeImg.src = fullImageData;
+    smallPreviewContext.drawImage(fullSizeImg,
                                   0, 
                                   0,
                                   fullPreviewCanvas.width,
@@ -1210,7 +1180,7 @@ window.drawPreview = function(positions) {
                                   smallPreviewCanvas.height);
     var result = smallPreviewCanvas.toDataURL();
     previewMap.remove();
-    img.remove();
+    fullSizeImg.remove();
     return result;
 }
 

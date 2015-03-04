@@ -34,10 +34,10 @@
         "cookies.js",
         "messaging.js",
         "textures.js",
-        "menu.js",
         "map_draw_functions.js",
-        "TagProReplays.js",
         "in-page-preview.js",
+        "menu.js",
+        "TagProReplays.js",
         "ui/bootstrap.min.js"
       ],
       "run_at": "document_end"

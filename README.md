@@ -14,14 +14,20 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 
 ## Development
 
-**Project Organization**:
-* **img/**: Holds the default image assets used by the extension for replay rendering.
+**Extension File Organization**:
+* **img/**: Holds the default image assets used by the extension for the user interface and as textures for replay rendering.
 * **lib/**: Directory to hold third-party libraries used by the extension.
 * **ui/**: Holds the assets and html that correspond to the in-page user interface for the extension.
 * **background.js**: The background page for the extension. It handles initial setup of the database that holds the extension data as well as the rendered movie data. It also has functions for getting and setting the textures, rendering movies, and other tasks to support the user interface.
-* **filesystem.js**: Contains functions that support the background script in interacting with the database.
+* **cookies.js**: Utility script with functions for getting and setting cookies.
+* **filesystem.js**: FileSystem API interface for storing, retrieving, and deleting rendered webm videos.
 * **in-page-preview.js**: Create the in-browser replay viewer UI and provide additional functions for editing the replay from the replay viewer.
-* **loadTextures.js**: Single function for saving textures uploaded via the settings UI.
+* **indexedDBUtils.js**: Provides interface for interaction with IndexedDB store, which is used for holding replay information.
 * **map_draw_functions.js**: Contains methods for drawing and animating replays from the raw position/game state data.
+* **menu.js**: Provides the interface to the in-page user interface. Initialized on tagprop server home pages by `TagProReplays.js`.
+* **messaging.js**: Provides messaging interface for content script <=> background script messaging.
 * **replayRecordings.js**: Content script for in-game recording. This is injected by code in TagProReplays.js when the user is in a game.
-* **TagProReplays.js**: The main content script. Contains functions for initializing the user interface, saving settings, interacting with the background script for replay-editing and download capabilities, and injecting the game data listener script into the page during a game.
+* **TagProReplays.js**: The main content script. Contains functions for initializing the user interface, injecting the recording script into the game page, updating the settings cookies used by the recording script, and relaying recorded information to the background page to be saved.
+* **textures.js**: Contains functions for generating DataURL representations for textures from URLs as well as retrieving and converting textures between different formats.
+
+**Extension Data Storage**
