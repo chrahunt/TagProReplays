@@ -932,7 +932,10 @@ function drawBalls(positions, textures, spin) {
     }
 
     /**
-     * Get position for the player, in global coordinates.
+     * Get position for the player, in global coordinates. Position in
+     * game data corresponds to the top-left corner of player sprite.
+     * The center of the player is an additional 20 units more in the
+     * x and y directions from the value returned here.
      * @param  {Player} player - The player to get the position for.
      * @param  {integer} frame - The grame to get the position for.
      * @return {Point} - The position of the player.
@@ -986,29 +989,19 @@ function drawBalls(positions, textures, spin) {
         return player.tagpro[thisI];
     }
 
+    // Get the screen coordinates for the top-left of the player
+    // sprite.
     function getDrawPosition(center, position) {
         return {
-            x: position.x + center.x - TILE_SIZE / 2,
-            y: position.y + center.y - TILE_SIZE / 2
+            x: position.x + center.x,
+            y: position.y + center.y
         };
     }
 
-    // Get the world coordinates that are at the center of the canvas.
-    function getScreenCenter(data, frame) {
-        var player = getPlayer(data);
-        // Center of canvas.
-        var center = {
-            x: context.canvas.width / 2,
-            y: context.canvas.height / 2
-        };
-        var pos = getPos(player, frame);
-        return {
-            x: -pos.x + center.x,
-            y: -pos.y + center.y
-        };
-    }
-
-    var screenCenter = getScreenCenter(positions, thisI);
+    var screenCenter = {
+        x: posx,
+        y: posy
+    };
     var players = getPlayers(positions);
     players.forEach(function(player) {
         var position = getPos(player, thisI);
@@ -1043,19 +1036,28 @@ function drawBalls(positions, textures, spin) {
                             TILE_SIZE,
                             TILE_SIZE);
                     } else {
-                        context.translate(drawPos.x, drawPos.y);
+                        // Add half a tile width so this is truly in
+                        // the center of the player, so rotation
+                        // doesn't change location.
+                        var playerCenter = {
+                            x: drawPos.x + TILE_SIZE / 2,
+                            y: drawPos.y + TILE_SIZE / 2
+                        };
+                        context.translate(playerCenter.x,
+                            playerCenter.y);
                         context.rotate(angle);
                         context.drawImage(textures.tiles,
                             (team == 1 ? 14 : 15) * TILE_SIZE,    
                             0,
                             TILE_SIZE,
                             TILE_SIZE,
-                            0,
-                            0,
+                            -TILE_SIZE / 2,
+                            -TILE_SIZE / 2,
                             TILE_SIZE,
                             TILE_SIZE);
                         context.rotate(-angle);
-                        context.translate(-drawPos.x, -drawPos.y);    
+                        context.translate(-playerCenter.x,
+                            -playerCenter.y);
                     }
 
                     if (grip) {
