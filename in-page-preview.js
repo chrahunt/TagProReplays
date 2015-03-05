@@ -1,3 +1,11 @@
+/**
+ * Constructs and sets the interactive elements of the in-browser
+ * replay previewer.
+ * 
+ * This script is included as a content script.
+ */
+(function(window) {
+
 function readCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
@@ -9,37 +17,20 @@ function readCookie(name) {
     return null;
 }
 
-
-// function for assigning texture sources
-//   it first checks if the cookie to use custom textures is true
-//   if it is, it checks if a saved custom texture exists
-//   if so, use that. if not, use default
-function assignTexture(imgElement, textureName) {
-	if(readCookie('useTextures') == 'true') {
-		if(typeof localStorage.getItem(textureName) !== "undefined" & localStorage.getItem(textureName) !== null) {
-			imgElement.src = localStorage.getItem(textureName);
-		} else {
-			imgElement.src = 'images/'+textureName+'.png';
-		}
-	} else {
-		imgElement.src = 'images/'+textureName+'.png';
-	}
-}
-
 // Create and display UI for in-browser preview.
-function createReplay(positions) {
+window.createReplay = function(positions) {
     // Initialize values
-    thisI = 0
+    var thisI = 0
     // Get player that corresponds to recording user ball.
-    for (j in positions) {
+    for (var j in positions) {
         if (positions[j].me == 'me') {
-            me = j
+            me = j;
         }
     }
     tileSize = 40
 
     // Canvas for main display
-    can = document.createElement('canvas')
+    var can = document.createElement('canvas')
     can.id = 'mapCanvas'
     can.style.background = 'black'
     can.style.border = "10px solid white"
@@ -54,71 +45,38 @@ function createReplay(positions) {
     can.style.opacity = 0
     can.title = "replay: " + sessionStorage.getItem('currentReplay').replace(/DATE.*/, '')
 
-    document.body.appendChild(can)
-    can = document.getElementById('mapCanvas')
-    context = can.getContext('2d')
+    document.body.appendChild(can);
+    can = document.getElementById('mapCanvas');
+    var context = can.getContext('2d');
 
-    imgDiv = document.createElement('div')
+    // Holds options and textures for this replay preview.
+    var options, textures, mapImg;
 
-    img = new Image()
-    assignTexture(img, 'tiles');
-    img.id = 'tiles'
-    img.style.display = 'none'
-    img = document.body.appendChild(img)
-    // Get map image and draw initial replay image
-    img.onload = function () {
-        mapImgData = drawMap(0, 0, positions)
-        mapImg = new Image()
-        mapImg.src = mapImgData
-        imgDiv.appendChild(mapImg)
-        mapImg.onload = function () {
-        	var useSpin = readCookie('useSpin') == 'true';
-    		var useSplats = readCookie('useSplats') == 'true';
-    		var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    		var useChat = readCookie('useChat') == 'true';
-            animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+    // Get options and textures.
+    chrome.storage.local.get(["options", "textures", "default_textures"], function(items) {
+        function render() {
+            // Get map image and draw initial replay image
+            var mapImgData = drawMap(positions, textures.tiles);
+            mapImg = new Image()
+            mapImg.onload = function () {
+                animateReplay(thisI, positions, mapImg, options, textures, context);
+            };
+            mapImg.src = mapImgData;
         }
-    }
-
-    portalImg = new Image()
-    assignTexture(portalImg, 'portal');
-    portalImg.id = 'portal'
-    imgDiv.appendChild(portalImg)
-
-    speedpadImg = new Image()
-    assignTexture(speedpadImg, 'speedpad');
-    speedpadImg.id = 'speedpad'
-    speedpadImg = imgDiv.appendChild(speedpadImg)
-
-    speedpadredImg = new Image()
-    assignTexture(speedpadredImg, 'speedpadred');
-    speedpadredImg.id = 'speedpadred'
-    speedpadredImg = imgDiv.appendChild(speedpadredImg)
-
-    speedpadblueImg = new Image()
-    assignTexture(speedpadblueImg, 'speedpadblue');
-    speedpadblueImg.id = 'speedpadblue'
-    speedpadblueImg = imgDiv.appendChild(speedpadblueImg)
-
-    splatsImg = new Image()
-    assignTexture(splatsImg, 'splats');
-    splatsImg.id = 'splats'
-    splatsImg = imgDiv.appendChild(splatsImg)
-
-    flairImg = new Image()
-    flairImg.src = 'images/flair.png'
-    flairImg.id = 'flair'
-    flairImg = imgDiv.appendChild(flairImg)
-
-    tagproImg = new Image()
-    tagproImg.src = 'http://i.imgur.com/N11aYYg.png'
-    tagproImg.id = 'tagpro'
-    tagproImg = imgDiv.appendChild(tagproImg)
-
-    rollingbombImg = new Image()
-    rollingbombImg.src = 'http://i.imgur.com/kIkEHPK.png'
-    rollingbombImg.id = 'rollingbomb'
-    rollingbombImg = imgDiv.appendChild(rollingbombImg)
+        options = items.options;
+        if (!options.custom_textures) {
+            getTextureImages(items.default_textures, function(textureImages) {
+                textures = textureImages;
+                render();
+            });
+        } else {
+            getTextureImages(items.textures, function(textureImages) {
+                textures = textureImages;
+                render();
+            });
+        }
+    });
+    
 
     ////////////////////////////////
     /////     Playback bar     /////
@@ -192,11 +150,7 @@ function createReplay(positions) {
     }
     slider.onchange = function () {
         thisI = this.value
-        var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    	var useChat = readCookie('useChat') == 'true';
-        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+        animateReplay(thisI, positions, mapImg, options, textures, context)
     }
 
     function clearSliderArea() {
@@ -221,21 +175,17 @@ function createReplay(positions) {
 
     // Start replay animation.
     function updateMap(mapImg) {
-    	var time = Date.now();
-    	var startTime = time;
-    	var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    	var useChat = readCookie('useChat') == 'true';
-    	var fps = positions[me].fps;
+        var time = Date.now();
+        var startTime = time;
+        var fps = positions[me].fps;
         thingy = setInterval(function () {
             if (thisI >= positions.clock.length - 1) {
                 clearInterval(thingy);
             }
-            animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+            animateReplay(thisI, positions, mapImg, options, textures, context);
             dt = Date.now() - time;
-        	time = Date.now();
-        	var nFramesToAdvance = Math.round( dt / (1000 / fps) );
+            time = Date.now();
+            var nFramesToAdvance = Math.round( dt / (1000 / fps) );
             thisI = +thisI + nFramesToAdvance;
             slider.value = thisI;
         }, 1000 / fps)
@@ -297,13 +247,9 @@ function createReplay(positions) {
 
     // functions to control replay playback
     function resetReplay() {
-    	var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-    	var useChat = readCookie('useChat') == 'true';
         thisI = 0
         if(typeof thingy !== 'undefined') clearInterval(thingy)
-        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
+        animateReplay(thisI, positions, mapImg, options, textures, context);
         slider.value = 0
         delete(thingy)
         isPlaying = false
@@ -325,10 +271,8 @@ function createReplay(positions) {
         hideButtons()
         can.style.opacity = 0
         setTimeout(function () {
-            imgDiv.remove()
             removeButtons()
             can.remove()
-            newcan.remove()
             img.remove()
             delete(mapImg)
         }, 600)
@@ -343,7 +287,7 @@ function createReplay(positions) {
     }
 
     function pauseReplay() {
-        if (thingy) {
+        if (typeof thingy !== 'undefined') {
             clearInterval(thingy)
         }
         delete(thingy)
@@ -389,60 +333,37 @@ function createReplay(positions) {
     }
 
     function playCroppedMovie() {
-    	var useSpin = readCookie('useSpin') == 'true';
-    	var useSplats = readCookie('useSplats') == 'true';
-    	var useClockAndScore = readCookie('useClockAndScore') == 'true';
-		var useChat = readCookie('useChat') == 'true';
         if (typeof thingy === 'undefined') {
-            if (typeof currentCropStart === 'undefined') {
-                if (typeof currentCropEnd === 'undefined') {
-                    // just play the whole movie from the beginning
-                    thisI = 0
-                    if (typeof thingy === 'undefined') {
-                        playReplay()
-                    }
-                } else {
-                    // play only up until the crop end point
-                    thisI = 0
-                    endI = Math.floor(currentCropEnd * (positions.clock.length - 1))
-                    thingy = setInterval(function () {
-                        if (thisI == endI) {
-                            clearInterval(thingy)
-                            delete(thingy)
-                        }
-                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
-                        thisI++
-                        slider.value = thisI
-                    }, 1000 / positions[me].fps)
+            var missingStart = (typeof currentCropStart === 'undefined');
+            var missingEnd = (typeof currentCropEnd === 'undefined');
+            if (missingStart && missingEnd) {
+                // just play the whole movie from the beginning
+                thisI = 0
+                if (typeof thingy === 'undefined') {
+                    playReplay()
                 }
             } else {
-                if (typeof currentCropEnd === 'undefined') {
-                    // play from crop start point until the end
-                    thisI = Math.floor(currentCropStart * (positions.clock.length - 1))
-                    thingy = setInterval(function () {
-                        if (thisI == positions.clock.length - 1) {
-                            clearInterval(thingy)
-                            delete(thingy)
-                        }
-                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
-                        thisI++
-                        slider.value = thisI
-                    }, 1000 / positions[me].fps)
+                // Set start.
+                if (missingStart) {
+                    thisI = 0;
                 } else {
-                    // play in between crop start point and crop end point
-                    thisI = Math.floor(currentCropStart * (positions.clock.length - 1))
-                    endI = Math.floor(currentCropEnd * (positions.clock.length - 1))
-                    console.log(thisI)
-                    thingy = setInterval(function () {
-                        if (thisI == endI) {
-                            clearInterval(thingy)
-                            delete(thingy)
-                        }
-                        animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
-                        thisI++
-                        slider.value = thisI
-                    }, 1000 / positions[me].fps)
+                    thisI = Math.floor(currentCropStart * (positions.clock.length - 1));
                 }
+                // Set end.
+                if (missingEnd) {
+                    endI = positions.clock.length - 1;
+                } else {
+                    endI = Math.floor(currentCropEnd * (positions.clock.length - 1));
+                }
+                thingy = setInterval(function () {
+                    if (thisI == endI) {
+                        clearInterval(thingy);
+                        delete thingy;
+                    }
+                    animateReplay(thisI, positions, mapImg, options, textures, context);
+                    thisI++;
+                    slider.value = thisI;
+                }, 1000 / positions[me].fps);
             }
         }
     }
@@ -497,11 +418,11 @@ function createReplay(positions) {
             if (confirm('Are you sure you want to delete this replay?')) {
                 stopReplay(false)
                 setTimeout(function(){
-                	console.log('requesting to delete ' + replayToDelete)
-                	chrome.runtime.sendMessage({
-                    	method: 'requestDataDelete',
-                    	fileName: replayToDelete
-                	});
+                    console.log('requesting to delete ' + replayToDelete)
+                    chrome.runtime.sendMessage({
+                        method: 'requestDataDelete',
+                        fileName: replayToDelete
+                    });
                 }, 500);
             }
         }
@@ -542,9 +463,9 @@ function createReplay(positions) {
                 newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion
                 console.log('requesting to rename from ' + replayToRename + ' to ' + newName)
                 chrome.runtime.sendMessage({
-                    method: 'requestFileRename',
-                    oldName: replayToRename,
-                    newName: newName
+                    method: 'renameReplay',
+                    id: replayToRename,
+                    name: newName
                 });
             }
         }
@@ -684,18 +605,26 @@ function createReplay(positions) {
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
         var newName = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
+        // Cancelled window.
         if(newName === null) return;
+        // Generate generic name if blank.
         if(newName === '') {
-        	newName = 'replays' + Date.now();
+            newName = 'replays' + Date.now();
         } else {
-        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
-        	newName += 'DATE' + Date.now();
+            // Append the date generated if not blank.
+            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
+            newName += 'DATE' + Date.now();
         }
         stopReplay(false)
         chrome.runtime.sendMessage({
-        	method: 'setPositionData', 
-        	positionData: JSON.stringify(positions2),
-        	newName: newName
+            method: 'saveReplay', 
+            positionData: JSON.stringify(positions2),
+            name: name
+        }, function(response) {
+            // TODO: Handle successful saving.
+            if (!response.failed) {
+                // Indicate operation completed.
+            }
         })
         delete currentCropStart
         delete currentCropEnd
@@ -719,20 +648,22 @@ function createReplay(positions) {
         cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
         positions2 = cropPositionData(positions, cropStart, cropEnd)
         var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
+        // Return if cancelled.
         if(newName === null) return;
+        // Generate 
         if(newName === '') {
-        	var oldName = localStorage.getItem('currentReplayName');
-        	newName = localStorage.getItem('currentReplayName');
-        	var replaceName = false;
+            var oldName = localStorage.getItem('currentReplayName');
+            newName = localStorage.getItem('currentReplayName');
+            var replaceName = false;
         } else {
-        	var oldName = localStorage.getItem('currentReplayName');
-        	newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
-        	newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
-        	var replaceName = true;
+            var oldName = localStorage.getItem('currentReplayName');
+            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
+            newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
+            var replaceName = true;
         }
         stopReplay(false)
         chrome.runtime.sendMessage({
-            method: 'setPositionData',
+            method: 'replaceReplay',
             positionData: JSON.stringify(positions2),
             newName: newName,
             oldName: oldName
@@ -796,3 +727,5 @@ function createReplay(positions) {
     can.style.opacity = 1
     showButtons()
 }
+
+})(window);

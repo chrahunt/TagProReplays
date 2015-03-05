@@ -5,14 +5,16 @@
   "manifest_version": 2,
   "background": {
     "scripts": [
+      "indexedDBUtils.js",
+      "messaging.js",
+      "textures.js",
       "background.js",
       "map_draw_functions.js",
-      "createFileSystem.js",
-      "whammy.js",
-      "jquery.js",
-      "jszip.min.js",
-      "FileSaver.min.js",
-      "drawPreview.js"
+      "filesystem.js",
+      "lib/whammy.js",
+      "lib/jquery.js",
+      "lib/jszip.min.js",
+      "lib/FileSaver.min.js"
     ],
     "persistent": true
   },
@@ -28,11 +30,14 @@
         "http://tangent.jukejuice.com/*"
       ],
       "js": [
-        "jquery.js",
+        "lib/jquery.js",
+        "cookies.js",
+        "messaging.js",
+        "textures.js",
         "map_draw_functions.js",
-        "TagProReplays.js",
         "in-page-preview.js",
-        "loadTextures.js",
+        "menu.js",
+        "TagProReplays.js",
         "ui/bootstrap.min.js"
       ],
       "run_at": "document_end"
@@ -40,15 +45,16 @@
   ],
   "web_accessible_resources": [
     "replayRecording.js",
-    "tiles.png",
-    "portal.png",
-    "speedpad.png",
-    "speedpadred.png",
-    "speedpadblue.png",
-    "tagpro.png",
-    "rollingbomb.png",
-    "splats.png",
-    "flair.png",
+    "img/tiles.png",
+    "img/portal.png",
+    "img/speedpad.png",
+    "img/speedpadred.png",
+    "img/speedpadblue.png",
+    "img/tagpro.png",
+    "img/rollingbomb.png",
+    "img/splats.png",
+    "img/flair.png",
+    "img/loader.gif",
     "ui/menus.css",
     "ui/menus.html",
     "ui/menus.js",
