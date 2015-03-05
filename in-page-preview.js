@@ -618,7 +618,7 @@ window.createReplay = function(positions) {
         stopReplay(false)
         chrome.runtime.sendMessage({
             method: 'saveReplay', 
-            positionData: JSON.stringify(positions2),
+            data: JSON.stringify(positions2),
             name: name
         }, function(response) {
             // TODO: Handle successful saving.

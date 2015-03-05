@@ -190,7 +190,7 @@ Menu.prototype._init = function() {
         } else {
             var message = {
                 method: 'saveReplay',
-                positionData: fileData
+                data: fileData
             }
             if(typeof fileName !== 'undefined') {
                 message.name = fileName;
@@ -608,7 +608,7 @@ Menu.prototype._initSettings = function() {
     // Update options fields if options are updated.
     chrome.storage.onChanged.addListener(function(changes, areaName) {
         if (changes.options && changes.options.newValue) {
-            this._setttingsSet(changes.options.newValue);
+            this._settingsSet(changes.options.newValue);
         }
     }.bind(this));
     $('#textureSaveButton').click(function () {
