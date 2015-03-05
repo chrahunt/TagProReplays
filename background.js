@@ -530,7 +530,8 @@ function(message, sender, sendResponse) {
         var name = message.fileName || message.files[0];
         console.log('got data request for download - ' + name);
         getData(name, function(data) {
-            saveAs(data, name + '.txt');
+            var blob = new Blob([data], {type: 'application/json'});
+            saveAs(blob, name + '.txt');
         });
     } else if (message.files) {
         console.log('got request to download raw data for: ' + message.files)

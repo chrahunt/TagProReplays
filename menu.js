@@ -803,13 +803,13 @@ Menu.prototype._getSortableEntries = function() {
         var thisSeconds = Number(thisDurationString.split(':')[1]);
         var thisDuration = 60*thisMinutes + thisSeconds;
         var thisRendered = $(row).find('.rendered-check').text() !== '';
-        entries.push({
+        return {
             id: row.id,
             name: this._getName(row.id),
             duration: thisDuration,
             rendered: thisRendered,
             date: new Date(this._getTime(row.id))
-        });
+        };
     }.bind(this));
     return entries;
 };
