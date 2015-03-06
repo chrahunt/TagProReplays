@@ -119,9 +119,11 @@ function deleteData(filenames, tabNum) {
         filenames.forEach(function(filename) {
             localStorage.removeItem(filename);
         });
-        chrome.tabs.sendMessage(tabNum, {
-            method: 'dataDeleted',
-            deletedFiles: filenames
+        sendToTabs(function(id) {
+            chrome.tabs.sendMessage(id, {
+                method: 'dataDeleted',
+                deletedFiles: filenames
+            });
         });
         console.log('sent reply')
     });
@@ -135,11 +137,13 @@ function specialDeleteData(info, tabNum) {
     var metadata = info.metadata;
     var dataFileName = info.fileName;
     if(dataFileName === newName) {
-        chrome.tabs.sendMessage(tabNum, {
-            method: 'dataDeleted',
-            deletedFiles: dataFileName,
-            newName: newName,
-            metadata: metadata
+        sendToTabs(function(id) {
+            chrome.tabs.sendMessage(id, {
+                method: 'dataDeleted',
+                deletedFiles: dataFileName,
+                newName: newName,
+                metadata: metadata
+            });
         });
         localStorage.removeItem(dataFileName);
         console.log('sent crop and replace reply');
@@ -148,19 +152,23 @@ function specialDeleteData(info, tabNum) {
             localStorage.removeItem(filename);
 
             if(typeof newName !== 'undefined') {
-                chrome.tabs.sendMessage(tabNum, {
-                    method: 'dataDeleted',
-                    deletedFiles: dataFileName,
-                    newName: newName,
-                    metadata: metadata
+                sendToTabs(function(id) {
+                    chrome.tabs.sendMessage(id, {
+                        method: 'dataDeleted',
+                        deletedFiles: dataFileName,
+                        newName: newName,
+                        metadata: metadata
+                    });
+                    console.log('sent crop and replace reply');
                 });
-                console.log('sent crop and replace reply');
             } else {
-                chrome.tabs.sendMessage(tabNum, {
-                    method: 'dataDeleted',
-                    deletedFiles: dataFileName
+                sendToTabs(function(id) {
+                    chrome.tabs.sendMessage(id, {
+                        method: 'dataDeleted',
+                        deletedFiles: dataFileName
+                    });
+                    console.log('sent single delete reply')
                 });
-                console.log('sent single delete reply')
             }
         });
     }
@@ -176,12 +184,10 @@ function specialDeleteData(info, tabNum) {
  * the tab identified by tabId. When the rendering has finished or
  * failed, the callback is called.
  * @param  {string}   name - The name of the replay to render.
- * @param  {integer}   tabId - The id of the tab to update while
- *   rendering.
  * @param  {RenderCallback} callback - Called when the rendering is
  *  complete.
  */
-function renderMovie(name, tabId, callback) {
+function renderMovie(name, tabNum, callback) {
     // Given replay data, retrieve the FPS the replay was recorded at.
     function getFPS(data) {
         for (var j in data) {
@@ -202,7 +208,12 @@ function renderMovie(name, tabId, callback) {
         
         // Check position data and abort rendering if not good
         if(!checkData(positions)) {
-            callback(false);
+            chrome.tabs.sendMessage(tabNum, {
+                method: "replayRendered",
+                name: name,
+                failure: true
+            });
+            callback();
             return;
         }
 
@@ -230,16 +241,17 @@ function renderMovie(name, tabId, callback) {
                 
                 var encoder = new Whammy.Video(fps);
 
-                chrome.tabs.sendMessage(tabId, {
+                chrome.tabs.sendMessage(tabNum, {
                     method: "progressBarCreate",
                     name: name
                 });
 
                 for (var thisI = 0; thisI < frames; thisI++) {
                     if (thisI / Math.round(frames / 100) % 1 == 0) {
+                        var progress = thisI / positions.clock.length;
                         chrome.tabs.sendMessage(tabNum, {
                             method: "progressBarUpdate",
-                            progress: thisI / positions.clock.length,
+                            progress: progress,
                             name: name
                         });
                     }
@@ -250,7 +262,13 @@ function renderMovie(name, tabId, callback) {
                 var output = encoder.compile();
                 var filename = name.replace(/.*DATE/, '').replace('replays', '');
                 saveMovieFile(filename, output);
-                callback(true);
+                // Send replay render confirmation.
+                chrome.tabs.sendMessage(tabNum, {
+                    method: "replayRendered",
+                    name: name,
+                    failure: false
+                });
+                callback();
             }
 
             if (!options.custom_textures) {
@@ -605,14 +623,15 @@ function(message, sender, sendResponse) {
     // Whether this is the last replay to be rendered.
     var last = message.last;
     var replayName = message.data[message.index];
-    renderMovie(replayName, tabNum, function(success) {
+    renderMovie(replayName, tabNum, function() {
+        // Only send message back to original requesting tab to prevent
+        // issues that could occur if multiple menu pages are open at
+        // the same time.
         chrome.tabs.sendMessage(tabNum, {
             method: "renderConfirmation",
             replaysToRender: message.data,
             index: message.index,
-            last: last,
-            failure: !success,
-            name: replayName
+            last: last
         });
     });
 });

@@ -98,3 +98,16 @@
 #tpr-container .list-header {
     cursor: pointer;
 }
+
+#tpr-container .modal-body {
+    padding-bottom: 0px;
+}
+
+#tpr-container #noReplays {
+    height: 36px;
+}
+
+#tpr-container #noReplays p {
+    line-height: 36px;
+    margin: 0px;
+}

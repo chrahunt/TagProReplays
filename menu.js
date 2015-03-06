@@ -8,7 +8,7 @@
  */
 (function(window, document, undefined) {
 
-// Symbols used.
+// Symbols used for replay table headers.
 var UP_ARROW = "\u25B2";
 var DOWN_ARROW = "\u25BC";
 
@@ -30,8 +30,8 @@ var Menu = function() {
 window.Menu = Menu;
 
 /**
- * Carry out initialization after html is loaded.
- * @return {[type]} [description]
+ * Carry out initialization. Should be called after (or in response to)
+ * the loading of the html for the menu.
  */
 Menu.prototype._init = function() {
     /* UI-specific code */
@@ -74,177 +74,14 @@ Menu.prototype._init = function() {
         });
     });
 
-    // Allow binding to menu.
-    var menu = this;
-
-    // This puts the current replays into the menu
-    // storageData is an array of the ids for the replays.
-    // movienames is an array of the movie names that have been rendered
-    // metadata is an array of strings representing json objects.
-    // - objects have redTeam, blueTeam, map, fps, and duration.
-    /**
-     * Populate replays into the menu list.
-     * @param {Array.<EntryData>} entries - The entries to populate
-     *   into the menu.
-     */
-    populateList = function(entries) {
-        // Formats metadata object to put into title text.
-        function formatMetaDataTitle(metadata) {
-            var title = '';
-            title += "Map: " + metadata.map + "\n";
-            title += "FPS: " + metadata.fps + "\n";
-            title += "Red Team:\n\t" + metadata.redTeam.join('\n\t') + "\n";
-            title += "Blue Team:\n\t" + metadata.blueTeam.join('\n\t') + "\n";
-            return title;
-        }
-
-        if (!(entries.length > 0)) {
-            // Show "No replays" message.
-            $('#noReplays').show();
-            $('#renderSelectedButton').prop('disabled', true);
-            $('#deleteSelectedButton').prop('disabled', true);
-            $('#downloadRawButton').prop('disabled', true);
-            $('#replayList').hide();
-        } else {
-            console.log("Got replays.");
-            // Enable buttons for interacting with multiple selections.
-            $('#renderSelectedButton').prop('disabled', false);
-            $('#deleteSelectedButton').prop('disabled', false);
-            $('#downloadRawButton').prop('disabled', false);
-
-            // Sort the entries.
-            this._sortEntries(entries, readCookie('sortMethod'));
-            entries.forEach(function(entry) {
-                this.addRow(entry);
-            }, this);
-
-            // Display list of replays.
-            $('#replayList').show();
-
-            $('#noReplays').hide();
-
-            // TODO: Put resizing in another function that can be
-            // called in response to entry removal and addition.
-            $('#replayList').height('auto');
-            // Automatic height adjustment for replay list.
-            $('#menuContainer .modal-dialog').data(
-                'original-height',
-                $('#menuContainer .modal-dialog').height()
-            );
-
-            setReplayListHeight = function () {
-                if ($('#menuContainer .modal-dialog').data('original-height') > $(window).height()) {
-                    var setHeight = false;
-                    var newHeight = 185;
-                    if ($(window).height() > 500) {
-                        newHeight = $(window).height() - 315;
-                    }
-                    $('#replayList').height(newHeight);
-                }
-            }
-            
-            setReplayMenuWidth = function() {
-                $('#menuContainer .modal-dialog').width(.70*$(window).width());
-            }
-            
-            setReplayMenuWidth();
-            $(window).resize(setReplayListHeight);
-            $(window).resize(setReplayMenuWidth);
-            setReplayListHeight();
-        }
-    }.bind(this);
-    /* end populateList */
-
-    // Update list of replays when menu is opened.
-    $('#menuContainer').on('show.bs.modal', function () {
-        $('.replayRow').not('.clone').remove();
-        // Send request for updating list.
-        chrome.runtime.sendMessage({
-            method: 'requestList'
-        }, function(response) {
-            var entries = this._getEntryData(response);
-            populateList(entries);
-        }.bind(menu));
-    });
-
-    // Raw data import functionality.
-    /*
-     * Test a raw TagPro Replays data file for integrity and add to
-     * replays.
-     * fileData  the file data as read from the file input
-     * fileName  [optional]  the name of the file as it will appear in
-     *   the replay list.
-     */
-    rawParse = function (fileData, fileName, i, files) {
-        i++;
-        try {
-            var parsedData = JSON.parse(fileData);
-        } catch (err) {
-            alert('The file you uploaded was not a valid TagPro Replays raw file.');
-            return;
-        }
-
-        // Test for necessary replay parts.
-        if (!parsedData.tiles | !parsedData.clock | !parsedData.floorTiles | !parsedData.map | !parsedData.wallMap) {
-            alert('The file you uploaded was not a valid TagPro Replays raw file.');
-        } else {
-            var message = {
-                method: 'saveReplay',
-                data: fileData
-            }
-            if(typeof fileName !== 'undefined') {
-                message.name = fileName;
-            } else {
-                message.name = 'replays' + new Date().getTime();
-            }
-
-            // Send message to set position data.
-            chrome.runtime.sendMessage(message, function(response) {
-                // TODO: Handle failed replay adding.
-                // Read next file.
-                readImportedFile(files, i);
-            });
-        }
-    }
-    
-    // function for preparing a file to be read by the rawParse function
-    readImportedFile = function(files, i) {
-        if(i==files.length) return
-        var rawFileReader = new FileReader();
-        var newFileName = files[i].name.replace(/\.txt$/, '');
-        if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
-            newFileName += 'DATE' + new Date().getTime()
-        }
-        rawFileReader.onload = function (e) {
-            rawParse(e.target.result, newFileName, i, files);
-        }
-        rawFileReader.readAsText(files[i]);
-    };
-    
-    // Visible button invokes the actual file input.
-    $('#raw-upload-button').click(function (e) {
-        // Empty file input so change listener is invoked even if same
-        // file is selected.
-        $('#raw-upload').val('');
-        $('#raw-upload').click();
-        e.preventDefault();
-    });
-    $('#raw-upload').attr('accept', '.txt');
-    $('#raw-upload').change(function () {
-        var files = $(this).prop('files');
-        if (files.length > 0) {
-            readImportedFile(files, 0)
-        }
-    });
-
-    // Run other initializations.
-    this._initReplayList();
-    this._initSettings();
+    // Run initialization for other parts of the menu.
     this._initListeners();
+    this._initSettings();
+    this._initReplayList();
 };
 
 /**
- * Initialize state related to the replay table.
+ * Initialize state and functionality related to the replay list.
  */
 Menu.prototype._initReplayList = function() {
     // allow 'select all' checkbox to work
@@ -283,6 +120,241 @@ Menu.prototype._initReplayList = function() {
     if(!readCookie('sortMethod')) {
         setCookie('sortMethod', 'chronoD');
     }
+
+    // Raw data import functionality.
+    // Visible button invokes the actual file input.
+    $('#raw-upload-button').click(function (e) {
+        // Empty file input so change listener is invoked even if same
+        // file is selected.
+        $('#raw-upload').val('');
+        $('#raw-upload').click();
+        e.preventDefault();
+    });
+    $('#raw-upload').attr('accept', '.txt');
+    $('#raw-upload').change(this._list_Import());
+
+    // Initialize listener for list modifications.
+    var target = $('#replayList tbody')[0];
+    var observer = new MutationObserver(function(mutations) {
+        var update = mutations.some(function(mutation) {
+            return mutation.type === 'childList';
+        });
+        if (update) {
+            this._list_Update();
+        }
+    }.bind(this))
+    observer.observe(target, { childList: true });
+
+    // Re-set menu dimensions on window resize.
+    $(window).resize(this._setListHeight);
+    $(window).resize(this._setListWidth);
+
+    // Send request for initially populating list.
+    chrome.runtime.sendMessage({
+        method: 'requestList'
+    }, function(response) {
+        var entries = this._getEntryData(response);
+        // Sort the entries.
+        this._sortEntries(entries, readCookie('sortMethod'));
+        entries.forEach(function(entry) {
+            this.addRow(entry);
+        }, this);
+        this.listInitialized = true;
+    }.bind(this));
+
+    // Initially set list UI in case above request doesn't result in
+    // any new rows being added.
+    this._list_Update();
+};
+
+/**
+ * Returns a function to be set as a listener on the replay import
+ * button.
+ * @return {Function} - The function to be set as a listener on the
+ *   replay import button.
+ */
+Menu.prototype._list_Import = function() {
+    var menu = this;
+    return function() {
+        /**
+         * Given the name of an uploaded file, get the name of the replay
+         * the raw data should be saved under.
+         * @param {string} filename - The name of the raw data file
+         *   uploaded.
+         * @return {string} - The name to use for the replay.
+         */
+        function getReplayName(filename) {
+            var name = filename.replace(/\.txt$/, '');
+            if (name.search('DATE') < 0 && name.search('replays') != 0) {
+                name += 'DATE' + new Date().getTime();
+            }
+            return name;
+        }
+
+        /**
+         * Checks whether the values for each of the properties on the
+         * passed object are true.
+         * @param {object} pending - The object with properties
+         *   corresponding to the tasks to be completed.
+         * @return {Boolean} - Whether or not all the tasks are
+         *   completed.
+         */
+        function isComplete(pending) {
+            for (var operation in pending) {
+                var status = pending[operation];
+                if (!status) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        var fileData = [];
+        var rawFiles = $(this).prop('files');
+        var files = [];
+        for (var i = 0; i < rawFiles.length; i++) {
+            files.push(rawFiles[i]);
+        }
+        // Object to hold the status of each file reading operation.
+        var pending = {};
+        files.forEach(function(file) {
+            var replayName = getReplayName(file.name);
+            pending[replayName] = false;
+            var fr = new FileReader();
+            fr.onload = function(e) {
+                fileData.push({
+                    name: replayName,
+                    data: e.target.result,
+                    filename: file.name
+                });
+                delete pending[replayName];
+                if (isComplete(pending)) {
+                    menu._parseRawData(fileData);
+                }
+            }
+            fr.readAsText(file);
+        });
+    }
+};
+
+/**
+ * @typedef FileData
+ * @type {object}
+ * @property {string} name - The name to use for the replay.
+ * @property {string} filename - The name of the file as uploaded by
+ *   the user.
+ * @property {PositionData} data - The actual replay data.
+ */
+/**
+ * Parse the raw data and send the information to the background script
+ * for saving.
+ * @param {Array.<FileData>} filedata - The data for the file(s)
+ *   uploaded by the user.
+ */
+Menu.prototype._parseRawData = function(filedata) {
+    if (filedata.length == 0) return;
+    /**
+     * Check whether a given data file meets some basic requirements.
+     * @param {object} parsedData
+     * @return {boolean} - Whether the object from the data file
+     *   contains the required properties.
+     */
+    function checkParsed(parsedData) {
+        var props = ["tiles", "clock", "floorTiles", "map", "wallMap"];
+        return props.every(function(prop) {
+            return parsedData.hasOwnProperty(prop);
+        });
+    }
+
+    var info = filedata.pop();
+    var name = info.name;
+    var data = info.data;
+    try {
+        var parsed = JSON.parse(data);
+    } catch (err) {
+        alert('The file you uploaded was not a valid TagPro Replays raw file.');
+        return;
+    }
+
+    if (!checkParsed(parsed)) {
+        alert('The file you uploaded was not a valid TagPro Replays raw file.');
+    } else {
+        var message = {
+            method: 'saveReplay',
+            data: data
+        }
+        // When would filename be undefined?
+        if(typeof name !== 'undefined') {
+            message.name = name;
+        } else {
+            message.name = 'replays' + new Date().getTime();
+        }
+
+        // Send message to set position data.
+        chrome.runtime.sendMessage(message, function(response) {
+            // TODO: Handle failed replay adding.
+            // Read next file.
+            this._parseRawData(filedata);
+        }.bind(this));
+    }
+};
+
+/**
+ * Function called in response to a list update.
+ */
+Menu.prototype._list_Update = function() {
+    var entries = this.getEntries();
+    if (entries.length == 0) {
+        $('#noReplays').show();
+        $('#replayList').hide();
+
+        $('#renderSelectedButton').prop('disabled', true);
+        $('#deleteSelectedButton').prop('disabled', true);
+        $('#downloadRawButton').prop('disabled', true);
+        $('#selectAllCheckbox').prop('checked', false);
+        $('#selectAllCheckbox').prop('disabled', true);
+    } else {
+        $('#replayList').show();
+        $('#noReplays').hide();
+        // Enable buttons for interacting with multiple selections.
+        $('#renderSelectedButton').prop('disabled', false);
+        $('#deleteSelectedButton').prop('disabled', false);
+        $('#downloadRawButton').prop('disabled', false);
+        $('#selectAllCheckbox').prop('disabled', false);
+
+    }
+
+    // Updating.
+    $('#replayList').height('auto');
+    // Automatic height adjustment for replay list.
+    $('#menuContainer .modal-dialog').data(
+        'original-height',
+        $('#menuContainer .modal-dialog').height());
+
+    this._setListHeight();
+    this._setListWidth();
+};
+
+/**
+ * Set replay list height relative to the visible height of the window
+ * unless the window is very short.
+ */
+Menu.prototype._setListHeight = function() {
+    if ($('#menuContainer .modal-dialog').data('original-height') > $(window).height()) {
+        var setHeight = false;
+        var newHeight = 185;
+        if ($(window).height() > 500) {
+            newHeight = $(window).height() - 315;
+        }
+        $('#replayList').height(newHeight);
+    }
+};
+
+/**
+ * Set replay list width relative to the visible width of the window.
+ */
+Menu.prototype._setListWidth = function() {
+    $('#menuContainer .modal-dialog').width(.70*$(window).width());
 };
 
 /**
@@ -291,7 +363,6 @@ Menu.prototype._initReplayList = function() {
 Menu.prototype._list_Render = function() {
     var replaysToRender = this.getCheckedEntries();
     if (replaysToRender.length > 0) {
-        console.log(replaysToRender);
         if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
             chrome.runtime.sendMessage({
                 method: 'render',
@@ -299,7 +370,9 @@ Menu.prototype._list_Render = function() {
                 index: 0,
                 last: replaysToRender.length == 1
             });
-            console.log('sent request to render multiple replays: ' + replaysToRender);
+            console.log('Sent request to render replay' + 
+                (replaysToRender.length == 1 ? '' : 's') + ': ' +
+                replaysToRender);
         }
     }
 };
@@ -631,8 +704,6 @@ Menu.prototype._initSettings = function() {
     }
 
     $('#record-key-input-container').click(function (e) {
-        console.log("target: " + e.target);
-        console.log("test");
         $(this).addClass('focused');
         $(document).on("keypress", keyListener)
     });
@@ -909,10 +980,6 @@ Menu.prototype.orderList = function(order) {
     $('#replayList tBody').prepend($('#replayList .clone'));
 };
 
-// function to add a row to the replay list
-// the second argument tells the function where to put the new row
-// if it equals "top", then the row goes at the top
-// if it is a replay name, it will go before that replay 
 /**
  * Add a row to the list.
  * @param {EntryData} entry - The information for the replay to add
@@ -960,7 +1027,11 @@ Menu.prototype.addRow = function(entry, insertAfterId) {
             placement : 'right',
             content: this._entry_Preview()
         });
-        newRow.find('.download-movie-button').prop('disabled', true);
+        if (rendered) {
+            newRow.find('.rendered-check').text('✓');
+        } else {
+            newRow.find('.download-movie-button').prop('disabled', true);
+        }
         newRow.find('.replay-date').text(datevalue);
         newRow.find('.duration').text(durationFormatted);
         newRow[0].title = titleText;
@@ -1047,13 +1118,18 @@ Menu.prototype.getCheckedEntries = function() {
     return checkedEntries;
 };
 
-// Show menu.
+/**
+ * Shows the menu.
+ */
 Menu.prototype.open = function() {
     if ($('#menuContainer').length) {
         $('#menuContainer').modal('show');
     }
 };
 
+/**
+ * Set form titles for input controls on settings window.
+ */
 Menu.prototype._setSettingsFormTitles = function() {
     fpsTitle = 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
     'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
@@ -1212,12 +1288,22 @@ Menu.prototype._initListeners = function() {
      */
     messageListener("progressBarUpdate",
     function(message, sender, sendResponse) {
-        if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
-            $('#' + message.name + ' .progressbar')[0].value = message.progress
+        // Create progress bar if it does not exist.
+        if (typeof $('#' + message.name + ' .progressbar')[0] == 'undefined' &&
+            this.listInitialized) {
+            $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">');
         }
-    });
+        if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
+            $('#' + message.name + ' .progressbar')[0].value = message.progress;
+        }
+    }.bind(this));
 
-    messageListener("renderConfirmation",
+    /**
+     * Alerts the menu that a new replay has been rendered. The UI is
+     * updated with the result of the rendering.
+     * message has properties failure and name.
+     */
+    messageListener("replayRendered",
     function(message, sender, sendResponse) {
         $('#' + message.name + ' .progressbar').remove();
         if (message.failure) {
@@ -1228,7 +1314,15 @@ Menu.prototype._initListeners = function() {
             $('#' + message.name + ' .rendered-check').text('✓');
             $('#' + message.name + ' .download-movie-button').prop('disabled', false);
         }
+    });
 
+    /**
+     * Received after a requested rendering is completed. Only send
+     * back to the tab containing the menu that requested the initial
+     * rendering.
+     */
+    messageListener("renderConfirmation",
+    function(message, sender, sendResponse) {
         if (!message.last) {
             var index = message.index + 1;
             var last = false;
