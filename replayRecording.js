@@ -8,12 +8,24 @@
  */
 (function(window, document, undefined) {
 
+/**
+ * Create an array of size N filled with zeros.
+ * @param {integer} N - The size of the array to create.
+ * @return {Array.<integer>} - An array of size `N` filled with zeros.
+ */
 function createZeroArray(N) {
-    return (Array.apply(null, {length: N}).map(Number.call, function () {
-        return (0)
-    }))
+    return Array.apply(null, {length: N}).map(Number.call, function() {
+        return 0;
+    });
 }
 
+/**
+ * Read cookie with given name, returning its value if found. If no
+ * cookie with the name is found, returns `null`.
+ * @param {string} name - The name of the cookie to retrieve the value
+ *   for.
+ * @return {?string} - The value of the cookie, or null if not found.
+ */
 function readCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
@@ -25,7 +37,25 @@ function readCookie(name) {
     return null;
 }
 
-// Get options from cookies.
+/**
+ * @typedef Options
+ * @type {object}
+ * @property {integer} fps - The FPS at which the replay should be
+ *   recorded at.
+ * @property {integer} duration - The duration (in seconds) of the
+ *   replay.
+ * @property {boolean} record_key_enabled - Whether or not the record
+ *   hotkey should function.
+ * @property {integer} record_key - The KeyCode for the hotkey that can
+ *   be used to save a replay.
+ * @property {boolean} record - Whether or not recording should occur.
+ * @property {??} treter - ??
+ */
+/**
+ * Get set options from cookies, or default options if no cookies are
+ * set.
+ * @return {Options} - The options to use when recording.
+ */
 function getOptions() {
     function getBooleanCookie(name, defaultValue) {
         var cookie = readCookie(name);
@@ -55,6 +85,7 @@ function getOptions() {
     return options;
 }
 
+// Initially retrieve options.
 var options = getOptions();
 
 function recordReplayData() {
@@ -120,7 +151,7 @@ function recordReplayData() {
     // function to save game data
     saveGameData = function () {
         currentPlayers = tagpro.players;
-        for (player in currentPlayers) {
+        for (var player in currentPlayers) {
             if (!positions['player' + player]) {
                 positions['player' + player] = {
                     x: createZeroArray(saveDuration * fps),
@@ -140,20 +171,28 @@ function recordReplayData() {
                     degree: createZeroArray(saveDuration * fps),
                     flair: createZeroArray(saveDuration * fps),
                     angle: createZeroArray(saveDuration * fps)
-                }
+                };
             }
         }
-        for (player in positions) {
-            if (player.search('player') == 0) {
-                for (i in positions[player]) {
-                    if ($.isArray(positions[player][i])) {
-                        positions[player][i].shift();
-                        positions[player][i].push(typeof tagpro.players[player.replace('player', '')] != 'undefined' ? tagpro.players[player.replace('player', '')][i] : null);
+        for (var player in positions) {
+            if (player.search('player') === 0) {
+                for (var prop in positions[player]) {
+                    // Only apply to properties tracked over time.
+                    if ($.isArray(positions[player][prop])) {
+                        var frames = positions[player][prop];
+                        var playerId = player.replace('player', '');
+
+                        frames.shift();
+                        if (typeof tagpro.players[playerId] !== 'undefined') {
+                            frames.push(tagpro.players[playerId][prop]);
+                        } else {
+                            frames.push(null);
+                        }
                     }
                 }
             }
         }
-        for (j in positions.floorTiles) {
+        for (var j in positions.floorTiles) {
             positions.floorTiles[j].value.shift();
             positions.floorTiles[j].value.push(tagpro.map[positions.floorTiles[j].x][positions.floorTiles[j].y]);
         }
@@ -163,56 +202,84 @@ function recordReplayData() {
         positions.score.push(tagpro.score);
     }
 
-    thing = setInterval(saveGameData, 1000 / fps)
+    thing = setInterval(saveGameData, 1000 / fps);
 }
 
 //////////////////////////////////////////
 /// Interpretation of wall and map data //
 //////////////////////////////////////////
 
+/**
+ * @typedef TileData
+ * @type {object}
+ * @property {string} tile - The type of tile.
+ * @property {object} coordinates - Coordinates corresponding to the
+ *   location of the tile on the tiles sprite, or an object with
+ *   properties 0, 1, 2, 3 which each hold arrays with the same
+ *   information.
+ * @property {integer} tileSize - The size of the tile to draw.
+ * @property {boolean} drawTileFirst - Whether a floor tile should be
+ *   drawn under the given tile before drawing the tile itself.
+ */
+/**
+ * [decipherMapdata description]
+ * @param {[type]} mapData [description]
+ * @param {[type]} mapElements [description]
+ * @return {[type]} [description]
+ */
 function decipherMapdata(mapData, mapElements) {
-    result = [];
+    var result = [];
     console.log(mapData);
-    for (col in mapData) {
+    for (var col in mapData) {
         result.push([]);
-        for (row in mapData[col]) {
+        for (var row in mapData[col]) {
             result[col].push({});
         }
     }
 
-    for (col in mapData) {
-        for (row in mapData[col]) {
-            if (mapData[col][row] >= 1 & mapData[col][row] < 2) {
-                if (mapData[col][row] > 1 & mapData[col][row] < 2) {
-                    result[col][row].tile = 'diagonalWall';
-                    result[col][row].coordinates = {0: {}, 1: {}, 2: {}, 3: {}};
-                    result[col][row].coordinates.x = 13;
-                    result[col][row].coordinates.y = 4;
-                } else {
-                    result[col][row].tile = 'wall';
-                    result[col][row].coordinates = {0: {}, 1: {}, 2: {}, 3: {}};
-                }
+    for (var col in mapData) {
+        for (var row in mapData[col]) {
+            var tileId = mapData[col][row];
+            if (tileId == 1) {
+                result[col][row].tile = 'wall';
                 result[col][row].tileSize = 20;
+                result[col][row].coordinates = {0: {}, 1: {}, 2: {}, 3: {}};
+            } else if (Math.floor(tileId) == 1) {
+                result[col][row].tile = 'diagonalWall';
+                result[col][row].tileSize = 20;
+                result[col][row].coordinates = {0: {}, 1: {}, 2: {}, 3: {}};
+                result[col][row].coordinates.x = 13;
+                result[col][row].coordinates.y = 4;
             } else {
-                result[col][row] = mapElements[mapData[col][row]];
+                result[col][row] = mapElements[tileId];
             }
         }
     }
-    return (result);
+    return result;
 }
 
 function translateWallTiles(decipheredData, wallData, quadrantCoords) {
-    for (col in decipheredData) {
-        for (row in decipheredData[col]) {
-            if (decipheredData[col][row].tile == "wall" | decipheredData[col][row].tile == "diagonalWall") {
-                decipheredData[col][row].coordinates[0] = quadrantCoords[wallData[col][row][0].toString().replace('1.', '')]
-                decipheredData[col][row].coordinates[1] = quadrantCoords[wallData[col][row][1].toString().replace('1.', '')]
-                decipheredData[col][row].coordinates[2] = quadrantCoords[wallData[col][row][2].toString().replace('1.', '')]
-                decipheredData[col][row].coordinates[3] = quadrantCoords[wallData[col][row][3].toString().replace('1.', '')]
-            }
-        }
+    function getWallId(id) {
+        return id.toString().replace('1.', '');
     }
-    return (decipheredData)
+    decipheredData.forEach(function(col, c) {
+        col.forEach(function(data, r) {
+            var tile = data.tile;
+            if (tile == "wall" || tile == "diagonalWall") {
+                var coordinates = data.coordinates;
+                var wallCoords = wallData[c][r];
+                var wallId = getWallId(wallCoords[0]);
+                coordinates[0] = quadrantCoords[wallId];
+                wallId = getWallId(wallCoords[1]);
+                coordinates[1] = quadrantCoords[wallId];
+                wallId = getWallId(wallCoords[2]);
+                coordinates[2] = quadrantCoords[wallId];
+                wallId = getWallId(wallCoords[3]);
+                coordinates[3] = quadrantCoords[wallId];
+            }
+        });
+    });
+    return decipheredData;
 }
 
 
@@ -455,7 +522,7 @@ var quadrantCoords = {
 };
 
 
-mapElements = {
+var mapElements = {
     0: {tile: "blank", coordinates: {x: 15, y: 10}, tileSize: 40, drawTileFirst: false},
     2: {tile: "tile", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
     3: {tile: "redflag", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
@@ -489,7 +556,7 @@ mapElements = {
     16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
     17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
     18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
-}
+};
 
 
 function emit(event, data) {

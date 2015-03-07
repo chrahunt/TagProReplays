@@ -245,6 +245,7 @@ function drawTagpro(point, tagpro) {
 function drawClock(positions) {
     if (!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[thisI]).getTime()) {
         var curTimeMilli;
+        // Handle old version of replay data where gameEndsAt was not an array.
         if (!$.isArray(positions.gameEndsAt)) {
             if (new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[thisI]).getTime()) {
                 curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12 * 60 * 1000 - new Date(positions.clock[thisI]).getTime()
