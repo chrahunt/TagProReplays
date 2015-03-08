@@ -175,6 +175,95 @@ function specialDeleteData(info, tabNum) {
 }
 
 /**
+ * Callback function that needs options and textures.
+ * @callback OptionsCallback
+ * @param {Options} options - Options.
+ * @param {Textures} textures - Textures.
+ */
+/**
+ * Retrieve the options and textures to render a replay.
+ * @param {OptionsCallback} callback - 
+ */
+function getRenderSettings(callback) {
+    // Retrieve options and textures and render the movie.
+    chrome.storage.local.get(["options", "textures"], function(items) {
+        var options = items.options;
+        var textures;
+        if (!options.custom_textures) {
+            getDefaultTextures(function(defaultTextures) {
+                getTextureImages(defaultTextures, function(textureImages) {
+                    textures = textureImages;
+                    callback(options, textures);
+                });
+            });
+        } else {
+            getTextureImages(items.textures, function(textureImages) {
+                textures = textureImages;
+                callback(options, textures);
+            });
+        }
+    });
+}
+
+/**
+ * @callback LoopCallback
+ * @param {integer} i - The iteration number.
+ */
+/**
+ * Holds options, limits to impose on the execution of the
+ * `processNonBlocking` function.
+ * @typedef ProcessOptions
+ * @type {object}
+ * @property {boolean} limit - Whether or not to limit the processing.
+ * @property {integer} [max_iterations] - If `limit` is set, then this
+ *   field dictates a maximum number of consecutive loops to be
+ *   executed.
+ */
+/**
+ * Execute looping process without 
+ * @param {integer} start - The iteration at which to start the loop.
+ * @param {integer} end - The iteration at which to stop the loop.
+ * @param {LoopCallback} loop - The function to execute once for each
+ *   value between start and end.
+ * @param {Function} then - The function called when execution is
+ *   complete.
+ * @param {ProcessOptions} options - Options here dictate parameters
+ *   such as the maximum number of consecutive loops that will be
+ *   executed before relinquishing thread control.
+ */
+function processNonBlocking(start, end, loop, then, options) {
+    if (typeof options == 'undefined') options = {};
+    // Limit indicated.
+    if (options.limit) {
+        // Max number of iterations in a single stretch of
+        // execution.
+        if (options.max_iterations) {
+            var iterations = end - start;
+            if (iterations > options.max_iterations) {
+                var oldEnd = end;
+                end = start + options.max_iterations;
+                var nextStart = end;
+                var oldThen = then;
+                then = function() {
+                    setTimeout(function() {
+                        processNonBlocking(
+                            nextStart,
+                            oldEnd,
+                            loop,
+                            oldThen,
+                            options);
+                    });
+                };
+            }
+        }
+    }
+    for (var i = start; i < end; i++) {
+        loop(i);
+    }
+    then();
+}
+
+/**
  * @callback RenderCallback
  * @param {boolean} result - Whether or not the rendering completed
  *   successfully.
@@ -225,65 +314,63 @@ function renderMovie(name, tabNum, callback) {
 
         var context = canvas.getContext('2d');
 
-        // Retrieve options and textures and render the movie.
-        chrome.storage.local.get(["options", "textures"], function(items) {
-            var options = items.options;
-            var textures;
+        getRenderSettings(function(options, textures) {
+            // Set rendering canvas dimensions.
+            canvas.width = options.canvas_width;
+            canvas.height = options.canvas_height;
 
-            function render() {
-                // Set rendering canvas dimensions.
-                canvas.width = options.canvas_width;
-                canvas.height = options.canvas_height;
+            var mapImgData = drawMap(positions, textures.tiles);
+            var mapImg = new Image();
+            mapImg.src = mapImgData;
+            
+            var encoder = new Whammy.Video(fps);
 
-                var mapImgData = drawMap(positions, textures.tiles);
-                mapImg = new Image()
-                mapImg.src = mapImgData
-                
-                var encoder = new Whammy.Video(fps);
-
-                chrome.tabs.sendMessage(tabNum, {
-                    method: "progressBarCreate",
-                    name: name
+            sendToTabs(function(id) {
+                chrome.tabs.sendMessage(id, {
+                    method: "replayRendering",
+                    name: name,
+                    progress: 0
                 });
+            });
 
-                for (var thisI = 0; thisI < frames; thisI++) {
-                    if (thisI / Math.round(frames / 100) % 1 == 0) {
-                        var progress = thisI / positions.clock.length;
-                        chrome.tabs.sendMessage(tabNum, {
-                            method: "progressBarUpdate",
+            // Execute for each frame.
+            function loop(frame) {
+                if (frame / Math.round(frames / 100) % 1 == 0) {
+                    var progress = frame / frames;
+                    sendToTabs(function(id) {
+                        chrome.tabs.sendMessage(id, {
+                            method: "replayRendering",
                             progress: progress,
                             name: name
                         });
-                    }
-                    animateReplay(thisI, positions, mapImg, options, textures, context);
-                    encoder.add(context)
+                    });
                 }
+                animateReplay(frame, positions, mapImg, options, textures, context);
+                encoder.add(context);
+            }
 
+            // Execute after loop is complete.
+            function then() {
                 var output = encoder.compile();
                 var filename = name.replace(/.*DATE/, '').replace('replays', '');
                 saveMovieFile(filename, output);
                 // Send replay render confirmation.
-                chrome.tabs.sendMessage(tabNum, {
-                    method: "replayRendered",
-                    name: name,
-                    failure: false
+                sendToTabs(function(id) {
+                    chrome.tabs.sendMessage(id, {
+                        method: "replayRendered",
+                        name: name,
+                        failure: false
+                    });
                 });
                 callback();
             }
 
-            if (!options.custom_textures) {
-                getDefaultTextures(function(defaultTextures) {
-                    getTextureImages(defaultTextures, function(textureImages) {
-                        textures = textureImages;
-                        render();
-                    });
-                });
-            } else {
-                getTextureImages(items.textures, function(textureImages) {
-                    textures = textureImages;
-                    render();
-                });
-            }
+            var opts = {
+                limit: true,
+                max_iterations: 3
+            };
+            // Execute the rendering without blocking execution.
+            processNonBlocking(0, frames, loop, then, opts);
         });
     });
 }
@@ -307,11 +394,11 @@ function downloadMovie(name) {
             method: "movieDownloadFailure"
         });
         console.log('sent movie download failure notice');
-    };
+    }
     var filename = name.replace(/.*DATE/, '').replace('replays', '');
     getMovieFile(filename, function(dataUri) {
         var movie = dataURItoBlob(dataUri);
-        movie.type = 'video/webm'
+        movie.type = 'video/webm';
         if (typeof movie !== "undefined") {
             saveAs(movie, filename + '.webm');
         } else {
@@ -604,8 +691,8 @@ function(message, sender, sendResponse) {
 messageListener("cleanRenderedReplays",
 function(message, sender, sendResponse) {
     tabNum = sender.tab.id;
-    console.log('got request to clean rendered replays')
-    getCurrentReplaysForCleaning()
+    console.log('got request to clean rendered replays');
+    getCurrentReplaysForCleaning();
 });
 
 /**
@@ -618,20 +705,16 @@ function(message, sender, sendResponse) {
 messageListener("render",
 function(message, sender, sendResponse) {
     console.log('Received request to render these replays: ' + message.data);
-
     var tabNum = sender.tab.id;
-    // Whether this is the last replay to be rendered.
-    var last = message.last;
-    var replayName = message.data[message.index];
+
+    var replayName = message.data.pop();
     renderMovie(replayName, tabNum, function() {
         // Only send message back to original requesting tab to prevent
         // issues that could occur if multiple menu pages are open at
         // the same time.
         chrome.tabs.sendMessage(tabNum, {
             method: "renderConfirmation",
-            replaysToRender: message.data,
-            index: message.index,
-            last: last
+            replaysLeft: message.data
         });
     });
 });

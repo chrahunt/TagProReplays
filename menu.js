@@ -363,12 +363,19 @@ Menu.prototype._setListWidth = function() {
 Menu.prototype._list_Render = function() {
     var replaysToRender = this.getCheckedEntries();
     if (replaysToRender.length > 0) {
-        if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
+        var msg = "Are you sure you wish to render these replays? " +
+            "Some extension functions will be unavailable until the " +
+            "movies are rendered.";
+        if (confirm(msg)) {
+            // Display queued message on replays.
+            replaysToRender.forEach(function(replay) {
+                $('#' + replay + ' .rendered-check').text('Queued...');
+                $('#' + replay + ' .rendered-check')
+                    .css('color', 'green');
+            });
             chrome.runtime.sendMessage({
                 method: 'render',
-                data: replaysToRender,
-                index: 0,
-                last: replaysToRender.length == 1
+                data: replaysToRender
             });
             console.log('Sent request to render replay' + 
                 (replaysToRender.length == 1 ? '' : 's') + ': ' +
@@ -1279,21 +1286,31 @@ Menu.prototype._initListeners = function() {
 
     messageListener("progressBarCreate",
     function(message, sender, sendResponse) {
-        console.log('Received request to create progress bar for ' + message.name)
+        
         $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
     });
 
     /**
-     * Update progress bar.
+     * Notification that a replay is in the process of being rendered.
+     * Create/update progress bar and ensure editing functionality for
+     * the specific replay is disabled.
      */
-    messageListener("progressBarUpdate",
+    messageListener("replayRendering",
     function(message, sender, sendResponse) {
-        // Create progress bar if it does not exist.
-        if (typeof $('#' + message.name + ' .progressbar')[0] == 'undefined' &&
-            this.listInitialized) {
+        console.log('Received notice that ' + message.name + ' is being rendered.');
+        // Update UI for rendering mode.
+        if (this.listInitialized && !$('#' + message.name).data('rendering')) {
+            $('#' + message.name).data('rendering', true);
+            // Disable renaming buttons for all replays.
+            $('.rename-button').prop('disabled', true);
+            $('#deleteSelectedButton').prop('disabled', true);
+            $('#renderSelectedButton').prop('disabled', true);
+
             $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">');
+            // TODO: Disable editing buttons on in-page-previewer.
         }
-        if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
+
+        if ($('#' + message.name).data('rendering')) {
             $('#' + message.name + ' .progressbar')[0].value = message.progress;
         }
     }.bind(this));
@@ -1306,6 +1323,12 @@ Menu.prototype._initListeners = function() {
     messageListener("replayRendered",
     function(message, sender, sendResponse) {
         $('#' + message.name + ' .progressbar').remove();
+        $('#' + message.name).removeData('rendering');
+
+        // Reset general UI.
+        $('.rename-button').prop('disabled', false);
+        $('#deleteSelectedButton').prop('disabled', false);
+        $('#renderSelectedButton').prop('disabled', false);
         if (message.failure) {
             console.log('Rendering of ' + message.name + ' was a failure.');
             $('#' + message.name + ' .rendered-check').text('✘');
@@ -1313,6 +1336,7 @@ Menu.prototype._initListeners = function() {
         } else {
             $('#' + message.name + ' .rendered-check').text('✓');
             $('#' + message.name + ' .download-movie-button').prop('disabled', false);
+            $('#' + message.name + ' .rename-button').prop('disabled', false);
         }
     });
 
@@ -1323,19 +1347,17 @@ Menu.prototype._initListeners = function() {
      */
     messageListener("renderConfirmation",
     function(message, sender, sendResponse) {
-        if (!message.last) {
-            var index = message.index + 1;
-            var last = false;
-            if (index == message.replaysToRender.length - 1) {
-                last = true;
-            }
+        var replaysLeft = message.replaysLeft;
+        if (replaysLeft.length !== 0) {
+            replaysLeft.forEach(function(replay) {
+                $('#' + replay + ' .rendered-check').text('Queued...');
+                $('#' + replay + ' .rendered-check').css('color', 'green');
+            });
             chrome.runtime.sendMessage({
                 method: 'render',
-                data: message.replaysToRender,
-                index: index,
-                last: last
+                data: replaysLeft
             });
-            console.log('Sent request to render replay: ' + replaysToRender[index]);
+            console.log('Sent request to render replay: ' + replaysLeft[0]);
         }
     });
 };
