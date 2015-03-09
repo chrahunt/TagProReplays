@@ -1,0 +1,28 @@
+<!-- In-Browser Preview Viewer -->
+<div id="viewer-container">
+    <div id="viewer">
+        <canvas id="viewer-canvas" height=800 width=1280></canvas>
+    </div>
+    <div id="viewer-footer">
+        <div id="slider-bar">
+            <div id="grey-bar"></div>
+            <input type="range" id="slider" value=0 min=0></input>
+        </div>
+        <div id="button-bar">
+            <div class="img-container">
+                <img id="viewerStopButton" src="http://i.imgur.com/G32WYvH.png">
+                <img id="viewerResetButton" src="http://i.imgur.com/vs3jWpc.png">
+                <img id="viewerPlayButton" src="http://i.imgur.com/KvSKqpI.png">
+                <img id="viewerPauseButton" src="http://i.imgur.com/aSpd4cK.png">
+                <button id="viewerCropStartButton" title="This sets the beginning of the cropped portion of the replay. Everything before this point will be erased when you crop the replay.">Crop Start</button>
+                <button id="viewerCropEndButton" title="This sets the end of the cropped portion of the replay. Everything after this point will be erased when you crop the replay.">Crop End</button>
+                <button id="viewerPlayCroppedMovieButton" title='This plays the section of the replay between the "crop start" and "crop end" so you know what your cropped replay will look like.'>Play Cropped</button>
+                <button id="viewerCropButton" title="This actually crops the replay. It leaves the original replay intact, though, and saves a new cropped replay.">Crop</button>
+                <button id="viewerCropAndReplaceButton" title="This also actually crops the replay, but it replaces the original replay with the cropped one.">Crop and Replace</button>
+                <button id="viewerDeleteButton" title="This deletes the current replay.">Delete</button>
+                <button id="viewerRenderButton" title="This renders the current replay.">Render</button>
+                <button id="viewerRenameButton" title="This renames the current replay.">Rename</button>
+            </div>
+        </div>
+    </div>
+</div>
