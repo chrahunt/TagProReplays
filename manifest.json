@@ -35,7 +35,7 @@
         "messaging.js",
         "textures.js",
         "map_draw_functions.js",
-        "in-page-preview.js",
+        "ui/viewer.js",
         "menu.js",
         "TagProReplays.js",
         "ui/bootstrap.min.js"
@@ -58,6 +58,8 @@
     "ui/menus.css",
     "ui/menus.html",
     "ui/menus.js",
+    "ui/viewer.html",
+    "ui/viewer.css",
     "ui/bootstrap.min.css",
     "ui/bootstrap.css",
     "ui/glyphicons-halflings-regular.eot",

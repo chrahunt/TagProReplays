@@ -144,6 +144,7 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     // Include custom bootstrap.css scoped to #tpr-container
     injectStyleSheet("ui/bootstrap.css");
     injectStyleSheet("ui/menus.css");
+    injectStyleSheet("ui/viewer.css");
 }
 
 // if we're in a game, as evidenced by there being a port number,
