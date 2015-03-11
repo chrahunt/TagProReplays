@@ -10,11 +10,120 @@ var STORE_NAME = "positions";
 // Script-global database object.
 var db;
 
+// Holds information about the migrations that can be applied to the
+// indexedDB.
+var Migrations = {};
+
+// Holds list of database versions and the patch necessary to get to
+// the next version.
+Migrations.patch = {};
+
+// Number of patches.
+Migrations.patches = 0;
+
+// Container for the migration functions.
+Migrations.functions = {};
+
+Migrations.getFunctionName = function(from, to) {
+    return "p" + from + "_" + to;
+};
+
+/**
+ * Add the given function as a migration from the given version to the
+ * given version.
+ * @param {(integer|Array.<integer>)} from - The version(s) the
+ *  function migrates from.
+ * @param {integer} to - The version the function migrates to.
+ * @param {MigrationFunction} fn
+ */
+Migrations.add = function(from, to, fn) {
+    if (typeof from == "number") from = [from];
+    from.forEach(function(version) {
+        Migrations.patch[version] = to;
+        Migrations.functions[getFunctionName(version, to)] = fn;
+    });
+};
+
+// Retrieve the patch function for your upgrade event.
+// Returns a function if ok or null if not ok.
+Migrations.getPatchFunction = function(event) {
+    // get the name of the function that will patch the from version
+    // to the to verison.
+    var fns = [];
+    var from = event.oldVersion;
+    var to = event.newVersion;
+    var next = PatchPath[from];
+    var patch = 1;
+    fns.push(Patches[getPatchName(from, next)]);
+    while (next !== to) {
+        // Sanity check.
+        if (patch > MAX_PATCHES) {
+            return null;
+        }
+        from = next;
+        next = PatchPath[from];
+        fns.push(Patches[getPatchName(from, next)]);
+    }
+
+    function runPatchFunctions(fns, db, callback) {
+        // Completed successfully.
+        if (fns.length === 0) {
+            callback(true);
+        } else {
+            var fn = fns.pop();
+            fn(db, function(success) {
+                if (success) {
+                    runPatchFunctions(fns, db, callback);
+                } else {
+                    callback(false);
+                }
+            });
+        }
+    }
+
+    return function(db, callback) {
+        runPatchFunctions(fns, db, callback);
+    };
+};
+
+// Whether or not this is the initial version of the database.
+function isUpgrade(version) {
+    return version !== 0;
+}
+
+/**
+ * @callback MigrationCallback
+ * @param {boolean} success - Whether or not the migration succeeded.
+ */
+/**
+ * @callback MigrationFunction
+ * @param {IndexedDB} db - The database.
+ * @param {MigrationCallback} callback - The function called when the
+ *   migration function completes.
+ */
+/**
+ * Add a migration function from one version to another
+ * @param {integer} from - The starting version of the database the
+ *   migration function operates on.
+ * @param {(integer|Array.<integer>)} to - The version(s) of the
+ *   database the migration function brings the database to.
+ * @param {MigrationFunction} fn - The function to 
+ */
+window.idbAddMigration = function(from, to, fn) {
+    Migrations.add(from, to, fn);
+};
+
 // Initialize the IndexedDB.
 window.idbOpen = function() {
     // Set up indexedDB
     var openRequest = indexedDB.open(DB_NAME, DB_VERS);
     openRequest.onupgradeneeded = function (e) {
+        _TPR_IDBUpgrading = true;
+        if (isUpgrade(e.oldVersion)) {
+            // Run relevant upgrade functions.
+            var patch = Migrations.getPatchFunction(e);
+        }
+
         // Ensure database contains correct object stores.
         var db = e.target.result;
         if (!db.objectStoreNames.contains("positions")) {
@@ -23,18 +132,18 @@ window.idbOpen = function() {
                 autoIncrement: true
             });
         }
-    }
+    };
 
     openRequest.onsuccess = function (e) {
-        // Assign to global.
+        // Assign to function global.
         db = e.target.result;
         db.onerror = function (e) {
             alert("Sorry, an unforseen error was thrown.");
             console.log("***ERROR***");
             console.dir(e.target);
-        }
-    }
-}
+        };
+    };
+};
 
 function idbGet(name, callback) {
     var transaction = db.transaction([STORE_NAME], "readonly");
@@ -43,7 +152,7 @@ function idbGet(name, callback) {
     request.onsuccess = function() {
         var data = request.result;
         callback(data);
-    }
+    };
 }
 
 /**
@@ -59,7 +168,7 @@ window.idbPut = function(name, data, callback) {
     var store = transaction.objectStore(STORE_NAME);
     var request = store.put(data, name);
     request.onsuccess = callback;
-}
+};
 
 /**
  * Delete name/names from object store.
@@ -81,7 +190,7 @@ window.idbDelete = function(names, callback) {
                 name = names.shift();
                 request = store.delete(name);
                 request.onsuccess = getNextSuccess();
-            }
+            };
         } else {
             return callback;
         }
@@ -91,7 +200,7 @@ window.idbDelete = function(names, callback) {
     var name = names.shift();
     var request = store.delete(name);
     request.onsuccess = getNextSuccess();
-}
+};
 
 function idbRename(oldName, newName, callback) {
     var transaction = db.transaction([STORE_NAME], "readwrite");
@@ -103,8 +212,8 @@ function idbRename(oldName, newName, callback) {
         request.onsuccess = function() {
             request = store.add(data, newName);
             request.onsuccess = callback;
-        }
-    }
+        };
+    };
 }
 
 /**
@@ -126,12 +235,12 @@ window.idbIterate = function(each, end) {
         } else {
             end();
         }
-    }
-}
+    };
+};
 
 window.renameData = function(oldName, newName, callback) {
     idbRename(oldName, newName, callback);
-}
+};
 
 // TODO
 window.deleteData2 = function(name) {
@@ -140,10 +249,10 @@ window.deleteData2 = function(name) {
 
 window.iterateData = function(each, end) {
     idbIterate(each, end);
-}
+};
 
 window.getData = function(name, callback) {
     idbGet(name, callback);
-}
+};
 
 })(window);

@@ -469,10 +469,13 @@ function extractMetaData(positions) {
     if (!$.isPlainObject(positions)) return blankResponse;
     for(var x in positions) {
         if(x.search('player')==0) {
+            // Get array of names.
             var name = $.map(positions[x].name, function(obj, index){if(obj !== 'null') return(obj)});
             if(name[0] == undefined) continue;
+            // Get team they are in initially.
             var team = positions[x].team[0];
-            var name = (positions[x].me == 'me' ? '* ' : '  ') + name[0];
+            // Set indicator next to name of recording player.
+            name = (positions[x].me == 'me' ? '* ' : '  ') + name[0];
             if(positions[x].me=='me') {
                 var me = x;
                 var duration = Math.round(positions[x].x.length/positions[x].fps);
@@ -510,6 +513,151 @@ chrome.storage.local.get(["default_textures", "textures"], function(items) {
             });
         });
     }
+});
+
+// Add IndexedDB migration functions for upgrading old extension users.
+// Initial extension 
+idbAddMigration([1, 2], 3, function(db, callback) {
+    // Get the time associated with a replay given its name.
+    // Takes string key that replays were previously identified by.
+    function getReplayTime(replay) {
+        return Number(replay.replace('replays', '').replace(/.*DATE/, ''));
+    }
+
+    // Get first non-null and non-integer-zero state of provided data,
+    // corresponding to first value in array. If none is found then null
+    // is returned.
+    function getFirst(data) {
+        var newdata = data.filter(function(d) {
+            return d !== 0 && d !== null;
+        });
+        if (newdata.length > 0) {
+            return newdata[0];
+        } else {
+            return null;
+        }
+    }
+
+    function ensureStoreExists(store) {
+        if (!db.objectStoreNames.contains(store)) {
+            db.createObjectStore(store, {
+                autoIncrement: true
+            });
+        }
+    }
+
+    ensureStoreExists("info");
+    ensureStoreExists("replay");
+
+    var transaction = db.transaction(["info", "replay", "positions"], "readwrite");
+    var stores = {
+        info: transaction.objectStore("info"),
+        replays: transaction.objectStore("replay"),
+        positions: transaction.objectStore("positions")
+    };
+    
+    // Get data for each of the current replays.
+    var positionRequest = stores.positions.openCursor(null);
+    positionRequest.onsuccess = function() {
+        var request = positionRequest;
+        if (request.result) {
+            var replay = JSON.parse(request.result);
+            var replayKey = request.key;
+
+            // New replay format.
+            var newReplay = {
+                players: {}
+            };
+            // List of the fields that will remain the same.
+            var sameFields = ["bombs", "chat", "clock", "end",
+                "floorMap", "floorTiles", "gameEndsAt", "map", "score",
+                "spawns", "splays", "tiles", "wallMap"];
+            sameFields.forEach(function(field) {
+                newReplay[field] = replay[field];
+            });
+
+            // Default information for replay.
+            var info = {
+                // List of players by id with their name and team,
+                // either 'red' or 'blue'.
+                players: {},
+                // Name of the map.
+                mapName: '',
+                // FPS the replay was recorded at.
+                fps: 0,
+                // Total duration of the replay, in seconds.
+                duration: 0,
+                // String name of the replay.
+                name: '',
+                // Date/time the replay was recorded, as ms epoch time.
+                date: getReplayTime(replayKey) || Date.now(),
+                // Id for the stored replay information in the IndexedDB db.
+                replay: null,
+                // Integer id of the player that was recording.
+                recordingPlayer: null
+            };
+
+            // Extract information from replay into object.
+            // Team designation is extracted based in initial state
+            // during replay.
+            for (var prop in replay) {
+                if (prop.search('player') == 0) {
+                    var player = replay[prop];
+                    var id = +prop.replace('player', '');
+                    var team = getFirst(player.team);
+                    var name = getFirst(player.name);
+                    info.mapName = player.map;
+                    info.fps = player.fps;
+                    if (player.me === 'me') {
+                        info.recordingPlayer = id;
+                    }
+                    // Remove unnecessary information on players.
+                    delete player.map;
+                    delete player.fps;
+                    delete player.me;
+                    // Add edited player object to new replay data container.
+                    newReplay.players[id] = player;
+                    // Add player information for use in menu display.
+                    info.players[id] = {
+                        name: name,
+                        team: team === 1 ? 'red' : 'blue'
+                    };
+                }
+            }
+            if (info.fps) {
+                info.duration = replay.clock.length / info.fps;
+            }
+            // Reorganize the objects?
+            // Separately put the replay data into the database
+            // and the information into the database (pointing to
+            // the replay information)
+            var storeReplayRequest = stores.replay.add(newReplay);
+            storeReplayRequest.onsuccess = function() {
+                // Get the id of the replay that was stored and add
+                // that to the replay information
+                // Assuming that `replayId` has been set for the id of
+                // the replay key in the replays database.
+                info.replay = replayId;
+                // Store the information in the database.
+                var storeInfoRequest = stores.info.add(info);
+                storeInfoRequest.onsuccess = function() {
+                    // Remove the original positions file from the
+                    // old object store.
+                    var deleteRequest = stores.positions.delete(replayKey);
+                    deleteRequest.onsuccess = function() {
+                        // TODO: Handle failure.
+                    };
+
+                    // TODO: Handle failure.
+                };
+            };
+            // TODO: Handle failure.
+            request.result.continue();
+        } else {
+            // After done with existing replays, delete position store.
+        }
+    };
+
 });
 
 // Initialize IndexedDB.
