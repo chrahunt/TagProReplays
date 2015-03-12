@@ -35,11 +35,6 @@ window.Menu = Menu;
  */
 Menu.prototype._init = function() {
     /* UI-specific code */
-    // Code to set the header row to the same width as the replay table, if needed.
-    /*$('#menuContainer').on('shown.bs.modal', function() {
-     $('#replay-headers').width($('#replayList table').width());
-     });*/
-
     // Handling multiple modals
     // http://miles-by-motorcycle.com/fv-b-8-670/stacking-bootstrap-dialogs-using-event-callbacks
     $(function () {
@@ -330,7 +325,7 @@ Menu.prototype._list_Update = function() {
     // Automatic height adjustment for replay list.
     $('#menuContainer .modal-dialog').data(
         'original-height',
-        $('#menuContainer .modal-dialog').height());
+        $('#menuContainer .modal-dialog').actual('height'));
 
     this._setListHeight();
     this._setListWidth();
@@ -348,6 +343,8 @@ Menu.prototype._setListHeight = function() {
             newHeight = $(window).height() - 315;
         }
         $('#replayList').height(newHeight);
+        // Fix table header width.
+        $('#replay-headers').width($('#replayList table').actual('width'));
     }
 };
 
@@ -1164,6 +1161,7 @@ Menu.prototype.getCheckedEntries = function() {
  */
 Menu.prototype.open = function() {
     if ($('#menuContainer').length) {
+        this._list_Update();
         $('#menuContainer').modal('show');
     }
 };

@@ -31,6 +31,7 @@
       ],
       "js": [
         "lib/jquery.js",
+        "lib/jquery.actual.min.js",
         "cookies.js",
         "messaging.js",
         "textures.js",
