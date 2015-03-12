@@ -142,7 +142,7 @@ Menu.prototype._initReplayList = function() {
         if (update) {
             this._list_Update();
         }
-    }.bind(this))
+    }.bind(this));
     observer.observe(target, { childList: true });
 
     // Re-set menu dimensions on window resize.
@@ -156,6 +156,8 @@ Menu.prototype._initReplayList = function() {
         var entries = this._getEntryData(response);
         // Sort the entries.
         this._sortEntries(entries, readCookie('sortMethod'));
+        // Hide loader.
+        $('#replaysLoading').hide();
         entries.forEach(function(entry) {
             this.addRow(entry);
         }, this);
@@ -231,10 +233,10 @@ Menu.prototype._list_Import = function() {
                 if (isComplete(pending)) {
                     menu._parseRawData(fileData);
                 }
-            }
+            };
             fr.readAsText(file);
         });
-    }
+    };
 };
 
 /**
@@ -252,7 +254,7 @@ Menu.prototype._list_Import = function() {
  *   uploaded by the user.
  */
 Menu.prototype._parseRawData = function(filedata) {
-    if (filedata.length == 0) return;
+    if (filedata.length === 0) return;
     /**
      * Check whether a given data file meets some basic requirements.
      * @param {object} parsedData
@@ -282,7 +284,7 @@ Menu.prototype._parseRawData = function(filedata) {
         var message = {
             method: 'saveReplay',
             data: data
-        }
+        };
         // When would filename be undefined?
         if(typeof name !== 'undefined') {
             message.name = name;
@@ -304,7 +306,7 @@ Menu.prototype._parseRawData = function(filedata) {
  */
 Menu.prototype._list_Update = function() {
     var entries = this.getEntries();
-    if (entries.length == 0) {
+    if (entries.length === 0) {
         $('#noReplays').show();
         $('#replayList').hide();
 
@@ -321,7 +323,6 @@ Menu.prototype._list_Update = function() {
         $('#deleteSelectedButton').prop('disabled', false);
         $('#downloadRawButton').prop('disabled', false);
         $('#selectAllCheckbox').prop('disabled', false);
-
     }
 
     // Updating.
@@ -354,7 +355,7 @@ Menu.prototype._setListHeight = function() {
  * Set replay list width relative to the visible width of the window.
  */
 Menu.prototype._setListWidth = function() {
-    $('#menuContainer .modal-dialog').width(.70*$(window).width());
+    $('#menuContainer .modal-dialog').width(0.70 * $(window).width());
 };
 
 /**
@@ -436,7 +437,7 @@ Menu.prototype._entry_Download = function() {
     return function() {
         var replayId = menu._getReplayId(this);
         var fileNameToDownload = replayId;
-        console.log('asking background script to download video for ' + fileNameToDownload)
+        console.log('asking background script to download video for ' + fileNameToDownload);
         chrome.runtime.sendMessage({
             method: 'downloadMovie',
             name: fileNameToDownload
@@ -455,7 +456,7 @@ Menu.prototype._entry_Rename = function() {
         var fileNameToRename = replayId;
         var datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
         var newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-        if (newName != null) {
+        if (newName !== null) {
             newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
             console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
             chrome.runtime.sendMessage({
@@ -499,6 +500,43 @@ Menu.prototype._entry_Play = function() {
  */
 Menu.prototype._entry_Preview = function() {
     var menu = this;
+
+    // Replace the loader icon with the preview image.
+    function replaceLoaderWithPreview(id, preview) {
+        // Cache preview image.
+        $('#' + id + ' a.playback-link').data('preview', preview);
+
+        var $popover = $('#' + id + ' .popover');
+        // Don't show preview image if popover has already been
+        // removed.
+        if ($popover.length === 0) return;
+        var previewImage = new Image();
+        previewImage.onload = function() {
+            var $content = $('#' + id + ' .popover-content');
+            var poHeight = $popover.height();
+            var poWidth = $popover.width();
+            var poTop = +$popover.css('top').replace('px', '');
+            var cHeight = $content.height();
+            var cWidth = $content.width();
+            var height = poHeight + previewImage.height - cHeight;
+            var width = poWidth + previewImage.width - cWidth;
+            var top = poTop - (height - poHeight) / 2;
+            $popover.animate({
+                height: height,
+                width: width,
+                top: top
+            }, {
+                duration: 600,
+                complete: function() {
+                    // Replace loading image with preview.
+                    $('#' + id + ' .popover-content > div')
+                        .replaceWith(previewImage);
+                }
+            });
+        };
+        previewImage.src = preview;
+    }
+
     return function () {
         // Check if image data has been cached on element data
         // property.
@@ -515,19 +553,15 @@ Menu.prototype._entry_Preview = function() {
                         store[key] = preview;
                         // TODO: Handle save failure.
                         chrome.storage.local.set(store);
-                        // Cache preview image.
-                        $('#' + id + ' a.playback-link').data('preview', preview);
-                        // Replace loading image with preview.
-                        $('#' + id + ' .popover-content').html('<img src="' + preview + '"/>');
+                        replaceLoaderWithPreview(id, preview);
+                        
                     });
                 } else {
-                    // Set preview as data on this element and replace html content.
-                    $('#' + id + ' a.playback-link').data('preview', items[key]);
-                    $('#' + id + ' .popover-content').html('<img src="' + items[key] + '"/>');
+                    replaceLoaderWithPreview(id, items[key]);
                 }
             }.bind(menu));
             // Return loading icon.
-            return '<img src="' + chrome.runtime.getURL('img/loader.gif') + '"/>';
+            return '<div class="sk-spinner sk-spinner-rotating-plane"></div>';
         } else {
             return '<img src="' + $(this).data('preview') + '"/>';
         }
