@@ -6,6 +6,7 @@
   "background": {
     "scripts": [
       "indexedDBUtils.js",
+      "data.js",
       "messaging.js",
       "textures.js",
       "background.js",

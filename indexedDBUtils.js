@@ -1,9 +1,5 @@
 (function(window) {
 
-// Database name.
-var DB_NAME = "ReplayDatabase";
-var DB_VERS = 1;
-
 // Name of table holding replay data.
 var STORE_NAME = "positions";
 
@@ -40,8 +36,9 @@ Migrations.add = function(from, to, fn) {
     if (typeof from == "number") from = [from];
     from.forEach(function(version) {
         Migrations.patch[version] = to;
-        Migrations.functions[getFunctionName(version, to)] = fn;
+        Migrations.functions[Migrations.getFunctionName(version, to)] = fn;
     });
+    Migrations.patches++;
 };
 
 // Retrieve the patch function for your upgrade event.
@@ -52,37 +49,40 @@ Migrations.getPatchFunction = function(event) {
     var fns = [];
     var from = event.oldVersion;
     var to = event.newVersion;
-    var next = PatchPath[from];
+    var next = Migrations.patch[from];
     var patch = 1;
-    fns.push(Patches[getPatchName(from, next)]);
+    var fn = Migrations.functions[Migrations.getFunctionName(from, next)];
+    fns.push(fn);
     while (next !== to) {
         // Sanity check.
-        if (patch > MAX_PATCHES) {
+        if (patch > Migrations.patches) {
             return null;
         }
         from = next;
-        next = PatchPath[from];
-        fns.push(Patches[getPatchName(from, next)]);
+        next = Migrations.patch[from];
+        fns.push(Migrations.functions[Migrations.getFunctionName(from, next)]);
     }
 
-    function runPatchFunctions(fns, db, callback) {
+    function runPatchFunctions(fns, db, transaction, callback) {
         // Completed successfully.
+        var fn = fns.pop();
+        fn(db, transaction, function(success) {
+            if (success) {
+                if (fns.length !== 0) {
+                    runPatchFunctions(fns, db, transaction, callback);
+                }
+            } else {
+                callback(false);
+            }
+        });
+    }
+
+    return function(db, transaction, callback) {
         if (fns.length === 0) {
             callback(true);
         } else {
-            var fn = fns.pop();
-            fn(db, function(success) {
-                if (success) {
-                    runPatchFunctions(fns, db, callback);
-                } else {
-                    callback(false);
-                }
-            });
+            runPatchFunctions(fns, db, transaction, callback);
         }
-    }
-
-    return function(db, callback) {
-        runPatchFunctions(fns, db, callback);
     };
 };
 
@@ -113,24 +113,66 @@ window.idbAddMigration = function(from, to, fn) {
     Migrations.add(from, to, fn);
 };
 
+// Function to initialize the database.
+var initialize = {};
+
+/**
+ * @callback IDBInitialization
+ * @param {} db - The database to initialize.
+ */
+/**
+ * Function to add an initialization function for IndexedDB.
+ * @param {IDBInitialization} fn - The function to initialize the
+ *   database.
+ */
+window.idbAddInitialization = function(version, fn) {
+    initialize[version] = fn;
+};
+
 // Initialize the IndexedDB.
-window.idbOpen = function() {
+window.idbOpen = function(name, version) {
     // Set up indexedDB
-    var openRequest = indexedDB.open(DB_NAME, DB_VERS);
+    var openRequest = indexedDB.open(name, version);
     openRequest.onupgradeneeded = function (e) {
-        _TPR_IDBUpgrading = true;
+        var db = e.target.result;
+        var transaction = e.target.transaction;
+        // listen for versionchange transaction end.
+        transaction.onabort = function() {
+            console.log("abort");
+        };
+
+        transaction.oncomplete = function() {
+            console.log("complete");
+        };
+
+        transaction.onerror = function() {
+            console.log("error");
+        };
+
+        // Upgrade from old version of database.
         if (isUpgrade(e.oldVersion)) {
             // Run relevant upgrade functions.
             var patch = Migrations.getPatchFunction(e);
-        }
-
-        // Ensure database contains correct object stores.
-        var db = e.target.result;
-        if (!db.objectStoreNames.contains("positions")) {
-            console.log("Creating positions object store.");
-            var objectStore = db.createObjectStore("positions", {
-                autoIncrement: true
-            });
+            if (patch) {
+                patch(db, transaction, function(success) {
+                    console.log("Success: " + success);
+                    if (!success) {
+                        // Abort versionchange transaction.
+                        e.target.transaction.abort();
+                    }
+                });
+                // Run function.
+            } else {
+                // error.
+                console.error("No patch function found.");
+                // Abort versionchange transaction.
+                e.target.transaction.abort();
+            }
+        } else {
+            // Initiailize database.
+            if (initialize[version]) {
+                initialize[version].call(null, db);
+            }
         }
     };
 
@@ -143,6 +185,17 @@ window.idbOpen = function() {
             console.dir(e.target);
         };
     };
+
+    openRequest.onerror = function(e) {
+        console.error("Error!");
+    };
+};
+
+// Close the database.
+window.idbClose = function() {
+    if (db) {
+        db.close();
+    }
 };
 
 function idbGet(name, callback) {
