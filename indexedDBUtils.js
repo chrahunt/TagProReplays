@@ -57,6 +57,8 @@ Migrations.getPatchFunction = function(event) {
         // Sanity check.
         if (patch > Migrations.patches) {
             return null;
+        } else {
+            patch++;
         }
         from = next;
         next = Migrations.patch[from];
