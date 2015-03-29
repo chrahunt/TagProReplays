@@ -70,7 +70,7 @@ Migrations.prototype.getPatchFunction = function(event) {
 
     function runPatchFunctions(fns, db, transaction, callback) {
         // Completed successfully.
-        var fn = fns.pop();
+        var fn = fns.shift();
         fn(db, transaction, function(err) {
             if (err) {
                 callback(err);
