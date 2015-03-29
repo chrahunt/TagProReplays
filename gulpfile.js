@@ -10,7 +10,7 @@ var background_libs = [
 ];
 
 var background_test = [
-    //'test/example.js'
+    'test/migrations.js'
 ];
 
 var content_libs = [

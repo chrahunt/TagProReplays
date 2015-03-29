@@ -8,19 +8,19 @@ var db;
 
 // Holds information about the migrations that can be applied to the
 // indexedDB.
-var Migrations = {};
+var Migrations = function() {
+    // Holds list of database versions and the patch necessary to get to
+    // the next version.
+    this.patch = {};
+    // Number of patches.
+    this.patches = 0;
+    // Container for the migration functions.
+    this.functions = {};
+};
 
-// Holds list of database versions and the patch necessary to get to
-// the next version.
-Migrations.patch = {};
+window.Migrations = Migrations;
 
-// Number of patches.
-Migrations.patches = 0;
-
-// Container for the migration functions.
-Migrations.functions = {};
-
-Migrations.getFunctionName = function(from, to) {
+Migrations.prototype.getFunctionName = function(from, to) {
     return "p" + from + "_" + to;
 };
 
@@ -32,61 +32,68 @@ Migrations.getFunctionName = function(from, to) {
  * @param {integer} to - The version the function migrates to.
  * @param {MigrationFunction} fn
  */
-Migrations.add = function(from, to, fn) {
+Migrations.prototype.add = function(from, to, fn) {
     if (typeof from == "number") from = [from];
     from.forEach(function(version) {
-        Migrations.patch[version] = to;
-        Migrations.functions[Migrations.getFunctionName(version, to)] = fn;
-    });
-    Migrations.patches++;
+        this.patch[version] = to;
+        this.functions[this.getFunctionName(version, to)] = fn;
+    }, this);
+    this.patches++;
 };
 
 // Retrieve the patch function for your upgrade event.
 // Returns a function if ok or null if not ok.
-Migrations.getPatchFunction = function(event) {
+Migrations.prototype.getPatchFunction = function(event) {
     // get the name of the function that will patch the from version
     // to the to verison.
     var fns = [];
     var from = event.oldVersion;
     var to = event.newVersion;
-    var next = Migrations.patch[from];
+    if (from >= to) {
+        return null;
+    }
+    var next = this.patch[from];
     var patch = 1;
-    var fn = Migrations.functions[Migrations.getFunctionName(from, next)];
+    var fn = this.functions[this.getFunctionName(from, next)];
     fns.push(fn);
     while (next !== to) {
         // Sanity check.
-        if (patch > Migrations.patches) {
+        if (patch > this.patches) {
             return null;
         } else {
             patch++;
         }
         from = next;
-        next = Migrations.patch[from];
-        fns.push(Migrations.functions[Migrations.getFunctionName(from, next)]);
+        next = this.patch[from];
+        fns.push(this.functions[this.getFunctionName(from, next)]);
     }
 
     function runPatchFunctions(fns, db, transaction, callback) {
         // Completed successfully.
         var fn = fns.pop();
-        fn(db, transaction, function(success) {
-            if (success) {
+        fn(db, transaction, function(err) {
+            if (err) {
+                callback(err);
+            } else {
                 if (fns.length !== 0) {
                     runPatchFunctions(fns, db, transaction, callback);
+                } else {
+                    callback();
                 }
-            } else {
-                callback(false);
             }
         });
     }
 
     return function(db, transaction, callback) {
         if (fns.length === 0) {
-            callback(true);
+            callback();
         } else {
             runPatchFunctions(fns, db, transaction, callback);
         }
     };
 };
+
+var idbMigrations = new Migrations();
 
 // Whether or not this is the initial version of the database.
 function isUpgrade(version) {
@@ -95,7 +102,7 @@ function isUpgrade(version) {
 
 /**
  * @callback MigrationCallback
- * @param {boolean} success - Whether or not the migration succeeded.
+ * @param {boolean} err - Whether or not the migration failed.
  */
 /**
  * @callback MigrationFunction
@@ -112,10 +119,10 @@ function isUpgrade(version) {
  * @param {MigrationFunction} fn - The function to 
  */
 window.idbAddMigration = function(from, to, fn) {
-    Migrations.add(from, to, fn);
+    idbMigrations.add(from, to, fn);
 };
 
-// Function to initialize the database.
+// Functions to initialize the database.
 var initialize = {};
 
 /**
@@ -154,11 +161,11 @@ window.idbOpen = function(name, version) {
         // Upgrade from old version of database.
         if (isUpgrade(e.oldVersion)) {
             // Run relevant upgrade functions.
-            var patch = Migrations.getPatchFunction(e);
+            var patch = idbMigrations.getPatchFunction(e);
             if (patch) {
-                patch(db, transaction, function(success) {
-                    console.log("Success: " + success);
-                    if (!success) {
+                patch(db, transaction, function(err) {
+                    console.log("Error: " + err);
+                    if (err) {
                         // Abort versionchange transaction.
                         e.target.transaction.abort();
                     }
