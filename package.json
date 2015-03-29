@@ -1,0 +1,29 @@
+{
+  "name": "TagProReplays",
+  "version": "1.2.20",
+  "description": "Record yourself in TagPro!",
+  "main": "inject.js",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ballparts/TagProReplays"
+  },
+  "author": "Ballparts <ballpartstagpro@gmail.com> (https://github.com/ballparts)",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/ballparts/TagProReplays/issues"
+  },
+  "homepage": "https://github.com/ballparts/TagProReplays",
+  "devDependencies": {
+    "expect.js": "^0.3.1",
+    "gulp": "^3.8.11",
+    "gulp-inject": "^1.2.0",
+    "gulp-mocha-phantomjs": "^0.5.3",
+    "mocha": "^2.2.1",
+    "phantomjs": "^1.9.16",
+    "sinon": "^1.14.1",
+    "sinon-chrome": "^0.1.1"
+  }
+}

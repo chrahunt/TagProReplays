@@ -111,3 +111,20 @@
     line-height: 36px;
     margin: 0px;
 }
+
+#tpr-container #replaysLoading {
+    height: 36px;
+    padding-top: 3px;
+}
+
+/* Vertically center spinner for animation */
+#tpr-container .replayRow .popover .sk-spinner {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Static height for vertical centering. */
+#tpr-container .popover-content {
+    height: 100%;
+}

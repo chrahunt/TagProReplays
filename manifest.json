@@ -32,6 +32,7 @@
       ],
       "js": [
         "lib/jquery.js",
+        "lib/jquery.actual.min.js",
         "cookies.js",
         "messaging.js",
         "textures.js",
@@ -55,7 +56,7 @@
     "img/rollingbomb.png",
     "img/splats.png",
     "img/flair.png",
-    "img/loader.gif",
+    "ui/spinkit.css",
     "ui/menus.css",
     "ui/menus.html",
     "ui/menus.js",
