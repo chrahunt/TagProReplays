@@ -173,61 +173,27 @@ Menu.prototype._initReplayList = function() {
 Menu.prototype._list_Import = function() {
     var menu = this;
     return function() {
-        /**
-         * Given the name of an uploaded file, get the name of the replay
-         * the raw data should be saved under.
-         * @param {string} filename - The name of the raw data file
-         *   uploaded.
-         * @return {string} - The name to use for the replay.
-         */
-        function getReplayName(filename) {
-            var name = filename.replace(/\.txt$/, '');
-            if (name.search('DATE') < 0 && name.search('replays') != 0) {
-                name += 'DATE' + new Date().getTime();
-            }
-            return name;
-        }
-
-        /**
-         * Checks whether the values for each of the properties on the
-         * passed object are true.
-         * @param {object} pending - The object with properties
-         *   corresponding to the tasks to be completed.
-         * @return {Boolean} - Whether or not all the tasks are
-         *   completed.
-         */
-        function isComplete(pending) {
-            for (var operation in pending) {
-                var status = pending[operation];
-                if (!status) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        
         var fileData = [];
         var rawFiles = $(this).prop('files');
         var files = [];
         for (var i = 0; i < rawFiles.length; i++) {
             files.push(rawFiles[i]);
         }
-        // Object to hold the status of each file reading operation.
-        var pending = {};
+        // Ensure all read operations are complete before continuing.
+        var fileReadBarrier = new Barrier();
+        fileReadBarrier.onComplete(function() {
+            menu._parseRawData(fileData);
+        });
+        // Read in each of the files.
         files.forEach(function(file) {
-            var replayName = getReplayName(file.name);
-            pending[replayName] = false;
+            var id = fileReadBarrier.start();
             var fr = new FileReader();
             fr.onload = function(e) {
                 fileData.push({
-                    name: replayName,
                     data: e.target.result,
                     filename: file.name
                 });
-                delete pending[replayName];
-                if (isComplete(pending)) {
-                    menu._parseRawData(fileData);
-                }
+                fileReadBarrier.stop(id);
             };
             fr.readAsText(file);
         });
@@ -237,7 +203,6 @@ Menu.prototype._list_Import = function() {
 /**
  * @typedef FileData
  * @type {object}
- * @property {string} name - The name to use for the replay.
  * @property {string} filename - The name of the file as uploaded by
  *   the user.
  * @property {PositionData} data - The actual replay data.
@@ -250,50 +215,14 @@ Menu.prototype._list_Import = function() {
  */
 Menu.prototype._parseRawData = function(filedata) {
     if (filedata.length === 0) return;
-    /**
-     * Check whether a given data file meets some basic requirements.
-     * @param {object} parsedData
-     * @return {boolean} - Whether the object from the data file
-     *   contains the required properties.
-     */
-    function checkParsed(parsedData) {
-        var props = ["tiles", "clock", "floorTiles", "map", "wallMap"];
-        return props.every(function(prop) {
-            return parsedData.hasOwnProperty(prop);
-        });
-    }
 
     var info = filedata.pop();
-    var name = info.name;
-    var data = info.data;
-    try {
-        var parsed = JSON.parse(data);
-    } catch (err) {
-        alert('The file you uploaded was not a valid TagPro Replays raw file.');
-        return;
-    }
 
-    if (!checkParsed(parsed)) {
-        alert('The file you uploaded was not a valid TagPro Replays raw file.');
-    } else {
-        var message = {
-            method: 'saveReplay',
-            data: data
-        };
-        // When would filename be undefined?
-        if(typeof name !== 'undefined') {
-            message.name = name;
-        } else {
-            message.name = 'replays' + new Date().getTime();
-        }
-
-        // Send message to set position data.
-        chrome.runtime.sendMessage(message, function(response) {
-            // TODO: Handle failed replay adding.
-            // Read next file.
-            this._parseRawData(filedata);
-        }.bind(this));
-    }
+    sendMessage('importReplay', info, function(response) {
+        // TODO: Handle failed replay adding.
+        // Read next file.
+        this._parseRawData(filedata);
+    }.bind(this));
 };
 
 /**

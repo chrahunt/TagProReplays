@@ -574,7 +574,7 @@ function(message, sender, sendResponse) {
 messageListener("saveReplay",
 function(message, sender, sendResponse) {
     var name = message.name;
-    var positions = cleanPositionData(JSON.parse(message.data))
+    var positions = cleanPositionData(JSON.parse(message.data));
     var metadata = extractMetaData(positions);
     // Save metadata to local storage.
     localStorage.setItem(name, JSON.stringify(metadata));
@@ -595,6 +595,78 @@ function(message, sender, sendResponse) {
         });
     });
     return true;
+});
+
+/**
+ * Handle imported replay.
+ * message should be an object with the filename and data.
+ */
+messageListener("importReplay",
+function(message, sender, sendResponse) {
+    /**
+     * Given the name of an uploaded file, get the name of the replay
+     * the raw data should be saved under.
+     * @param {string} filename - The name of the raw data file
+     *   uploaded.
+     * @return {string} - The name to use for the replay.
+     */
+    function getReplayName(filename) {
+        var reDate = /^.+DATE\d+$/;
+        var reReplay = /^replays\d+$/;
+        var name = filename.replace(/\.txt$/, '');
+        if (!reDate.test(name) && !reReplay.test(name)) {
+            name += 'DATE' + Date.now();
+        }
+        return name;
+    }
+
+    /**
+     * Check whether a given data file meets some basic requirements.
+     * @param {object} parsedData
+     * @return {boolean} - Whether the object from the data file
+     *   contains the required properties.
+     */
+    function checkParsed(parsedData) {
+        var props = ["tiles", "clock", "floorTiles", "map", "wallMap"];
+        return props.every(function(prop) {
+            return parsedData.hasOwnProperty(prop);
+        });
+    }
+
+    var name = getReplayName(message.filename);
+    var data = message.data;
+
+    try {
+        var parsed = JSON.parse(data);
+    } catch (err) {
+        //alert('The file you uploaded was not a valid TagPro Replays raw file.');
+        // TODO: Handle badly parsed replay.
+        return;
+    }
+
+    // TODO: Check integrity of replay file?
+    var positions = cleanPositionData(parsed);
+    var metadata = extractMetaData(positions);
+    // Save metadata to local storage.
+    localStorage.setItem(name, JSON.stringify(metadata));
+    // Save replay data to IndexedDB.
+    idbPut(name, JSON.stringify(positions), function() {
+        // Send confirmation to 
+        // TODO: Handle possible failures.
+        sendResponse({
+            failed: false
+        });
+        // Send new replay notification to any tabs that may have menu.
+        sendToTabs(function(id) {
+            chrome.tabs.sendMessage(id, {
+                method: "replayAdded",
+                name: name,
+                metadata: JSON.stringify(metadata)
+            });
+        });
+    });
+    return true;
+
 });
 
 /**

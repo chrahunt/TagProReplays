@@ -212,7 +212,7 @@ idbAddInitialization(3, function(db) {
     ensureStoreExists("replay");
 });
 
-idbOpen("ReplayDatabase", 3);
+idbOpen("ReplayDatabase", 1);
 
 // Reset the database, for debugging.
 window.resetDatabase = function() {

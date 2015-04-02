@@ -1,5 +1,7 @@
 /**
- * Methods for setting chrome message listeners.
+ * Methods for setting chrome message listeners. Objects being passed
+ * by methods in this library have the corresponding message name
+ * stored in the `method` property of the message object.
  */
 (function(window) {
     /**
@@ -35,5 +37,30 @@
         names.forEach(function(name) {
             listeners[name] = callback;
         });
-    }
+    };
+
+    /**
+     * Sends a message to the background page or content script when
+     * called from a content script or the background page,
+     * respectively. Just a wrapper around chrome.runtime.sendMessage.
+     * Can be called with either one or both of message or callback
+     * omitted.
+     * @param {string} name - The name of the message to send.
+     * @param {object} [message] - The information to send along with
+     *   the message.
+     * @param {Function} [callback] - The callback function to be
+     *   associated with the message.
+     */
+    window.sendMessage = function(name, message, callback) {
+        if (typeof message == "function") {
+            callback = message;
+            message = {};
+        }
+        message.method = name;
+        if (callback) {
+            chrome.runtime.sendMessage(message, callback);
+        } else {
+            chrome.runtime.sendMessage(message);
+        }
+    };
 })(window);
