@@ -560,6 +560,7 @@ var mapElements = {
 };
 
 
+
 function emit(event, data) {
     var e = new CustomEvent(event, {detail: data});
     window.dispatchEvent(e);
