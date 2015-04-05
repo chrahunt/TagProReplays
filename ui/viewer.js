@@ -40,14 +40,18 @@ resizeButtons = function() {
         BUTTONWIDTHFACTOR = BUTTONWIDTH / 1280,
         IMGHEIGHTFACTOR   = IMGWIDTH / (800/0.9);
 
+    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
     if ( widthFactor >= heightFactor ) {
         $('#viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
         $('#viewer-container img').width('auto');
+        $('#button-bar button').css('font-size', $('#button-bar button').height()/2.5);
     } else {
         $('#viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
         $('#viewer-container img').height('auto');
+        $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
     }
-    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
+    
+    
 };
 
 /**
@@ -572,6 +576,8 @@ window.createReplay = function(positions) {
 
     // display the viewer container
     showViewer();
+    resizeViewerContainer();
+    resizeButtons();
 };
 
 })(window);
