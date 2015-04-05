@@ -40,14 +40,18 @@ resizeButtons = function() {
         BUTTONWIDTHFACTOR = BUTTONWIDTH / 1280,
         IMGHEIGHTFACTOR   = IMGWIDTH / (800/0.9);
 
+    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
     if ( widthFactor >= heightFactor ) {
         $('#viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
         $('#viewer-container img').width('auto');
+        $('#button-bar button').css('font-size', $('#button-bar button').height()/2.5);
     } else {
         $('#viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
         $('#viewer-container img').height('auto');
+        $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
     }
-    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
+    
+    
 };
 
 /**
@@ -93,13 +97,19 @@ function readCookie(name) {
 /*
 Create container div for replay viewer, inject html. CSS is injected in 'TagProReplays.js'.
  */
-$('article').append('<div id="viewerContainer">');
-var url2 = chrome.extension.getURL("ui/viewer.html");
 
-// Retrieve html of viewer.
-$('#viewerContainer').load(url2, function() {
-    hideViewer();
-});
+var onProductionMainPage = document.URL.replace(/.com\/#$/,'.com/').search(/.com\/$/) >= 0;
+var onNewCompteMainPage = document.URL.replace(/.fr\/#$/,'.fr/').search(/.fr\/$/) >= 0;
+
+if(onProductionMainPage || onNewCompteMainPage) {
+    $('article').append('<div id="viewerContainer">');
+    var url2 = chrome.extension.getURL("ui/viewer.html");
+
+    // Retrieve html of viewer.
+    $('#viewerContainer').load(url2, function() {
+        hideViewer();
+    });
+}
 
 /**
  * Function to set up an in-browser preview based on the provided positions object.
@@ -112,7 +122,7 @@ window.createReplay = function(positions) {
     Resize the viewer container according to window size.
      */
     resizeViewerContainer();
-    setTimeout(resizeButtons, 2000);
+    resizeButtons();
     window.onresize=function() {
         resizeViewerContainer();
         resizeButtons();
@@ -176,9 +186,9 @@ window.createReplay = function(positions) {
         var time = Date.now();
         var startTime = time;
         var fps = positions[me].fps;
-        thingy = setInterval(function () {
+        playInterval = setInterval(function () {
             if (thisI >= positions.clock.length - 1) {
-                clearInterval(thingy);
+                clearInterval(playInterval);
             }
             animateReplay(thisI, positions, mapImg, options, textures, context);
             dt = Date.now() - time;
@@ -195,18 +205,18 @@ window.createReplay = function(positions) {
     
     function resetReplay() {
         thisI = 0;
-        if(typeof thingy !== 'undefined') clearInterval(thingy);
+        if(typeof playInterval !== 'undefined') clearInterval(playInterval);
         animateReplay(thisI, positions, mapImg, options, textures, context);
         slider.value = 0;
-        delete(thingy);
+        delete(playInterval);
         isPlaying = false;
     }
 
     function stopReplay(doNotReopen) {
         thisI = 0;
-        if (typeof thingy !== 'undefined') {
-            clearInterval(thingy);
-            delete(thingy);
+        if (typeof playInterval !== 'undefined') {
+            clearInterval(playInterval);
+            delete(playInterval);
             isPlaying = false;
         }
         if (!doNotReopen) {
@@ -217,17 +227,17 @@ window.createReplay = function(positions) {
     }
 
     function playReplay() {
-        if (typeof thingy === 'undefined') {
+        if (typeof playInterval === 'undefined') {
             updateMap(mapImg);
             isPlaying = true;
         }
     }
 
     function pauseReplay() {
-        if (typeof thingy !== 'undefined') {
-            clearInterval(thingy);
+        if (typeof playInterval !== 'undefined') {
+            clearInterval(playInterval);
         }
-        delete(thingy);
+        delete(playInterval);
         isPlaying = false;
     }
 
@@ -272,13 +282,13 @@ window.createReplay = function(positions) {
     }
 
     function playCroppedMovie() {
-        if (typeof thingy === 'undefined') {
+        if (typeof playInterval === 'undefined') {
             var missingStart = (typeof currentCropStart === 'undefined');
             var missingEnd = (typeof currentCropEnd === 'undefined');
             if (missingStart && missingEnd) {
                 // just play the whole movie from the beginning
                 thisI = 0;
-                if (typeof thingy === 'undefined') {
+                if (typeof playInterval === 'undefined') {
                     playReplay();
                 }
             } else {
@@ -296,10 +306,10 @@ window.createReplay = function(positions) {
                 }
                 time = Date.now();
                 var fps = positions[me].fps;
-                thingy = setInterval(function () {
+                playInterval = setInterval(function () {
                     if (thisI >= endI) {
-                        clearInterval(thingy);
-                        delete(thingy);
+                        clearInterval(playInterval);
+                        delete(playInterval);
                     }
                     animateReplay(thisI, positions, mapImg, options, textures, context);
                     dt = Date.now() - time;
@@ -559,13 +569,15 @@ window.createReplay = function(positions) {
     var renameButton = document.getElementById('viewerRenameButton');
     renameButton.onclick = renameThisReplay;
 
-    // because of the way the play button works, must ensure 'thingy' is undefined first
-    delete thingy;
+    // because of the way the play button works, must ensure 'playInterval' is undefined first
+    delete playInterval;
     // define variable that stores play state
     isPlaying = false;
 
     // display the viewer container
     showViewer();
+    resizeViewerContainer();
+    resizeButtons();
 };
 
 })(window);
