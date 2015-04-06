@@ -636,7 +636,7 @@ Menu.prototype._getName = function(id) {
 Menu.prototype._initSettings = function() {
     $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
     this._setSettingsFormTitles();
-    $('#saveSettingsButton').click(this._settingsSave);
+    $('#saveSettingsButton').click(this._settings_Save);
 
     // Set initial settings values.
     chrome.storage.local.get("options", function(items) {
