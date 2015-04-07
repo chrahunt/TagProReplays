@@ -636,7 +636,7 @@ Menu.prototype._getName = function(id) {
 Menu.prototype._initSettings = function() {
     $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
     this._setSettingsFormTitles();
-    $('#saveSettingsButton').click(this._settings_Save);
+    $('#saveSettingsButton').click(this._settings_Save());
 
     // Set initial settings values.
     chrome.storage.local.get("options", function(items) {
@@ -694,60 +694,66 @@ Menu.prototype._initSettings = function() {
  * Callback for the save settings button.
  */
 Menu.prototype._settings_Save = function() {
-    chrome.storage.local.get("options", function(items) {
-        var options;
-        if (items.options) {
-            options = items.options;
-        } else {
-            options = getDefaultOptions();
-        }
-        var inputs = {
-            fps: $('#fpsInput')[0].value,
-            duration: $('#durationInput')[0].value,
-            record: $('#recordCheckbox')[0].checked,
-            custom_textures: $('#useTextureCheckbox')[0].checked,
-            shortcut_key_enabled: $('#recordKeyChooserInput').data('record'),
-            shortcut_key: $('#recordKeyChooserInput').text(),
-            splats: $('#useSplatsCheckbox')[0].checked,
-            spin: $('#useSpinCheckbox')[0].checked,
-            ui: $('#useClockAndScoreCheckbox')[0].checked,
-            chat: $('#useChatCheckbox')[0].checked,
-            canvas_width: Number($('#canvasWidthInput').val()),
-            canvas_height: Number($('#canvasHeightInput').val())
-        };
+    var menu = this;
+    return function() {
+        chrome.storage.local.get("options", function(items) {
+            var options;
+            if (items.options) {
+                options = items.options;
+            } else {
+                options = getDefaultOptions();
+            }
+            var inputs = {
+                fps: $('#fpsInput')[0].value,
+                duration: $('#durationInput')[0].value,
+                record: $('#recordCheckbox')[0].checked,
+                custom_textures: $('#useTextureCheckbox')[0].checked,
+                shortcut_key_enabled: $('#recordKeyChooserInput').data('record'),
+                shortcut_key: $('#recordKeyChooserInput').text(),
+                splats: $('#useSplatsCheckbox')[0].checked,
+                spin: $('#useSpinCheckbox')[0].checked,
+                ui: $('#useClockAndScoreCheckbox')[0].checked,
+                chat: $('#useChatCheckbox')[0].checked,
+                canvas_width: Number($('#canvasWidthInput').val()),
+                canvas_height: Number($('#canvasHeightInput').val())
+            };
 
-        if (!isNaN(inputs.fps) && inputs.fps != "") {
-            options.fps = +inputs.fps;
-        }
-        if (!isNaN(inputs.duration) && inputs.duration != "") {
-            options.duration = +inputs.duration;
-        }
-        options.record = inputs.record;
-        options.custom_textures = inputs.custom_textures;
-        options.shortcut_key_enabled = inputs.shortcut_key_enabled;
-        if (inputs.shortcut_key !== 'None') {
-            options.shortcut_key = inputs.shortcut_key.charCodeAt(0);
-        }
-        options.splats = inputs.splats;
-        options.spin = inputs.spin;
-        options.ui = inputs.ui;
-        options.chat = inputs.chat;
-        if (!isNaN(inputs.canvas_width) && inputs.canvas_width !== "") {
-            options.canvas_width = inputs.canvas_width;
-        }
-        if (!isNaN(inputs.canvas_height) && inputs.canvas_height !== "") {
-            options.canvas_height = inputs.canvas_height;
-        }
+            if (!isNaN(inputs.fps) && inputs.fps != "") {
+                options.fps = +inputs.fps;
+            }
+            if (!isNaN(inputs.duration) && inputs.duration != "") {
+                options.duration = +inputs.duration;
+            }
+            options.record = inputs.record;
+            options.custom_textures = inputs.custom_textures;
+            options.shortcut_key_enabled = inputs.shortcut_key_enabled;
+            if (inputs.shortcut_key !== 'None') {
+                options.shortcut_key = inputs.shortcut_key.charCodeAt(0);
+            }
+            options.splats = inputs.splats;
+            options.spin = inputs.spin;
+            options.ui = inputs.ui;
+            options.chat = inputs.chat;
+            if (!isNaN(inputs.canvas_width) && inputs.canvas_width !== "") {
+                options.canvas_width = inputs.canvas_width;
+            }
+            if (!isNaN(inputs.canvas_height) && inputs.canvas_height !== "") {
+                options.canvas_height = inputs.canvas_height;
+            }
 
-        chrome.storage.local.set({
-            options: options
-        }, function() {
-            chrome.runtime.sendMessage({
-                method: 'cleanRenderedReplays'
-            });
-            $('#settingsContainer').modal('hide');
+            chrome.storage.local.set({
+                options: options
+            }, function() {
+                chrome.runtime.sendMessage({
+                    method: 'cleanRenderedReplays'
+                });
+                if (this.settingsListener) {
+                    this.settingsListener(options);
+                }
+                $('#settingsContainer').modal('hide');
+            }.bind(this));
         });
-    });
+    };
 };
 
 /**
@@ -1321,6 +1327,19 @@ Menu.prototype._initListeners = function() {
             console.log('Sent request to render replay: ' + replaysLeft[0]);
         }
     });
+};
+
+/**
+ * @callback SettingsCallback
+ * @param {Options} options - The updated options.
+ */
+/**
+ * Add a function to be called when the serrings are updated.
+ * @param {Function} fn - The function to be called when the settings
+ *   are changed via the menu.
+ */
+Menu.prototype.addSettingsChangeListener = function(fn) {
+    this.settingsListener = fn;
 };
 
 })(window, document);

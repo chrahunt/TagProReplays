@@ -137,6 +137,7 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
 
     // Initialize the menu.
     var menu = new Menu();
+    menu.addSettingsChangeListener(updateCookies);
     
     // Make the menu-opening button.
     createReplayPageButton(menu);
