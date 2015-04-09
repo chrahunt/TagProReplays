@@ -17,6 +17,7 @@
     <!-- endinject -->
     <!-- gulp-inject tags for scripts to be tested. -->
     <!-- scripts:js -->
+    <script src="../migrations.js"></script>
     <script src="../filesystem.js"></script>
     <script src="../indexedDBUtils.js"></script>
     <script src="../map_draw_functions.js"></script>
@@ -24,7 +25,7 @@
     <!-- endinject -->
     <script>mocha.setup('bdd')</script>
     <!-- tests:js -->
-    <script src="migrations.js"></script>
+    <script src="test-migrations.js"></script>
     <!-- endinject -->
     <script>
       if (window.mochaPhantomJS) {

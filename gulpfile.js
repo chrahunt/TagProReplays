@@ -3,6 +3,7 @@ var gulp = require('gulp'),
     mochaPhantomJS = require('gulp-mocha-phantomjs');
 
 var background_libs = [
+    'migrations.js',
     'filesystem.js',
     'indexedDBUtils.js',
     'map_draw_functions.js',
@@ -10,7 +11,7 @@ var background_libs = [
 ];
 
 var background_test = [
-    'test/migrations.js'
+    'test/test-migrations.js'
 ];
 
 var content_libs = [

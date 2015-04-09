@@ -5,6 +5,7 @@
   "manifest_version": 2,
   "background": {
     "scripts": [
+      "migrations.js",
       "indexedDBUtils.js",
       "data.js",
       "messaging.js",
