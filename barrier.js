@@ -7,6 +7,7 @@
 
 var Barrier = function() {
     this.processing = {};
+    this.current = 0;
 };
 
 window.Barrier = Barrier;
@@ -26,7 +27,8 @@ Barrier.prototype.onComplete = function(fn) {
  * @return {string} - The id for the asynchronous process.
  */
 Barrier.prototype.start = function() {
-    var id = performance.now().toString();
+    var id = this.current;
+    this.current++;
     this.processing[id] = true;
     return id;
 };

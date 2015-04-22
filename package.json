@@ -21,6 +21,7 @@
     "gulp": "^3.8.11",
     "gulp-inject": "^1.2.0",
     "gulp-mocha-phantomjs": "^0.5.3",
+    "gulp-rename": "^1.2.2",
     "mocha": "^2.2.1",
     "phantomjs": "^1.9.16",
     "sinon": "^1.14.1",

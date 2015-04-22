@@ -9,23 +9,12 @@
   <body>
     <div id="mocha"></div>
     <!-- libs:js -->
-    <script src="../node_modules/expect.js/index.js"></script>
-    <script src="../node_modules/mocha/mocha.js"></script>
-    <script src="../node_modules/sinon/pkg/sinon.js"></script>
-    <script src="../node_modules/sinon-chrome/chrome.js"></script>
-    <script src="../node_modules/sinon-chrome/phantom-tweaks.js"></script>
     <!-- endinject -->
     <!-- gulp-inject tags for scripts to be tested. -->
     <!-- scripts:js -->
-    <script src="../migrations.js"></script>
-    <script src="../filesystem.js"></script>
-    <script src="../indexedDBUtils.js"></script>
-    <script src="../map_draw_functions.js"></script>
-    <script src="../messaging.js"></script>
     <!-- endinject -->
     <script>mocha.setup('bdd')</script>
     <!-- tests:js -->
-    <script src="test-migrations.js"></script>
     <!-- endinject -->
     <script>
       if (window.mochaPhantomJS) {

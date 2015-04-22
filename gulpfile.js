@@ -1,5 +1,6 @@
 var gulp = require('gulp'),
     inject = require('gulp-inject'),
+    rename = require('gulp-rename'),
     mochaPhantomJS = require('gulp-mocha-phantomjs');
 
 var background_libs = [
@@ -12,6 +13,14 @@ var background_libs = [
 
 var background_test = [
     'test/test-migrations.js'
+];
+
+var common_libs = [
+    'barrier.js'
+];
+
+var common_test = [
+    'test/test-barrier.js'
 ];
 
 var content_libs = [
@@ -30,11 +39,13 @@ var test_libs = [
     'sinon-chrome/phantom-tweaks.js'
 ].map(function(lib) {return 'node_modules/' + lib;});
 
-gulp.task('injectIntoIndex', function () {
-    return gulp.src('test/index.html')
-        // background source files.
+gulp.task('inject-tests', function() {
+    var sources = background_libs.concat(common_libs);
+    var tests = background_test.concat(common_test);
+    return gulp.src('test/index-template.html')
+        // source files.
         .pipe(inject(
-            gulp.src(background_libs, {read: false}),
+            gulp.src(sources, {read: false}),
             {name: 'scripts', relative: true}
         ))
         // Testing libraries.
@@ -44,13 +55,14 @@ gulp.task('injectIntoIndex', function () {
         ))
         // test files.
         .pipe(inject(
-            gulp.src(background_test, {read: false}),
+            gulp.src(tests, {read: false}),
             {name: 'tests', relative: true}
         ))
+        .pipe(rename('index.html'))
         .pipe(gulp.dest('test'));
 });
 
-gulp.task('test', ['injectIntoIndex'], function () {
+gulp.task('test', ['inject-tests'], function() {
     return gulp.src('test/index.html', {read: false})
         .pipe(mochaPhantomJS());
 });
