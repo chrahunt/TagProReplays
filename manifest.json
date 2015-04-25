@@ -1,7 +1,7 @@
 {
   "name": "TagProReplays",
   "description": "Save Replays from within TagPro Games",
-  "version": "1.2.20",
+  "version": "1.2.26",
   "manifest_version": 2,
   "background": {
     "scripts": [
@@ -30,6 +30,9 @@
         "http://*.koalabeast.com/*",
         "http://*.newcompte.fr/*",
         "http://tangent.jukejuice.com/*"
+      ],
+      "exclude_matches": [
+        "http://support.koalabeast.com/*"
       ],
       "js": [
         "lib/jquery.js",
