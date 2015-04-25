@@ -30,4 +30,11 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 * **TagProReplays.js**: The main content script. Contains functions for initializing the user interface, injecting the recording script into the game page, updating the settings cookies used by the recording script, and relaying recorded information to the background page to be saved.
 * **textures.js**: Contains functions for generating DataURL representations for textures from URLs as well as retrieving and converting textures between different formats.
 
-**Extension Data Storage**
+### Testing
+
+With [npm](https://github.com/npm/npm) installed, run `npm install` in the project root directory.
+
+To run tests easily, install gulp globally with `npm install -g gulp` then run `gulp test` in the project's root directory.
+
+Data format. Data formats are documented for the database as well as for the exportable raw replay data.
+

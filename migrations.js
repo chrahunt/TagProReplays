@@ -44,14 +44,18 @@ Migrations.prototype.add = function(from, to, fn) {
     this.patches++;
 };
 
-// Retrieve the patch function for your upgrade event.
-// Returns a function if ok or null if not ok.
-Migrations.prototype.getPatchFunction = function(event) {
+/**
+ * Creates the function that will make incremental changes to the
+ * objects expected by the individual migration functions. If a
+ * migration is not needed then null is returned.
+ * @param {integer} from - The version transitioning from.
+ * @param {integer} to - The version transitioning to.
+ * @return {Function?} - The function to use to transition the object(s).
+ */
+Migrations.prototype.getPatchFunction = function(from, to) {
     // get the name of the function that will patch the from version
     // to the to verison.
     var fns = [];
-    var from = event.oldVersion;
-    var to = event.newVersion;
     if (from >= to) {
         return null;
     }

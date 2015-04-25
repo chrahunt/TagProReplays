@@ -74,7 +74,7 @@ window.idbOpen = function(name, version) {
         // Upgrade from old version of database.
         if (isUpgrade(e.oldVersion)) {
             // Run relevant upgrade functions.
-            var patch = idbMigrations.getPatchFunction(e);
+            var patch = idbMigrations.getPatchFunction(e.oldVersion, e.newVersion);
             if (patch) {
                 patch(db, transaction, function(err) {
                     console.log("Error: " + err);

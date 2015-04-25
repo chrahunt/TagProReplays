@@ -68,22 +68,19 @@ describe("Migrations", function() {
     it("should run simple migrations", function(done) {
         migrations.add(1, 2, migration_functions['1->2']);
         db.data = initial_db_data['1:1->2'];
-        var ev = createEvent(1, 2);
-        var fn = migrations.getPatchFunction(ev);
+        var fn = migrations.getPatchFunction(1, 2);
         fn(db, {}, function(err) {
             expect(db.data).to.equal(resulting_db_data['1:1->2']);
             done(err);
         });
 
-        ev = createEvent(2, 2);
-        fn = migrations.getPatchFunction(ev);
+        fn = migrations.getPatchFunction(2, 2);
         expect(fn).to.be(null);
     });
 
     it("should fail appropriately", function(done) {
         migrations.add(1, 2, migration_functions['fail:1->2']);
-        var ev = createEvent(1, 2);
-        var fn = migrations.getPatchFunction(ev);
+        var fn = migrations.getPatchFunction(1, 2);
         fn(db, {}, function(err) {
             expect(err).to.be(true);
             done();
@@ -93,8 +90,7 @@ describe("Migrations", function() {
     it("should do multiple migrations", function(done) {
         migrations.add(1, 2, migration_functions['1->2']);
         migrations.add(2, 3, migration_functions['2->3']);
-        var ev = createEvent(1, 3);
-        var fn = migrations.getPatchFunction(ev);
+        var fn = migrations.getPatchFunction(1, 3);
 
         db.data = initial_db_data['1:1->2->3'];
         fn(db, {}, function(err) {
@@ -106,8 +102,7 @@ describe("Migrations", function() {
     it("should do only the appropriate migrations", function(done) {
         migrations.add(1, 2, migration_functions['1->2']);
         migrations.add(2, 3, migration_functions['2->3']);
-        var ev = createEvent(2, 3);
-        var fn = migrations.getPatchFunction(ev);
+        var fn = migrations.getPatchFunction(2, 3);
 
         db.data = initial_db_data['2:1->2->3'];
         fn(db, {}, function(err) {
@@ -119,8 +114,7 @@ describe("Migrations", function() {
     it("should not call further functions after failing", function(done) {
         migrations.add(1, 2, migration_functions['fail:1->2']);
         migrations.add(2, 3, migration_functions['fail:2->3']);
-        var ev = createEvent(1, 3);
-        var fn = migrations.getPatchFunction(ev);
+        var fn = migrations.getPatchFunction(1, 3);
 
         fn(db, {}, function(err) {
             expect(err).to.equal(true);
@@ -130,30 +124,18 @@ describe("Migrations", function() {
 
     it("should handle a single function for multiple migrations", function(done) {
         migrations.add([1, 2], 3, migration_functions['[1,2]->3']);
-        var ev = createEvent(1, 3);
-        var fn = migrations.getPatchFunction(ev);
+        var fn = migrations.getPatchFunction(1, 3);
 
         db.data = initial_db_data['1:[1,2]->3'];
         fn(db, {}, function(err) {
             expect(db.data).to.equal(resulting_db_data['1:[1,2]->3']);
         });
 
-        ev = createEvent(2, 3);
-        fn = migrations.getPatchFunction(ev);
+        fn = migrations.getPatchFunction(2, 3);
         db.data = initial_db_data['2:[1,2]->3'];
         fn(db, {}, function(err) {
             expect(db.data).to.equal(resulting_db_data['2:[1,2]->3']);
             done();
         });
     });
-
-    // Helper functions.
-    // Given an old version and a new version, create an event object
-    // with the same properties as the event passed to onupgradeneeded.
-    function createEvent(from, to) {
-        return {
-            oldVersion: from,
-            newVersion: to
-        };
-    }
 });
