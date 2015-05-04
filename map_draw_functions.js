@@ -878,89 +878,34 @@ window.drawMap = function(positions, tilesTexture) {
  * @return {TextureImages} textures
  */
 function drawFloorTiles(positions, textures) {
-    var floorTileElements = {
-        3: {tile: "redflag", coordinates: {x: 14, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        3.1: {tile: "redflagtaken", coordinates: {x: 14, y: 2}, tileSize: 40, tilesImg: "tiles"},
-        4: {tile: "blueflag", coordinates: {x: 15, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        4.1: {tile: "blueflagtaken", coordinates: {x: 15, y: 2}, tileSize: 40, tilesImg: "tiles"},
-        5: {tile: "speedpad", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "speedpad"},
-        5.1: {tile: "emptyspeedpad", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "speedpad"},
-        6: {tile: "emptypowerup", coordinates: {x: 12, y: 8}, tileSize: 40, tilesImg: "tiles"},
-        6.1: {tile: "jukejuice", coordinates: {x: 12, y: 4}, tileSize: 40, tilesImg: "tiles"},
-        6.2: {tile: "rollingbomb", coordinates: {x: 12, y: 5}, tileSize: 40, tilesImg: "tiles"},
-        6.3: {tile: "tagpro", coordinates: {x: 12, y: 6}, tileSize: 40, tilesImg: "tiles"},
-        6.4: {tile: "speed", coordinates: {x: 12, y: 7}, tileSize: 40, tilesImg: "tiles"},
-        9: {tile: "gate", coordinates: {x: 12, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        9.1: {tile: "greengate", coordinates: {x: 13, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        9.2: {tile: "redgate", coordinates: {x: 14, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        9.3: {tile: "bluegate", coordinates: {x: 15, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        10: {tile: "bomb", coordinates: {x: 12, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        10.1: {tile: "emptybomb", coordinates: {x: 12, y: 2}, tileSize: 40, tilesImg: "tiles"},
-        13: {tile: "portal", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "portal"},
-        13.1: {tile: "emptyportal", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "portal"},
-        14: {tile: "speedpadred", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "speedpadred"},
-        14.1: {tile: "emptyspeedpadred", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "speedpadred"},
-        15: {tile: "speedpadblue", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "speedpadblue"},
-        15.1: {tile: "emptyspeedpadblue", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "speedpadblue"},
-        16: {tile: "yellowflag", coordinates: {x: 13, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 2}, tileSize: 40, tilesImg: "tiles"}
-    }
-
     var player = getPlayer(positions);
-    for (var floorTile in positions.floorTiles) {
-        var mod = thisI % (player.fps * 2 / 3);
-        var fourth = (player.fps * 2 / 3) / 4;
-        var animationTile;
-        if (mod < fourth) {
-            animationTile = 0;
-        } else if (mod < fourth * 2) {
-            animationTile = 1;
-        } else if (mod < fourth * 3) {
-            animationTile = 2;
-        } else {
-            animationTile = 3;
-        }
+    var fps = player.fps;
+    var mod = thisI % (player.fps * 2 / 3);
+    var fourth = (player.fps * 2 / 3) / 4;
+    var animationTile = Math.floor(mod / fourth);
 
-        var thisFloorTile = floorTileElements[positions.floorTiles[floorTile].value[thisI]];
-        if (typeof thisFloorTile === 'undefined') {
-            return null;
+    positions.floorTiles.forEach(function(floorTile) {
+        var loc = { x: floorTile.x, y: floorTile.y };
+        var tileId = floorTile.value[thisI];
+        var tile = tiles[tileId];
+        var size = tile.size || TILE_SIZE;
+        var textureName = tile.img || "tiles";
+        var spriteLoc;
+        if (tile.animated) {
+            spriteLoc = { x: animationTile, y: 0 };
         } else {
-            var thisImg;
-            if (thisFloorTile.tilesImg == 'tiles') {
-                thisImg = textures.tiles;
-            } else if (thisFloorTile.tilesImg == 'speedpad') {
-                thisImg = textures.speedpad;
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            } else if (thisFloorTile.tilesImg == 'portal') {
-                thisImg = textures.portal;
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            } else if (thisFloorTile.tilesImg == 'speedpadred') {
-                thisImg = textures.speedpadred;
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            } else if (thisFloorTile.tilesImg == 'speedpadblue') {
-                thisImg = textures.speedpadblue;
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            }
-
-            context.drawImage(thisImg,
-                thisFloorTile.coordinates.x * TILE_SIZE,
-                thisFloorTile.coordinates.y * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE,
-                positions.floorTiles[floorTile].x * TILE_SIZE + posx,
-                positions.floorTiles[floorTile].y * TILE_SIZE + posy,
-                TILE_SIZE,
-                TILE_SIZE);
+            spriteLoc = { x: tile.x, y: tile.y };
         }
-    }
+        context.drawImage(textures[textureName],
+            spriteLoc.x * TILE_SIZE,
+            spriteLoc.y * TILE_SIZE,
+            size,
+            size,
+            loc.x * TILE_SIZE + posx,
+            loc.y * TILE_SIZE + posy,
+            size,
+            size);
+    });
 }
 
 function bombPop(positions) {
