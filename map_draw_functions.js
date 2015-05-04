@@ -18,6 +18,300 @@ var context;
 // Draw-function globals.
 var posx, posy;
 
+// Tile information.
+var tiles = {
+  0: { x: 15, y: 10 }, // blank.
+  1: {},
+  1.1: { drawFloor: [{ x: 1, y: 0 }, { x: 0, y: -1 }] },
+  1.2: { drawFloor: [{ x: 1, y: 0 }, { x: 0, y: 1 }] },
+  1.3: { drawFloor: [{ x: -1, y: 0 }, { x: 0, y: 1 }] },
+  1.4: { drawFloor: [{ x: -1, y: 0 }, { x: 0, y: -1 }] },
+  2: { x: 13, y: 4 },
+  16: { x: 13, y: 1, drawFloor: true, dynamic: true },
+  yellowflag: { x: 13, y: 1, dynamic: true },
+  16.1: { x: 13, y: 2, drawFloor: true, dynamic: true },
+  3: { x: 14, y: 1, drawFloor: true, dynamic: true },
+  redflag: { x: 14, y: 1, dynamic: true },
+  3.1: { x: 14, y: 2, drawFloor: true, dynamic: true },
+  4: { x: 15, y: 1, drawFloor: true, dynamic: true },
+  blueflag: { x: 15, y: 1, dynamic: true },
+  4.1: { x: 15, y: 2, drawFloor: true, dynamic: true },
+  5: { drawFloor: true, dynamic: true, animated: true, img: "speedpad" }, // speedpad
+  5.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "speedpad" },
+  14: { drawFloor: true, dynamic: true, animated: true, img: "speedpadred" }, // speedpadred
+  14.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "speedpadred" },
+  15: { drawFloor: true, dynamic: true, animated: true, img: "speedpadblue" }, // speedpadblue
+  15.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "speedpadblue" },
+  6: { x: 12, y: 8, drawFloor: true, dynamic: true }, // powerups
+  6.1: { x: 12, y: 4, drawFloor: true, dynamic: true },
+  grip: { x: 12, y: 4, dynamic: true },
+  6.2: { x: 12, y: 5, drawFloor: true, dynamic: true },
+  bomb: { x: 12, y: 5, dynamic: true },
+  6.3: { x: 12, y: 6, drawFloor: true, dynamic: true },
+  tagpro: { x: 12, y: 6, dynamic: true },
+  6.4: { x: 12, y: 7, drawFloor: true, dynamic: true },
+  speed: { x: 12, y: 7, dynamic: true },
+  17: { x: 14, y: 5 }, // red goal
+  18: { x: 15, y: 5 }, // blue goal
+  7: { x: 12, y: 0, drawFloor: true }, // spike
+  21: { x: 14, y: 6, drawFloor: true, dynamic: true },
+  yellowpotato: { x: 14, y: 6, dynamic: true },
+  21.1: { x: 15, y: 6, drawFloor: true, dynamic: true },
+  19: { x: 14, y: 7, drawFloor: true, dynamic: true },
+  redpotato: { x: 14, y: 7, dynamic: true },
+  19.1: { x: 15, y: 7, drawFloor: true, dynamic: true },
+  20: { x: 14, y: 8, drawFloor: true, dynamic: true },
+  bluepotato: { x: 14, y: 8, dynamic: true },
+  20.1: { x: 15, y: 8, drawFloor: true, dynamic: true },
+  22: { x: 13, y: 0, drawFloor: true }, // gravity well
+  redball: { x: 14, y: 0 },
+  blueball: { x: 15, y: 0 },
+  8: { x: 13, y: 6, drawFloor: true },
+  9: { x: 12, y: 3, dynamic: true },
+  9.1: { x: 13, y: 3, dynamic: true },
+  9.2: { x: 14, y: 3, dynamic: true },
+  9.3: { x: 15, y: 3, dynamic: true },
+  10: { x: 12, y: 1, drawFloor: true, dynamic: true },
+  10.1: { x: 12, y: 2, drawFloor: true, dynamic: true },
+  11: { x: 14, y: 4 }, // red team tile
+  12: { x: 15, y: 4 }, // blue team tile
+  marsball: { x: 12, y: 9, size: 80, keep: true },
+  13: { drawFloor: true, dynamic: true, animated: true, img: "portal" }, // portal
+  13.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "portal" },
+  '1.310': { x: 10.5, y: 7.5, size: 20 },
+  '1.410': { x: 11, y: 7.5, size: 20 },
+  '1.110': { x: 11, y: 8, size: 20 },
+  '1.210': { x: 10.5, y: 8, size: 20 },
+  '1.310d': { x: 0.5, y: 3.5, size: 20 },
+  '1.410d': { x: 1, y: 3.5, size: 20 },
+  '1.210d': { x: 0.5, y: 4, size: 20 },
+  1.321: { x: 4.5, y: 9.5, size: 20 },
+  1.421: { x: 5, y: 9.5, size: 20 },
+  1.121: { x: 5, y: 10, size: 20 },
+  1.221: { x: 4.5, y: 10, size: 20 },
+  '1.321d': { x: 1.5, y: 2.5, size: 20 },
+  '1.421d': { x: 2, y: 2.5, size: 20 },
+  '1.221d': { x: 1.5, y: 3, size: 20 },
+  1.332: { x: 6.5, y: 9.5, size: 20 },
+  1.432: { x: 7, y: 9.5, size: 20 },
+  1.132: { x: 7, y: 10, size: 20 },
+  1.232: { x: 6.5, y: 10, size: 20 },
+  '1.332d': { x: 9.5, y: 2.5, size: 20 },
+  '1.432d': { x: 10, y: 2.5, size: 20 },
+  '1.132d': { x: 10, y: 3, size: 20 },
+  1.343: { x: 0.5, y: 7.5, size: 20 },
+  1.443: { x: 1, y: 7.5, size: 20 },
+  1.143: { x: 1, y: 8, size: 20 },
+  1.243: { x: 0.5, y: 8, size: 20 },
+  '1.343d': { x: 10.5, y: 3.5, size: 20 },
+  '1.443d': { x: 11, y: 3.5, size: 20 },
+  '1.143d': { x: 11, y: 4, size: 20 },
+  1.354: { x: 1.5, y: 6.5, size: 20 },
+  1.454: { x: 2, y: 6.5, size: 20 },
+  1.154: { x: 2, y: 7, size: 20 },
+  1.254: { x: 1.5, y: 7, size: 20 },
+  '1.454d': { x: 9, y: 1.5, size: 20 },
+  '1.154d': { x: 9, y: 2, size: 20 },
+  '1.254d': { x: 8.5, y: 2, size: 20 },
+  1.365: { x: 6.5, y: 8.5, size: 20 },
+  1.465: { x: 7, y: 8.5, size: 20 },
+  1.165: { x: 7, y: 9, size: 20 },
+  1.265: { x: 6.5, y: 9, size: 20 },
+  '1.465d': { x: 11, y: 1.5, size: 20 },
+  '1.165d': { x: 11, y: 2, size: 20 },
+  '1.265d': { x: 10.5, y: 2, size: 20 },
+  1.376: { x: 4.5, y: 8.5, size: 20 },
+  1.476: { x: 5, y: 8.5, size: 20 },
+  1.176: { x: 5, y: 9, size: 20 },
+  1.276: { x: 4.5, y: 9, size: 20 },
+  '1.376d': { x: 0.5, y: 1.5, size: 20 },
+  '1.176d': { x: 1, y: 2, size: 20 },
+  '1.276d': { x: 0.5, y: 2, size: 20 },
+  1.307: { x: 9.5, y: 6.5, size: 20 },
+  1.407: { x: 10, y: 6.5, size: 20 },
+  1.107: { x: 10, y: 7, size: 20 },
+  1.207: { x: 9.5, y: 7, size: 20 },
+  '1.307d': { x: 2.5, y: 1.5, size: 20 },
+  '1.107d': { x: 3, y: 2, size: 20 },
+  '1.207d': { x: 2.5, y: 2, size: 20 },
+  '1.320': { x: 1.5, y: 7.5, size: 20 },
+  '1.420': { x: 2, y: 7.5, size: 20 },
+  '1.220': { x: 1.5, y: 8, size: 20 },
+  '1.320d': { x: 10.5, y: 0.5, size: 20 },
+  '1.420d': { x: 11, y: 0.5, size: 20 },
+  '1.220d': { x: 10.5, y: 1, size: 20 },
+  1.331: { x: 5.5, y: 6.5, size: 20 },
+  1.431: { x: 6, y: 6.5, size: 20 },
+  1.131: { x: 6, y: 7, size: 20 },
+  1.231: { x: 5.5, y: 7, size: 20 },
+  '1.331d': { x: 5.5, y: 0.5, size: 20 },
+  '1.431d': { x: 6, y: 0.5, size: 20 },
+  1.342: { x: 9.5, y: 7.5, size: 20 },
+  1.442: { x: 10, y: 7.5, size: 20 },
+  1.142: { x: 10, y: 8, size: 20 },
+  '1.342d': { x: 0.5, y: 0.5, size: 20 },
+  '1.442d': { x: 1, y: 0.5, size: 20 },
+  '1.142d': { x: 1, y: 1, size: 20 },
+  1.353: { x: 4.5, y: 5.5, size: 20 },
+  1.453: { x: 5, y: 5.5, size: 20 },
+  1.153: { x: 5, y: 6, size: 20 },
+  1.253: { x: 4.5, y: 6, size: 20 },
+  '1.453d': { x: 7, y: 1.5, size: 20 },
+  '1.153d': { x: 7, y: 2, size: 20 },
+  1.464: { x: 4, y: 9.5, size: 20 },
+  1.164: { x: 4, y: 10, size: 20 },
+  1.264: { x: 3.5, y: 10, size: 20 },
+  '1.464d': { x: 2, y: 3.5, size: 20 },
+  '1.164d': { x: 2, y: 4, size: 20 },
+  '1.264d': { x: 1.5, y: 4, size: 20 },
+  1.375: { x: 5.5, y: 2.5, size: 20 },
+  1.475: { x: 6, y: 2.5, size: 20 },
+  1.175: { x: 6, y: 4, size: 20 },
+  1.275: { x: 5.5, y: 4, size: 20 },
+  '1.175d': { x: 6, y: 3, size: 20 },
+  '1.275d': { x: 5.5, y: 3, size: 20 },
+  1.306: { x: 7.5, y: 9.5, size: 20 },
+  1.106: { x: 8, y: 10, size: 20 },
+  1.206: { x: 7.5, y: 10, size: 20 },
+  '1.306d': { x: 9.5, y: 3.5, size: 20 },
+  '1.106d': { x: 10, y: 4, size: 20 },
+  '1.206d': { x: 9.5, y: 4, size: 20 },
+  1.317: { x: 6.5, y: 5.5, size: 20 },
+  1.417: { x: 7, y: 5.5, size: 20 },
+  1.117: { x: 7, y: 6, size: 20 },
+  1.217: { x: 6.5, y: 6, size: 20 },
+  '1.317d': { x: 4.5, y: 1.5, size: 20 },
+  '1.217d': { x: 4.5, y: 2, size: 20 },
+  1.327: { x: 7.5, y: 8.5, size: 20 },
+  1.427: { x: 8, y: 8.5, size: 20 },
+  1.101: { x: 4, y: 5, size: 20 },
+  1.227: { x: 7.5, y: 9, size: 20 },
+  '1.327d': { x: 8.5, y: 3.5, size: 20 },
+  '1.227d': { x: 8.5, y: 4, size: 20 },
+  '1.330': { x: 8.5, y: 7.5, size: 20 },
+  '1.430': { x: 9, y: 7.5, size: 20 },
+  1.112: { x: 2, y: 0, size: 20 },
+  '1.230': { x: 8.5, y: 8, size: 20 },
+  '1.330d': { x: 3.5, y: 0.5, size: 20 },
+  '1.430d': { x: 4, y: 0.5, size: 20 },
+  1.341: { x: 2.5, y: 7.5, size: 20 },
+  1.441: { x: 3, y: 7.5, size: 20 },
+  1.141: { x: 3, y: 8, size: 20 },
+  1.223: { x: 9.5, y: 0, size: 20 },
+  '1.341d': { x: 7.5, y: 0.5, size: 20 },
+  '1.441d': { x: 8, y: 0.5, size: 20 },
+  1.352: { x: 3.5, y: 8.5, size: 20 },
+  1.452: { x: 4, y: 8.5, size: 20 },
+  1.152: { x: 4, y: 9, size: 20 },
+  1.234: { x: 7.5, y: 5, size: 20 },
+  '1.452d': { x: 3, y: 3.5, size: 20 },
+  '1.152d': { x: 3, y: 4, size: 20 },
+  1.345: { x: 7.5, y: 6.5, size: 20 },
+  1.463: { x: 10, y: 8.5, size: 20 },
+  1.163: { x: 10, y: 9, size: 20 },
+  1.263: { x: 9.5, y: 9, size: 20 },
+  '1.463d': { x: 2, y: 0.5, size: 20 },
+  '1.163d': { x: 2, y: 1, size: 20 },
+  1.356: { x: 6.5, y: 7.5, size: 20 },
+  1.474: { x: 9, y: 9.5, size: 20 },
+  1.174: { x: 9, y: 10, size: 20 },
+  1.274: { x: 8.5, y: 10, size: 20 },
+  '1.174d': { x: 10, y: 5, size: 20 },
+  '1.274d': { x: 9.5, y: 5, size: 20 },
+  1.305: { x: 2.5, y: 9.5, size: 20 },
+  1.467: { x: 5, y: 7.5, size: 20 },
+  1.105: { x: 3, y: 10, size: 20 },
+  1.205: { x: 2.5, y: 10, size: 20 },
+  '1.105d': { x: 2, y: 5, size: 20 },
+  '1.205d': { x: 1.5, y: 5, size: 20 },
+  1.316: { x: 1.5, y: 8.5, size: 20 },
+  '1.470': { x: 4, y: 6.5, size: 20 },
+  1.116: { x: 2, y: 9, size: 20 },
+  1.216: { x: 1.5, y: 9, size: 20 },
+  '1.316d': { x: 9.5, y: 0.5, size: 20 },
+  '1.216d': { x: 9.5, y: 1, size: 20 },
+  1.337: { x: 10.5, y: 9.5, size: 20 },
+  1.437: { x: 11, y: 9.5, size: 20 },
+  1.102: { x: 0, y: 7, size: 20 },
+  1.237: { x: 10.5, y: 10, size: 20 },
+  '1.337d': { x: 10.5, y: 4.5, size: 20 },
+  '1.102d': { x: 0, y: 0, size: 20 },
+  '1.340': { x: 8.5, y: 10.5, size: 20 },
+  '1.440': { x: 9, y: 10.5, size: 20 },
+  1.113: { x: 6, y: 8, size: 20 },
+  1.213: { x: 5.5, y: 8, size: 20 },
+  '1.340d': { x: 3.5, y: 2.5, size: 20 },
+  '1.440d': { x: 8, y: 2.5, size: 20 },
+  1.351: { x: 0.5, y: 9.5, size: 20 },
+  1.451: { x: 1, y: 9.5, size: 20 },
+  1.151: { x: 1, y: 10, size: 20 },
+  1.224: { x: 11.5, y: 7, size: 20 },
+  '1.224d': { x: 11.5, y: 0, size: 20 },
+  '1.451d': { x: 1, y: 4.5, size: 20 },
+  1.335: { x: 11.5, y: 8.5, size: 20 },
+  1.462: { x: 0, y: 5.5, size: 20 },
+  1.162: { x: 0, y: 5, size: 20 },
+  1.235: { x: 11.5, y: 9, size: 20 },
+  '1.462d': { x: 0, y: 4.5, size: 20 },
+  '1.162d': { x: 0, y: 6, size: 20 },
+  1.346: { x: 11.5, y: 7.5, size: 20 },
+  1.473: { x: 8, y: 6.5, size: 20 },
+  1.173: { x: 8, y: 7, size: 20 },
+  1.273: { x: 7.5, y: 7, size: 20 },
+  '1.346d': { x: 2.5, y: 4.5, size: 20 },
+  '1.173d': { x: 9, y: 3, size: 20 },
+  1.357: { x: 5.5, y: 10.5, size: 20 },
+  1.457: { x: 6, y: 10.5, size: 20 },
+  1.104: { x: 6, y: 5, size: 20 },
+  1.204: { x: 5.5, y: 5, size: 20 },
+  '1.104d': { x: 7, y: 5, size: 20 },
+  '1.204d': { x: 4.5, y: 5, size: 20 },
+  1.315: { x: 3.5, y: 6.5, size: 20 },
+  '1.460': { x: 0, y: 7.5, size: 20 },
+  1.115: { x: 4, y: 7, size: 20 },
+  1.215: { x: 3.5, y: 7, size: 20 },
+  '1.460d': { x: 9, y: 4.5, size: 20 },
+  '1.215d': { x: 2.5, y: 3, size: 20 },
+  1.326: { x: 11.5, y: 5.5, size: 20 },
+  1.471: { x: 0, y: 8.5, size: 20 },
+  1.171: { x: 0, y: 9, size: 20 },
+  1.226: { x: 11.5, y: 5, size: 20 },
+  '1.326d': { x: 11.5, y: 4.5, size: 20 },
+  '1.226d': { x: 11.5, y: 6, size: 20 },
+  1.347: { x: 9.5, y: 10.5, size: 20 },
+  1.447: { x: 10, y: 10.5, size: 20 },
+  1.103: { x: 9, y: 6, size: 20 },
+  1.203: { x: 8.5, y: 6, size: 20 },
+  '1.347d': { x: 3.5, y: 1.5, size: 20 },
+  '1.103d': { x: 4, y: 1, size: 20 },
+  '1.350': { x: 1.5, y: 10.5, size: 20 },
+  '1.450': { x: 2, y: 10.5, size: 20 },
+  1.114: { x: 3, y: 6, size: 20 },
+  1.214: { x: 2.5, y: 6, size: 20 },
+  '1.214d': { x: 7.5, y: 1, size: 20 },
+  '1.450d': { x: 8, y: 1.5, size: 20 },
+  1.325: { x: 4.5, y: 7.5, size: 20 },
+  1.461: { x: 4, y: 3.5, size: 20 },
+  1.161: { x: 4, y: 4, size: 20 },
+  1.225: { x: 4.5, y: 8, size: 20 },
+  '1.225d': { x: 8.5, y: 5, size: 20 },
+  '1.461d': { x: 8, y: 4.5, size: 20 },
+  1.336: { x: 7.5, y: 3.5, size: 20 },
+  1.472: { x: 7, y: 7.5, size: 20 },
+  1.172: { x: 7, y: 8, size: 20 },
+  1.236: { x: 7.5, y: 4, size: 20 },
+  '1.336d': { x: 3.5, y: 4.5, size: 20 },
+  '1.172d': { x: 3, y: 5, size: 20 },
+  '1.300': { x: 5.5, y: 5.5, size: 20 },
+  '1.400': { x: 6, y: 5.5, size: 20 },
+  '1.100': { x: 6, y: 6, size: 20 },
+  '1.200': { x: 5.5, y: 6, size: 20 },
+  '1.300d': { x: 5.5, y: 8.5, size: 20 },
+  '1.400d': { x: 6, y: 8.5, size: 20 },
+  '1.100d': { x: 6, y: 10, size: 20 },
+  '1.200d': { x: 5.5, y: 10, size: 20 }
+};
+
 /**
  * Get the player object that corresponds to the recording player
  * from position data. If the player is not found then null is
@@ -111,7 +405,7 @@ function drawFlair(ballFlair, pos, flair) {
             pos.x,
             pos.y,
             16,
-            16)
+            16);
     }
 }
 
@@ -217,7 +511,7 @@ function drawBomb(point, rollingbomb) {
             point.x,
             point.y,
             TILE_SIZE,
-            TILE_SIZE)
+            TILE_SIZE);
     }
 }
 
@@ -313,20 +607,20 @@ function drawScoreFlag(positions, tiles) {
         if (flagStatus !== null) {
             var flagCoords;
             if (flagStatus == '3') {
-                flagCoords = {x: 13, y: 1}
+                flagCoords = {x: 13, y: 1};
             } else if (flagStatus == '1') {
-                flagCoords = {x: 14, y: 1}
+                flagCoords = {x: 14, y: 1};
             } else if (flagStatus == '2') {
-                flagCoords = {x: 15, y: 1}
+                flagCoords = {x: 15, y: 1};
             }
             if (typeof flagCoords !== 'undefined') {
                 // Get team of player with flag.
-                var flagTeam = typeof player.team.length === 'undefined' ? player.team : player.team[thisI]
+                var flagTeam = typeof player.team.length === 'undefined' ? player.team : player.team[thisI];
                 var flagPos = {
                     x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
                     y: context.canvas.height - 50
-                }
-                context.globalAlpha = 0.5
+                };
+                context.globalAlpha = 0.5;
                 context.drawImage(tiles,
                     flagCoords.x * TILE_SIZE,
                     1 * TILE_SIZE,
@@ -334,9 +628,9 @@ function drawScoreFlag(positions, tiles) {
                     TILE_SIZE,
                     flagPos.x,
                     flagPos.y,
-                    TILE_SIZE * .8,
-                    TILE_SIZE * .8)
-                context.globalAlpha = 1
+                    TILE_SIZE * 0.8,
+                    TILE_SIZE * 0.8);
+                context.globalAlpha = 1;
             }
         }
     });
@@ -356,7 +650,7 @@ function drawFlag(player, point, tiles) {
         2: {x: 15, y: 1},
         3: {x: 13, y: 1}
     };
-    if (player.flag[thisI] != null) {
+    if (player.flag[thisI] !== null) {
         var flagCoords = flagCodes[player.flag[thisI]];
         context.drawImage(tiles,
             flagCoords.x * TILE_SIZE,
@@ -366,199 +660,216 @@ function drawFlag(player, point, tiles) {
             point.x + 10,
             point.y - 30,
             TILE_SIZE,
-            TILE_SIZE)
+            TILE_SIZE);
     }
 }
 
-// Scope: background, inpagepreview
-// Uses: $, 
 /**
- * Takes in the replay data and returns a DataURL (png) representing the map.
+ * Given the map for the replay, generate the floorMap, specifying the
+ * floor tiles to draw underneath dynamic and partially transparent
+ * tiles.
+ * @param {} map - The map.
+ * @return {Array.<Array.<number>>} - Specifies the floor tiles to be
+ *   drawn, or -1 if not needed at a location.
+ */
+function makeFloorMap(map) {
+    // Directions to check for neighboring special tiles.
+    var defaultOffsets = [
+        { x: -1, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 }
+    ];
+
+    // Check if position is in the bounds of the map.
+    // loc is an object with x and y properties.
+    function inBounds(loc) {
+        return loc.x >= 0 && loc.x < map.length && loc.y >= 0 && loc.y < map[0].length;
+    }
+
+    // Given a position, return the tile value in the map. If outside
+    // map bounds, return 0.
+    function getTileValue(loc) {
+        if (inBounds(loc)) {
+            return map[loc.x][loc.y];
+        } else {
+            return 0;
+        }
+    }
+
+    // Get values of tiles at provided position.
+    function getNeighbors(loc, offsets) {
+        return offsets.map(function(offset) {
+            return { x: loc.x + offset.x, y: loc.y + offset.y };
+        });
+    }
+    // Takes x and y from map.
+    function setFloorTile(x, y) {
+        var draw = true,
+            val, // Value to use for all contiguous drawFloor tiles.
+            nodes = [{ x: x, y: y }],
+            adjacent = [],
+            visited = {}; // Track visited locations.
+
+        while (nodes.length > 0) {
+            var node = nodes.shift();
+            if (visited[node.x + ',' + node.y]) {
+                continue;
+            }
+            visited[node.x + ',' + node.y] = true;
+            var thisVal = getTileValue(node);
+            // Value is in list of special floor tiles.
+            if (floorTiles.indexOf(thisVal) !== -1) {
+                if (typeof val !== "undefined" && val !== thisVal) {
+                    val = 2;
+                } else {
+                    val = thisVal;
+                }
+            } else {
+                // Node is an adjacent tile that also needs its floor
+                // drawn.
+                var tile = tiles[thisVal];
+                if (tile && tile.drawFloor) {
+                    if (tile.redrawFloor) {
+                        draw = false;
+                    }
+                    var neighbors;
+                    if (Array.isArray(tile.drawFloor)) {
+                        neighbors = getNeighbors(node, tile.drawFloor);
+                    } else {
+                        neighbors = getNeighbors(node, defaultOffsets);
+                    }
+                    neighbors.forEach(function(neighbor) {
+                        var val = getTileValue(neighbor);
+                        // Ensure tiles are in bounds and disregard diagonal tiles that aren't
+                        // across from the current tile.
+                        if (tiles[val] && Array.isArray(tiles[val].drawFloor) &&
+                            !tiles[val].drawFloor.some(function(other) {
+                                return other.x == -neighbor.x && other.y == -neighbor.y;
+                            })) {
+                            return;
+                        }
+                        nodes.push(neighbor);
+                    });
+                    adjacent.push(node);
+                }
+            }
+        }
+        // Default value for underneath tile.
+        if (typeof val == "undefined" || !val && !draw) {
+            val = 2;
+        }
+        adjacent.forEach(function(tile) {
+            floorMap[tile.x][tile.y] = val;
+        });
+    }
+    // Tile values that bleed over into adjacent tiles.
+    var floorTiles = [0, 2, 11, 12, 17, 18],
+        floorMap = [];
+    // Initialize floor map array with -1.
+    for (var x = 0; x < map.length; x++) {
+        floorMap[x] = [];
+        for (var y = 0; y < map[0].length; y++) {
+            floorMap[x][y] = -1;
+        }
+    }
+    map.forEach(function(row, x) {
+        row.forEach(function(val, y) {
+            if (floorMap[x][y] == -1 && tiles[val] && tiles[val].drawFloor) {
+                setFloorTile(x, y);
+            }
+        });
+    });
+    return floorMap;
+}
+
+// Scope: background, inpagepreview
+/**
+ * Takes in the replay data and returns a DataURL (png) representing the map background.
  * @param {PositionData} positions - The replay data.
  * @param {Image} tiles - The image representing the tiles texture.
  * @return {string} - DataURL representing the map.
  */
-window.drawMap = function(positions, tiles) {
+window.drawMap = function(positions, tilesTexture) {
     var posx = 0;
     var posy = 0;
-    var newcan = document.createElement('canvas')
-    newcan.id = 'newCanvas'
-    newcan.style.display = 'none'
-    document.body.appendChild(newcan)
-    newcan = document.getElementById('newCanvas')
-    newcan.width = positions.map.length * TILE_SIZE
-    newcan.height = positions.map[0].length * TILE_SIZE
-    newcan.style.zIndex = 200
-    newcan.style.position = 'absolute'
-    newcan.style.top = 0
-    newcan.style.left = 0
-    var newcontext = newcan.getContext('2d')
-    
-    var specialTiles = ['11', '12', '17', '18'];
-    var specialTileElements = {
-        11: {tile: "redtile", coordinates: {x: 14, y: 4}, tileSize: 40, drawTileFirst: false},
-        12: {tile: "bluetile", coordinates: {x: 15, y: 4}, tileSize: 40, drawTileFirst: false},
-        17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
-        18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
-    }
-    
-    function drawSpecialTile(col, row, type) {
-        if ( type == '1.1' && col != positions.tiles.length-1 && row != 0 ) {
-            var test = specialTiles.map(function(tile) {
-                if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
-                    return ({test:true,tile:tile});
-            });
-        } else if ( type == '1.2' && col != positions.tiles.length-1 && row != positions.tiles[col].length-1 ) {
-            var test = specialTiles.map(function(tile) {
-                if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
-                    return ({test:true,tile:tile});
-            });
-        } else if ( type == '1.3' && col != 0 && row != positions.tiles[col].length-1 ) {
-            var test = specialTiles.map(function(tile) {
-                if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
-                    return ({test:true,tile:tile});
-            });
-        } else if ( type == '1.4' && col != 0 && row != 0 ) {
-            var test = specialTiles.map(function(tile) {
-                if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
-                    return ({test:true,tile:tile});
-            });
-        };
-        if(typeof test === 'undefined' || $.map(test, function(obj, index){if(typeof obj === 'object') return(index)})[0] < 0) return false;
-        var specialTile = $.map(test, function(obj, index){if(typeof obj === 'object') return(obj.tile)})[0]
-        return specialTile;
-    }
+    var newcan = document.createElement('canvas');
+    newcan.id = 'newCanvas';
+    newcan.style.display = 'none';
+    document.body.appendChild(newcan);
+    newcan = document.getElementById('newCanvas');
+    newcan.width = positions.map.length * TILE_SIZE;
+    newcan.height = positions.map[0].length * TILE_SIZE;
+    newcan.style.zIndex = 200;
+    newcan.style.position = 'absolute';
+    newcan.style.top = 0;
+    newcan.style.left = 0;
+    var newcontext = newcan.getContext('2d');
 
-    for (col in positions.tiles) {
-        for (row in positions.tiles[col]) {
-            // draw floor tile underneath certain tiles
-            // but don't draw tile outside bounds of the map
-            // also whether to draw team tiles / end zones instead of regular tile
-            if (positions.tiles[col][row].tile == 'diagonalWall') {
-                positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(col, row, positions.map[col][row]);
-                positions.tiles[col][row].drawTileFirst = true
-                if (positions.map[col][row] == '1.1') {
-                    if (col != positions.map.length - 1) {
-                        if (positions.map[+col + 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != 0) {
-                        if (positions.map[col][+row - 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row == 0 && col == positions.map.length - 1)
-                        positions.tiles[col][row].drawTileFirst = false;
-                } else if (positions.map[col][row] == '1.2') {
-                    if (col != positions.map.length - 1) {
-                        if (positions.map[+col + 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != positions.map[col].length - 1) {
-                        if (positions.map[col][+row + 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (col == positions.map.length - 1 && row == positions.map[col].length - 1)
-                        positions.tiles[col][row].drawTileFirst = false
-                } else if (positions.map[col][row] == '1.3') {
-                    if (col != 0) {
-                        if (positions.map[+col - 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != positions.map[col].length - 1) {
-                        if (positions.map[col][+row + 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (col == 0 && row == positions.map[col].length - 1)
-                        positions.tiles[col][row].drawTileFirst = false;
-                } else if (positions.map[col][row] == '1.4') {
-                    if (col != 0) {
-                        if (positions.map[+col - 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != 0) {
-                        if (positions.map[col][+row - 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row == 0 && col == 0) 
-                        positions.tiles[col][row].drawTileFirst = false;
-                }
-            }
-            if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
-                newcontext.drawImage(tiles,                                         // image
-                    13 * TILE_SIZE,                                     // x coordinate of image
-                    4 * TILE_SIZE,                                    // y coordinate of image
-                    TILE_SIZE,                                        // width of image
-                    TILE_SIZE,                                        // height of image
-                    col * TILE_SIZE + posx,                            // destination x coordinate
-                    row * TILE_SIZE + posy,                            // destination y coordinate
-                    TILE_SIZE,                                        // width of destination
-                    TILE_SIZE)                                     // height of destination
-            }
-            if (positions.tiles[col][row].drawSpecialTileFirst) {
-                newcontext.drawImage(tiles,
-                    specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * TILE_SIZE,
-                    specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * TILE_SIZE,
+    var floorMap = makeFloorMap(positions.map);
+    var wallMap = positions.wallMap;
+    var wallOffsets = [
+        { x: 0, y: 0},
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+    ];
+
+    positions.map.forEach(function(row, x) {
+        row.forEach(function(tileId, y) {
+            var tile = tiles[tileId];
+            var tileSize = tile.size || TILE_SIZE;
+            var loc = { x: x, y: y };
+
+            // Draw floor underneath tiles where relevant.
+            if (tile.drawFloor) {
+                var floorTile = tiles[floorMap[loc.x][loc.y]];
+                newcontext.drawImage(tilesTexture,
+                    floorTile.x * TILE_SIZE,
+                    floorTile.y * TILE_SIZE,
                     TILE_SIZE,
                     TILE_SIZE,
-                    col * TILE_SIZE + posx,
-                    row * TILE_SIZE + posy,
+                    loc.x * TILE_SIZE + posx,
+                    loc.y * TILE_SIZE + posy,
                     TILE_SIZE,
-                    TILE_SIZE)
+                    TILE_SIZE);
             }
-            if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
-                var thisTileSize = positions.tiles[col][row].tileSize
-                newcontext.drawImage(tiles,                                             // image
-                    positions.tiles[col][row].coordinates.x * thisTileSize,         // x coordinate of image
-                    positions.tiles[col][row].coordinates.y * thisTileSize,        // y coordinate of image
-                    thisTileSize,                                        // width of image
-                    thisTileSize,                                        // height of image
-                    col * thisTileSize + posx,                            // destination x coordinate
-                    row * thisTileSize + posy,                            // destination y coordinate
-                    thisTileSize,                                        // width of destination
-                    thisTileSize)                                     // height of destination
+            // Skip drawing dynamic tiles.
+            if (tile.dynamic) return;
+            // Get wall quadrants and draw.
+            if (Math.floor(tileId) === 1) {
+                // Get coordinates for floor tile.
+                var quadrants = wallMap[loc.x][loc.y];
+                quadrants.forEach(function(quadrant, i) {
+                    var offset = wallOffsets[i];
+                    var quadrantTile = tiles[quadrant];
+                    var quadrantSize = quadrantTile.size;
+                    newcontext.drawImage(tilesTexture,
+                        quadrantTile.x * tileSize,
+                        quadrantTile.y * tileSize,
+                        quadrantSize,
+                        quadrantSize,
+                        loc.x * tileSize + offset.x + posx,
+                        loc.y * tileSize + offset.y + posy,
+                        quadrantSize,
+                        quadrantSize);
+                });
+            } else {
+                // Draw tile.
+                newcontext.drawImage(tilesTexture,
+                    tile.x * tileSize,
+                    tile.y * tileSize,
+                    tileSize,
+                    tileSize,
+                    loc.x * tileSize + posx,
+                    loc.y * tileSize + posy,
+                    tileSize,
+                    tileSize);
             }
-            if (positions.tiles[col][row].tile == 'wall' | positions.tiles[col][row].tile == 'diagonalWall') {
-                var thisTileSize = positions.tiles[col][row].tileSize
-                for (quadrant in positions.tiles[col][row].coordinates) {
-                    offset = {}
-                    if (quadrant == 0) {
-                        offset.x = 0
-                        offset.y = 0
-                    } else if (quadrant == 1) {
-                        offset.x = thisTileSize
-                        offset.y = 0
-                    } else if (quadrant == 2) {
-                        offset.x = thisTileSize
-                        offset.y = thisTileSize
-                    } else if (quadrant == 3) {
-                        offset.x = 0
-                        offset.y = thisTileSize
-                    } else {
-                        continue
-                    }
-                    newcontext.drawImage(tiles,
-                        positions.tiles[col][row].coordinates[quadrant][0] * thisTileSize * 2,
-                        positions.tiles[col][row].coordinates[quadrant][1] * thisTileSize * 2,
-                        thisTileSize,
-                        thisTileSize,
-                        col * thisTileSize * 2 + offset.x + posx,
-                        row * thisTileSize * 2 + offset.y + posy,
-                        thisTileSize,
-                        thisTileSize)
-                }
-            }
-        }
-    }
-    return (newcontext.canvas.toDataURL())
-}
+        });
+    });
+    return newcontext.canvas.toDataURL();
+};
 
 // Uses: thisI
 /**
@@ -610,7 +921,7 @@ function drawFloorTiles(positions, textures) {
             animationTile = 3;
         }
 
-        var thisFloorTile = floorTileElements[positions.floorTiles[floorTile].value[thisI]]
+        var thisFloorTile = floorTileElements[positions.floorTiles[floorTile].value[thisI]];
         if (typeof thisFloorTile === 'undefined') {
             return null;
         } else {
