@@ -1,12 +1,6 @@
-/**
- * Record and save the state of the game, emitting an event to the
- * window with the replay data.
- * 
- * This file is injected into the page by the content script
- * TagProReplays. This is necessary in order to listen to the game
- * socket which provides game state information.
- */
-(function(window, document, undefined) {
+////////////////////////////////////////////
+//           Recording Section            //
+////////////////////////////////////////////
 
 function createZeroArray(N) {
     return (Array.apply(null, {length: N}).map(Number.call, function () {
@@ -25,42 +19,10 @@ function readCookie(name) {
     return null;
 }
 
-// Get options from cookies.
-function getOptions() {
-    function getBooleanCookie(name, defaultValue) {
-        var cookie = readCookie(name);
-        if (cookie) {
-            return cookie == "true";
-        } else {
-            return defaultValue;
-        }
-    }
-
-    var fps = +readCookie('fps') || 60;
-    var duration = +readCookie('duration') || 30;
-    var record_key_enabled = getBooleanCookie('useRecordKey', true);
-    var record_key = +readCookie('replayRecordKey') || 47;
-    var record = getBooleanCookie('record', true);
-    // What is this for?
-    var treter = getBooleanCookie('treter', false);
-
-    var options = {
-        fps: fps,
-        duration: duration,
-        record_key_enabled: record_key_enabled,
-        record_key: record_key,
-        record: record,
-        treter: treter
-    };
-    return options;
-}
-
-var options = getOptions();
-
 function recordReplayData() {
     var savingIndex = 0;
-    var fps = options.fps;
-    var saveDuration = options.duration;
+    var fps = +readCookie('fps');
+    var saveDuration = +readCookie('duration');
 
     // set up map data
     positions.chat = [];
@@ -88,7 +50,7 @@ function recordReplayData() {
 
     // set up listener for chats, splats, and bombs
     tagpro.socket.on('chat', function (CHAT) {
-        CHAT.removeAt = Date.now()+30000;
+    	CHAT.removeAt = Date.now()+30000;
         positions.chat.push(CHAT);
     });
 
@@ -488,7 +450,8 @@ mapElements = {
     16: {tile: "yellowflag", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
     16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
     17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
-    18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
+    18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false},
+    22: {tile: "gravitywell", coordinates: {x: 13, y: 0}, tileSize: 40, drawTileFirst: true}
 }
 
 
@@ -500,9 +463,9 @@ function emit(event, data) {
 
 // send position data to content script
 function saveReplayData(positions) {
-    var data = JSON.stringify(positions);
-    console.log('Sending replay data from injected script to content script.');
-    emit('saveReplay', data);
+    var data = JSON.stringify(positions)
+    console.log('sending position data from injected script to content script.')
+    emit('setPositionData', data)
 }
 
 // this function sets up a listener wrapper
@@ -512,12 +475,11 @@ function listen(event, listener) {
     });
 }
 
-// TODO: Handle possible failure alert from content script.
-listen('replaySaved', function() {
-    console.log('Got message confirming data save.')
-    $(savedFeedback).fadeIn(300);
-    $(savedFeedback).fadeOut(900);
-});
+listen('positionDataConfirmation', function () {
+    console.log('got message confirming data save')
+    $(savedFeedback).fadeIn(300)
+    $(savedFeedback).fadeOut(900)
+})
 
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
@@ -547,28 +509,27 @@ function recordButton() {
     $('body').append(savedFeedback)
     $(savedFeedback).hide()
 
-    if (options.record_key_enabled) {
+    if (readCookie('useRecordKey') == "true") {
         $(document).on("keypress", function (e) {
-            if (e.which == options.record_key) {
+            if (e.which == readCookie('replayRecordKey')) {
                 saveReplayData(positions)
             }
         })
     }
 }
 
-if(options.record && !options.treter) {
-    tagpro.ready(function() {
-        var startInterval = setInterval(function() {
-            //console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
-            //console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
-            if(tagpro.map && tagpro.wallMap) {
-                clearInterval(startInterval);
-                positions = {};
-                recordButton();
-                recordReplayData();
-            }
-        }, 1000);
-    });
+if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
+	tagpro.ready(function() {
+		var startInterval = setInterval(function() {
+			console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
+			console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
+			if(tagpro.map && tagpro.wallMap) {
+				clearInterval(startInterval);
+				positions = {};
+				recordButton();
+				recordReplayData();
+			}
+		}, 1000);
+	})
 }
 
-})(window, document);
