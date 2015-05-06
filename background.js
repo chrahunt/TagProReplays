@@ -570,69 +570,99 @@ function extractMetaData(positions) {
 }
 
 // Set up indexedDB
-var openRequest = indexedDB.open("ReplayDatabase");
-openRequest.onupgradeneeded = function (e) {
-    console.log("running onupgradeneeded");
-    var thisDb = e.target.result;
-    //Create Object Store
-    if (!thisDb.objectStoreNames.contains("positions")) {
-        console.log("I need to make the positions objectstore");
-        var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
-    }
-    if (!thisDb.objectStoreNames.contains("savedMovies")) {
-        console.log("I need to make the savedMovies objectstore");
-        var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
-    }
-}
+var openRequest = indexedDB.open("ReplayDatabase", 1);
 
-openRequest.onsuccess = function (e) {
-    db = e.target.result;
-    db.onerror = function (e) {
-        alert("Sorry, an unforseen error was thrown.");
-        console.log("***ERROR***");
-        console.dir(e.target);
+// Set handlers for request.
+setHandlers(openRequest);
+
+// Function to set handlers for request.
+function setHandlers(request) {
+    request.onerror = function (e) {
+        // Reset database and version.
+        if (e.target.error.name == "VersionError") {
+            console.log("Resetting database.");
+            // Reset the database.
+            var req = indexedDB.deleteDatabase("ReplayDatabase");
+            req.onsuccess = function () {
+                console.log("Deleted database successfully");
+                // Recreate the database.
+                var openRequest = indexedDB.open("ReplayDatabase", 1);
+                setHandlers(openRequest);
+            };
+            req.onerror = function () {
+                console.log("Couldn't delete database");
+            };
+            req.onblocked = function () {
+                console.log("Couldn't delete database due to the operation being blocked");
+            };
+        } else {
+            console.error("Unforseen error opening database.");
+            console.dir(e);
+        }
+    }
+    request.onupgradeneeded = function (e) {
+        console.log("running onupgradeneeded");
+        var thisDb = e.target.result;
+        //Create Object Store
+        if (!thisDb.objectStoreNames.contains("positions")) {
+            console.log("I need to make the positions objectstore");
+            var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
+        }
+        if (!thisDb.objectStoreNames.contains("savedMovies")) {
+            console.log("I need to make the savedMovies objectstore");
+            var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
+        }
     }
 
-    if (!db.objectStoreNames.contains("positions")) {
-        version = db.version
-        db.close()
-        secondRequest = indexedDB.open("ReplayDatabase", version + 1)
-        secondRequest.onupgradeneeded = function (e) {
-            console.log("running onupgradeneeded");
-            var thisDb = e.target.result;
-            //Create Object Store
-            if (!thisDb.objectStoreNames.contains("positions")) {
-                console.log("I need to make the positions objectstore");
-                var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
+    request.onsuccess = function (e) {
+        db = e.target.result;
+        db.onerror = function (e) {
+            alert("Sorry, an unforseen error was thrown.");
+            console.log("***ERROR***");
+            console.dir(e.target);
+        }
+
+        if (!db.objectStoreNames.contains("positions")) {
+            version = db.version
+            db.close()
+            secondRequest = indexedDB.open("ReplayDatabase", version + 1)
+            secondRequest.onupgradeneeded = function (e) {
+                console.log("running onupgradeneeded");
+                var thisDb = e.target.result;
+                //Create Object Store
+                if (!thisDb.objectStoreNames.contains("positions")) {
+                    console.log("I need to make the positions objectstore");
+                    var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
+                }
+                if (!thisDb.objectStoreNames.contains("savedMovies")) {
+                    console.log("I need to make the savedMovies objectstore");
+                    var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
+                }
             }
-            if (!thisDb.objectStoreNames.contains("savedMovies")) {
-                console.log("I need to make the savedMovies objectstore");
-                var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
+            secondRequest.onsuccess = function (e) {
+                db = e.target.result
             }
         }
-        secondRequest.onsuccess = function (e) {
-            db = e.target.result
-        }
-    }
-    if (!db.objectStoreNames.contains("savedMovies")) {
-        version = db.version
-        db.close()
-        secondRequest = indexedDB.open("ReplayDatabase", version + 1)
-        secondRequest.onupgradeneeded = function (e) {
-            console.log("running onupgradeneeded");
-            var thisDb = e.target.result;
-            //Create Object Store
-            if (!thisDb.objectStoreNames.contains("positions")) {
-                console.log("I need to make the positions objectstore");
-                var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
+        if (!db.objectStoreNames.contains("savedMovies")) {
+            version = db.version
+            db.close()
+            secondRequest = indexedDB.open("ReplayDatabase", version + 1)
+            secondRequest.onupgradeneeded = function (e) {
+                console.log("running onupgradeneeded");
+                var thisDb = e.target.result;
+                //Create Object Store
+                if (!thisDb.objectStoreNames.contains("positions")) {
+                    console.log("I need to make the positions objectstore");
+                    var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
+                }
+                if (!thisDb.objectStoreNames.contains("savedMovies")) {
+                    console.log("I need to make the savedMovies objectstore");
+                    var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
+                }
             }
-            if (!thisDb.objectStoreNames.contains("savedMovies")) {
-                console.log("I need to make the savedMovies objectstore");
-                var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
+            secondRequest.onsuccess = function (e) {
+                db = e.target.result
             }
-        }
-        secondRequest.onsuccess = function (e) {
-            db = e.target.result
         }
     }
 }
