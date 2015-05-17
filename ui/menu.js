@@ -125,7 +125,7 @@ Menu.prototype._initReplayList = function() {
         $('#raw-upload').click();
         e.preventDefault();
     });
-    $('#raw-upload').attr('accept', '.txt');
+    $('#raw-upload').attr('accept', '.txt,.json');
     $('#raw-upload').change(this._list_Import());
 
     // Initialize listener for list modifications.
@@ -146,15 +146,15 @@ Menu.prototype._initReplayList = function() {
 
     // Send request for initially populating list.
     chrome.runtime.sendMessage({
-        method: 'requestList'
+        method: 'getReplayList'
     }, function(response) {
-        var entries = this._getEntryData(response);
-        // Sort the entries.
-        this._sortEntries(entries, readCookie('sortMethod'));
+        var replays = response.data;
+        // Sort the replays.
+        this._sortReplays(replays, readCookie('sortMethod'));
         // Hide loader.
         $('#replaysLoading').hide();
-        entries.forEach(function(entry) {
-            this.addRow(entry);
+        replays.forEach(function(replay) {
+            this.addRow(replay);
         }, this);
         this.listInitialized = true;
     }.bind(this));
@@ -378,16 +378,13 @@ Menu.prototype._entry_Download = function() {
 Menu.prototype._entry_Rename = function() {
     var menu = this;
     return function() {
-        var replayId = menu._getReplayId(this);
-        var fileNameToRename = replayId;
-        var datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-        var newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
+        var replayInfo = menu._getRowInfo(this);
+        var newName = prompt('How would you like to rename ' + replayInfo.name + '?');
         if (newName !== null) {
-            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-            console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+            console.log('Requesting rename from ' + replayInfo.name + ' to ' + newName + '.');
             chrome.runtime.sendMessage({
                 method: 'renameReplay',
-                id: replayId,
+                id: replayInfo.id,
                 name: newName
             });
         }
@@ -401,21 +398,18 @@ Menu.prototype._entry_Rename = function() {
 Menu.prototype._entry_Play = function() {
     var menu = this;
     return function() {
-        var replayId = menu._getReplayId(this);
+        var replayId = menu._getRowInfo(this).id;
         $('#menuContainer').hide();
-        console.log('sending data request for ' + replayId);
+        console.debug('Requesting data for replay ' + replayId + ".");
         sessionStorage.setItem('currentReplay', replayId);
         chrome.runtime.sendMessage({
-            method: 'requestData',
+            method: 'getReplay',
             id: replayId
         }, function(response) {
-            console.log('Got requestData response.');
-            // Set local storage for in-page-preview.
-            localStorage.setItem('currentReplayName', replayId);
-            console.log(typeof response.data);
-            var positions = JSON.parse(response.data);
-            //console.log(positions);
-            createReplay(positions);
+            var replay = response.data;
+            console.log('Data received for replay ' + replayId + ".");
+            sessionStorage.setItem('currentReplayName', replay.info.name);
+            createReplay(replay);
         });
     };
 };
@@ -467,7 +461,7 @@ Menu.prototype._entry_Preview = function() {
         // Check if image data has been cached on element data
         // property.
         if (!$(this).data('preview')) {
-            var id = menu._getReplayId(this);
+            var id = menu._getRowInfo(this).id;
             var key = "preview:" + id;
             // Check if preview has previously been generated and stored.
             chrome.storage.local.get(key, function(items) {
@@ -526,60 +520,6 @@ Menu.prototype._entry_Check = function() {
     }
 };
 
-// TODO: Finish documenting.
-/**
- * @typedef Metadata
- * @type {object}
- * @property {[type]} redTeam [description]
- * @property {[type]} blueTeam [description]
- * @property {[type]} map [description]
- * @property {[type]} fps [description]
- * @property {integer} duration [description]
- */
-/**
- * This object type also adheres to the specification for SortObj
- * and can be used in sorting functions.
- * @typedef EntryData
- * @type {object}
- * @property {integer} duration - Duration of the replay in seconds.
- * @property {string} name - Name of the replay.
- * @property {string} id - The id of the replay.
- * @property {Date} date - Integer date the replay was recorded.
- * @property {boolean} rendered - Whether the replay was rendered.
- * @property {Metadata} metadata - The metadata for the replay.
- */
-/**
- * Convert the information returned from the background page into
- * information that can be used to populate the list. If there are
- * no entries in the respones then an empty array is returned.
- * @param  {object} response - The response sent by the background
- *   page in response to the request for information.
- * @return {Array.<EntryData>} - An array of data for populating
- *   the rows.
- */
-Menu.prototype._getEntryData = function(response) {
-    var ids = response.positionKeys;
-    var renderedIds = response.movieNames;
-    // Same order as the ids.
-    var metadata = JSON.parse(response.metadata).map(function(data) {
-        return JSON.parse(data);
-    });
-
-    var entries = ids.map(function(id, index) {
-        var info = metadata[index];
-        var movieId = id.replace('replays', '').replace(/.*DATE/, '');
-        return {
-            name: this._getName(id),
-            id: id,
-            rendered: (renderedIds.indexOf(movieId) !== -1),
-            date: new Date(this._getTime(id)),
-            duration: info.duration,
-            metadata: info
-        };
-    }, this);
-    return entries;
-};
-
 /**
  * Return a function to use as a callback for sort-invoking elements.
  * @param  {string} type - The type to sort by.
@@ -607,27 +547,6 @@ Menu.prototype._compare = function(a, b) {
         if (a > b) return 1;
         return 0;
     }
-};
-
-/**
- * Given a replay id, get the ms representing the date it was captured.
- * This function is used when the time information is stored in the
- * replay id.
- * @param  {string} replayId - The id of the replay.
- * @return {integer} - ms representing date/time replay was recorded.
- */
-Menu.prototype._getTime = function(replayId) {
-    return Number(replayId.replace('replays', '').replace(/.*DATE/, ''));
-};
-
-/**
- * Given a replay id, get the name of the replay.
- * This function is used when the name information for the replay is
- * stored in the replay id.
- * @param {string} id - The id of the replay.
- */
-Menu.prototype._getName = function(id) {
-    return id.replace(/DATE.*/, '');
 };
 
 /**
@@ -849,10 +768,10 @@ Menu.prototype._getSortableEntries = function() {
         var thisRendered = $(row).find('.rendered-check').text() !== '';
         return {
             id: row.id,
-            name: this._getName(row.id),
+            name: row.name,
             duration: thisDuration,
             rendered: thisRendered,
-            date: new Date(this._getTime(row.id))
+            date: new Date(row.dateRecorded)
         };
     }.bind(this));
     return entries;
@@ -861,17 +780,17 @@ Menu.prototype._getSortableEntries = function() {
 /**
  * Sorts the array given in the way indicated by type. Edites the array
  * in-place
- * @param {Array.<SortObject>} entries - The entries to be sorted
+ * @param {Array.<ReplayInfo>} replays - The replays to be sorted
  * @param {string} sortType - One of the sort types.
  */
-Menu.prototype._sortEntries = function(entries, sortType) {
+Menu.prototype._sortReplays = function(replays, sortType) {
     // Sort methods in ascending order.
     var sortMethods = {
         alpha: function(a, b) {
             return this._compare(a.name, b.name);
         }.bind(this),
         chrono: function(a, b) {
-            return this._compare(a.date.getTime(), b.date.getTime());
+            return this._compare(a.dateRecorded, b.dateRecorded);
         }.bind(this),
         dur: function(a, b) {
             return this._compare(a.duration, b.duration);
@@ -884,9 +803,9 @@ Menu.prototype._sortEntries = function(entries, sortType) {
     var type = sortType.slice(0, -1);
     var dir = sortType.slice(-1);
 
-    entries.sort(sortMethods[type]);
+    replays.sort(sortMethods[type]);
     if (dir == 'D') {
-        entries.reverse();
+        replays.reverse();
     }
 };
 
@@ -925,7 +844,7 @@ Menu.prototype.sort = function(sortType) {
     // Get entries.
     var entries = this._getSortableEntries();
 
-    this._sortEntries(entries, sortType);
+    this._sortReplays(entries, sortType);
     var orderedIds = entries.map(function(entry) {
         return entry.id;
     });
@@ -962,38 +881,52 @@ Menu.prototype.orderList = function(order) {
  *   placed after the row with that id. If false, then the row will be
  *   inserted at the top of the table.
  */
-Menu.prototype.addRow = function(entry, insertAfterId) {
+Menu.prototype.addRow = function(replay, insertAfterId) {
     if (typeof insertAfterId == "undefined" ) insertAfterId = false;
 
     // Formats metadata object to put into title text.
-    function formatMetaDataTitle(metadata) {
+    function getTitleText(replay) {
         var title = '';
-        title += "Map: " + metadata.map + "\n";
-        title += "FPS: " + metadata.fps + "\n";
-        title += "Red Team:\n\t" + metadata.redTeam.join('\n\t') + "\n";
-        title += "Blue Team:\n\t" + metadata.blueTeam.join('\n\t') + "\n";
+        title += "Map: " + replay.mapName + "\n";
+        title += "FPS: " + replay.fps + "\n";
+        var red = [];
+        var blue = [];
+        $.each(replay.players, function(id, player) {
+            var name;
+            if (id === replay.player) {
+                name = player.name + " (*)";
+            } else {
+                name = player.name;
+            }
+            if (player.team === 1) {
+                red.push(name);
+            } else {
+                blue.push(name);
+            }
+        });
+        title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
+        title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
         return title;
     }
 
-    var id = entry.id;
-    var name = entry.name;
-    var date = entry.date;
+    var id = replay.id;
+    var name = replay.name;
+    var date = new Date(replay.dateRecorded);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
-    var duration = entry.duration;
+    var duration = replay.duration;
     var durationDate = new Date(duration * 1000);
-    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2)
-    var titleText = formatMetaDataTitle(entry.metadata);
-    var rendered = entry.rendered;
+    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2);
+    var titleText = getTitleText(replay);
+    var rendered = replay.rendered;
     
     if(!insertAfterId) {
         var newRow = $('#replayList .replayRow.clone:first').clone(true);
         newRow.removeClass('clone');
 
-        newRow.data("replay", id);
-        newRow.attr("id", id);
+        newRow.data("info", replay);
+        newRow.attr("id", "replay-" + id);
         // Set playback link text
         newRow.find('a.playback-link').text(name);
-        //newRow.find('a.playback-link').data('preview', thisPreview);
         newRow.find('a.playback-link').popover({
             html: true,
             trigger: 'hover',
@@ -1012,19 +945,19 @@ Menu.prototype.addRow = function(entry, insertAfterId) {
     
         // Set replay row element click handlers.
         // Set handler for in-browser-preview link.
-        $('#' + id + ' .playback-link')
+        $('#replay-' + id + ' .playback-link')
             .click(this._entry_Play());
 
         // Set handler for movie download button.
-        $('#' + id + ' .download-movie-button')
+        $('#replay-' + id + ' .download-movie-button')
             .click(this._entry_Download());
 
         // Set handler for rename button.
-        $('#' + id + ' .rename-button')
+        $('#replay-' + id + ' .rename-button')
             .click(this._entry_Rename());
 
         // Set handler for checkbox.
-        $('#' + id + ' .selected-checkbox')
+        $('#replay-' + id + ' .selected-checkbox')
             .click(this._entry_Check());
     } else {
         var oldRow = $('#'+insertionPoint);
@@ -1039,7 +972,7 @@ Menu.prototype.addRow = function(entry, insertAfterId) {
  * @param  {string} id The id of the replay to remove the row for.
  */
 Menu.prototype.removeRow = function(id) {
-    $('#' + id).remove();
+    $('#replay-' + id).remove();
 };
 
 /**
@@ -1050,21 +983,6 @@ Menu.prototype.removeRows = function(ids) {
     ids.forEach(function(id) {
         this.removeRow(id);
     }, this);
-};
-
-/**
- * Change the visible name text of a replay with the given id.
- * @param  {string} id      The id of the replay to change the name of.
- * @param  {string} name The new name of the replay.
- * @return {}         [description]
- */
-Menu.prototype.renameEntry = function(id, name) {
-    var row = $('#' + id);
-    // Change row name.
-    $('#' + id + ' .playback-link').text(this._getName(name));
-    // Replay name<>id
-    row.data("replay", name);
-    row[0].id = name;
 };
 
 /**
@@ -1085,7 +1003,7 @@ Menu.prototype.getCheckedEntries = function() {
     var menu = this;
     $('.selected-checkbox').each(function () {
         if (this.checked) {
-            checkedEntries.push(menu._getReplayId(this));
+            checkedEntries.push(menu._getRowInfo(this).id);
         }
     });
     return checkedEntries;
@@ -1153,9 +1071,9 @@ Menu.prototype._setSettingsFormTitles = function() {
  * @param  {HTMLElement} elt
  * @return {string} - The id of the replay corresponding to the row.
  */
-Menu.prototype._getReplayId = function(elt) {
+Menu.prototype._getRowInfo = function(elt) {
     var replayRow = $(elt).closest('tr');
-    return replayRow.data("replay");
+    return replayRow.data("info");
 };
 
 Menu.prototype._generatePreview = function(id, callback) {
@@ -1206,21 +1124,10 @@ Menu.prototype._initListeners = function() {
      */
     messageListener("replayAdded",
     function(message, sender, sendResponse) {
-        var name = message.name;
-        var metadata = JSON.parse(message.metadata);
-        // Construct entry to use in addRow.
-        var entry = {
-            name: this._getName(name),
-            id: name,
-            rendered: false, // Can't be rendered if just added.
-            date: new Date(this._getTime(name)),
-            duration: metadata.duration,
-            metadata: metadata
-        };
         // Remove any existing rows with the same id (for overwrites).
         this.removeRow(entry.id);
         // Add to list.
-        this.addRow(entry);
+        this.addRow(message.data);
         // Re-sort list.
         this.sort(readCookie('sortMethod'));
     }.bind(this));
@@ -1242,7 +1149,15 @@ Menu.prototype._initListeners = function() {
     messageListener("replayRenamed",
     function(message, sender, sendResponse) {
         console.log('Received confirmation of replay rename from background script.');
-        this.renameEntry(message.id, message.name);
+        var id = message.id;
+        var name = message.name;
+        var row = $('#replay-' + id);
+        // Change row name.
+        $('#replay-' + id + ' .playback-link').text(name);
+        // Update replay object.
+        var data = row.data("info");
+        data.name = name;
+        row.data("info", data);
         this.sort(readCookie('sortMethod'));
     }.bind(this));
 

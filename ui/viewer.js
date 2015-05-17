@@ -1,12 +1,9 @@
-
 (function(window) {
 
-
 /**
- * This resizes the div container for the in-browswer preview viewer based on the size of teh window.
- * No return value.
+ * Resizes the in-browswer preview viewer based on the size of the window.
  */
-resizeViewerContainer = function() {
+var resizeViewerContainer = function() {
     if($(window).width() > 1280) {
         $('#viewer-container').width(1280);
         $('#viewer-container').css('left', $(window).width()/2 - $('#viewer-container').width()/2);
@@ -28,10 +25,9 @@ resizeViewerContainer = function() {
 };
 
 /**
- * This resizes buttons for the in-browser preview viewer based on the size of the window.
- * No return value.
+ * Resizes buttons for the in-browser viewer based on the size of the window.
  */
-resizeButtons = function() {
+var resizeButtons = function() {
     var IMGWIDTH          = 57,
         BUTTONWIDTH       = 90,
         widthFactor       = $('#viewer-container').width() / 1280,
@@ -50,15 +46,12 @@ resizeButtons = function() {
         $('#viewer-container img').height('auto');
         $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
     }
-    
-    
 };
 
 /**
  * Hides the viewer container div.
- * No return value.
  */
-hideViewer = function() {
+var hideViewer = function() {
     $('#viewer-container').fadeOut(500);
     $('#grey-bar').width('100%');
     $('#grey-bar').css('left', 0);
@@ -71,11 +64,9 @@ hideViewer = function() {
  * Shows the viewer container div if it is hidden.
  * No return value.
  */
-showViewer = function() {
+var showViewer = function() {
     $('#viewer-container').fadeIn(500);
 };
-
-
 
 /**
  * Function for reading a cookie. TODO: replace cookies with chrome.storage.local
@@ -92,7 +83,6 @@ function readCookie(name) {
     }
     return null;
 }
-
 
 /*
 Create container div for replay viewer, inject html. CSS is injected in 'TagProReplays.js'.
@@ -113,8 +103,7 @@ if(onProductionMainPage || onNewCompteMainPage) {
 
 /**
  * Function to set up an in-browser preview based on the provided positions object.
- * @param  {object} positions - replay positions raw file object
- * No return value.
+ * @param {object} positions - replay positions raw file object
  */
 window.createReplay = function(positions) {
 
@@ -460,7 +449,7 @@ window.createReplay = function(positions) {
     };
 
     // render this replay
-    renderThisReplay = function () {
+    var renderThisReplay = function () {
         var replayToRender = sessionStorage.getItem('currentReplay');
         if (replayToRender !== null) {
             if (confirm('Are you sure you want to render this replay?')) {
