@@ -1,8 +1,8 @@
 /**
- * Constructs the user interface accessible on the main page of any
- * TagPro server. Also responsible for injecting the listener script
- * onto game pages and relaying the recorded game information to the
- * background script for saving.
+ * Takes page-specific actions, either initializing the main menu on
+ * main server pages, or injecting the data listener script when user
+ * is in a game. Also acts as the intermediary between the listener
+ * script and background page.
  *
  * This script is included as a content script.
  */

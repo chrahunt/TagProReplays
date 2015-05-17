@@ -1,10 +1,10 @@
 /**
  * Record and save the state of the game, emitting an event to the
- * window with the replay data.
+ * window with the replay data which is picked up by a content script.
  * 
- * This file is injected into the page by the content script
- * TagProReplays. This is necessary in order to listen to the game
- * socket which provides game state information.
+ * This file is injected into the page by TagProReplays. This is
+ * necessary in order to listen to the game socket, which provides game
+ * state information.
  */
 (function(window, document, undefined) {
 

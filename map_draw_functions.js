@@ -1,11 +1,9 @@
 /**
  * This file contains the functions used to draw the replay data onto
- * the canvas for the in-page preview as well as for the replay
- * rendering.
+ * the canvas for the in-page preview as well as for replay rendering.
  *
  * This script is included as a content script and a background script.
  */
-// TODO: Texture and setting interface. interval determination interface.
 (function(window) {
 
 // Constant tile size.

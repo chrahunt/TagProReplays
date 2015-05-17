@@ -1,7 +1,7 @@
 /**
- * Acts as the intermediary for content script and background page
- * storage holding replay data and rendered webm movies. Also listens
- * for requests to initiate rendering.
+ * Responsible for maintaining and providing the interface to
+ * persistent resources, like the IndexedDB database and FileSystem.
+ * Also manages replay rendering, import, and download.
  * 
  * This script is included as a background script.
  */
