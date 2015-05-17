@@ -37,6 +37,7 @@
       "js": [
         "lib/jquery.js",
         "lib/jquery.actual.min.js",
+        "lib/jquery-ui.min.js",
         "barrier.js",
         "cookies.js",
         "messaging.js",
@@ -52,25 +53,14 @@
   ],
   "web_accessible_resources": [
     "replayRecording.js",
-    "img/tiles.png",
-    "img/portal.png",
-    "img/speedpad.png",
-    "img/speedpadred.png",
-    "img/speedpadblue.png",
-    "img/tagpro.png",
-    "img/rollingbomb.png",
-    "img/splats.png",
-    "img/flair.png",
-    "ui/spinkit.css",
-    "ui/menu.css",
-    "ui/menu.html",
-    "ui/viewer.html",
-    "ui/viewer.css",
-    "ui/bootstrap.min.css",
-    "ui/bootstrap.css",
+    "img/*.png",
+    "ui/*.css",
+    "ui/*.html",
+    "lib/images/*.png",
     "ui/glyphicons-halflings-regular.eot",
     "ui/glyphicons-halflings-regular.svg",
     "ui/glyphicons-halflings-regular.ttf",
-    "ui/glyphicons-halflings-regular.woff"
+    "ui/glyphicons-halflings-regular.woff",
+    "lib/jquery-ui.min.css"
   ]
 }

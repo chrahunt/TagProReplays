@@ -147,6 +147,7 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     injectStyleSheet("ui/menu.css");
     injectStyleSheet("ui/spinkit.css");
     injectStyleSheet("ui/viewer.css");
+    injectStyleSheet("lib/jquery-ui.min.css");
 }
 
 // if we're in a game, as evidenced by there being a port number,

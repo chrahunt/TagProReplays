@@ -49,44 +49,6 @@ window.resetDatabase = function() {
     indexedDB.deleteDatabase("ReplayDatabase");
 };
 
-// Test function for adding data to indexeddb store.
-window.addData = function() {
-    var info = {
-        name: "test",
-        recorded: Date.now()
-    };
-    var replay = {
-        info: {},
-        data: {}
-    };
-    var db = getDb();
-    var transaction = db.transaction(["info", "replay"], "readwrite");
-    transaction.oncomplete = function(e) {
-        console.log("All done!");
-    };
-
-    transaction.onerror = function(e) {
-        console.error("Error!");
-    };
-
-    var infoStore = transaction.objectStore("info");
-    var replayStore = transaction.objectStore("replay");
-    // Save info.
-    var request = infoStore.add(info);
-    request.onsuccess = function(e) {
-        var info_id = e.target.result;
-        replay.info_id = info_id;
-        // Save replay with info_id.
-        var request = replayStore.add(replay);
-        request.onsuccess = function(e) {
-            info.replay_id = e.target.result;
-            info.id = info_id;
-            // Save info with replay_id.
-            var request = infoStore.put(info);
-        };
-    };
-};
-
 /**
  * @callback {DBCallback}
  * @param {Error} err - Truthy if an error occurred. Will have
@@ -202,14 +164,15 @@ window.renameReplay = function(id, name, callback) {
 };
 
 /**
- * Delete replay data.
+ * Delete replay data, includes the info and raw replay as well as the
+ * rendered video, if present.
  * @param {Array.<integer>} ids - The ids of the replays to delete
  * @param {DBCallback} callback - The callback to receive the success
  *   or failure of the delete operation.
  */
 window.deleteReplays = function(ids, callback) {
     var db = getDb();
-    var transaction = db.transaction(["info", "replay"]);
+    var transaction = db.transaction(["info", "replay"], "readwrite");
     var infoStore = transaction.objectStore("info");
     var replayStore = transaction.objectStore("replay");
     var replayIndex = replayStore.index("info_id");
@@ -217,16 +180,24 @@ window.deleteReplays = function(ids, callback) {
         var request = infoStore.get(id);
         request.onsuccess = function() {
             var info = request.result;
+
+            infoStore.delete(info.id);
+
+            // TODO: Delete rendered movie, raise error if issue in callback.
             if (info.rendered) {
-                var renderId = info.render_id;
-                // TODO: Delete rendered movie, raise error if issue in callback.
+                var renderId = info.renderId;
             }
             // Delete info, delete replay.
-            replayIndex.get(id).onsuccess = function() {
-
+            request = replayIndex.getKey(id);
+            request.onsuccess = function() {
+                replayStore.delete(request.result);
             };
         };
     });
+
+    transaction.oncomplete = function(e) {
+        callback(null);
+    };
     // Retrieve the info for the replays.
     // Delete the associated videos, if needed.
 };

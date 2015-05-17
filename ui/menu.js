@@ -24,6 +24,8 @@ var Menu = function() {
 
     // Retrieve html of menu.
     $('#tpr-container').load(url, this._init.bind(this));
+    // Initialize viewer for replay preview.
+    this.viewer = new Viewer();
 };
 
 // Make menu class accessible.
@@ -84,7 +86,7 @@ Menu.prototype._initReplayList = function() {
         $('.replayRow:not(.clone) .selected-checkbox').each(function() {
             this.checked = e.target.checked;
         });
-    }
+    };
 
     // Buttons that take action on multiple entries.
     $('#renderSelectedButton').click(this._list_Render.bind(this));
@@ -315,14 +317,14 @@ Menu.prototype._list_Render = function() {
  * Delete checked items on the replay list after confirmation.
  */
 Menu.prototype._list_Delete = function() {
-    var replaysToDelete = this.getCheckedEntries();
+    var ids = this.getCheckedEntries();
 
-    if (replaysToDelete.length > 0) {
+    if (ids.length > 0) {
         if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-            console.log('requesting to delete ' + replaysToDelete);
+            console.log('Requesting deletion of ' + ids);
             chrome.runtime.sendMessage({
-                method: 'requestDataDelete',
-                fileName: replaysToDelete
+                method: 'deleteReplays',
+                ids: ids
             });
         }
     }
@@ -332,12 +334,12 @@ Menu.prototype._list_Delete = function() {
  * Download raw replay data corresponding to checked items.
  */
 Menu.prototype._list_RawDownload = function() {
-    var rawDataToDownload = this.getCheckedEntries();
-    if (rawDataToDownload.length > 0) {
-        console.log('Requesting to download raw data for ' + rawDataToDownload);
+    var ids = this.getCheckedEntries();
+    if (ids.length > 0) {
+        console.log('Requesting raw replay download for ' + ids + '.');
         chrome.runtime.sendMessage({
-            method: 'requestDataForDownload',
-            files: rawDataToDownload
+            method: 'downloadReplays',
+            ids: ids
         });
     }
 };
@@ -361,12 +363,11 @@ Menu.prototype._list_Sort = function(baseSortType) {
 Menu.prototype._entry_Download = function() {
     var menu = this;
     return function() {
-        var replayId = menu._getReplayId(this);
-        var fileNameToDownload = replayId;
-        console.log('asking background script to download video for ' + fileNameToDownload);
+        var replayId = menu._getRowInfo(this).id;
+        console.log('Requesting movie download for replay ' + replayId + '.');
         chrome.runtime.sendMessage({
             method: 'downloadMovie',
-            name: fileNameToDownload
+            id: replayId
         });
     };
 };
@@ -400,17 +401,7 @@ Menu.prototype._entry_Play = function() {
     return function() {
         var replayId = menu._getRowInfo(this).id;
         $('#menuContainer').hide();
-        console.debug('Requesting data for replay ' + replayId + ".");
-        sessionStorage.setItem('currentReplay', replayId);
-        chrome.runtime.sendMessage({
-            method: 'getReplay',
-            id: replayId
-        }, function(response) {
-            var replay = response.data;
-            console.log('Data received for replay ' + replayId + ".");
-            sessionStorage.setItem('currentReplayName', replay.info.name);
-            createReplay(replay);
-        });
+        menu.viewer.preview(replayId);
     };
 };
 
@@ -893,7 +884,7 @@ Menu.prototype.addRow = function(replay, insertAfterId) {
         var blue = [];
         $.each(replay.players, function(id, player) {
             var name;
-            if (id === replay.player) {
+            if (id == replay.player) {
                 name = player.name + " (*)";
             } else {
                 name = player.name;
@@ -973,16 +964,6 @@ Menu.prototype.addRow = function(replay, insertAfterId) {
  */
 Menu.prototype.removeRow = function(id) {
     $('#replay-' + id).remove();
-};
-
-/**
- * Remove the rows corresponding to the replays with the given ids.
- * @param  {Array.<string>} ids [description]
- */
-Menu.prototype.removeRows = function(ids) {
-    ids.forEach(function(id) {
-        this.removeRow(id);
-    }, this);
 };
 
 /**
@@ -1125,7 +1106,7 @@ Menu.prototype._initListeners = function() {
     messageListener("replayAdded",
     function(message, sender, sendResponse) {
         // Remove any existing rows with the same id (for overwrites).
-        this.removeRow(entry.id);
+        this.removeRow(message.id);
         // Add to list.
         this.addRow(message.data);
         // Re-sort list.
@@ -1135,15 +1116,14 @@ Menu.prototype._initListeners = function() {
     /**
      * Listen for replays to have been deleted.
      */
-    messageListener("dataDeleted",
+    messageListener(["replayDeleted", "replaysDeleted"],
     function(message, sender, sendResponse) {
         console.log('Replays have been deleted.');
-        var deletedFiles = message.deletedFiles;
-        if (typeof deletedFiles == "string") {
-            this.removeRow(deletedFiles)
-        } else {
-            this.removeRows(deletedFiles);
-        }
+        // Normalize id/ids.
+        var ids = message.id ? [message.id] : message.ids;
+        ids.forEach(function(id) {
+            this.removeRow(id);
+        }, this);
     }.bind(this));
 
     messageListener("replayRenamed",

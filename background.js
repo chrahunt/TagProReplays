@@ -72,6 +72,123 @@ function generateReplayInfo(replay) {
 }
 
 /**
+ * Crops a replay to the given start and end frames.
+ * @param {Replay} replay - The replay to crop
+ * @param {integer} startFrame - The frame to use for the start of the
+ *   new replay.
+ * @param {integer} endFrame - The frame to use for the end of the new
+ *   replay.
+ * @return {Replay} - The cropped replay.
+ */
+function cropReplay(replay, startFrame, endFrame) {
+    function clone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+    }
+    var startTime = replay.data.time[startFrame],
+        endTime = replay.data.time[endFrame];
+
+    // Crop an array that only contains information for each frame
+    // and impacts no later.
+    function cropFrameArray(ary) {
+        return ary.slice(startFrame, endFrame + 1);
+    }
+
+    // Remove events from provided array that occur after the end
+    // of the cropped replay, or far enough in advance of the start
+    // that they are not relevant.
+    function cropEventArray(ary, cutoff) {
+        if (typeof cutoff == "undefined") cutoff = null;
+        return ary.filter(function(event) {
+            return event.time < endTime && (cutoff === null || startTime - event.time < cutoff);
+        });
+    }
+
+    // Crop the arrays for a player, returning the player or null
+    // if this results in the player no longer being relevant.
+    function cropPlayer(player) {
+        var name = cropFrameArray(player.name);
+        var valid = name.some(function(val) {
+            return val !== null;
+        });
+        if (!valid) return null;
+        var newPlayer = {
+            auth: cropFrameArray(player.auth),
+            bomb: cropFrameArray(player.bomb),
+            dead: cropFrameArray(player.dead),
+            degree: cropFrameArray(player.degree),
+            draw: cropFrameArray(player.draw),
+            flag: cropFrameArray(player.flag),
+            flair: cropFrameArray(player.flair).map(clone), // Necessary to clone?
+            grip: cropFrameArray(player.grip),
+            id: player.id,
+            name: name,
+            tagpro: cropFrameArray(player.tagpro),
+            team: cropFrameArray(player.team),
+            x: cropFrameArray(player.x),
+            y: cropFrameArray(player.y)
+        };
+        if (player.hasOwnProperty("angle")) {
+            newPlayer.angle = cropFrameArray(player.angle);
+        }
+        return newPlayer;
+    }
+
+    // Return a dynamic tile with its value array cropped.
+    function cropDynamicTile(tile) {
+        return {
+            x: tile.x,
+            y: tile.y,
+            value: cropFrameArray(tile.value)
+        };
+    }
+
+    // Crop array of spawns, taking into account the waiting period
+    // for the cutoff.
+    function cropSpawns(spawns) {
+        return spawns.filter(function(spawn) {
+            return spawn.time <= endTime && startTime - spawn.time <= spawn.wait;
+        }).map(clone);
+    }
+
+    // New, cropped replay.
+    var newReplay = {
+        info: clone(replay.info),
+        data: {
+            bombs: cropEventArray(replay.data.bombs, 200),
+            chat: cropEventArray(replay.data.chat, 3e4),
+            dynamicTiles: replay.data.dynamicTiles.map(cropDynamicTile),
+            endTimes: replay.data.endTimes.filter(function(time) {
+                return time >= startTime;
+            }),
+            map: clone(replay.data.map),
+            players: {},
+            score: cropFrameArray(replay.data.score).map(clone), // necessary to clone?
+            spawns: cropSpawns(replay.data.spawns),
+            splats: cropEventArray(replay.data.splats),
+            time: cropFrameArray(replay.data.time),
+            wallMap: clone(replay.wallMap)
+        },
+        version: 2
+    };
+
+    var gameEnd = replay.data.gameEnd;
+    if (gameEnd.time <= endTime) {
+        newReplay.gameEnd = clone(gameEnd);
+    }
+
+
+    // Crop player properties.
+    $.each(replay.data.players, function(id, player) {
+        var newPlayer = cropPlayer(player);
+        if (newPlayer !== null) {
+            newReplay.players[id] = player;
+        }
+    });
+
+    return newReplay;
+}
+
+/**
  * Callback function to send message to multiple tabs.
  * @callback TabCallback
  * @param {integer} id - The id of the matched tab.
@@ -114,6 +231,8 @@ setStatus("loading");
  * Crops a replay and replaces it in the database.
  * @param {object} message - Has properties `id`, `start`, and `end`
  *   with the id of the replay, and the start and end frames to use.
+ *   Optional `name` property which would be used in place of the
+ *   original.
  * @param {Function} callback - ??
  */
 messageListener("cropAndReplaceReplay",
@@ -135,6 +254,7 @@ function(message, sender, sendResponse) {
 messageListener("cropReplay",
 function(message, sender, sendResponse) {
     // Retrieve the replay.
+    // Get specified name or replay name + (cropped).
     // Crop the replay.
     // Save the new replay.
     // Return the new replay data.
@@ -232,7 +352,7 @@ function(message, sender, sendResponse) {
     // Send data back.
     getReplayInfo(function(err, list) {
         if (err) {
-            // handle error.
+            // TODO: Handle error.
         } else {
             sendResponse({ data: list });
         }
@@ -241,19 +361,8 @@ function(message, sender, sendResponse) {
 });
 
 /**
- * Initiates download of replay data.
- * @param {object} message - Object with `id` property of replay to
- *   download.
- */
-messageListener("downloadReplay",
-function(message, sender, sendResponse) {
-    // Get replay data.
-    // Remove db-specific properties.
-    // Initiate download of replay.
-});
-
-/**
- * Initiates download of multiple replays as a zip file.
+ * Initiates download of multiple replays as a zip file, or a single
+ * replay as a json file.
  * @param {object} message - Object with `ids` property which is an
  *   array of ids of replays to download.
  */
@@ -274,10 +383,20 @@ function(message, sender, sendResponse) {
 messageListener(["deleteReplay", "deleteReplays"],
 function(message, sender, sendResponse) {
     // Check if single or multiple replays and normalize.
-    // Retrieve the info for the replays.
-    // Delete the rendered video, if needed.
-    // Delete the info and replay information.
-    // Send confirmation to page.
+    var ids = message.id ? [message.id] : message.ids;
+
+    deleteReplays(ids, function(err) {
+        if (err) {
+            // TODO: Handle error.
+        } else {
+            sendToTabs(function(id) {
+                chrome.tabs.sendMessage(id, {
+                    method: 'replaysDeleted',
+                    ids: ids
+                });
+            });
+        }
+    });
 });
 
 /**

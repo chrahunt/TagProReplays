@@ -88,7 +88,7 @@ function errorHandler(err) {
             break;
     }
     console.log(msg);
-};
+}
 
 /**
  * Get file system, creating if needed. Callback is passed the file
@@ -118,7 +118,7 @@ window.getRenderedMovieNames = function(callback) {
             callback(names);
         }, errorHandler);
     });
-}
+};
 
 /**
  * Save the movie with the given filename.
@@ -127,7 +127,7 @@ window.getRenderedMovieNames = function(callback) {
  */
 window.saveMovieFile = function(filename, movie) {
     saveFile(MOVIE_DIR + '/' + filename, movie);
-}
+};
 
 /**
  * Retrieve the movie corresponding to the given file name and pass
@@ -149,7 +149,7 @@ window.getMovieFile = function(filename, callback, error) {
             reader.readAsDataURL(file);
         }, error);
     }, error);
-}
+};
 
 /**
  * Delete the movie file with the given name.
@@ -157,7 +157,7 @@ window.getMovieFile = function(filename, callback, error) {
  */
 function deleteMovieFile(name) {
     deleteFile(MOVIE_DIR + '/' + name, function() {
-        console.log('deleted movie file ' + name)
+        console.log('deleted movie file ' + name);
     });
 }
 
@@ -174,6 +174,6 @@ window.deleteMovieFiles = function(names) {
             }
         });
     });
-}      
+};    
         
 })(window);
