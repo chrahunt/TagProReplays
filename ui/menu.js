@@ -20,7 +20,7 @@ var Menu = function() {
     // Create Container for Replay Menu.
     $('article').append(
         '<div id="tpr-container" class="bootstrap-container">');
-    var url = chrome.extension.getURL("ui/menus.html");
+    var url = chrome.extension.getURL("ui/menu.html");
 
     // Retrieve html of menu.
     $('#tpr-container').load(url, this._init.bind(this));
