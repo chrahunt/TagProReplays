@@ -319,12 +319,8 @@ var tiles = {
  * @return {?Player} - The player object.
  */
 function getPlayer(data) {
-    for (var j in data) {
-        if (data[j].me == 'me') {
-            return data[j];
-        }
-    }
-    return null;
+    var playerId = data.info.player;
+    return data.data.players[playerId];
 }
 
 /**
@@ -375,12 +371,12 @@ function drawText(position, info) {
     context.font = "bold 8pt Arial";
     context.shadowBlur = 10;
     context.strokeText(info.name, position.x + 3, position.y);
-    if (info.degree && info.degree != 0) {
+    if (info.degree && info.degree !== 0) {
         context.strokeText(info.degree + "°", position.x + 10, position.y + 12);
     }
     context.shadowBlur = 0;
     context.fillText(info.name, position.x + 3, position.y);
-    if (info.degree && info.degree != 0) {
+    if (info.degree && info.degree !== 0) {
         context.fillStyle = "#ffffff";
         context.fillText(info.degree + "°", position.x + 10, position.y + 12);
     }
@@ -409,63 +405,64 @@ function drawFlair(ballFlair, pos, flair) {
 
 // Uses: context
 function prettyText(text, textx, texty, color) {
-    context.textAlign = 'left'
-    context.fillStyle = color
-    context.strokeStyle = "#000000"
-    context.shadowColor = "#000000"
-    context.shadowOffsetX = 0
-    context.shadowOffsetY = 0
-    context.lineWidth = 2
-    context.font = "bold 8pt Arial"
-    context.shadowBlur = 10
-    context.strokeText(text, textx, texty)
-    context.shadowBlur = 0
-    context.fillText(text, textx, texty)
+    context.textAlign = 'left';
+    context.fillStyle = color;
+    context.strokeStyle = "#000000";
+    context.shadowColor = "#000000";
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+    context.lineWidth = 2;
+    context.font = "bold 8pt Arial";
+    context.shadowBlur = 10;
+    context.strokeText(text, textx, texty);
+    context.shadowBlur = 0;
+    context.fillText(text, textx, texty);
     return context.measureText(text).width;
 }
 
 // Uses: thisI (var), prettyText (fn) - by extension context
 function drawChats(positions) {
-    if (positions.chat) {
-        var chats = positions.chat;
-        var thisTime = new Date(positions.clock[thisI]).getTime();
-        var currentChats = new Array(10);
-        for (var chatI in chats) {
-            if (chats[chatI].removeAt - 30000 < thisTime & chats[chatI].removeAt > thisTime) {
-                currentChats.shift();
-                currentChats.push(chats[chatI]);
-            }
+    var chats = positions.data.chat;
+    var thisTime = positions.data.time[thisI];
+    var currentChats = new Array(10);
+    for (var chatI in chats) {
+        if (chats[chatI].time < thisTime & chats[chatI].time + 30000 > thisTime) {
+            currentChats.shift();
+            currentChats.push(chats[chatI]);
         }
-        for (var chatI = 0; chatI < currentChats.length; chatI++) {
-            if (typeof currentChats[0] == 'undefined') {
-                currentChats.shift();
-                chatI--;
-            }
+    }
+    for (var i = 0; i < currentChats.length; i++) {
+        if (typeof currentChats[0] == 'undefined') {
+            currentChats.shift();
+            i--;
         }
+    }
 
-        for (var chatI in currentChats) {
-            var thisChat = currentChats[chatI];
-            var chatLeft = 10;
-            var chatTop = context.canvas.height - 175 + chatI * 12
-            if (typeof thisChat.from == 'number') {
-                if (positions['player' + thisChat.from].auth[thisI]) {
-                    chatLeft += prettyText("✓ ", chatLeft, chatTop, "#BFFF00")
-                }
-                chatName = (typeof positions['player' + thisChat.from].name === "string") ? positions['player' + thisChat.from].name : positions['player' + thisChat.from].name[thisI]
-                chatLeft += prettyText(chatName + ': ',
-                    chatLeft,
-                    chatTop,
-                    positions['player' + thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF")
+    for (var j in currentChats) {
+        var thisChat = currentChats[j];
+        var chatLeft = 10;
+        var players = position.data.players;
+        var chatTop = context.canvas.height - 175 + j * 12;
+        if (typeof thisChat.from == 'number') {
+            if (players[thisChat.from].auth[thisI]) {
+                chatLeft += prettyText("✓ ", chatLeft, chatTop, "#BFFF00");
             }
-            if (thisChat.to == 'team') {
-                chatColor = positions['player' + thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF"
-            } else if (thisChat.to == 'group') {
-                chatColor = "#E7E700"
-            } else {
-                chatColor = 'white'
-            }
-            prettyText(thisChat.message, chatLeft, chatTop, chatColor)
+            var chatName = players[thisChat.from].name[thisI];
+            chatLeft += prettyText(chatName + ': ',
+                chatLeft,
+                chatTop,
+                players[thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF");
         }
+        if (thisChat.to == 'team') {
+            chatColor = positions['player' + thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF";
+        } else if (thisChat.to == 'group') {
+            chatColor = "#E7E700";
+        } else if(thisChat.c) {
+            chatColor = thisChat.c;
+        } else {
+            chatColor = 'white';
+        }
+        prettyText(thisChat.message, chatLeft, chatTop, chatColor);
     }
 }
 
@@ -535,35 +532,36 @@ function drawTagpro(point, tagpro) {
 
 // Uses: $, thisI, context
 function drawClock(positions) {
-    if (!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[thisI]).getTime()) {
-        var curTimeMilli;
-        // Handle old version of replay data where gameEndsAt was not an array.
-        if (!$.isArray(positions.gameEndsAt)) {
-            if (new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[thisI]).getTime()) {
-                curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12 * 60 * 1000 - new Date(positions.clock[thisI]).getTime()
-            } else {
-                curTimeMilli = new Date(positions.gameEndsAt) - new Date(positions.clock[thisI])
-            }
-        } else {
-            if (positions.gameEndsAt.length < 2) {
-                curTimeMilli = new Date(positions.gameEndsAt[0]).getTime() - new Date(positions.clock[thisI]).getTime()
-            } else {
-                if (new Date(positions.clock[thisI]).getTime() >= new Date(positions.gameEndsAt[1].startTime).getTime()) {
-                    curTimeMilli = new Date(positions.gameEndsAt[1].startTime).getTime() + positions.gameEndsAt[1].time - new Date(positions.clock[thisI]).getTime()
-                } else {
-                    curTimeMilli = new Date(positions.gameEndsAt[0]).getTime() - new Date(positions.clock[thisI]).getTime()
-                }
-            }
+    // define the end time that applies to the current frame
+    var thisEndTime,
+        curTimeMilli,
+        endTimes = positions.data.endTimes,
+        curTime = '0:00',
+        thisTime = positions.data.time[thisI],
+        ended = false;
+    for(var i = 0; i < endTimes.length; i++) {
+        if(thisTime <= endTimes[i]) {
+          thisEndTime = endTimes[i];
+          break;
         }
-        var minute = ('0' + Math.floor(curTimeMilli / 1000 / 60)).slice(-2)
-        var seconds = ('0' + Math.floor(curTimeMilli / 1000 % 60)).slice(-2)
-        seconds = (seconds == '60' ? '00' : seconds)
-        var curTime = minute + ':' + seconds
+        thisEndTime = endTimes[endTimes.length];
+    }
+    if(positions.data.end && positions.data.end.time <= thisTime) {
+        ended = true;
+    }
+
+
+    if (!ended && thisEndTime > thisTime) {
+        curTimeMilli = thisEndTime - thisTime;
+        var minute = ('0' + Math.floor(curTimeMilli / 1000 / 60)).slice(-2);
+        var seconds = ('0' + Math.floor(curTimeMilli / 1000 % 60)).slice(-2);
+        seconds = (seconds == '60' ? '00' : seconds);
+        curTime = minute + ':' + seconds;
     }
     context.fillStyle = "rgba(255, 255, 255, 1)";
     context.strokeStyle = "rgba(0, 0, 0, .75)";
     context.font = "bold 30pt Arial";
-    context.textAlign = 'center'
+    context.textAlign = 'center';
     context.lineWidth = 4;
     context.strokeText(curTime, context.canvas.width / 2, context.canvas.height - 25);
     context.fillText(curTime, context.canvas.width / 2, context.canvas.height - 25);
@@ -613,7 +611,7 @@ function drawScoreFlag(positions, tiles) {
             }
             if (typeof flagCoords !== 'undefined') {
                 // Get team of player with flag.
-                var flagTeam = typeof player.team.length === 'undefined' ? player.team : player.team[thisI];
+                var flagTeam = player.team[thisI];
                 var flagPos = {
                     x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
                     y: context.canvas.height - 50
@@ -796,16 +794,16 @@ window.drawMap = function(positions, tilesTexture) {
     newcan.style.display = 'none';
     document.body.appendChild(newcan);
     newcan = document.getElementById('newCanvas');
-    newcan.width = positions.map.length * TILE_SIZE;
-    newcan.height = positions.map[0].length * TILE_SIZE;
+    newcan.width = positions.data.map.length * TILE_SIZE;
+    newcan.height = positions.data.map[0].length * TILE_SIZE;
     newcan.style.zIndex = 200;
     newcan.style.position = 'absolute';
     newcan.style.top = 0;
     newcan.style.left = 0;
     var newcontext = newcan.getContext('2d');
 
-    var floorMap = makeFloorMap(positions.map);
-    var wallMap = positions.wallMap;
+    var floorMap = makeFloorMap(positions.data.map);
+    var wallMap = positions.data.wallMap;
     var wallOffsets = [
         { x: 0, y: 0},
         { x: 20, y: 0 },
@@ -877,14 +875,14 @@ window.drawMap = function(positions, tilesTexture) {
  */
 function drawFloorTiles(positions, textures) {
     var player = getPlayer(positions);
-    var fps = player.fps;
-    var mod = thisI % (player.fps * 2 / 3);
-    var fourth = (player.fps * 2 / 3) / 4;
+    var fps = positions.info.fps;
+    var mod = thisI % (fps * 2 / 3);
+    var fourth = (fps * 2 / 3) / 4;
     var animationTile = Math.floor(mod / fourth);
 
-    positions.floorTiles.forEach(function(floorTile) {
-        var loc = { x: floorTile.x, y: floorTile.y };
-        var tileId = floorTile.value[thisI];
+    positions.data.dynamicTiles.forEach(function(dynamicTile) {
+        var loc = { x: dynamicTile.x, y: dynamicTile.y };
+        var tileId = dynamicTile.value[thisI];
         var tile = tiles[tileId];
         var size = tile.size || TILE_SIZE;
         var textureName = tile.img || "tiles";
@@ -907,20 +905,15 @@ function drawFloorTiles(positions, textures) {
 }
 
 function bombPop(positions) {
-    positions.bombs.forEach(function (bmb) {
-        for (j in positions) {
-            if (positions[j].me == 'me') {
-                me = j
-            }
-        }
-        var bTime = new Date(bmb.time).getTime();
-        var cTime = new Date(positions.clock[thisI]).getTime();
-        if(bTime <= cTime && cTime - bTime < 200 && bmb.type === 2) {
+    positions.data.bombs.forEach(function (bmb) {
+        var bTime = bmb.time;
+        var cTime = positions.data.time[thisI];
+        if(bTime <= cTime && cTime - bTime <= 200 && bmb.type === 2) {
             if(typeof bmb.bombAnimation === 'undefined') {
                 bmb.bombAnimation = {
-                    length: Math.round(positions[me].fps / 10),
+                    length: Math.round(positions.info.fps / 10),
                     frame: 0
-                }
+                };
             }
             
             if(bmb.bombAnimation.frame < bmb.bombAnimation.length) {
@@ -956,20 +949,17 @@ function ballCollision(player, data) {
     var prevY = player.y[thisI - 1];
     var thisX = player.x[thisI];
     var thisY = player.y[thisI];
-    for (var j in data) {
-        // Check that this is a player object.
-        if (j.search('player') == 0) {
-            var otherPlayer = data[j];
-            // Skip checking current player.
-            if (otherPlayer === player) continue;
-            var prevOtherX = otherPlayer.x[thisI - 1];
-            var prevOtherY = otherPlayer.y[thisI - 1];
-            var thisOtherX = otherPlayer.x[thisI];
-            var thisOtherY = otherPlayer.y[thisI];
-            if ((Math.abs(prevOtherX - prevX) < 45 && Math.abs(prevOtherY - prevY) < 45) ||
-                (Math.abs(thisOtherX - thisX) < 45 && Math.abs(thisOtherY - thisY) < 45)) {
-                return true;
-            }
+    for (var j in data.data.players) {
+        var otherPlayer = data.data.players[j];
+        // Skip checking current player.
+        if (otherPlayer === player) continue;
+        var prevOtherX = otherPlayer.x[thisI - 1];
+        var prevOtherY = otherPlayer.y[thisI - 1];
+        var thisOtherX = otherPlayer.x[thisI];
+        var thisOtherY = otherPlayer.y[thisI];
+        if ((Math.abs(prevOtherX - prevX) < 45 && Math.abs(prevOtherY - prevY) < 45) ||
+            (Math.abs(thisOtherX - thisX) < 45 && Math.abs(thisOtherY - thisY) < 45)) {
+            return true;
         }
     }
     return false;
@@ -987,28 +977,28 @@ function rollingBombPop(player, data) {
     // determine if we need to start a rolling bomb animation: ball has no bomb now, but had bomb one frame ago
     if (!player.bomb[thisI] & player.bomb[thisI - 1] & ballCollision(player, data)) {
         player.rollingBombAnimation = {
-            length: Math.round(player.fps / 10),
+            length: Math.round(data.info.fps / 10),
             frame: 0
-        }
+        };
     }
     // if an animation should be in progress, draw it
-    if (typeof player.rollingBombAnimation != 'undefined') {
-        player.rollingBombAnimation.frame++
-        rollingBombSize = 40 + (200 * (player.rollingBombAnimation.frame / player.rollingBombAnimation.length))
-        rollingBombOpacity = 1 - player.rollingBombAnimation.frame / player.rollingBombAnimation.length
+    if (typeof player.rollingBombAnimation !== 'undefined') {
+        player.rollingBombAnimation.frame++;
+        rollingBombSize = 40 + (200 * (player.rollingBombAnimation.frame / player.rollingBombAnimation.length));
+        rollingBombOpacity = 1 - player.rollingBombAnimation.frame / player.rollingBombAnimation.length;
 
-        context.fillStyle = "#FFFF00"
-        context.globalAlpha = rollingBombOpacity
-        context.beginPath()
+        context.fillStyle = "#FFFF00";
+        context.globalAlpha = rollingBombOpacity;
+        context.beginPath();
         rollingBombX = player.x[thisI] - recordingPlayer.x[thisI] + context.canvas.width / 2;
         rollingBombY = player.y[thisI] - recordingPlayer.y[thisI] + context.canvas.height / 2;
-        context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0)
-        context.closePath()
-        context.fill()
-        context.globalAlpha = 1
-        context.fillStyle = "#ffffff"
+        context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0);
+        context.closePath();
+        context.fill();
+        context.globalAlpha = 1;
+        context.fillStyle = "#ffffff";
         if (player.rollingBombAnimation.frame >= player.rollingBombAnimation.length) {
-            delete(player.rollingBombAnimation)
+            delete(player.rollingBombAnimation);
         }
     }
 }
@@ -1025,19 +1015,19 @@ function ballPop(player, data, tiles) {
     // Get the recording player so we can put the view relative to them.
     var recordingPlayer = getPlayer(data);
     // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
-    if (player.dead[thisI] & !player.dead[thisI - 1] & player.draw[thisI - 1]) {
+    if (player.dead[thisI] && !player.dead[thisI - 1] && player.draw[thisI - 1]) {
         player.popAnimation = {
-            length: Math.round(player.fps / 10),
+            length: Math.round(data.info.fps / 10),
             frame: 0
-        }
+        };
     }
     // if an animation should be in progress, draw it
-    if (typeof player.popAnimation != 'undefined') {
-        player.popAnimation.frame++
-        popSize = 40 + (80 * (player.popAnimation.frame / player.popAnimation.length))
-        popOpacity = 1 - player.popAnimation.frame / player.popAnimation.length
+    if (typeof player.popAnimation !== 'undefined') {
+        player.popAnimation.frame++;
+        popSize = 40 + (80 * (player.popAnimation.frame / player.popAnimation.length));
+        popOpacity = 1 - player.popAnimation.frame / player.popAnimation.length;
 
-        context.globalAlpha = popOpacity
+        context.globalAlpha = popOpacity;
         context.drawImage(tiles,
             (player.team[thisI] == 1 ? 14 : 15) * TILE_SIZE,
             0,
@@ -1046,10 +1036,10 @@ function ballPop(player, data, tiles) {
             player.x[thisI] - recordingPlayer.x[thisI] + context.canvas.width / 2 - popSize / 2,
             player.y[thisI] - recordingPlayer.y[thisI] + context.canvas.height / 2 - popSize / 2,
             popSize,
-            popSize)
-        context.globalAlpha = 1
+            popSize);
+        context.globalAlpha = 1;
         if (player.popAnimation.frame >= player.popAnimation.length) {
-            delete(player.popAnimation)
+            delete(player.popAnimation);
         }
     }
 }
@@ -1061,29 +1051,26 @@ function ballPop(player, data, tiles) {
  * @param  {Image} img - The splats image to use.
  */
 function drawSplats(positions, img) {
-    if (positions.splats) {
-        // Draw the splats that occurred up to this point in time.
-        for (var splatI in positions.splats) {
-            // Cache the number corresponding to the splat image used.
-            if (!positions.splats[splatI].img) {
-                positions.splats[splatI].img = Math.floor(Math.random() * 7);
-            }
-            var thisSplat = positions.splats[splatI];
-            var thisTime = new Date(positions.clock[thisI]).getTime();
-            var thisSplatTime = new Date(thisSplat.time).getTime();
-            if (thisSplatTime <= thisTime) {
-                context.drawImage(img,
-                    thisSplat.img * 120,
-                    (thisSplat.t - 1) * 120,
-                    120,
-                    120,
-                    thisSplat.x + posx - 60 + 20,
-                    thisSplat.y + posy - 60 + 20,
-                    120,
-                    120);
-            }
+    // Draw the splats that occurred up to this point in time.
+    var splats = positions.data.splats;
+    splats.forEach(function(splat) {
+        // Cache the number corresponding to the splat image used.
+        if (!splat.img) {
+            splat.img = Math.floor(Math.random() * 7);
         }
-    }
+        var thisTime = positions.data.time[thisI];
+        if (splat.time <= thisTime) {
+            context.drawImage(img,
+                splat.img * 120,
+                (splat.team - 1) * 120,
+                120,
+                120,
+                splat.x + posx - 60 + 20,
+                splat.y + posy - 60 + 20,
+                120,
+                120);
+        }
+    });
 }
 
 // Uses: context, thisI
@@ -1093,59 +1080,56 @@ function drawSplats(positions, img) {
  * @param  {Image} tiles - The tiles texture image.
  */
 function drawSpawns(positions, tiles) {
-    if (positions.spawns) {
-        context.globalAlpha = .25;
-        for (var spawnI in positions.spawns) {
-            var thisSpawn = positions.spawns[spawnI];
-            var thisTime = new Date(positions.clock[thisI]).getTime()
-            var thisSpawnTime = new Date(thisSpawn.time).getTime()
-            var timeDiff = thisTime - thisSpawnTime // positive if spawn has already happened
-            if (timeDiff >= 0 & timeDiff <= thisSpawn.w) {
-                context.drawImage(tiles,
-                    (thisSpawn.t == 1 ? 14 : 15) * TILE_SIZE,
-                    0,
-                    40,
-                    40,
-                    thisSpawn.x + posx,
-                    thisSpawn.y + posy,
-                    40,
-                    40)
-            }
+    context.globalAlpha = 0.25;
+    var spawns = positions.data.spawns;
+    spawns.forEach(function(spawn) {
+        var thisTime = positions.data.time[thisI];
+        var timeDiff = thisTime - spawn.time; // positive if spawn has already happened
+        if (timeDiff >= 0 & timeDiff <= spawn.wait) {
+            context.drawImage(tiles,
+                (spawn.team == 1 ? 14 : 15) * TILE_SIZE,
+                0,
+                40,
+                40,
+                spawn.x + posx,
+                spawn.y + posy,
+                40,
+                40);
         }
-        context.globalAlpha = 1;
-    }
+    });
+    context.globalAlpha = 1;
 }
 
 // Scope: file
 // Uses: context, thisI
 function drawEndText(positions) {
-    if (positions.end) {
-        var endTime = new Date(positions.end.time).getTime()
-        var thisTime = new Date(positions.clock[thisI]).getTime()
+    if (positions.data.end) {
+        var endTime = positions.data.end.time;
+        var thisTime = positions.data.time[thisI];
         if (endTime <= thisTime) {
             var endColor, endText;
-            var winner = positions.end.winner;
-            if (winner == 'red') {
+            var winner = positions.data.end.winner;
+            if (winner === 'red') {
                 endColor = "#ff0000";
                 endText = "Red Wins!";
-            } else if (winner == 'blue') {
+            } else if (winner === 'blue') {
                 endColor = "#0000ff";
                 endText = "Blue Wins!";
-            } else if (winner == 'tie') {
+            } else if (winner === 'tie') {
                 endColor = "#ffffff";
                 endText = "It's a Tie!";
             } else {
                 endColor = "#ffffff";
                 endText = winner;
             }
-            context.save()
-            context.textAlign = "center"
-            context.font = "bold 48pt Arial"
-            context.fillStyle = endColor
-            context.strokeStyle = "#000000"
-            context.strokeText(endText, context.canvas.width / 2, 100)
-            context.fillText(endText, context.canvas.width / 2, 100)
-            context.restore()
+            context.save();
+            context.textAlign = "center";
+            context.font = "bold 48pt Arial";
+            context.fillStyle = endColor;
+            context.strokeStyle = "#000000";
+            context.strokeText(endText, context.canvas.width / 2, 100);
+            context.fillText(endText, context.canvas.width / 2, 100);
+            context.restore();
         }
     }
 }
@@ -1161,21 +1145,12 @@ function drawEndText(positions) {
 function drawBalls(positions, textures, spin) {
     // Get the team for a player object.
     function getTeam(player, frame) {
-        // Handling the possibility that player team is not an array?
-        if (typeof player.team.length === 'undefined') {
-            return player.team;
-        } else {
-            return player.team[frame];
-        }
+        return player.team[frame];
     }
 
     // Get the name for a player object.
     function getName(player, frame) {
-        if (typeof player.name == 'string') {
-            return player.name;
-        } else {
-            return player.name[frame];
-        }
+        return player.name[frame];
     }
 
     function getDead(player, frame) {
@@ -1274,7 +1249,7 @@ function drawBalls(positions, textures, spin) {
 
         if (!dead && draw) {
             // If at the start of the replay or the player was drawn last frame.
-            if (thisI == 0 || getDraw(player, thisI - 1)) {
+            if (thisI === 0 || getDraw(player, thisI - 1)) {
                 if ((getDead(player, thisI - 1) &&
                      position.x !== getPos(player, thisI - player.fps)) ||
                     !getDead(player, thisI - 1)) {
@@ -1332,12 +1307,10 @@ function drawBalls(positions, textures, spin) {
                         auth: auth
                     });
 
-                    if (typeof player.flair !== 'undefined') {
-                        drawFlair(player.flair[thisI], {
-                            x: drawPos.x + 12,
-                            y: drawPos.y - 20
-                        }, textures.flair);
-                    }
+                    drawFlair(player.flair[thisI], {
+                        x: drawPos.x + 12,
+                        y: drawPos.y - 20
+                    }, textures.flair);
                 }
             }
         }
@@ -1365,31 +1338,31 @@ window.animateReplay = function(frame, positions, mapImg, options, textures, ctx
 
     var player = getPlayer(positions);
     // Clear canvas.
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height)
+    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     // Coordinates for center of canvas.
-    posx = -(player.x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2)
-    posy = -(player.y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2)
+    posx = -(player.x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2);
+    posy = -(player.y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2);
     context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
         posx,
         posy,
-        mapImg.width, mapImg.height)
+        mapImg.width, mapImg.height);
     if (options.splats) {
-        drawSplats(positions, textures.splats)
+        drawSplats(positions, textures.splats);
     }
     drawFloorTiles(positions, textures);
     drawSpawns(positions, textures.tiles);
     drawBalls(positions, textures, options.spin);
     if (options.ui) {
-        drawClock(positions)
+        drawClock(positions);
         drawScore(positions.score[thisI]);
         drawScoreFlag(positions, textures.tiles);
     }
     if (options.chat) {
-        drawChats(positions)
+        drawChats(positions);
     }
-    bombPop(positions)
-    drawEndText(positions)
-}
+    bombPop(positions);
+    drawEndText(positions);
+};
 
 // function that takes positions file and draws the frame 75% of the way through the 
 // replay at full size. then redraws that at reduced size.
@@ -1414,7 +1387,7 @@ window.drawPreview = function(positions, options, textures) {
     smallPreviewContext.fillStyle = 'black';
     smallPreviewContext.fill();
     
-    var replayLength = positions.clock.length;
+    var replayLength = positions.data.time.length;
     thisI = Math.round(replayLength * 0.75);
     
     var previewMapData = drawMap(positions, textures.tiles);
@@ -1439,6 +1412,6 @@ window.drawPreview = function(positions, options, textures) {
     previewMap.remove();
     fullSizeImg.remove();
     return result;
-}
+};
 
 })(window);
