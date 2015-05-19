@@ -97,13 +97,10 @@ function listen(event, listener) {
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
 listen('saveReplay', function (data) {
-    console.log('Received position data from injected script. Sending to background script.');
-    // Generate new name for replay.
-    var name = 'replays' + Date.now();
+    console.log('Received replay data from injected script, sending to background page.');
     chrome.runtime.sendMessage({
         method: 'saveReplay',
-        data: data,
-        name: name
+        data: data
     }, function(response) {
         emit('replaySaved', response.failed);
     });

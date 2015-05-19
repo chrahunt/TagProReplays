@@ -433,7 +433,7 @@ function drawChats(replay) {
     var players = replay.data.players;
     currentChats.forEach(function(chat, i) {
         var left = 10;
-        var top = context.canvas.height - 175 + j * 12;
+        var top = context.canvas.height - 175 + i * 12;
         if (typeof chat.from == 'number') {
             if (players[chat.from].auth[thisI]) {
                 left += prettyText("✓ ", left, top, "#BFFF00");

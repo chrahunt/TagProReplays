@@ -85,38 +85,38 @@ function getOptions() {
 var options = getOptions();
 
 // Initialize the replay recording.
-function recordReplayData(positions) {
+function recordReplayData(data) {
     var savingIndex = 0;
     var fps = options.fps;
     var saveDuration = options.duration;
     var numFrames = fps * saveDuration;
 
     // Set up replay data container.
-    positions.bombs = [];
-    positions.chat = [];
-    positions.endTimes = [];
-    positions.dynamicTiles = [];
-    positions.spawns = [];
-    positions.splats = [];
-    positions.score = createNullArray(numFrames);
-    positions.time = createNullArray(numFrames);
+    data.bombs = [];
+    data.chat = [];
+    data.endTimes = [];
+    data.dynamicTiles = [];
+    data.spawns = [];
+    data.splats = [];
+    data.score = createNullArray(numFrames);
+    data.time = createNullArray(numFrames);
 
-    positions.players = {};
+    data.players = {};
 
-    positions.map = tagpro.map;
-    delete positions.map.splats;
-    positions.wallMap = tagpro.wallMap;
+    data.map = tagpro.map;
+    delete data.map.splats;
+    data.wallMap = tagpro.wallMap;
 
     // Set initial value for end time.
-    positions.endTimes.push((new Date(tagpro.gameEndsAt)).getTime());
+    data.endTimes.push((new Date(tagpro.gameEndsAt)).getTime());
 
     // Set up dynamic tiles.
     var dynamicTileIds = [3, 4, 5, 6, 9, 10, 13, 14, 15, 16, 19, 20, 21];
-    for (var col in positions.map) {
-        for (var row in positions.map[col]) {
-            var tile = positions.map[col][row];
+    for (var col in data.map) {
+        for (var row in data.map[col]) {
+            var tile = data.map[col][row];
             if (dynamicTileIds.indexOf(Math.floor(tile)) !== -1) {
-                positions.dynamicTiles.push({
+                data.dynamicTiles.push({
                     x: Number(col),
                     y: Number(row),
                     value: createNullArray(numFrames)});
@@ -126,7 +126,7 @@ function recordReplayData(positions) {
 
     // set up listener for chats, splats, and bombs
     tagpro.socket.on('chat', function (msg) {
-        positions.chat.push({
+        data.chat.push({
             from: msg.from,
             to: msg.to,
             message: msg.message,
@@ -137,7 +137,7 @@ function recordReplayData(positions) {
     });
 
     tagpro.socket.on('splat', function (msg) {
-        positions.splats.push({
+        data.splats.push({
             team: msg.t,
             x: msg.x,
             y: msg.y,
@@ -147,7 +147,7 @@ function recordReplayData(positions) {
     });
 
     tagpro.socket.on('bomb', function (msg) {
-        positions.bombs.push({
+        data.bombs.push({
             type: msg.type,
             x: msg.x,
             y: msg.y,
@@ -156,7 +156,7 @@ function recordReplayData(positions) {
     });
 
     tagpro.socket.on('spawn', function (msg) {
-        positions.spawns.push({
+        data.spawns.push({
             team: msg.t,
             wait: msg.w,
             x: msg.x,
@@ -166,7 +166,7 @@ function recordReplayData(positions) {
     });
 
     tagpro.socket.on('end', function (msg) {
-        positions.gameEnd = {
+        data.gameEnd = {
             winner: msg.winner,
             time: Date.now()
         };
@@ -174,7 +174,7 @@ function recordReplayData(positions) {
 
     tagpro.socket.on('time', function (msg) {
         if (msg.hasOwnProperty('time')) {
-            positions.endTimes.push(Date.now() + msg.time);
+            data.endTimes.push(Date.now() + msg.time);
         } else {
             // TODO: Handle case where required parameter is missing.
         }
@@ -195,8 +195,8 @@ function recordReplayData(positions) {
     var saveFrame = function () {
         for (var id in tagpro.players) {
             // Create player if needed.
-            if (!positions.players.hasOwnProperty(id)) {
-                positions.players[id] = {
+            if (!data.players.hasOwnProperty(id)) {
+                data.players[id] = {
                     angle: createNullArray(numFrames),
                     auth: createNullArray(numFrames),
                     bomb: createNullArray(numFrames),
@@ -214,7 +214,7 @@ function recordReplayData(positions) {
                     y: createNullArray(numFrames)
                 };
             }
-            var player = positions.players[id];
+            var player = data.players[id];
             // Update player properties.
             for (var prop in player) {
                 // Update properties, disregard 'id'.
@@ -233,14 +233,14 @@ function recordReplayData(positions) {
         }
 
         // Update state of dynamic tiles.
-        positions.dynamicTiles.forEach(function(tile) {
+        data.dynamicTiles.forEach(function(tile) {
             tile.value.shift();
             tile.value.push(tagpro.map[tile.x][tile.y]);
         });
-        positions.time.shift();
-        positions.time.push(Date.now());
-        positions.score.shift();
-        positions.score.push({
+        data.time.shift();
+        data.time.push(Date.now());
+        data.score.shift();
+        data.score.push({
             b: tagpro.score.b,
             r: tagpro.score.r
         });
@@ -262,7 +262,7 @@ function listen(event, listener) {
 }
 
 // send position data to content script
-function saveReplayData(positions) {
+function saveReplayData(data) {
     // Remove the extra frames.
     // Create the info.
     // TODO: Finish this.
@@ -274,14 +274,14 @@ function saveReplayData(positions) {
             "2": tagpro.teamNames.blueTeamName || "Blue"
         },
         player: tagpro.playerId,
-        dateRecorded: Date.now()
+        dateRecorded: Date.now(),
+        name: 'replay-' + Date.now()
     };
-    var data = JSON.stringify(positions);
     console.log('Sending replay data from injected script to content script.');
     var replay = {
         data: data,
         info: info,
-        version: 3
+        version: "2"
     };
     // DEBUG
     //localStorage.setItem("test_replay", data);
@@ -289,10 +289,24 @@ function saveReplayData(positions) {
 }
 
 // TODO: Handle possible failure alert from content script.
-listen('replaySaved', function() {
-    console.log('Got message confirming data save.');
+listen('replaySaved', function(err) {
+    console.log('Got confirmation message.');
+    if (err) {
+        $("#savedFeedback").text("Failed!");
+        $("#savedFeedback").css({
+            color: "red"
+        });
+        console.warn("Saving failed because: " + err.reason);
+    } else {
+        $("#savedFeedback").text("Saved!");
+        $("#savedFeedback").css({
+            color: "green"
+        });
+    }
     $(savedFeedback).fadeIn(300);
-    $(savedFeedback).fadeOut(900);
+    setTimeout(function() {
+        $(savedFeedback).fadeOut(900);
+    }, 1e3);
 });
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.

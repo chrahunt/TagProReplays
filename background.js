@@ -34,10 +34,22 @@ function clone(obj) {
 }
 
 /**
+ * Return the index of the first value in the array that satisfies the given
+ * function. Same as `findIndex`.
+ */
+function findIndex(array, fn) {
+    for (var i = 0; i < array.length; i++) {
+        if (fn(array[i])) {
+            return i;
+        }
+    }
+    return -1;
+}
+/**
  * Return the first value in the array that satisfies the given function. Same
  * functionality as `find`.
  */
-function first(array, fn) {
+function find(array, fn) {
   for (var i = 0; i < array.length; i++) {
     if (fn(array[i])) {
       return array[i];
@@ -61,8 +73,8 @@ function generateReplayInfo(replay) {
     Object.keys(replay.data.players).forEach(function(id) {
         var player = replay.data.players[id];
         info.players[id] = {
-            name: first(player.name, function(v) { return v !== null; }),
-            team: first(player.team, function(v) { return v !== null; }),
+            name: find(player.name, function(v) { return v !== null; }),
+            team: find(player.team, function(v) { return v !== null; }),
             id: player.id
         };
     });
@@ -102,6 +114,10 @@ chrome.storage.local.get(["default_textures", "textures"], function(items) {
  * @return {Replay} - The cropped replay.
  */
 function cropReplay(replay, startFrame, endFrame) {
+    // Don't do anything if this replay is already the correct size.
+    if (startFrame === 0 && endFrame === replay.data.time.length)
+        return replay;
+
     function clone(obj) {
         return JSON.parse(JSON.stringify(obj));
     }
@@ -187,13 +203,13 @@ function cropReplay(replay, startFrame, endFrame) {
             spawns: cropSpawns(replay.data.spawns),
             splats: cropEventArray(replay.data.splats),
             time: cropFrameArray(replay.data.time),
-            wallMap: clone(replay.wallMap)
+            wallMap: clone(replay.data.wallMap)
         },
         version: 2
     };
 
     var gameEnd = replay.data.gameEnd;
-    if (gameEnd.time <= endTime) {
+    if (gameEnd && gameEnd.time <= endTime) {
         newReplay.gameEnd = clone(gameEnd);
     }
 
@@ -202,7 +218,7 @@ function cropReplay(replay, startFrame, endFrame) {
     $.each(replay.data.players, function(id, player) {
         var newPlayer = cropPlayer(player);
         if (newPlayer !== null) {
-            newReplay.players[id] = player;
+            newReplay.data.players[id] = player;
         }
     });
 
@@ -291,11 +307,25 @@ function(message, sender, sendResponse) {
  */
 messageListener("saveReplay",
 function(message, sender, sendResponse) {
+    var replay = message.data;
     // TODO: Validate replay.
-    var replay = JSON.parse(message.data);
+    // TODO: Crop replay.
+    var startFrame = findIndex(replay.data.time, function(t) {
+        return t !== null;
+    });
+    if (startFrame == -1) {
+        // No data captured.
+        sendResponse({
+            failed: true,
+            reason: "No replay data captured."
+        });
+        return true;
+    }
+    replay = cropReplay(replay, startFrame, replay.data.time.length);
     // Generate DB Info from Replay.
     var info = generateReplayInfo(replay);
     saveReplay(info, replay, function(err) {
+        // TODO: Handle error.
         sendResponse({
             failed: false
         });
@@ -303,8 +333,7 @@ function(message, sender, sendResponse) {
         sendToTabs(function(id) {
             chrome.tabs.sendMessage(id, {
                 method: "replayAdded",
-                name: name,
-                metadata: JSON.stringify(metadata)
+                data: info
             });
         });
     });

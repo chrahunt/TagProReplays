@@ -21,92 +21,15 @@ Viewer.prototype.init = function() {
     this.canvas = document.getElementById('viewer-canvas');
     this.context = this.canvas.getContext('2d');
     this.frame = 0;
+    this.frames = 0;
     this.playing = false;
     this.playInterval = null;
     this.cropping = false;
 
     // Adjust viewer dimensions on window resize.
     window.onresize = this.resize;
-};
 
-// Adjust viewer dimensions based on window size.
-Viewer.prototype.resize = function() {
-    // Resize container.
-    if($(window).width() > 1280) {
-        $('#viewer-container').width(1280);
-        $('#viewer-container').css('left', $(window).width()/2 - $('#viewer-container').width()/2);
-    } else {
-        $('#viewer-container').width('100%');
-        $('#viewer-container').css('left', 0);
-    }
-    if($(window).height() > (800/0.9)) {
-        $('#viewer-container').height(800/0.9);
-        $('#viewer-container').css('top', $(window).height()/2 - $('#viewer-container').height()/2);
-    } else {
-        $('#viewer-container').height('100%');
-        $('#viewer-container').css('top', 0);
-    }
-    $('#viewer-canvas')[0].height = $('#viewer-container').height() * 0.90 - 20;
-    $('#viewer-canvas')[0].width = $('#viewer-container').width() - 20;
-    $('#viewer-canvas').height($('#viewer-canvas')[0].height);
-    $('#viewer-canvas').width($('#viewer-canvas')[0].width);
-
-    // Resize buttons.
-    var IMGWIDTH          = 57,
-        BUTTONWIDTH       = 90,
-        widthFactor       = $('#viewer-container').width() / 1280,
-        heightFactor      = $('#viewer-container').height() / (800/0.9),
-        IMGWIDTHFACTOR    = IMGWIDTH / 1280, 
-        BUTTONWIDTHFACTOR = BUTTONWIDTH / 1280,
-        IMGHEIGHTFACTOR   = IMGWIDTH / (800/0.9);
-
-    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
-    if ( widthFactor >= heightFactor ) {
-        $('#viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
-        $('#viewer-container img').width('auto');
-        $('#button-bar button').css('font-size', $('#button-bar button').height()/2.5);
-    } else {
-        $('#viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
-        $('#viewer-container img').height('auto');
-        $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
-    }
-};
-
-// Initialize viewer to work with replay that has provided id.
-Viewer.prototype.preview = function(id) {
-    // Show viewer.
-    this.show();
-    // TODO: Show loading spinner.
-    this.id = id;
-    // Get replay data.
-    console.log('Requesting data for replay ' + this.id + ".");
-    chrome.runtime.sendMessage({
-        method: 'getReplay',
-        id: this.id
-    }, function(response) {
-        this.replay = response.data;
-        console.log('Data received for replay ' + this.id + ".");
-        this.replayInit();
-    }.bind(this));
-};
-
-// Display the viewer.
-Viewer.prototype.show = function() {
-    $("#viewer-container").fadeIn(500);
-    this.resize();
-};
-
-// Hide the viewer.
-Viewer.prototype.hide = function() {
-    $("#viewer-container").fadeOut(500);
-    $("#menuContainer").fadeIn(500);
-};
-
-// Initialize the viewer after retrieving the replay data.
-Viewer.prototype.replayInit = function() {
     var viewer = this;
-    this.canvas.title = "Replay: " + this.replay.info.name;
-    this.frames = this.replay.data.time.length - 1;
     // Set listeners.
     // TODO: Ensure this doesn't cause problems if the slider is updated programmatically.
     $("#time-slider").slider({
@@ -247,6 +170,90 @@ Viewer.prototype.replayInit = function() {
             });
         }
     });
+};
+
+// Adjust viewer dimensions based on window size.
+Viewer.prototype.resize = function() {
+    // Resize container.
+    if($(window).width() > 1280) {
+        $('#viewer-container').width(1280);
+        $('#viewer-container').css('left', $(window).width()/2 - $('#viewer-container').width()/2);
+    } else {
+        $('#viewer-container').width('100%');
+        $('#viewer-container').css('left', 0);
+    }
+    if($(window).height() > (800/0.9)) {
+        $('#viewer-container').height(800/0.9);
+        $('#viewer-container').css('top', $(window).height()/2 - $('#viewer-container').height()/2);
+    } else {
+        $('#viewer-container').height('100%');
+        $('#viewer-container').css('top', 0);
+    }
+    $('#viewer-canvas')[0].height = $('#viewer-container').height() * 0.90 - 20;
+    $('#viewer-canvas')[0].width = $('#viewer-container').width() - 20;
+    $('#viewer-canvas').height($('#viewer-canvas')[0].height);
+    $('#viewer-canvas').width($('#viewer-canvas')[0].width);
+
+    // Resize buttons.
+    var IMGWIDTH          = 57,
+        BUTTONWIDTH       = 90,
+        widthFactor       = $('#viewer-container').width() / 1280,
+        heightFactor      = $('#viewer-container').height() / (800/0.9),
+        IMGWIDTHFACTOR    = IMGWIDTH / 1280, 
+        BUTTONWIDTHFACTOR = BUTTONWIDTH / 1280,
+        IMGHEIGHTFACTOR   = IMGWIDTH / (800/0.9);
+
+    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
+    if ( widthFactor >= heightFactor ) {
+        $('#viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
+        $('#viewer-container img').width('auto');
+        $('#button-bar button').css('font-size', $('#button-bar button').height()/2.5);
+    } else {
+        $('#viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
+        $('#viewer-container img').height('auto');
+        $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
+    }
+};
+
+// Initialize viewer to work with replay that has provided id.
+Viewer.prototype.preview = function(id) {
+    // Show viewer.
+    this.show();
+    // TODO: Show loading spinner.
+    this.id = id;
+    // Get replay data.
+    console.log('Requesting data for replay ' + this.id + ".");
+    chrome.runtime.sendMessage({
+        method: 'getReplay',
+        id: this.id
+    }, function(response) {
+        this.replay = response.data;
+        console.log('Data received for replay ' + this.id + ".");
+        this.replayInit();
+    }.bind(this));
+};
+
+// Display the viewer.
+Viewer.prototype.show = function() {
+    $("#viewer-container").fadeIn(500);
+    this.resize();
+};
+
+// Hide the viewer.
+Viewer.prototype.hide = function() {
+    $("#viewer-container").fadeOut(500);
+    $("#menuContainer").fadeIn(500);
+};
+
+// Initialize the viewer after retrieving the replay data.
+Viewer.prototype.replayInit = function() {
+    var viewer = this;
+    this.canvas.title = "Replay: " + this.replay.info.name;
+    this.frames = this.replay.data.time.length - 1;
+    
+    $("#time-slider").slider("option", "max", this.frames);
+    $("#crop-slider").slider("option", "max", this.frames);
+    $("#crop-slider").slider("values", [0, this.frames]);
 
     // TODO: Show previewer with loading spinner.
     // Get options and textures.
