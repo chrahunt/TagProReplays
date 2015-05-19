@@ -71,6 +71,27 @@ function generateReplayInfo(replay) {
     return info;
 }
 
+// Ensure textures are set.
+chrome.storage.local.get(["default_textures", "textures"], function(items) {
+    if (!items.textures || !items.default_textures) {
+        getDefaultTextures(function(textures) {
+            var default_textures = {};
+            for (var t in textures) {
+                default_textures[t] = textures[t];
+            }
+            chrome.storage.local.set({
+                textures: textures,
+                default_textures: default_textures
+            }, function() {
+                if (chrome.runtime.lastError) {
+                    console.log("Error initializing textures " +
+                        chrome.runtime.lastError);
+                }
+            });
+        });
+    }
+});
+
 /**
  * Crops a replay to the given start and end frames.
  * @param {Replay} replay - The replay to crop

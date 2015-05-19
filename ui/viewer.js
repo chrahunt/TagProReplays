@@ -135,26 +135,16 @@ Viewer.prototype.replayInit = function() {
     });
 
     $("#viewerResetButton").click(function() {
-        viewer.frame = 0;
-        if (viewer.playing) {
-            viewer.playing = false;
-            clearInterval(viewer.playInterval);
-            viewer.playInterval = null;
-        }
-        $("#time-slider").slider("value", 0);
+        viewer.reset();
         viewer.drawFrame();
     });
 
     $("#viewerPlayButton").click(function() {
-        viewer.play(0, viewer.frames);
+        viewer.play(viewer.frame, viewer.frames);
     });
 
     $("#viewerPauseButton").click(function() {
-        if (viewer.playing) {
-            viewer.playing = false;
-            clearInterval(viewer.playInterval);
-            viewer.playInterval = null;
-        }
+        viewer.pause();
     });
 
     $("#viewerCropStartButton").click(function() {
@@ -202,6 +192,7 @@ Viewer.prototype.replayInit = function() {
         // previewer with cropped replay.
         sendMessage("cropReplay", msg);
     });
+
     $("#viewerCropAndReplaceButton").click(function() {
         var newName = prompt('If you would also like to rename this ' +
             'replay, type the new name here. Leave it blank to use ' +
@@ -221,31 +212,31 @@ Viewer.prototype.replayInit = function() {
         // previewer with cropped replay.
         sendMessage("cropAndReplaceReplay", msg);
     });
+
     $("#viewerDeleteButton").click(function() {
         if (confirm('Are you sure you want to delete this replay?')) {
-            stopReplay(false);
-            setTimeout(function() {
-                console.log('Requesting deletion of replay ' + viewer.id + '.');
-                chrome.runtime.sendMessage({
-                    method: 'deleteReplay',
-                    id: viewer.id
-                });
-            }, 500);
+            viewer.close();
+            console.log('Requesting deletion of replay ' + viewer.id + '.');
+            chrome.runtime.sendMessage({
+                method: 'deleteReplay',
+                id: viewer.id
+            });
         }
     });
+
     $("#viewerRenderButton").click(function() {
         if (confirm('Are you sure you want to render this replay?')) {
-            stopReplay(false);
-            setTimeout(function () {
-                console.log('Requesting render of replay ' + viewer.id + '.');
-                chrome.runtime.sendMessage({
-                    method: 'renderReplay',
-                    id: viewer.id
-                });
-            }, 1000);
+            viewer.close();
+            console.log('Requesting render of replay ' + viewer.id + '.');
+            chrome.runtime.sendMessage({
+                method: 'renderReplay',
+                id: viewer.id
+            });
         }
     });
+
     $("#viewerRenameButton").click(function() {
+        // TODO: Handle blank rename value.
         var newName = prompt('How would you like to rename ' + viewer.replay.info.name + '?');
         if (newName !== null) {
             console.log('Requesting rename from ' + viewer.replay.info.name + ' to ' + newName + '.');
@@ -285,65 +276,69 @@ Viewer.prototype.initReplay = function() {
     this.background.src = mapImgData;
 };
 
+/**
+ * Set frame to value.
+ */
+Viewer.prototype.setFrame = function(frame) {
+    this.frame = frame;
+    $("#time-slider").slider("value", frame);
+};
+
 // Draws the current frame.
 Viewer.prototype.drawFrame = function() {
     animateReplay(this.frame, this.replay, this.background, this.options, this.textures, this.context);
 };
 
 /**
- * Stop the previewing of the replay.
- * @param {boolean} close - Whether the previewer should be closed.
+ * Close the previewer
  */
 Viewer.prototype.close = function() {
-    this.frame = 0;
-    if (this.playInterval !== null) {
+    this.reset();
+    this.hide();
+};
+
+/**
+ * Stop the replay.
+ * @return {[type]} [description]
+ */
+Viewer.prototype.pause = function() {
+    if (this.playing) {
         clearInterval(this.playInterval);
         this.playInterval = null;
         this.playing = false;
     }
-    this.hide();
+};
+
+/**
+ * Reset the replay to the beginning.
+ */
+Viewer.prototype.reset = function() {
+    this.pause();
+    this.setFrame(0);
 };
 
 // Play preview starting at the given frame and ending at the other
 // argument.
 Viewer.prototype.play = function(start, end) {
-    if (this.playing) {
-        clearInterval(this.playInterval);
-        this.playInterval = null;
-    }
+    // Reset anything currently playing.
+    this.reset();
+    this.playing = true;
+
     var time = Date.now();
     var startTime = time;
     var fps = this.replay.info.fps;
+    this.setFrame(start);
     this.playInterval = setInterval(function() {
         if (this.frame >= end) {
-            clearInterval(this.playInterval);
-            this.playInterval = null;
-            this.playing = false;
+            this.pause();
+            return;
         }
         this.drawFrame();
         var dt = Date.now() - time;
         time = Date.now();
         var nFramesToAdvance = Math.round(dt / (1000 / fps));
-        viewer.frame = viewer.frame + nFramesToAdvance;
-        $("#time-slider").slider("value", viewer.frame);
+        this.setFrame(this.frame + nFramesToAdvance);
     }.bind(this), 1000 / fps);
-};
-
-/**
- * Function to set up an in-browser viewer for the replay with the given id.
- * @param {integer} replayId - The id of the replay to display.
- */
-window.viewReplay = function(replayId) {
-    // slider
-    var slider = document.getElementById('slider');
-    slider.max = positions.data.time.length - 1;
-    slider.onmousedown = function () {
-        pauseReplay();
-    };
-    slider.onchange = function () {
-        thisI = this.value;
-        animateReplay(thisI, positions, mapImg, options, textures, context);
-    };
 };
 
 })(window);

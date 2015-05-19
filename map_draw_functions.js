@@ -326,16 +326,13 @@ function getPlayer(data) {
 /**
  * Get the player objects from the data. If no players are found then
  * an empty array is returned.
- * @param {PositionData} data - The position data to get the players
- *   from.
+ * @param {Replay} replay - The replay.
  * @return {Array.<Player>} - The players.
  */
-function getPlayers(data) {
+function getPlayers(replay) {
     var players = [];
-    for (var j in data) {
-        if (j.search("player") === 0) {
-            players.push(data[j]);
-        }
+    for (var i in replay.data.players) {
+        players.push(replay.data.players[i]);
     }
     return players;
 }
@@ -421,49 +418,44 @@ function prettyText(text, textx, texty, color) {
 }
 
 // Uses: thisI (var), prettyText (fn) - by extension context
-function drawChats(positions) {
-    var chats = positions.data.chat;
-    var thisTime = positions.data.time[thisI];
-    var currentChats = new Array(10);
-    for (var chatI in chats) {
-        if (chats[chatI].time < thisTime & chats[chatI].time + 30000 > thisTime) {
-            currentChats.shift();
-            currentChats.push(chats[chatI]);
+function drawChats(replay) {
+    var chats = replay.data.chat.slice().reverse();
+    var time = replay.data.time[thisI];
+    var currentChats = [];
+    for (var i = chats.length - 1; i >= 0; i--) {
+        var chat = chats[i];
+        if (chat.time < time && chat.time + 3e4 > time) {
+            currentChats.push(chat);
         }
-    }
-    for (var i = 0; i < currentChats.length; i++) {
-        if (typeof currentChats[0] == 'undefined') {
-            currentChats.shift();
-            i--;
-        }
+        if (currentChats.length > 10) break;
     }
 
-    for (var j in currentChats) {
-        var thisChat = currentChats[j];
-        var chatLeft = 10;
-        var players = position.data.players;
-        var chatTop = context.canvas.height - 175 + j * 12;
-        if (typeof thisChat.from == 'number') {
-            if (players[thisChat.from].auth[thisI]) {
-                chatLeft += prettyText("✓ ", chatLeft, chatTop, "#BFFF00");
+    var players = replay.data.players;
+    currentChats.forEach(function(chat, i) {
+        var left = 10;
+        var top = context.canvas.height - 175 + j * 12;
+        if (typeof chat.from == 'number') {
+            if (players[chat.from].auth[thisI]) {
+                left += prettyText("✓ ", left, top, "#BFFF00");
             }
-            var chatName = players[thisChat.from].name[thisI];
-            chatLeft += prettyText(chatName + ': ',
-                chatLeft,
-                chatTop,
-                players[thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF");
+            var chatName = players[chat.from].name[thisI];
+            left += prettyText(chatName + ': ',
+                left,
+                top,
+                players[chat.from].team[thisI] === 1 ? "#FFB5BD" : "#CFCFFF");
         }
-        if (thisChat.to == 'team') {
-            chatColor = positions['player' + thisChat.from].team[thisI] == 1 ? "#FFB5BD" : "#CFCFFF";
-        } else if (thisChat.to == 'group') {
-            chatColor = "#E7E700";
-        } else if(thisChat.c) {
-            chatColor = thisChat.c;
+        var color;
+        if (chat.to == 'team') {
+            color = players[chat.from].team[thisI] === 1 ? "#FFB5BD" : "#CFCFFF";
+        } else if (chat.to == 'group') {
+            color = "#E7E700";
+        } else if (chat.color) {
+            color = chat.color;
         } else {
-            chatColor = 'white';
+            color = 'white';
         }
-        prettyText(thisChat.message, chatLeft, chatTop, chatColor);
-    }
+        prettyText(chat.message, left, top, color);
+    });
 }
 
 // Uses: context
@@ -779,14 +771,13 @@ function makeFloorMap(map) {
     return floorMap;
 }
 
-// Scope: background, inpagepreview
 /**
  * Takes in the replay data and returns a DataURL (png) representing the map background.
- * @param {PositionData} positions - The replay data.
+ * @param {Replay} replay - The replay data.
  * @param {Image} tiles - The image representing the tiles texture.
  * @return {string} - DataURL representing the map.
  */
-window.drawMap = function(positions, tilesTexture) {
+window.drawMap = function(replay, tilesTexture) {
     var posx = 0;
     var posy = 0;
     var newcan = document.createElement('canvas');
@@ -794,16 +785,16 @@ window.drawMap = function(positions, tilesTexture) {
     newcan.style.display = 'none';
     document.body.appendChild(newcan);
     newcan = document.getElementById('newCanvas');
-    newcan.width = positions.data.map.length * TILE_SIZE;
-    newcan.height = positions.data.map[0].length * TILE_SIZE;
+    newcan.width = replay.data.map.length * TILE_SIZE;
+    newcan.height = replay.data.map[0].length * TILE_SIZE;
     newcan.style.zIndex = 200;
     newcan.style.position = 'absolute';
     newcan.style.top = 0;
     newcan.style.left = 0;
     var newcontext = newcan.getContext('2d');
 
-    var floorMap = makeFloorMap(positions.data.map);
-    var wallMap = positions.data.wallMap;
+    var floorMap = makeFloorMap(replay.data.map);
+    var wallMap = replay.data.wallMap;
     var wallOffsets = [
         { x: 0, y: 0},
         { x: 20, y: 0 },
@@ -811,7 +802,7 @@ window.drawMap = function(positions, tilesTexture) {
         { x: 0, y: 20 }
     ];
 
-    positions.map.forEach(function(row, x) {
+    replay.data.map.forEach(function(row, x) {
         row.forEach(function(tileId, y) {
             var tile = tiles[tileId];
             var tileSize = tile.size || TILE_SIZE;
@@ -867,30 +858,38 @@ window.drawMap = function(positions, tilesTexture) {
     return newcontext.canvas.toDataURL();
 };
 
-// Uses: thisI
 /**
- * Draw the floor tiles.
- * @param  {PositionData} positions
+ * Draw the dynamic floor tiles.
+ * @param  {Replay} replay - The replay data.
  * @return {TextureImages} textures
  */
-function drawFloorTiles(positions, textures) {
-    var player = getPlayer(positions);
-    var fps = positions.info.fps;
+function drawFloorTiles(replay, textures) {
+    var player = getPlayer(replay);
+    var fps = replay.info.fps;
     var mod = thisI % (fps * 2 / 3);
     var fourth = (fps * 2 / 3) / 4;
     var animationTile = Math.floor(mod / fourth);
 
-    positions.data.dynamicTiles.forEach(function(dynamicTile) {
-        var loc = { x: dynamicTile.x, y: dynamicTile.y };
+    replay.data.dynamicTiles.forEach(function(dynamicTile) {
+        var loc = {
+          x: dynamicTile.x,
+          y: dynamicTile.y
+        };
         var tileId = dynamicTile.value[thisI];
         var tile = tiles[tileId];
         var size = tile.size || TILE_SIZE;
         var textureName = tile.img || "tiles";
         var spriteLoc;
         if (tile.animated) {
-            spriteLoc = { x: animationTile, y: 0 };
+            spriteLoc = {
+              x: animationTile,
+              y: 0
+            };
         } else {
-            spriteLoc = { x: tile.x, y: tile.y };
+            spriteLoc = {
+              x: tile.x,
+              y: tile.y
+            };
         }
         context.drawImage(textures[textureName],
             spriteLoc.x * TILE_SIZE,
@@ -904,14 +903,14 @@ function drawFloorTiles(positions, textures) {
     });
 }
 
-function bombPop(positions) {
-    positions.data.bombs.forEach(function (bmb) {
+function bombPop(replay) {
+    replay.data.bombs.forEach(function (bmb) {
         var bTime = bmb.time;
-        var cTime = positions.data.time[thisI];
+        var cTime = replay.data.time[thisI];
         if(bTime <= cTime && cTime - bTime <= 200 && bmb.type === 2) {
             if(typeof bmb.bombAnimation === 'undefined') {
                 bmb.bombAnimation = {
-                    length: Math.round(positions.info.fps / 10),
+                    length: Math.round(replay.info.fps / 10),
                     frame: 0
                 };
             }
@@ -1354,7 +1353,7 @@ window.animateReplay = function(frame, positions, mapImg, options, textures, ctx
     drawBalls(positions, textures, options.spin);
     if (options.ui) {
         drawClock(positions);
-        drawScore(positions.score[thisI]);
+        drawScore(positions.data.score[thisI]);
         drawScoreFlag(positions, textures.tiles);
     }
     if (options.chat) {
