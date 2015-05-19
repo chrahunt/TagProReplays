@@ -65,17 +65,17 @@ checkOptions();
  */
 function createReplayPageButton(menu) {
     function findInsertionPoint() {
-        buttons = $('article>div.buttons.smaller>a')
+        buttons = $('article>div.buttons.smaller>a');
         for (var i = 0; i < buttons.length; i++) {
-            textcontent = buttons[i].textContent
+            textcontent = buttons[i].textContent;
             if (textcontent.search('Leaders') >= 0) {
-                return (buttons[i]);
+                return buttons[i];
             }
         }
     }
 
-    $(findInsertionPoint()).after('<a class=button id=ReplayMenuButton>Replays')
-    $('#ReplayMenuButton').append('<span>watch yourself')
+    $(findInsertionPoint()).after('<a class=button id=ReplayMenuButton>Replays');
+    $('#ReplayMenuButton').append('<span>watch yourself');
     $('#ReplayMenuButton').click(function () {
         menu.open();
     });
@@ -121,19 +121,11 @@ function removeScript() {
     this.parentNode.removeChild(this);
 }
 
-function injectStyleSheet(path) {
-    var link = document.createElement('link');
-    link.setAttribute("rel", "stylesheet");
-    link.href = chrome.extension.getURL(path);
-    //script.onload = removeScript;
-    (document.head || document.documentElement).appendChild(link);
-}
-
 // If we're on the main tagpro server screen, create the main menu and
 // the button that opens it.
 if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     // Make the body scrollable.
-    $('body')[0].style.overflowY = "scroll"
+    $('body')[0].style.overflowY = "scroll";
 
     // Initialize the menu.
     var menu = new Menu();
@@ -141,20 +133,12 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     
     // Make the menu-opening button.
     createReplayPageButton(menu);
-
-    // Include custom bootstrap.css scoped to #tpr-container
-    injectStyleSheet("ui/bootstrap.css");
-    injectStyleSheet("ui/menu.css");
-    injectStyleSheet("ui/spinkit.css");
-    injectStyleSheet("ui/viewer.css");
-    injectStyleSheet("lib/jquery-ui.min.css");
 }
 
 // if we're in a game, as evidenced by there being a port number,
 // inject the replayRecording.js script.
 if (document.URL.search(/\.\w+:/) >= 0) {
-    var scripts = ["replayRecording.js"];
-    scripts.forEach(injectScript);
+    injectScript("replayRecording.js");
 }
 
 })(window, document);

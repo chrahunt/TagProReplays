@@ -9,7 +9,7 @@ var Viewer = function() {
     $('article').append('<div id="viewer-container">');
     var url = chrome.extension.getURL("ui/viewer.html");
     $("#viewer-container").load(url, function() {
-        this.hide();
+        $("#viewer-container").hide();
         this.init();
     }.bind(this));
 };

@@ -36,6 +36,7 @@
       ],
       "js": [
         "lib/jquery.js",
+        "lib/bootstrap.min.js",
         "lib/jquery.actual.min.js",
         "lib/jquery-ui.min.js",
         "barrier.js",
@@ -45,8 +46,14 @@
         "map_draw_functions.js",
         "ui/viewer.js",
         "ui/menu.js",
-        "TagProReplays.js",
-        "ui/bootstrap.min.js"
+        "TagProReplays.js"
+      ],
+      "css": [
+        "lib/bootstrap.css",
+        "lib/jquery-ui.min.css",
+        "lib/spinkit.css",
+        "ui/menu.css",
+        "ui/viewer.css"
       ],
       "run_at": "document_end"
     }
@@ -57,10 +64,6 @@
     "ui/*.css",
     "ui/*.html",
     "lib/images/*.png",
-    "ui/glyphicons-halflings-regular.eot",
-    "ui/glyphicons-halflings-regular.svg",
-    "ui/glyphicons-halflings-regular.ttf",
-    "ui/glyphicons-halflings-regular.woff",
-    "lib/jquery-ui.min.css"
+    "lib/glyphicons-halflings-regular.woff"
   ]
 }

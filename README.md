@@ -30,6 +30,7 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 * **TagProReplays.js**: The main content script. Contains functions for initializing the user interface, injecting the recording script into the game page, updating the settings cookies used by the recording script, and relaying recorded information to the background page to be saved.
 * **textures.js**: Contains functions for generating DataURL representations for textures from URLs as well as retrieving and converting textures between different formats.
 
+For CSS content scripts, ensure that referenced resources are prepended with `chrome-extension://__MSG_@@extension_id__/`, and listed under `web_accessible_resources` in the manifest.
 ### Testing
 
 With [npm](https://github.com/npm/npm) installed, run `npm install` in the project root directory.

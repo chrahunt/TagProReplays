@@ -36,6 +36,7 @@ window.Menu = Menu;
  * the loading of the html for the menu.
  */
 Menu.prototype._init = function() {
+    $("#menuContainer").hide();
     /* UI-specific code */
     // Handling multiple modals
     // http://miles-by-motorcycle.com/fv-b-8-670/stacking-bootstrap-dialogs-using-event-callbacks
