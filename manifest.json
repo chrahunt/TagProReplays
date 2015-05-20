@@ -40,6 +40,7 @@
         "lib/bootstrap.min.js",
         "lib/jquery.actual.min.js",
         "lib/jquery-ui.min.js",
+        "lib/moment.min.js",
         "barrier.js",
         "cookies.js",
         "messaging.js",

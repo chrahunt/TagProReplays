@@ -40,9 +40,11 @@ Viewer.prototype.init = function() {
             viewer.frame = $("#time-slider").slider("value");
             viewer.drawFrame();
         },
-        change: function() {
-            viewer.frame = $("#time-slider").slider("value");
-            viewer.drawFrame();
+        change: function(event) {
+            if (event.originalEvent) {
+                viewer.frame = $("#time-slider").slider("value");
+                viewer.drawFrame();
+            }
         }
     });
 

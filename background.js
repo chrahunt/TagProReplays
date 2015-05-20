@@ -213,12 +213,11 @@ function cropReplay(replay, startFrame, endFrame) {
         newReplay.gameEnd = clone(gameEnd);
     }
 
-
     // Crop player properties.
     $.each(replay.data.players, function(id, player) {
         var newPlayer = cropPlayer(player);
         if (newPlayer !== null) {
-            newReplay.data.players[id] = player;
+            newReplay.data.players[id] = newPlayer;
         }
     });
 

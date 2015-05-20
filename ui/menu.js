@@ -753,19 +753,14 @@ Menu.prototype._getSortTypeFromDesired = function(type) {
 Menu.prototype._getSortableEntries = function() {
     var replays = this.getEntries();
     var entries = replays.map(function(row) {
-        var thisDurationString = $(row).find('.duration').text();
-        var thisMinutes = Number(thisDurationString.split(':')[0]);
-        var thisSeconds = Number(thisDurationString.split(':')[1]);
-        var thisDuration = 60*thisMinutes + thisSeconds;
-        var thisRendered = $(row).find('.rendered-check').text() !== '';
         return {
             id: row.id,
             name: row.name,
-            duration: thisDuration,
-            rendered: thisRendered,
-            date: new Date(row.dateRecorded)
+            duration: row.duration,
+            rendered: row.rendered,
+            date: row.dateRecorded
         };
-    }.bind(this));
+    });
     return entries;
 };
 
@@ -903,11 +898,8 @@ Menu.prototype.addRow = function(replay, insertAfterId) {
 
     var id = replay.id;
     var name = replay.name;
-    var date = new Date(replay.dateRecorded);
-    var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
-    var duration = replay.duration;
-    var durationDate = new Date(duration * 1000);
-    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2);
+    var date = moment(replay.dateRecorded);
+    var duration = moment.utc(replay.duration);
     var titleText = getTitleText(replay);
     var rendered = replay.rendered;
     
@@ -930,8 +922,8 @@ Menu.prototype.addRow = function(replay, insertAfterId) {
         } else {
             newRow.find('.download-movie-button').prop('disabled', true);
         }
-        newRow.find('.replay-date').text(datevalue);
-        newRow.find('.duration').text(durationFormatted);
+        newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
+        newRow.find('.duration').text(duration.format("m:ss"));
         newRow[0].title = titleText;
         $('#replayList tbody').prepend(newRow);
     

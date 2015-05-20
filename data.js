@@ -53,6 +53,7 @@ window.resetDatabase = function() {
 function cleanReplay(replay) {
     delete replay.id;
     delete replay.info_id;
+    return replay;
 }
 
 /**
