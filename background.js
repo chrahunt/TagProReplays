@@ -416,12 +416,53 @@ function(message, sender, sendResponse) {
  * @param {object} message - Object with `ids` property which is an
  *   array of ids of replays to download.
  */
-messageListener("downloadReplays",
+messageListener(["downloadReplay", "downloadReplays"],
 function(message, sender, sendResponse) {
     // Validate the number of replays.
-    // Iterate over values and retrieve replay data, accumulating into zip file/blob.
-    // Double-check file size to ensure we aren't going over the maximum.
-    // Initiate download of zip file.
+    var ids = message.ids;
+    if (ids.length === 1) {
+        // Single JSON file.
+        var id = ids[0];
+        getReplay(id, function(err, data) {
+            if (!err) {
+                var blob = new Blob([JSON.stringify(data)],
+                    { type: 'application/json' });
+                var filename = sanitizeFilename(data.info.name);
+                if (filename === "") {
+                    filename = "replay";
+                }
+                saveAs(blob, filename + '.json');
+            } else {
+                // TODO: Handle error.
+            }
+        });
+    } else  if (ids.length !== 0) {
+        // Multiple replay files.
+        var zip = new JSZip();
+        var dup = 0;
+        forEachReplay(ids, function(data) {
+            var name = data.info.name;
+            var filename = sanitizeFilename(name);
+            if (filename === "") {
+                filename = "replay";
+                if (dup++ !== 0) {
+                    filename += " (" + dup + ")";
+                }
+            }
+            zip.file(filename + ".json", JSON.stringify(data));
+        }, function() {
+            var content = zip.generate({
+                type: "blob",
+                compression: "DEFLATE"
+            });
+            saveAs(content, "replays.zip");
+        });
+        // Iterate over values and retrieve replay data, accumulating into zip file/blob.
+        // Double-check file size to ensure we aren't going over the maximum.
+        // Initiate download of zip file.
+    } else {
+        // TODO: Alert that replays should be selected.
+    }
 });
 
 /**

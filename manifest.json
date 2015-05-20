@@ -16,7 +16,8 @@
       "lib/whammy.js",
       "lib/jquery.js",
       "lib/jszip.min.js",
-      "lib/FileSaver.min.js"
+      "lib/FileSaver.min.js",
+      "lib/sanitize.js"
     ],
     "persistent": true
   },

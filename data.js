@@ -49,6 +49,12 @@ window.resetDatabase = function() {
     indexedDB.deleteDatabase("ReplayDatabase");
 };
 
+// Remove database-specific information from replays.
+function cleanReplay(replay) {
+    delete replay.id;
+    delete replay.info_id;
+}
+
 /**
  * @callback {DBCallback}
  * @param {Error} err - Truthy if an error occurred. Will have
@@ -66,16 +72,40 @@ window.getReplay = function(id, callback) {
     var db = getDb();
     var transaction = db.transaction("replay");
     var objectStore = transaction.objectStore("replay");
-    var index = objectStore.index("info_id");
-    index.get(id).onsuccess = function(e) {
+    objectStore.index("info_id").get(id).onsuccess = function(e) {
         if (e.target.result) {
-            callback(null, e.target.result);
+            callback(null, cleanReplay(e.target.result));
         } else {
             callback(new Error("No replay found."));
         }
     };
 };
 
+/**
+ * Iterate over each replay.
+ * @param {[type]} ids [description]
+ * @param {Function} fn [description]
+ * @param {[type]} end [description]
+ * @return {[type]} [description]
+ */
+window.forEachReplay = function(ids, fn, end) {
+    ids = ids.slice().sort();
+    var db = getDb();
+    var transaction = db.transaction("replay");
+    var cursor = transaction.objectStore("replay")
+        .index("info_id")
+        .openCursor(IDBKeyRange.bound(ids[0], ids[ids.length - 1]));
+    ids.shift();
+    cursor.onsuccess = function(event) {
+        var cursor = event.target.result;
+        if (cursor) {
+            fn(cleanReplay(cursor.value));
+            cursor.continue(ids.shift());
+        } else {
+            end();
+        }
+    };
+};
 /**
  * Get list of replay info for population to menu.
  * @param {DBCallback} callback - The callback to receive the array of
