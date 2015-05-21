@@ -10,11 +10,9 @@
       "run_at": "document_end"
    } ],
    "description": "Save Replays from within TagPro Games",
-   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkxzWAEAKgS8t4o5tuE4OybxTBtBPYcWMZ2h4VLnSsbHzMnIiVujhMgTYtY0UCV4nWn0ibDV1fWiHJQTKGXFXkYXXQ3h4+9iHTj5eJiwJVcYEf+lf40RVW8EgMvIHX9jDJkC64qspMHz2DhBmbgq9V91eqIXK/t/q2M5Z01LbwniKC1RR+VmAtRZAC9ycZYgtc6flGnKgYWfN+T/aPJwUYP9pCNwcYnTBCxYlr0nkdIZGMNGm23i12uqRiqTDA+Jurm9r1Jxi6Lz8VA+kz9XME+dEoK3VgDZdJ/l9gHNBUra8s2NLoxDRKHZKZne1WEjIr/WRhtNRDaRlS4vJotNzvwIDAQAB",
    "manifest_version": 2,
    "name": "TagProReplays",
    "permissions": [ "storage", "unlimitedStorage" ],
-   "update_url": "https://clients2.google.com/service/update2/crx",
    "version": "1.2.26",
    "web_accessible_resources": [ "replayRecording.js", "tiles.png", "portal.png", "speedpad.png", "speedpadred.png", "speedpadblue.png", "tagpro.png", "rollingbomb.png", "splats.png", "flair.png", "ui/menus.css", "ui/menus.html", "ui/menus.js", "ui/bootstrap.min.css", "ui/bootstrap.css", "ui/glyphicons-halflings-regular.eot", "ui/glyphicons-halflings-regular.svg", "ui/glyphicons-halflings-regular.ttf", "ui/glyphicons-halflings-regular.woff" ]
 }
