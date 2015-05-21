@@ -128,3 +128,7 @@
 #tpr-container .popover-content {
     height: 100%;
 }
+
+#tpr-container #alert-message {
+    display: none;
+}

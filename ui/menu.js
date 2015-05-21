@@ -168,6 +168,195 @@ Menu.prototype._initReplayList = function() {
 };
 
 /**
+ * Initialize state related to the settings panel.
+ */
+Menu.prototype._initSettings = function() {
+    $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
+    this._setSettingsFormTitles();
+    $('#saveSettingsButton').click(this._settings_Save());
+
+    // Set initial settings values.
+    chrome.storage.local.get("options", function(items) {
+        if (items.options) {
+            this._settingsSet(items.options);
+        }
+    }.bind(this));
+
+    // Update options fields if options are updated.
+    chrome.storage.onChanged.addListener(function(changes, areaName) {
+        if (changes.options && changes.options.newValue) {
+            this._settingsSet(changes.options.newValue);
+        }
+    }.bind(this));
+    $('#textureSaveButton').click(function () {
+        saveTextureSettings();
+        $('#textureContainer').modal('hide');
+    });
+
+    // Record key functionality.
+    keyListener = function (e) {
+        currentRecordKey = e.which
+        $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
+        $('#recordKeyChooserInput').data('record', true);
+        $('#record-key-remove').show();
+        stopInputting();
+    }
+
+    stopInputting = function () {
+        $('#record-key-input-container').removeClass('focused');
+        $(document).off("keypress", keyListener);
+    }
+
+    $('#record-key-input-container').click(function (e) {
+        $(this).addClass('focused');
+        $(document).on("keypress", keyListener)
+    });
+
+    $('#record-key-remove').click(function (e) {
+        e.stopPropagation();
+        $('#recordKeyChooserInput').data('record', false);
+        $('#recordKeyChooserInput').text('None');
+        $('#record-key-remove').hide();
+        return false;
+    });
+
+    $(document).click(function (e) {
+        if (!$(e.target).parents().andSelf().is('#record-key-input-container')) {
+            stopInputting();
+        }
+    });
+};
+
+/**
+ * Initialize listeners for events from background page and changes
+ * to google storage.
+ */
+Menu.prototype._initListeners = function() {
+    /**
+     * Listen for new replay to be added to list.
+     */
+    messageListener("replayAdded",
+    function(message, sender, sendResponse) {
+        // Remove any existing rows with the same id (for overwrites).
+        this.removeRow(message.id);
+        // Add to list.
+        this.addRow(message.data);
+        // Re-sort list.
+        this.sort(readCookie('sortMethod'));
+    }.bind(this));
+
+    /**
+     * Listen for replays to have been deleted.
+     */
+    messageListener(["replayDeleted", "replaysDeleted"],
+    function(message, sender, sendResponse) {
+        console.log('Replays have been deleted.');
+        // Normalize id/ids.
+        var ids = message.id ? [message.id] : message.ids;
+        ids.forEach(function(id) {
+            this.removeRow(id);
+        }, this);
+    }.bind(this));
+
+    messageListener("replayRenamed",
+    function(message, sender, sendResponse) {
+        console.log('Received confirmation of replay rename from background script.');
+        var id = message.id;
+        var name = message.name;
+        var row = $('#replay-' + id);
+        // Change row name.
+        $('#replay-' + id + ' .playback-link').text(name);
+        // Update replay object.
+        var data = row.data("info");
+        data.name = name;
+        row.data("info", data);
+        this.sort(readCookie('sortMethod'));
+    }.bind(this));
+
+    messageListener("movieDownloadFailure",
+    function(message, sender, sendResponse) {
+        alert('Download failed. Most likely you haven\'t rendered that movie yet.')
+    });
+
+    messageListener("progressBarCreate",
+    function(message, sender, sendResponse) {
+        
+        $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
+    });
+
+    /**
+     * Notification that a replay is in the process of being rendered.
+     * Create/update progress bar and ensure editing functionality for
+     * the specific replay is disabled.
+     */
+    messageListener("replayRendering",
+    function(message, sender, sendResponse) {
+        console.log('Received notice that ' + message.id + ' is being rendered.');
+        // Update UI for rendering mode.
+        if (this.listInitialized && !$('#replay-' + message.id).data('rendering')) {
+            $('#replay-' + message.id).data('rendering', true);
+            // Disable renaming buttons for all replays.
+            $('.rename-button').prop('disabled', true);
+            $('#deleteSelectedButton').prop('disabled', true);
+            $('#renderSelectedButton').prop('disabled', true);
+
+            $('#replay-' + message.id + ' .rendered-check').html('<progress class="progressbar">');
+            // TODO: Disable editing buttons on in-page-previewer.
+        }
+
+        if ($('#replay-' + message.id).data('rendering')) {
+            $('#replay-' + message.id + ' .progressbar')[0].value = message.progress;
+        }
+    }.bind(this));
+
+    /**
+     * Alerts the menu that a new replay has been rendered. The UI is
+     * updated with the result of the rendering.
+     * message has properties failure and name.
+     */
+    messageListener("replayRendered",
+    function(message, sender, sendResponse) {
+        $('#replay-' + message.id + ' .progressbar').remove();
+        $('#replay-' + message.id).removeData('rendering');
+
+        // Reset general UI.
+        $('.rename-button').prop('disabled', false);
+        $('#deleteSelectedButton').prop('disabled', false);
+        $('#renderSelectedButton').prop('disabled', false);
+        if (message.failure) {
+            console.log('Rendering of ' + message.id + ' was a failure.');
+            $('#replay-' + message.id + ' .rendered-check').text('✘');
+            $('#replay-' + message.id + ' .rendered-check').css('color', 'red');
+        } else {
+            $('#replay-' + message.id + ' .rendered-check').text('✓');
+            $('#replay-' + message.id + ' .download-movie-button').prop('disabled', false);
+            $('#replay-' + message.id + ' .rename-button').prop('disabled', false);
+        }
+    });
+
+    /**
+     * Received after a requested rendering is completed. Only send
+     * back to the tab containing the menu that requested the initial
+     * rendering.
+     */
+    messageListener("renderConfirmation",
+    function(message, sender, sendResponse) {
+        var replaysLeft = message.replaysLeft;
+        if (replaysLeft.length !== 0) {
+            replaysLeft.forEach(function(replay) {
+                $('#' + replay + ' .rendered-check').text('Queued...');
+                $('#' + replay + ' .rendered-check').css('color', 'green');
+            });
+            chrome.runtime.sendMessage({
+                method: 'render',
+                data: replaysLeft
+            });
+            console.log('Sent request to render replay: ' + replaysLeft[0]);
+        }
+    });
+};
+
+/**
  * Returns a function to be set as a listener on the replay import
  * button.
  * @return {Function} - The function to be set as a listener on the
@@ -537,66 +726,6 @@ Menu.prototype._compare = function(a, b) {
         if (a > b) return 1;
         return 0;
     }
-};
-
-/**
- * Initialize state related to the settings panel.
- */
-Menu.prototype._initSettings = function() {
-    $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
-    this._setSettingsFormTitles();
-    $('#saveSettingsButton').click(this._settings_Save());
-
-    // Set initial settings values.
-    chrome.storage.local.get("options", function(items) {
-        if (items.options) {
-            this._settingsSet(items.options);
-        }
-    }.bind(this));
-
-    // Update options fields if options are updated.
-    chrome.storage.onChanged.addListener(function(changes, areaName) {
-        if (changes.options && changes.options.newValue) {
-            this._settingsSet(changes.options.newValue);
-        }
-    }.bind(this));
-    $('#textureSaveButton').click(function () {
-        saveTextureSettings();
-        $('#textureContainer').modal('hide');
-    });
-
-    // Record key functionality.
-    keyListener = function (e) {
-        currentRecordKey = e.which
-        $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
-        $('#recordKeyChooserInput').data('record', true);
-        $('#record-key-remove').show();
-        stopInputting();
-    }
-
-    stopInputting = function () {
-        $('#record-key-input-container').removeClass('focused');
-        $(document).off("keypress", keyListener);
-    }
-
-    $('#record-key-input-container').click(function (e) {
-        $(this).addClass('focused');
-        $(document).on("keypress", keyListener)
-    });
-
-    $('#record-key-remove').click(function (e) {
-        e.stopPropagation();
-        $('#recordKeyChooserInput').data('record', false);
-        $('#recordKeyChooserInput').text('None');
-        $('#record-key-remove').hide();
-        return false;
-    });
-
-    $(document).click(function (e) {
-        if (!$(e.target).parents().andSelf().is('#record-key-input-container')) {
-            stopInputting();
-        }
-    });
 };
 
 /**
@@ -1083,135 +1212,6 @@ Menu.prototype._generatePreview = function(id, callback) {
                 retrieved = true;
             }
         });
-    });
-};
-
-/**
- * Initialize listeners for events from background page and changes
- * to google storage.
- */
-Menu.prototype._initListeners = function() {
-    /**
-     * Listen for new replay to be added to list.
-     */
-    messageListener("replayAdded",
-    function(message, sender, sendResponse) {
-        // Remove any existing rows with the same id (for overwrites).
-        this.removeRow(message.id);
-        // Add to list.
-        this.addRow(message.data);
-        // Re-sort list.
-        this.sort(readCookie('sortMethod'));
-    }.bind(this));
-
-    /**
-     * Listen for replays to have been deleted.
-     */
-    messageListener(["replayDeleted", "replaysDeleted"],
-    function(message, sender, sendResponse) {
-        console.log('Replays have been deleted.');
-        // Normalize id/ids.
-        var ids = message.id ? [message.id] : message.ids;
-        ids.forEach(function(id) {
-            this.removeRow(id);
-        }, this);
-    }.bind(this));
-
-    messageListener("replayRenamed",
-    function(message, sender, sendResponse) {
-        console.log('Received confirmation of replay rename from background script.');
-        var id = message.id;
-        var name = message.name;
-        var row = $('#replay-' + id);
-        // Change row name.
-        $('#replay-' + id + ' .playback-link').text(name);
-        // Update replay object.
-        var data = row.data("info");
-        data.name = name;
-        row.data("info", data);
-        this.sort(readCookie('sortMethod'));
-    }.bind(this));
-
-    messageListener("movieDownloadFailure",
-    function(message, sender, sendResponse) {
-        alert('Download failed. Most likely you haven\'t rendered that movie yet.')
-    });
-
-    messageListener("progressBarCreate",
-    function(message, sender, sendResponse) {
-        
-        $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-    });
-
-    /**
-     * Notification that a replay is in the process of being rendered.
-     * Create/update progress bar and ensure editing functionality for
-     * the specific replay is disabled.
-     */
-    messageListener("replayRendering",
-    function(message, sender, sendResponse) {
-        console.log('Received notice that ' + message.id + ' is being rendered.');
-        // Update UI for rendering mode.
-        if (this.listInitialized && !$('#replay-' + message.id).data('rendering')) {
-            $('#replay-' + message.id).data('rendering', true);
-            // Disable renaming buttons for all replays.
-            $('.rename-button').prop('disabled', true);
-            $('#deleteSelectedButton').prop('disabled', true);
-            $('#renderSelectedButton').prop('disabled', true);
-
-            $('#replay-' + message.id + ' .rendered-check').html('<progress class="progressbar">');
-            // TODO: Disable editing buttons on in-page-previewer.
-        }
-
-        if ($('#replay-' + message.id).data('rendering')) {
-            $('#replay-' + message.id + ' .progressbar')[0].value = message.progress;
-        }
-    }.bind(this));
-
-    /**
-     * Alerts the menu that a new replay has been rendered. The UI is
-     * updated with the result of the rendering.
-     * message has properties failure and name.
-     */
-    messageListener("replayRendered",
-    function(message, sender, sendResponse) {
-        $('#replay-' + message.id + ' .progressbar').remove();
-        $('#replay-' + message.id).removeData('rendering');
-
-        // Reset general UI.
-        $('.rename-button').prop('disabled', false);
-        $('#deleteSelectedButton').prop('disabled', false);
-        $('#renderSelectedButton').prop('disabled', false);
-        if (message.failure) {
-            console.log('Rendering of ' + message.id + ' was a failure.');
-            $('#replay-' + message.id + ' .rendered-check').text('✘');
-            $('#replay-' + message.id + ' .rendered-check').css('color', 'red');
-        } else {
-            $('#replay-' + message.id + ' .rendered-check').text('✓');
-            $('#replay-' + message.id + ' .download-movie-button').prop('disabled', false);
-            $('#replay-' + message.id + ' .rename-button').prop('disabled', false);
-        }
-    });
-
-    /**
-     * Received after a requested rendering is completed. Only send
-     * back to the tab containing the menu that requested the initial
-     * rendering.
-     */
-    messageListener("renderConfirmation",
-    function(message, sender, sendResponse) {
-        var replaysLeft = message.replaysLeft;
-        if (replaysLeft.length !== 0) {
-            replaysLeft.forEach(function(replay) {
-                $('#' + replay + ' .rendered-check').text('Queued...');
-                $('#' + replay + ' .rendered-check').css('color', 'green');
-            });
-            chrome.runtime.sendMessage({
-                method: 'render',
-                data: replaysLeft
-            });
-            console.log('Sent request to render replay: ' + replaysLeft[0]);
-        }
     });
 };
 

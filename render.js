@@ -1,3 +1,6 @@
+/**
+ * Functions for rendering into video in the background page.
+ */
 (function() {
 
 /**

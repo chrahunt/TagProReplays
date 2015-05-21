@@ -261,11 +261,9 @@ function listen(event, listener) {
     });
 }
 
-// send position data to content script
+// Send replay data to content script.
 function saveReplayData(data) {
-    // Remove the extra frames.
     // Create the info.
-    // TODO: Finish this.
     var info = {
         mapName: $('#mapInfo').text().replace('Map: ', '').replace(/ by.*/, ''),
         fps: options.fps,
@@ -288,7 +286,7 @@ function saveReplayData(data) {
     emit('saveReplay', replay);
 }
 
-// TODO: Handle possible failure alert from content script.
+// Listen for content script save confirmation/failure.
 listen('replaySaved', function(err) {
     console.log('Got confirmation message.');
     if (err) {

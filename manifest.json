@@ -5,6 +5,8 @@
   "manifest_version": 2,
   "background": {
     "scripts": [
+      "lib/semver-compare.js",
+      "status.js",
       "process.js",
       "filesystem.js",
       "migrations.js",
@@ -43,6 +45,7 @@
         "lib/jquery.actual.min.js",
         "lib/jquery-ui.min.js",
         "lib/moment.min.js",
+        "status.js",
         "barrier.js",
         "cookies.js",
         "messaging.js",

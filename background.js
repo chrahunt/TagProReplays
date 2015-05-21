@@ -8,23 +8,6 @@
 (function(window) {
 
 /**
- * Set extension background page status.
- * @param {string} status - The status to set the background page to,
- *   one of 'loading', 'loaded', 'upgrading', 'rendering'.
- */
-window.setStatus = function(status) {
-    sessionStorage.setItem("status", status);
-};
-
-/**
- * Retrieve the extension background page status.
- * @return {string} - The current status of the background page.
- */
-function getStatus() {
-    return sessionStorage.getItem("status");
-}
-
-/**
  * Clones an object.
  * @param {object} obj - The object to clone.
  * @return {object} - The cloned object.
@@ -205,7 +188,7 @@ function cropReplay(replay, startFrame, endFrame) {
             time: cropFrameArray(replay.data.time),
             wallMap: clone(replay.data.wallMap)
         },
-        version: 2
+        version: "2"
     };
 
     var gameEnd = replay.data.gameEnd;
@@ -500,18 +483,16 @@ function(message, sender, sendResponse) {
 });
 
 /**
- * Initial request to render replay(s) into movie(s).
- * @param {object} message - object with a property `id` or `ids` which
- *   is an integer id or an array of integer ids.
+ * Initial request to render replay into a movie.
+ * @param {object} message - object with a property `id` which
+ *   is an integer id of the replay to render.
  */
-messageListener(["renderReplay", "renderReplays"],
+messageListener("renderReplay",
 function(message, sender, sendResponse) {
-    // Check if single or multiple replays and normalize.
-    var ids = message.id ? [message.id] : message.ids;
-    // Limit to 1, for debugging.
-    ids = ids.slice(0, 1);
-    console.log('Received request to render these replays: ' + ids + '.');
-    var id = ids[0];
+    var id = message.id;
+    console.log('Received request to render replay ' + id + '.');
+    // TODO: Handle error.
+    setStatus("rendering");
     renderReplay(id, function(err) {
         if (err) {
             sendMessage("replayRendered", {
@@ -524,18 +505,9 @@ function(message, sender, sendResponse) {
                 failure: false
             });
         }
+        setStatus("idle");
+        sendResponse();
     });
-});
-
-/**
- * Get the status of the background page.
- * @param {Function} callback - Callback which receives the status of
- *   the background page.
- */
-messageListener("getStatus",
-function(message, sender, sendResponse) {
-    var status = getStatus();
-    sendResponse(status);
     return true;
 });
 

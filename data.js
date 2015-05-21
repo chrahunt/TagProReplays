@@ -350,4 +350,17 @@ window.deleteMovie = function(id, callback) {
     });
 };
 
+// Extension update handler.
+/*chrome.runtime.onInstalled.addListener(function (details) {
+    var reason = details.reason;
+    if (reason === "update") {
+        var version = details.previousVersion;
+        if (semver.lt(version, '1.5.0')) {
+            // Remove unnecessary stored data.
+            localStorage.clear();
+            chrome.storage.local.clear();
+        }
+    }
+});*/
+
 })(window, document);
