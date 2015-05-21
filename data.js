@@ -49,6 +49,19 @@ window.resetDatabase = function() {
     indexedDB.deleteDatabase("ReplayDatabase");
 };
 
+// Initialize FileSystem Replay folder.
+fsCreateDirectory("savedMovies", function() {
+    console.log("Created saved movies directory.");
+}, function(err) {
+    console.error("Error creating saved movies directory: " + err);
+});
+
+// Reset the file system, for debugging.
+window.resetFileSystem = function() {
+
+};
+
+
 // Remove database-specific information from replays.
 function cleanReplay(replay) {
     delete replay.id;
@@ -107,12 +120,13 @@ window.forEachReplay = function(ids, fn, end) {
         }
     };
 };
+
 /**
  * Get list of replay info for population to menu.
  * @param {DBCallback} callback - The callback to receive the array of
  *   info.
  */
-window.getReplayInfo = function(callback) {
+window.getAllReplayInfo = function(callback) {
     var db = getDb();
     var transaction = db.transaction("info");
     var store = transaction.objectStore("info");
@@ -124,6 +138,25 @@ window.getReplayInfo = function(callback) {
             request.result.continue();
         } else {
             callback(null, records);
+        }
+    };
+};
+
+/**
+ * Get info for single replay.
+ * @param {DBCallback} callback - The callback to receive the replay
+ *   info.
+ */
+window.getReplayInfo = function(id, callback) {
+    var db = getDb();
+    var transaction = db.transaction("info");
+    var infoStore = transaction.objectStore("info");
+    var request = infoStore.get(id);
+    request.onsuccess = function(e) {
+        if (e.target.result) {
+            callback(null, e.target.result);
+        } else {
+            callback(new Error("No replay found."));
         }
     };
 };
@@ -171,7 +204,6 @@ window.saveReplay = function(info, replay, callback) {
  */
 window.renameReplay = function(id, name, callback) {
     // TODO: Check name is valid.
-    // TODO: Error handling.
     var db = getDb();
     var transaction = db.transaction(["info", "replay"], "readwrite");
     var infoStore = transaction.objectStore("info");
@@ -179,6 +211,7 @@ window.renameReplay = function(id, name, callback) {
     infoStore.get(id).onsuccess = function(e) {
         var info = e.target.result;
         info.name = name;
+        // TODO: Error handling.
         infoStore.put(info);
     };
 
@@ -186,6 +219,7 @@ window.renameReplay = function(id, name, callback) {
     replayIndex.get(id).onsuccess = function(e) {
         var replay = e.target.result;
         replay.info.name = name;
+        // TODO: Error handling.
         replayStore.put(replay);
     };
 
@@ -229,11 +263,91 @@ window.deleteReplays = function(ids, callback) {
     transaction.oncomplete = function(e) {
         callback(null);
     };
-    // Retrieve the info for the replays.
-    // Delete the associated videos, if needed.
 };
 
-window.getInfo = function(id) {
+/**
+ * Get movie for a replay.
+ * @param {integer} id - The id of the replay to get the movie for.
+ * @param {DBCallback} callback - Returns the name of the replay and
+ *   the movie file as an ArrayBuffer.
+ */
+window.getMovie = function(id, callback) {
     var db = getDb();
+    var transaction = db.transaction("info");
+    var infoStore = transaction.objectStore("info");
+    var request = infoStore.get(id);
+    request.onsuccess = function(e) {
+        var info = e.target.result;
+        if (!info.rendered) {
+            callback(new Error("Replay not rendered."));
+            return;
+        }
+        var movieId = info.renderId;
+        fsGetFile("savedMovies/" + movieId, function(file) {
+            var reader = new FileReader();
+            reader.onloadend = function (e) {
+                var ab = this.result;
+                callback(null, info.name, ab);
+            };
+            reader.readAsArrayBuffer(file);
+        }, function(err) {
+            callback(err);
+        });
+    };
 };
+
+/**
+ * Save a movie to the file system.
+ * @param {integer} id - The id of the replay to save the movie for.
+ * @param {*} data - The movie data
+ * @param {DBCallback} callback
+ */
+window.saveMovie = function(id, data, callback) {
+    // Save movie with same id as info.
+    var movieId = id;
+    fsSaveFile("savedMovies/" + movieId, data, function() {
+        // Get and save the info.
+        var db = getDb();
+        var transaction = db.transaction("info", "readwrite");
+        var infoStore = transaction.objectStore("info");
+        var request = infoStore.get(id);
+        request.onsuccess = function(e) {
+            var info = e.target.result;
+            info.rendered = true;
+            info.renderId = movieId;
+            // TODO: Error handling.
+            infoStore.put(info);
+            callback(null);
+        };
+    }, function(err) {
+        callback(err);
+    });
+};
+
+/**
+ * Delete movie from the file system.
+ * @param {integer} id - The id of the replay to delete the movie for.
+ * @param {DBCallback} callback
+ */
+window.deleteMovie = function(id, callback) {
+    var movieId = id;
+    fsDeleteFile("savedMovies/" + movieId, data, function() {
+        // Get and save the info.
+        var db = getDb();
+        var transaction = db.transaction("info", "readwrite");
+        var infoStore = transaction.objectStore("info");
+        var request = infoStore.get(id);
+        request.onsuccess = function(e) {
+            var info = e.target.result;
+            info.rendered = false;
+            info.renderId = null;
+            // TODO: Error handling.
+            infoStore.put(info);
+            callback(null);
+        };
+    }, function(err) {
+        callback(err);
+    });
+};
+
 })(window, document);

@@ -5,14 +5,16 @@
   "manifest_version": 2,
   "background": {
     "scripts": [
+      "process.js",
+      "filesystem.js",
       "migrations.js",
       "indexedDBUtils.js",
       "data.js",
       "messaging.js",
       "textures.js",
+      "render.js",
       "background.js",
       "map_draw_functions.js",
-      "filesystem.js",
       "lib/whammy.js",
       "lib/jquery.js",
       "lib/jszip.min.js",

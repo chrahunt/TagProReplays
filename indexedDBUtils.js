@@ -104,7 +104,7 @@ window.idbOpen = function(name, version) {
             console.log("***ERROR***");
             console.dir(e.target);
         };
-        setStatus("loaded");
+        //setStatus("loaded");
     };
 
     openRequest.onerror = function(e) {

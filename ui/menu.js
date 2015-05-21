@@ -291,25 +291,23 @@ Menu.prototype._setListWidth = function() {
  * Render checked items on the replay list.
  */
 Menu.prototype._list_Render = function() {
-    var replaysToRender = this.getCheckedEntries();
-    if (replaysToRender.length > 0) {
+    var ids = this.getCheckedEntries();
+    if (ids.length > 0) {
         var msg = "Are you sure you wish to render these replays? " +
             "Some extension functions will be unavailable until the " +
             "movies are rendered.";
         if (confirm(msg)) {
             // Display queued message on replays.
-            replaysToRender.forEach(function(replay) {
-                $('#' + replay + ' .rendered-check').text('Queued...');
-                $('#' + replay + ' .rendered-check')
+            ids.forEach(function(replay) {
+                $('#replay-' + replay + ' .rendered-check').text('Queued...');
+                $('#replay-' + replay + ' .rendered-check')
                     .css('color', 'green');
             });
             chrome.runtime.sendMessage({
-                method: 'render',
-                data: replaysToRender
+                method: 'renderReplays',
+                ids: ids
             });
-            console.log('Sent request to render replay' + 
-                (replaysToRender.length == 1 ? '' : 's') + ': ' +
-                replaysToRender);
+            console.log('Sent request to render replay(s): ' + ids);
         }
     }
 };
@@ -416,7 +414,7 @@ Menu.prototype._entry_Preview = function() {
     // Replace the loader icon with the preview image.
     function replaceLoaderWithPreview(id, preview) {
         // Cache preview image.
-        $('#' + id + ' a.playback-link').data('preview', preview);
+        $('#replay-' + id + ' a.playback-link').data('preview', preview);
 
         var $popover = $('#' + id + ' .popover');
         // Don't show preview image if popover has already been
@@ -1152,21 +1150,21 @@ Menu.prototype._initListeners = function() {
      */
     messageListener("replayRendering",
     function(message, sender, sendResponse) {
-        console.log('Received notice that ' + message.name + ' is being rendered.');
+        console.log('Received notice that ' + message.id + ' is being rendered.');
         // Update UI for rendering mode.
-        if (this.listInitialized && !$('#' + message.name).data('rendering')) {
-            $('#' + message.name).data('rendering', true);
+        if (this.listInitialized && !$('#replay-' + message.id).data('rendering')) {
+            $('#replay-' + message.id).data('rendering', true);
             // Disable renaming buttons for all replays.
             $('.rename-button').prop('disabled', true);
             $('#deleteSelectedButton').prop('disabled', true);
             $('#renderSelectedButton').prop('disabled', true);
 
-            $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">');
+            $('#replay-' + message.id + ' .rendered-check').html('<progress class="progressbar">');
             // TODO: Disable editing buttons on in-page-previewer.
         }
 
-        if ($('#' + message.name).data('rendering')) {
-            $('#' + message.name + ' .progressbar')[0].value = message.progress;
+        if ($('#replay-' + message.id).data('rendering')) {
+            $('#replay-' + message.id + ' .progressbar')[0].value = message.progress;
         }
     }.bind(this));
 
@@ -1177,21 +1175,21 @@ Menu.prototype._initListeners = function() {
      */
     messageListener("replayRendered",
     function(message, sender, sendResponse) {
-        $('#' + message.name + ' .progressbar').remove();
-        $('#' + message.name).removeData('rendering');
+        $('#replay-' + message.id + ' .progressbar').remove();
+        $('#replay-' + message.id).removeData('rendering');
 
         // Reset general UI.
         $('.rename-button').prop('disabled', false);
         $('#deleteSelectedButton').prop('disabled', false);
         $('#renderSelectedButton').prop('disabled', false);
         if (message.failure) {
-            console.log('Rendering of ' + message.name + ' was a failure.');
-            $('#' + message.name + ' .rendered-check').text('✘');
-            $('#' + message.name + ' .rendered-check').css('color', 'red');
+            console.log('Rendering of ' + message.id + ' was a failure.');
+            $('#replay-' + message.id + ' .rendered-check').text('✘');
+            $('#replay-' + message.id + ' .rendered-check').css('color', 'red');
         } else {
-            $('#' + message.name + ' .rendered-check').text('✓');
-            $('#' + message.name + ' .download-movie-button').prop('disabled', false);
-            $('#' + message.name + ' .rename-button').prop('disabled', false);
+            $('#replay-' + message.id + ' .rendered-check').text('✓');
+            $('#replay-' + message.id + ' .download-movie-button').prop('disabled', false);
+            $('#replay-' + message.id + ' .rename-button').prop('disabled', false);
         }
     });
 

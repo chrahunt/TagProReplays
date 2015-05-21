@@ -224,33 +224,6 @@ function cropReplay(replay, startFrame, endFrame) {
     return newReplay;
 }
 
-/**
- * Callback function to send message to multiple tabs.
- * @callback TabCallback
- * @param {integer} id - The id of the matched tab.
- */
-/**
- * Call the callback function for each tab that may have a UI.
- * @param {TabCallback} callback - The function to be called with the
- *   tab information.
- */
-function sendToTabs(callback) {
-    // Send new replay notification to any tabs that may have menu.
-    chrome.tabs.query({
-        url: [
-            "http://*.koalabeast.com/*",
-            "http://*.newcompte.fr/*",
-            "http://tangent.jukejuice.com/*"
-        ]
-    }, function(tabs) {
-        tabs.forEach(function(tab) {
-            if (tab.id) {
-                callback(tab.id);
-            }
-        });
-    });
-}
-
 // Set initial extension status.
 setStatus("loading");
 
@@ -328,12 +301,9 @@ function(message, sender, sendResponse) {
         sendResponse({
             failed: false
         });
-        // Send new replay notification to any tabs that may have menu open.
-        sendToTabs(function(id) {
-            chrome.tabs.sendMessage(id, {
-                method: "replayAdded",
-                data: info
-            });
+        // Send new replay notification to any listening pages.
+        sendMessage("replayAdded", {
+            data: info
         });
     });
     return true;
@@ -361,11 +331,8 @@ function(message, sender, sendResponse) {
             failed: false
         });
         // Send new replay notification to any tabs that may have menu open.
-        sendToTabs(function(id) {
-            chrome.tabs.sendMessage(id, {
-                method: "replayAdded",
-                data: info
-            });
+        sendMessage("replayAdded", {
+            data: info
         });
     });
     return true;
@@ -399,7 +366,7 @@ messageListener("getReplayList",
 function(message, sender, sendResponse) {
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
-    getReplayInfo(function(err, list) {
+    getAllReplayInfo(function(err, list) {
         if (err) {
             // TODO: Handle error.
         } else {
@@ -479,11 +446,8 @@ function(message, sender, sendResponse) {
         if (err) {
             // TODO: Handle error.
         } else {
-            sendToTabs(function(id) {
-                chrome.tabs.sendMessage(id, {
-                    method: 'replaysDeleted',
-                    ids: ids
-                });
+            sendMessage("replaysDeleted", {
+                ids: ids
             });
         }
     });
@@ -499,21 +463,14 @@ messageListener("renameReplay",
 function(message, sender, sendResponse) {
     renameReplay(message.id, message.name, function(err) {
         if (err) {
-
+            // TODO: Handle error.
         } else {
-            sendToTabs(function(id) {
-                chrome.tabs.sendMessage(id, {
-                    method: "replayRenamed",
-                    id: message.id,
-                    name: message.name
-                });
+            sendMessage("replayRenamed", {
+                id: message.id,
+                name: message.name
             });
         }
     });
-    // Retrieve the replay info.
-    // Retrieve the replay.
-    // Set the name and save each.
-    // Send confirmation back to page.
 });
 
 /**
@@ -523,20 +480,51 @@ function(message, sender, sendResponse) {
  */
 messageListener("downloadMovie",
 function(message, sender, sendResponse) {
-    // Get the replay info.
-    // Check that the movie is rendered.
-    // Get the movie file.
-    // Initiate download.
+    var id = message.id;
+    getMovie(id, function(err, name, data) {
+        if (err) {
+            // TODO: Handle error.
+        } else {
+            var movie = new Blob([data], { type: 'video/webm' });
+            if (typeof movie !== "undefined") {
+                var filename = sanitizeFilename(name);
+                if (filename === "") {
+                    filename = "replay";
+                }
+                saveAs(movie, filename + ".webm");
+            } else {
+                // TODO: Handle error.
+            }
+        }
+    });
 });
 
 /**
  * Initial request to render replay(s) into movie(s).
- * @param {object} message - object with a property `id` which is an
- *   array of strings.
+ * @param {object} message - object with a property `id` or `ids` which
+ *   is an integer id or an array of integer ids.
  */
-messageListener("renderReplay",
+messageListener(["renderReplay", "renderReplays"],
 function(message, sender, sendResponse) {
-    // Get replay data.
+    // Check if single or multiple replays and normalize.
+    var ids = message.id ? [message.id] : message.ids;
+    // Limit to 1, for debugging.
+    ids = ids.slice(0, 1);
+    console.log('Received request to render these replays: ' + ids + '.');
+    var id = ids[0];
+    renderReplay(id, function(err) {
+        if (err) {
+            sendMessage("replayRendered", {
+                id: id,
+                failure: true
+            });
+        } else {
+            sendMessage("replayRendered", {
+                id: id,
+                failure: false
+            });
+        }
+    });
 });
 
 /**
