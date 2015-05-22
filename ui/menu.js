@@ -82,17 +82,18 @@ Menu.prototype._init = function() {
  * Initialize state and functionality related to the replay list.
  */
 Menu.prototype._initReplayList = function() {
-    // allow 'select all' checkbox to work
-    $('#selectAllCheckbox')[0].onchange = function(e) {
-        $('.replayRow:not(.clone) .selected-checkbox').each(function() {
-            this.checked = e.target.checked;
-        });
-    };
+    var menu = this;
 
     // Buttons that take action on multiple entries.
     $('#renderSelectedButton').click(this._list_Render.bind(this));
     $('#deleteSelectedButton').click(this._list_Delete.bind(this));
     $('#downloadRawButton').click(this._list_RawDownload.bind(this));
+
+    // "Select all" checkbox.
+    $("#selectAllCheckbox").change(function() {
+        $(".replayRow:not(.clone) .selected-checkbox")
+            .prop("checked", this.checked);
+    });
 
     /*
     These next functions allow toggling of the various sort methods.
@@ -131,6 +132,33 @@ Menu.prototype._initReplayList = function() {
     $('#raw-upload').attr('accept', '.txt,.json');
     $('#raw-upload').change(this._list_Import());
 
+    // Replay row listeners.
+    // $(this).closest('tr').data("info")
+    $("#replayList tbody").on("click", ".playback-link", function() {
+        var id = $(this).closest('tr').data("info").id;
+        $('#menuContainer').hide();
+        menu.viewer.preview(id);
+    });
+    $("#replayList tbody").on("click", ".download-movie-button", function() {
+        var id = $(this).closest('tr').data("info").id;
+        console.log('Requesting movie download for replay ' + id + '.');
+        sendMessage("downloadMovie", {
+            id: id
+        });
+    });
+    $("#replayList tbody").on("click", ".rename-button", function() {
+        var replay = $(this).closest('tr').data("info");
+        var newName = prompt('How would you like to rename ' + replay.name + '?');
+        if (newName !== null && newName !== "") {
+            console.log('Requesting rename from ' + replay.name + ' to ' + newName + '.');
+            sendMessage("renameReplay", {
+                id: replay.id,
+                name: newName
+            });
+        }
+    });
+    $("#replayList tbody").on("click", ".selected-checkbox", this._entry_Check());
+
     // Initialize listener for list modifications.
     var target = $('#replayList tbody')[0];
     var observer = new MutationObserver(function(mutations) {
@@ -152,13 +180,13 @@ Menu.prototype._initReplayList = function() {
         method: 'getReplayList'
     }, function(response) {
         var replays = response.data;
-        // Sort the replays.
-        this._sortReplays(replays, readCookie('sortMethod'));
         // Hide loader.
         $('#replaysLoading').hide();
         replays.forEach(function(replay) {
             this.addRow(replay);
         }, this);
+        // Sort the replays.
+        this.sort(this._getSortType('sortMethod'));
         this.listInitialized = true;
     }.bind(this));
 
@@ -273,17 +301,6 @@ Menu.prototype._initListeners = function() {
         this.sort(readCookie('sortMethod'));
     }.bind(this));
 
-    messageListener("movieDownloadFailure",
-    function(message, sender, sendResponse) {
-        alert('Download failed. Most likely you haven\'t rendered that movie yet.')
-    });
-
-    messageListener("progressBarCreate",
-    function(message, sender, sendResponse) {
-        
-        $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-    });
-
     /**
      * Notification that a replay is in the process of being rendered.
      * Create/update progress bar and ensure editing functionality for
@@ -333,27 +350,6 @@ Menu.prototype._initListeners = function() {
             $('#replay-' + message.id + ' .rename-button').prop('disabled', false);
         }
     });
-
-    /**
-     * Received after a requested rendering is completed. Only send
-     * back to the tab containing the menu that requested the initial
-     * rendering.
-     */
-    messageListener("renderConfirmation",
-    function(message, sender, sendResponse) {
-        var replaysLeft = message.replaysLeft;
-        if (replaysLeft.length !== 0) {
-            replaysLeft.forEach(function(replay) {
-                $('#' + replay + ' .rendered-check').text('Queued...');
-                $('#' + replay + ' .rendered-check').css('color', 'green');
-            });
-            chrome.runtime.sendMessage({
-                method: 'render',
-                data: replaysLeft
-            });
-            console.log('Sent request to render replay: ' + replaysLeft[0]);
-        }
-    });
 };
 
 /**
@@ -373,8 +369,16 @@ Menu.prototype._list_Import = function() {
         }
         // Ensure all read operations are complete before continuing.
         var fileReadBarrier = new Barrier();
-        fileReadBarrier.onComplete(function() {
-            menu._parseRawData(fileData);
+        fileReadBarrier.onComplete(function parseRawData() {
+            if (fileData.length === 0) return;
+
+            var info = fileData.pop();
+
+            sendMessage('importReplay', info, function (response) {
+                // TODO: Handle failed replay adding.
+                // Read next file.
+                parseRawData();
+            });
         });
         // Read in each of the files.
         files.forEach(function(file) {
@@ -393,35 +397,10 @@ Menu.prototype._list_Import = function() {
 };
 
 /**
- * @typedef FileData
- * @type {object}
- * @property {string} filename - The name of the file as uploaded by
- *   the user.
- * @property {PositionData} data - The actual replay data.
- */
-/**
- * Parse the raw data and send the information to the background script
- * for saving.
- * @param {Array.<FileData>} filedata - The data for the file(s)
- *   uploaded by the user.
- */
-Menu.prototype._parseRawData = function(filedata) {
-    if (filedata.length === 0) return;
-
-    var info = filedata.pop();
-
-    sendMessage('importReplay', info, function(response) {
-        // TODO: Handle failed replay adding.
-        // Read next file.
-        this._parseRawData(filedata);
-    }.bind(this));
-};
-
-/**
  * Function called in response to a list update.
  */
 Menu.prototype._list_Update = function() {
-    var entries = this.getEntries();
+    var entries = $('#replayList .replayRow').not('.clone');
     if (entries.length === 0) {
         $('#noReplays').show();
         $('#replayList').hide();
@@ -480,24 +459,46 @@ Menu.prototype._setListWidth = function() {
  * Render checked items on the replay list.
  */
 Menu.prototype._list_Render = function() {
+    var menu = this;
+    // Render replays in session storage.
+    function renderReplays() {
+        var ids = JSON.parse(sessionStorage.getItem("render-list"));
+        if (ids !== null && ids.length > 0) {
+            var id = ids.shift();
+            sendMessage("renderReplay", {
+                id: id
+            }, function() {
+                renderReplays();
+            });
+            $('#replay-' + id + ' .rendered-check').text("Starting...");
+            sessionStorage.setItem("render-list", JSON.stringify(ids));
+        } else {
+            // Reset general UI.
+            $('#deleteSelectedButton').prop('disabled', false);
+            $('#renderSelectedButton').prop('disabled', false);
+            //menu.updateState("rendering", false);
+        }
+    }
     var ids = this.getCheckedEntries();
     if (ids.length > 0) {
-        var msg = "Are you sure you wish to render these replays? " +
-            "Some extension functions will be unavailable until the " +
-            "movies are rendered.";
+        var msg = "You will not be able to edit, view, or record " +
+            "replays while rendering. Do not close the browser or " +
+            "navigate away from this page until rendering is " +
+            "complete. Would you like to continue?";
         if (confirm(msg)) {
+            //this.updateState("rendering", true);
             // Display queued message on replays.
             ids.forEach(function(replay) {
                 $('#replay-' + replay + ' .rendered-check').text('Queued...');
                 $('#replay-' + replay + ' .rendered-check')
                     .css('color', 'green');
             });
-            chrome.runtime.sendMessage({
-                method: 'renderReplays',
-                ids: ids
-            });
-            console.log('Sent request to render replay(s): ' + ids);
+            // Set replays to be rendered.
+            sessionStorage.setItem("render-list", JSON.stringify(ids));
+            renderReplays();
         }
+    } else {
+        alert("You have to select at least 1 replay.");
     }
 };
 
@@ -541,56 +542,6 @@ Menu.prototype._list_Sort = function(baseSortType) {
     var type = this._getSortTypeFromDesired(baseSortType);
     this._saveSortType(type);
     this.sort(type);
-};
-
-/**
- * Returns callback for download button for individual replay list entry. Sends
- * a request to the background script to initiate download of the
- * rendered movie file.
- */
-Menu.prototype._entry_Download = function() {
-    var menu = this;
-    return function() {
-        var replayId = menu._getRowInfo(this).id;
-        console.log('Requesting movie download for replay ' + replayId + '.');
-        chrome.runtime.sendMessage({
-            method: 'downloadMovie',
-            id: replayId
-        });
-    };
-};
-
-/**
- * Callback for rename button for individual replay list entry. Sends
- * a request to the background script to carry out the action.
- */
-Menu.prototype._entry_Rename = function() {
-    var menu = this;
-    return function() {
-        var replayInfo = menu._getRowInfo(this);
-        var newName = prompt('How would you like to rename ' + replayInfo.name + '?');
-        if (newName !== null) {
-            console.log('Requesting rename from ' + replayInfo.name + ' to ' + newName + '.');
-            chrome.runtime.sendMessage({
-                method: 'renameReplay',
-                id: replayInfo.id,
-                name: newName
-            });
-        }
-    };
-};
-
-/**
- * Callback for playback link which initiates the in-browser previewer
- * for the replay.
- */
-Menu.prototype._entry_Play = function() {
-    var menu = this;
-    return function() {
-        var replayId = menu._getRowInfo(this).id;
-        $('#menuContainer').hide();
-        menu.viewer.preview(replayId);
-    };
 };
 
 /**
@@ -708,24 +659,6 @@ Menu.prototype._getSortFunction = function(type) {
     return function() {
         this._list_Sort(type);
     }.bind(this);
-};
-
-/**
- * Compare two elements a and b. If a is smaller than b then -1 is
- * returned, if larger then 1 is returned, if equal then 0 is returned.
- * @param {(number|string)} a
- * @param {(number|string)} b
- * @return {number} - one of -1, 0, 1 indicating a is less than, equal
- *   to, or greater than b.
- */
-Menu.prototype._compare = function(a, b) {
-    if (typeof a == 'string' && typeof b == 'string') {
-        return a.localeCompare(b);
-    } else {
-        if (a < b) return -1;
-        if (a > b) return 1;
-        return 0;
-    }
 };
 
 /**
@@ -863,67 +796,6 @@ Menu.prototype._getSortTypeFromDesired = function(type) {
 };
 
 /**
- * Minimum object used for sorting entries.
- * @typedef SortObject
- * @type {object}
- * @property {integer} duration - The length of the replay (in
- *   seconds).
- * @property {boolean} rendered - Whether the replay has been rendered.
- * @property {string} name - The name of the replay.
- * @property {Date} date - The date the replay was recorded.
- */
-/**
- * Get objects representing the sortable attributes of the replays.
- * @return {Array.<SortObject>} - Objects with properties corresponding to
- *   the sortable fields of the set of replays.
- */
-Menu.prototype._getSortableEntries = function() {
-    var replays = this.getEntries();
-    var entries = replays.map(function(row) {
-        return {
-            id: row.id,
-            name: row.name,
-            duration: row.duration,
-            rendered: row.rendered,
-            date: row.dateRecorded
-        };
-    });
-    return entries;
-};
-
-/**
- * Sorts the array given in the way indicated by type. Edites the array
- * in-place
- * @param {Array.<ReplayInfo>} replays - The replays to be sorted
- * @param {string} sortType - One of the sort types.
- */
-Menu.prototype._sortReplays = function(replays, sortType) {
-    // Sort methods in ascending order.
-    var sortMethods = {
-        alpha: function(a, b) {
-            return this._compare(a.name, b.name);
-        }.bind(this),
-        chrono: function(a, b) {
-            return this._compare(a.dateRecorded, b.dateRecorded);
-        }.bind(this),
-        dur: function(a, b) {
-            return this._compare(a.duration, b.duration);
-        }.bind(this),
-        ren: function(a, b) {
-            return this._compare(a.rendered, b.rendered);
-        }.bind(this)
-    };
-
-    var type = sortType.slice(0, -1);
-    var dir = sortType.slice(-1);
-
-    replays.sort(sortMethods[type]);
-    if (dir == 'D') {
-        replays.reverse();
-    }
-};
-
-/**
  * Sort table entries by type given.
  * @param  {string} sortType - One of 'alpha', 'chrono', 'dur', or 'ren'
  *   with the direction 'D' or 'A' for descending or ascending
@@ -939,7 +811,34 @@ Menu.prototype.sort = function(sortType) {
         { type: "ren", id: "renderedHeader", text: "Rendered" }
     ];
 
+    function compare(a, b) {
+        if (typeof a == 'string' && typeof b == 'string') {
+            return a.localeCompare(b);
+        } else {
+            if (a < b) return -1;
+            if (a > b) return 1;
+            return 0;
+        }
+    }
+
+    // Sort methods in ascending order.
+    var sortMethods = {
+        alpha: function(a, b) {
+            return compare(a.name, b.name);
+        },
+        chrono: function(a, b) {
+            return compare(a.dateRecorded, b.dateRecorded);
+        },
+        dur: function(a, b) {
+            return compare(a.duration, b.duration);
+        },
+        ren: function(a, b) {
+            return compare(a.rendered, b.rendered);
+        }
+    };
+
     var type = sortType.slice(0, -1);
+    var sortMethod = sortMethods[type];
     var dir = sortType.slice(-1);
 
     // Set column headers.
@@ -952,52 +851,28 @@ Menu.prototype.sort = function(sortType) {
                 text = text + ' ' + DOWN_ARROW;
             }
         }
-        $('#'+header.id).text(text);
+        $('#' + header.id).text(text);
     });
 
     // Get entries.
-    var entries = this._getSortableEntries();
-
-    this._sortReplays(entries, sortType);
-    var orderedIds = entries.map(function(entry) {
-        return entry.id;
-    });
-
-    this.orderList(orderedIds);
-};
-
-/**
- * Order entries by array of ids given.
- * @param  {Array.<string>} order - Array of ids dictating the order
- *   the rows should be in.
- */
-Menu.prototype.orderList = function(order) {
-    var last;
-    order.forEach(function(id, i) {
-        var entry = $('#replayList #' + id);
-        if (i === 0) {
-            $('#replayList tBody').prepend(entry);
-            last = entry;
+    var sorted = $('#replayList .replayRow').not('.clone').sort(function(a, b) {
+        var aInfo = $(a).data("info"),
+            bInfo = $(b).data("info");
+        if (dir === 'A') {
+            return sortMethod(aInfo, bInfo);
         } else {
-            $(last).after(entry);
-            last = entry;
+            return sortMethod(bInfo, aInfo);
         }
     });
-    $('#replayList tBody').prepend($('#replayList .clone'));
+    $('#replayList tBody').append(sorted);
 };
 
 /**
  * Add a row to the list.
  * @param {EntryData} entry - The information for the replay to add
  *   to the list.
- * @param {(string|boolean)} [insertAfterId=false] - If a string, then
- *   it should be the id of an existing row. The added row will be
- *   placed after the row with that id. If false, then the row will be
- *   inserted at the top of the table.
  */
-Menu.prototype.addRow = function(replay, insertAfterId) {
-    if (typeof insertAfterId == "undefined" ) insertAfterId = false;
-
+Menu.prototype.addRow = function(replay) {
     // Formats metadata object to put into title text.
     function getTitleText(replay) {
         var title = '';
@@ -1030,52 +905,28 @@ Menu.prototype.addRow = function(replay, insertAfterId) {
     var titleText = getTitleText(replay);
     var rendered = replay.rendered;
     
-    if(!insertAfterId) {
-        var newRow = $('#replayList .replayRow.clone:first').clone(true);
-        newRow.removeClass('clone');
+    var newRow = $('#replayList .replayRow.clone:first').clone(true);
+    newRow.removeClass('clone');
 
-        newRow.data("info", replay);
-        newRow.attr("id", "replay-" + id);
-        // Set playback link text
-        newRow.find('a.playback-link').text(name);
-        newRow.find('a.playback-link').popover({
-            html: true,
-            trigger: 'hover',
-            placement : 'right',
-            content: this._entry_Preview()
-        });
-        if (rendered) {
-            newRow.find('.rendered-check').text('✓');
-        } else {
-            newRow.find('.download-movie-button').prop('disabled', true);
-        }
-        newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
-        newRow.find('.duration').text(duration.format("m:ss"));
-        newRow[0].title = titleText;
-        $('#replayList tbody').prepend(newRow);
-    
-        // Set replay row element click handlers.
-        // Set handler for in-browser-preview link.
-        $('#replay-' + id + ' .playback-link')
-            .click(this._entry_Play());
-
-        // Set handler for movie download button.
-        $('#replay-' + id + ' .download-movie-button')
-            .click(this._entry_Download());
-
-        // Set handler for rename button.
-        $('#replay-' + id + ' .rename-button')
-            .click(this._entry_Rename());
-
-        // Set handler for checkbox.
-        $('#replay-' + id + ' .selected-checkbox')
-            .click(this._entry_Check());
+    newRow.data("info", replay);
+    newRow.attr("id", "replay-" + id);
+    // Set playback link text
+    newRow.find('a.playback-link').text(name);
+    newRow.find('a.playback-link').popover({
+        html: true,
+        trigger: 'hover',
+        placement : 'right',
+        content: this._entry_Preview()
+    });
+    if (rendered) {
+        newRow.find('.rendered-check').text('✓');
     } else {
-        var oldRow = $('#'+insertionPoint);
-        oldRow.find('.rendered-check').text('');
-        oldRow.find('.download-movie-button').prop('disabled', true);
-        oldRow.find('.duration').text(durationFormatted);
+        newRow.find('.download-movie-button').prop('disabled', true);
     }
+    newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
+    newRow.find('.duration').text(duration.format("m:ss"));
+    newRow[0].title = titleText;
+    $('#replayList tbody').prepend(newRow);
 };
 
 /**
@@ -1084,14 +935,6 @@ Menu.prototype.addRow = function(replay, insertAfterId) {
  */
 Menu.prototype.removeRow = function(id) {
     $('#replay-' + id).remove();
-};
-
-/**
- * Retrieve all current table entries.
- * @return {Array.<DOMElement>} - jQuery object containing elements
- */
-Menu.prototype.getEntries = function() {
-  return $('#replayList .replayRow').not('.clone').toArray();
 };
 
 /**
