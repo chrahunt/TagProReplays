@@ -132,10 +132,11 @@ window.getAllReplayInfo = function(callback) {
     var store = transaction.objectStore("info");
     var records = [];
     var request = store.openCursor(null);
-    request.onsuccess = function() {
-        if (request.result) {
-            records.push(request.result.value);
-            request.result.continue();
+    request.onsuccess = function(event) {
+        var cursor = event.target.result;
+        if (cursor) {
+            records.push(cursor.value);
+            cursor.continue();
         } else {
             callback(null, records);
         }
@@ -166,7 +167,7 @@ window.getReplayInfo = function(id, callback) {
  * @param {ReplayInfo} info - The info to be stored for the replay.
  * @param {Replay} replay - The replay data to save.
  * @param {DBCallback} callback - The function called on success or
- *   failure of the save.
+ *   failure of the save. Provides the id of the info object saved.
  */
 window.saveReplay = function(info, replay, callback) {
     var db = getDb();
@@ -189,7 +190,7 @@ window.saveReplay = function(info, replay, callback) {
             // Save info with replay_id.
             var request = infoStore.put(info);
             request.onsuccess = function() {
-                callback(null);
+                callback(null, info_id);
             };
         };
     };

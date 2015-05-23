@@ -24,8 +24,11 @@ var Menu = function() {
 
     // Retrieve html of menu.
     $('#tpr-container').load(url, this._init.bind(this));
+    
     // Initialize viewer for replay preview.
     this.viewer = new Viewer();
+
+    this._initState();
 };
 
 // Make menu class accessible.
@@ -72,10 +75,139 @@ Menu.prototype._init = function() {
         });
     });
 
+    // Functions to display alerts to user.
+    this.alert = {
+        show: function(name, msg, type) {
+            var existing = $("#alert-messages ." + name);
+            if (existing.length > 0) {
+                this.hide(name);
+            }
+            $("<div>")
+                .addClass("alert " + type + " " + name)
+                .text(msg)
+                .appendTo($("#alert-messages"));
+        },
+        log: function (name, msg) {
+            this.show(name, msg, "alert-info");
+        },
+        warn: function (name, msg) {
+            this.show(name, msg, "alert-warning");
+        },
+        error: function (name, msg) {
+            this.show(name, msg, "alert-danger");
+        },
+        win: function (name, msg) {
+            this.show(name, msg, "alert-success");
+        },
+        hide: function (name) {
+            $("#alert-messages ." + name).remove();
+        }
+    };
+
     // Run initialization for other parts of the menu.
     this._initListeners();
     this._initSettings();
     this._initReplayList();
+};
+
+/**
+ * Initialize the state of the menu.
+ */
+Menu.prototype._initState = function() {
+    // Takes a condition set and callback to be called when that is
+    // met.
+    var addStateCallback = function(condition, callback) {
+        this.stateCallbacks.push({
+            condition: condition,
+            callback: callback
+        });
+    }.bind(this);
+
+
+    this.stateCallbacks = [];
+    this.state = {
+        loaded: false,
+        rendering: false,
+        background: null
+    };
+
+    addStateCallback({ background: "rendering", rendering: false, loaded: false }, function() {
+        this.alert.warn("render",
+            "Background page is still rendering, it may take a moment to load your replays.");
+    });
+
+    addStateCallback({ background: "rendering", rendering: false, loaded: true }, function() {
+        this.alert.warn("render",
+            "Background page is still rendering, some functions will be unavailable until it is complete.");
+    });
+
+    addStateCallback({ background: "rendering", rendering: true }, function() {
+        this.alert.warn("render",
+            "Background page is rendering, some functions will be unavailable until it is complete.");
+    });
+
+    addStateCallback({ background: "idle", rendering: false, loaded: true, empty: false }, function() {
+        this.alert.hide("render");
+        $('.rename-button').prop('disabled', false);
+        $('#deleteSelectedButton').prop('disabled', false);
+        $('#renderSelectedButton').prop('disabled', false);
+        $('#downloadRawButton').prop('disabled', false);
+        $(".rendered .download-movie-button").prop('disabled', false);
+    });
+
+    addStateCallback({ empty: true }, function() {
+        $('#noReplays').show();
+        $('#replayList').hide();
+
+        $('#renderSelectedButton').prop('disabled', true);
+        $('#deleteSelectedButton').prop('disabled', true);
+        $('#downloadRawButton').prop('disabled', true);
+        $('#selectAllCheckbox').prop('checked', false);
+        $('#selectAllCheckbox').prop('disabled', true);
+    });
+
+    addStateCallback({ empty: false }, function() {
+        $('#replayList').show();
+        $('#noReplays').hide();
+        
+        $('#selectAllCheckbox').prop('disabled', false);
+    });
+
+    addStateCallback({ background: "upgrading" }, function() {
+        this.alert.info("upgrade",
+            "The background page is doing an extension update, this may take some time.");
+    });
+
+    function renderingUI() {
+        console.log("Running render UI change.");
+        $('.rename-button').prop('disabled', true);
+        $('.download-movie-button').prop('disabled', true);
+        $('#renderSelectedButton').prop('disabled', true);
+        $('#deleteSelectedButton').prop('disabled', true);
+        $('#downloadRawButton').prop('disabled', true);
+    }
+
+    addStateCallback({ background: "rendering" }, renderingUI);
+    addStateCallback({ rendering: true }, renderingUI);
+    addStateCallback({ background: "idle", rendering: false }, function() {
+        $('.rename-button').prop('disabled', false);
+        $('#deleteSelectedButton').prop('disabled', false);
+        $('#renderSelectedButton').prop('disabled', false);
+    });
+
+    // Listen for background status change.
+    onStatusChange(function(status) {
+        this.updateState("background", status);
+    }.bind(this));
+
+    // Getting initial background page status.
+    getStatus(function (err, status) {
+        if (err) {
+            this.alert.error(err.message);
+        } else {
+            this.updateState("background", status);
+        }
+    }.bind(this));
 };
 
 /**
@@ -133,7 +265,6 @@ Menu.prototype._initReplayList = function() {
     $('#raw-upload').change(this._list_Import());
 
     // Replay row listeners.
-    // $(this).closest('tr').data("info")
     $("#replayList tbody").on("click", ".playback-link", function() {
         var id = $(this).closest('tr').data("info").id;
         $('#menuContainer').hide();
@@ -188,6 +319,7 @@ Menu.prototype._initReplayList = function() {
         // Sort the replays.
         this.sort(this._getSortType('sortMethod'));
         this.listInitialized = true;
+        this.updateState("loaded", true);
     }.bind(this));
 
     // Initially set list UI in case above request doesn't result in
@@ -312,11 +444,6 @@ Menu.prototype._initListeners = function() {
         // Update UI for rendering mode.
         if (this.listInitialized && !$('#replay-' + message.id).data('rendering')) {
             $('#replay-' + message.id).data('rendering', true);
-            // Disable renaming buttons for all replays.
-            $('.rename-button').prop('disabled', true);
-            $('#deleteSelectedButton').prop('disabled', true);
-            $('#renderSelectedButton').prop('disabled', true);
-
             $('#replay-' + message.id + ' .rendered-check').html('<progress class="progressbar">');
             // TODO: Disable editing buttons on in-page-previewer.
         }
@@ -336,20 +463,48 @@ Menu.prototype._initListeners = function() {
         $('#replay-' + message.id + ' .progressbar').remove();
         $('#replay-' + message.id).removeData('rendering');
 
-        // Reset general UI.
-        $('.rename-button').prop('disabled', false);
-        $('#deleteSelectedButton').prop('disabled', false);
-        $('#renderSelectedButton').prop('disabled', false);
         if (message.failure) {
             console.log('Rendering of ' + message.id + ' was a failure.');
             $('#replay-' + message.id + ' .rendered-check').text('✘');
             $('#replay-' + message.id + ' .rendered-check').css('color', 'red');
         } else {
+            $("#replay-" + message.id).addClass("rendered");
             $('#replay-' + message.id + ' .rendered-check').text('✓');
             $('#replay-' + message.id + ' .download-movie-button').prop('disabled', false);
-            $('#replay-' + message.id + ' .rename-button').prop('disabled', false);
         }
     });
+};
+
+/**
+ * Change in response to menu and background state.
+ * @param {string} name - The name of the state variable to change.
+ * @param {*} value - The new value of the state variable.
+ */
+Menu.prototype.updateState = function(name, value) {
+    console.log("Updating " + name + " to: " + value + ".");
+    this.stateCallbacks.forEach(function(info) {
+        var condition = info.condition;
+        var fn = info.callback;
+        // Make sure updated value is relevant to state change
+        // function.
+        if (Object.keys(condition).indexOf(name) !== -1) {
+            // Make sure current state and new value match.
+            for (var prop in condition) {
+                var val;
+                if (prop === name) {
+                    val = value;
+                } else {
+                    val = this.state[prop];
+                }
+                if (val !== condition[prop]) {
+                    // No match, skip this function.
+                    return;
+                }
+            }
+            fn.call(this);
+        }
+    }, this);
+    this.state[name] = value;
 };
 
 /**
@@ -402,22 +557,9 @@ Menu.prototype._list_Import = function() {
 Menu.prototype._list_Update = function() {
     var entries = $('#replayList .replayRow').not('.clone');
     if (entries.length === 0) {
-        $('#noReplays').show();
-        $('#replayList').hide();
-
-        $('#renderSelectedButton').prop('disabled', true);
-        $('#deleteSelectedButton').prop('disabled', true);
-        $('#downloadRawButton').prop('disabled', true);
-        $('#selectAllCheckbox').prop('checked', false);
-        $('#selectAllCheckbox').prop('disabled', true);
+        this.updateState("empty", true);
     } else {
-        $('#replayList').show();
-        $('#noReplays').hide();
-        // Enable buttons for interacting with multiple selections.
-        $('#renderSelectedButton').prop('disabled', false);
-        $('#deleteSelectedButton').prop('disabled', false);
-        $('#downloadRawButton').prop('disabled', false);
-        $('#selectAllCheckbox').prop('disabled', false);
+        this.updateState("empty", false);
     }
 
     // Updating.
@@ -473,10 +615,7 @@ Menu.prototype._list_Render = function() {
             $('#replay-' + id + ' .rendered-check').text("Starting...");
             sessionStorage.setItem("render-list", JSON.stringify(ids));
         } else {
-            // Reset general UI.
-            $('#deleteSelectedButton').prop('disabled', false);
-            $('#renderSelectedButton').prop('disabled', false);
-            //menu.updateState("rendering", false);
+            menu.updateState("rendering", false);
         }
     }
     var ids = this.getCheckedEntries();
@@ -486,7 +625,7 @@ Menu.prototype._list_Render = function() {
             "navigate away from this page until rendering is " +
             "complete. Would you like to continue?";
         if (confirm(msg)) {
-            //this.updateState("rendering", true);
+            this.updateState("rendering", true);
             // Display queued message on replays.
             ids.forEach(function(replay) {
                 $('#replay-' + replay + ' .rendered-check').text('Queued...');
@@ -919,6 +1058,7 @@ Menu.prototype.addRow = function(replay) {
         content: this._entry_Preview()
     });
     if (rendered) {
+        newRow.addClass('rendered');
         newRow.find('.rendered-check').text('✓');
     } else {
         newRow.find('.download-movie-button').prop('disabled', true);

@@ -115,7 +115,12 @@ Viewer.prototype.init = function() {
         }
         // TODO: Handle error with replay cropping, or refresh
         // previewer with cropped replay.
-        sendMessage("cropReplay", msg);
+        sendMessage("cropReplay", msg, function(response) {
+            // TODO: Handle error.
+            if (!response.failed) {
+                viewer._viewReplay(response.id, response.data);
+            }
+        });
     });
 
     $("#viewerCropAndReplaceButton").click(function() {
@@ -142,8 +147,7 @@ Viewer.prototype.init = function() {
         if (confirm('Are you sure you want to delete this replay?')) {
             viewer.close();
             console.log('Requesting deletion of replay ' + viewer.id + '.');
-            chrome.runtime.sendMessage({
-                method: 'deleteReplay',
+            sendMessage("deleteReplay", {
                 id: viewer.id
             });
         }
@@ -153,8 +157,7 @@ Viewer.prototype.init = function() {
         if (confirm('Are you sure you want to render this replay?')) {
             viewer.close();
             console.log('Requesting render of replay ' + viewer.id + '.');
-            chrome.runtime.sendMessage({
-                method: 'renderReplay',
+            sendMessage("renderReplay", {
                 id: viewer.id
             });
         }
@@ -163,10 +166,9 @@ Viewer.prototype.init = function() {
     $("#viewerRenameButton").click(function() {
         // TODO: Handle blank rename value.
         var newName = prompt('How would you like to rename ' + viewer.replay.info.name + '?');
-        if (newName !== null) {
+        if (newName !== null && newName !== "") {
             console.log('Requesting rename from ' + viewer.replay.info.name + ' to ' + newName + '.');
-            chrome.runtime.sendMessage({
-                method: 'renameReplay',
+            sendMessage("renameReplay", {
                 id: viewer.id,
                 name: newName
             });
@@ -222,17 +224,25 @@ Viewer.prototype.preview = function(id) {
     // Show viewer.
     this.show();
     // TODO: Show loading spinner.
-    this.id = id;
     // Get replay data.
-    console.log('Requesting data for replay ' + this.id + ".");
-    chrome.runtime.sendMessage({
-        method: 'getReplay',
-        id: this.id
+    console.log('Requesting data for replay ' + id + ".");
+    sendMessage("getReplay", {
+        id: id
     }, function(response) {
-        this.replay = response.data;
-        console.log('Data received for replay ' + this.id + ".");
-        this.replayInit();
+        console.log('Data received for replay ' + id + ".");
+        this._viewReplay(id, response.data);
     }.bind(this));
+};
+
+/**
+ * Internal method for initializing the viewer for a replay.
+ * @param {integer} id - The id of the replay.
+ * @param {Replay} replay - The replay data.
+ */
+Viewer.prototype._viewReplay = function(id, replay) {
+    this.id = id;
+    this.replay = replay;
+    this.replayInit();
 };
 
 // Display the viewer.
@@ -257,6 +267,7 @@ Viewer.prototype.replayInit = function() {
     $("#crop-slider").slider("option", "max", this.frames);
     $("#crop-slider").slider("values", [0, this.frames]);
 
+    this.reset();
     // TODO: Show previewer with loading spinner.
     // Get options and textures.
     chrome.storage.local.get(["options", "textures", "default_textures"], function(items) {

@@ -207,9 +207,6 @@ function cropReplay(replay, startFrame, endFrame) {
     return newReplay;
 }
 
-// Set initial extension status.
-setStatus("loading");
-
 /**
  * Functions wrapped in calls to messageListener are invoked by calling
  * sendMessage in content scripts with the string name of the function
@@ -245,11 +242,41 @@ function(message, sender, sendResponse) {
  */
 messageListener("cropReplay",
 function(message, sender, sendResponse) {
+    var id = message.id,
+        start = message.start,
+        end = message.end,
+        name = message.name;
+
     // Retrieve the replay.
-    // Get specified name or replay name + (cropped).
-    // Crop the replay.
-    // Save the new replay.
-    // Return the new replay data.
+    getReplay(message.id, function(err, data) {
+        if (err) {
+            // TODO: Handle error.
+        } else {
+            var replay = data;
+            if (!name) {
+                replay.info.name = replay.info.name + " (cropped)";
+            } else {
+                replay.info.name = name;
+            }
+            replay = cropReplay(replay, start, end);
+            // Generate DB Info from Replay.
+            var info = generateReplayInfo(replay);
+            saveReplay(info, replay, function(err, id) {
+                // TODO: Handle error.
+                sendResponse({
+                    id: id,
+                    data: replay,
+                    failed: false
+                });
+                info.id = id;
+                // Send new replay notification to any listening pages.
+                sendMessage("replayAdded", {
+                    data: info
+                });
+            });
+        }
+    });
+    return true;
 });
 
 /**
@@ -279,11 +306,12 @@ function(message, sender, sendResponse) {
     replay = cropReplay(replay, startFrame, replay.data.time.length);
     // Generate DB Info from Replay.
     var info = generateReplayInfo(replay);
-    saveReplay(info, replay, function(err) {
+    saveReplay(info, replay, function(err, id) {
         // TODO: Handle error.
         sendResponse({
             failed: false
         });
+        info.id = id;
         // Send new replay notification to any listening pages.
         sendMessage("replayAdded", {
             data: info
@@ -309,10 +337,11 @@ function(message, sender, sendResponse) {
     var replay = JSON.parse(message.data);
     // Generate DB Info from Replay.
     var info = generateReplayInfo(replay);
-    saveReplay(info, replay, function(err) {
+    saveReplay(info, replay, function(err, id) {
         sendResponse({
             failed: false
         });
+        info.id = id;
         // Send new replay notification to any tabs that may have menu open.
         sendMessage("replayAdded", {
             data: info
@@ -491,8 +520,8 @@ messageListener("renderReplay",
 function(message, sender, sendResponse) {
     var id = message.id;
     console.log('Received request to render replay ' + id + '.');
-    // TODO: Handle error.
     setStatus("rendering");
+    // TODO: Handle error.
     renderReplay(id, function(err) {
         if (err) {
             sendMessage("replayRendered", {
