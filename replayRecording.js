@@ -309,30 +309,17 @@ listen('replaySaved', function(err) {
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton(data) {
-    var button = document.createElement("img");
+    var button = document.createElement("div");
     button.id = 'recordButton';
-    button.src = 'http://i.imgur.com/oS1bPqR.png';
     button.onclick = function () {
         saveReplayData(data);
     };
-    button.style.position = "absolute";
-    button.style.margin = "auto";
-    button.style.right = "30px";
-    button.style.top = "65px";
-    button.style.cursor = "pointer";
     $('body').append(button);
 
     var savedFeedback = document.createElement('a');
     savedFeedback.id = 'savedFeedback';
     savedFeedback.textContent = 'Saved!';
-    savedFeedback.style.right = '20px';
-    savedFeedback.style.top = '100px';
-    savedFeedback.style.position = "absolute";
-    savedFeedback.style.color = '#00CC00';
-    savedFeedback.style.fontSize = '20px';
-    savedFeedback.style.fontWeight = 'bold';
     $('body').append(savedFeedback);
-    $(savedFeedback).hide();
 
     if (options.record_key_enabled) {
         $(document).on("keypress", function (e) {

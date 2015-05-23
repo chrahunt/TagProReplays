@@ -41,9 +41,9 @@
       ],
       "js": [
         "lib/jquery.js",
+        "lib/jquery-ui.min.js",
         "lib/bootstrap.min.js",
         "lib/jquery.actual.min.js",
-        "lib/jquery-ui.min.js",
         "lib/moment.min.js",
         "status.js",
         "barrier.js",
@@ -60,7 +60,8 @@
         "lib/jquery-ui.min.css",
         "lib/spinkit.css",
         "ui/menu.css",
-        "ui/viewer.css"
+        "ui/viewer.css",
+        "ui/record.css"
       ],
       "run_at": "document_end"
     }
@@ -70,6 +71,7 @@
     "img/*.png",
     "ui/*.css",
     "ui/*.html",
+    "ui/images/*.png",
     "lib/images/*.png",
     "lib/glyphicons-halflings-regular.woff"
   ]

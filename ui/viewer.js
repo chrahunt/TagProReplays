@@ -6,10 +6,10 @@
 
 // Handle the interaction with the viewer for a replay.
 var Viewer = function() {
-    $('article').append('<div id="viewer-container">');
+    $('article').append('<div id="tpr-viewer-container">');
     var url = chrome.extension.getURL("ui/viewer.html");
-    $("#viewer-container").load(url, function() {
-        $("#viewer-container").hide();
+    $("#tpr-viewer-container").load(url, function() {
+        $("#tpr-viewer-container").hide();
         this.init();
     }.bind(this));
 };
@@ -25,26 +25,55 @@ Viewer.prototype.init = function() {
     this.playing = false;
     this.playInterval = null;
     this.cropping = false;
+    this.timeActive = false;
 
     // Adjust viewer dimensions on window resize.
     window.onresize = this.resize;
 
     var viewer = this;
+
     // Set listeners.
-    // TODO: Ensure this doesn't cause problems if the slider is updated programmatically.
     $("#time-slider").slider({
         min: 0,
         max: this.frames,
         value: 0,
+        range: "min",
         slide: function() {
             viewer.frame = $("#time-slider").slider("value");
             viewer.drawFrame();
         },
         change: function(event) {
+            // Ensure this was a user-initiated event.
             if (event.originalEvent) {
                 viewer.frame = $("#time-slider").slider("value");
                 viewer.drawFrame();
             }
+        }
+    });
+
+    $(".time-slider-container").mouseenter(function() {
+        if (!viewer.timeActive) {
+            viewer.timeActive = true;
+            $("#time-slider").animate({
+                top: "17px",
+                height: "8px"
+            });
+            $("#time-slider .ui-slider-handle").fadeIn(300);
+        }
+    });
+
+    $(".time-slider-container").mouseleave(function() {
+        if (viewer.timeActive) {
+            viewer.timeActive = false;
+            setTimeout(function() {
+                // Don't hide if active again.
+                if (viewer.timeActive) return;
+                $("#time-slider").animate({
+                    top: "20px",
+                    height: "5px"
+                });
+                $("#time-slider .ui-slider-handle").fadeOut(300);
+            }, 500);
         }
     });
 
@@ -55,20 +84,21 @@ Viewer.prototype.init = function() {
         values: [0, this.frames]
     });
 
-    $("#viewerStopButton").click(function() {
+    $(".controls").on("click", ".tpr-button-stop", function() {
         viewer.close();
     });
 
-    $("#viewerResetButton").click(function() {
+    $(".controls").on("click", ".tpr-button-reset", function() {
         viewer.reset();
         viewer.drawFrame();
     });
 
-    $("#viewerPlayButton").click(function() {
+    $(".controls").on("click", ".tpr-button-play", function() {
         viewer.play(viewer.frame, viewer.frames);
+        $(this).removeClass('tpr-button-play').addClass('tpr-button-pause');
     });
 
-    $("#viewerPauseButton").click(function() {
+    $(".controls").on("click", ".tpr-button-pause", function() {
         viewer.pause();
     });
 
@@ -179,42 +209,42 @@ Viewer.prototype.init = function() {
 // Adjust viewer dimensions based on window size.
 Viewer.prototype.resize = function() {
     // Resize container.
-    if($(window).width() > 1280) {
-        $('#viewer-container').width(1280);
-        $('#viewer-container').css('left', $(window).width()/2 - $('#viewer-container').width()/2);
+    /*if($(window).width() > 1280) {
+        $('#tpr-viewer-container').width(1280);
+        $('#tpr-viewer-container').css('left', $(window).width()/2 - $('#tpr-viewer-container').width()/2);
     } else {
-        $('#viewer-container').width('100%');
-        $('#viewer-container').css('left', 0);
+        $('#tpr-viewer-container').width('100%');
+        $('#tpr-viewer-container').css('left', 0);
     }
     if($(window).height() > (800/0.9)) {
-        $('#viewer-container').height(800/0.9);
-        $('#viewer-container').css('top', $(window).height()/2 - $('#viewer-container').height()/2);
+        $('#tpr-viewer-container').height(800/0.9);
+        $('#tpr-viewer-container').css('top', $(window).height()/2 - $('#tpr-viewer-container').height()/2);
     } else {
-        $('#viewer-container').height('100%');
-        $('#viewer-container').css('top', 0);
+        $('#tpr-viewer-container').height('100%');
+        $('#tpr-viewer-container').css('top', 0);
     }
-    $('#viewer-canvas')[0].height = $('#viewer-container').height() * 0.90 - 20;
-    $('#viewer-canvas')[0].width = $('#viewer-container').width() - 20;
+    $('#viewer-canvas')[0].height = $('#tpr-viewer-container').height() * 0.90 - 20;
+    $('#viewer-canvas')[0].width = $('#tpr-viewer-container').width() - 20;
     $('#viewer-canvas').height($('#viewer-canvas')[0].height);
-    $('#viewer-canvas').width($('#viewer-canvas')[0].width);
+    $('#viewer-canvas').width($('#viewer-canvas')[0].width);*/
 
     // Resize buttons.
     var IMGWIDTH          = 57,
         BUTTONWIDTH       = 90,
-        widthFactor       = $('#viewer-container').width() / 1280,
-        heightFactor      = $('#viewer-container').height() / (800/0.9),
+        widthFactor       = $('#tpr-viewer-container').width() / 1280,
+        heightFactor      = $('#tpr-viewer-container').height() / (800/0.9),
         IMGWIDTHFACTOR    = IMGWIDTH / 1280, 
         BUTTONWIDTHFACTOR = BUTTONWIDTH / 1280,
         IMGHEIGHTFACTOR   = IMGWIDTH / (800/0.9);
 
-    $('#viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#viewer-container').width(), 0.99));
+    $('#tpr-viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#tpr-viewer-container').width(), 0.99));
     if ( widthFactor >= heightFactor ) {
-        $('#viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
-        $('#viewer-container img').width('auto');
+        $('#tpr-viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
+        $('#tpr-viewer-container img').width('auto');
         $('#button-bar button').css('font-size', $('#button-bar button').height()/2.5);
     } else {
-        $('#viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
-        $('#viewer-container img').height('auto');
+        $('#tpr-viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
+        $('#tpr-viewer-container img').height('auto');
         $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
     }
 };
@@ -247,13 +277,13 @@ Viewer.prototype._viewReplay = function(id, replay) {
 
 // Display the viewer.
 Viewer.prototype.show = function() {
-    $("#viewer-container").fadeIn(500);
+    $("#tpr-viewer-container").fadeIn(500);
     this.resize();
 };
 
 // Hide the viewer.
 Viewer.prototype.hide = function() {
-    $("#viewer-container").fadeOut(500);
+    $("#tpr-viewer-container").fadeOut(500);
     $("#menuContainer").fadeIn(500);
 };
 
@@ -326,6 +356,9 @@ Viewer.prototype.pause = function() {
         clearInterval(this.playInterval);
         this.playInterval = null;
         this.playing = false;
+        $('.tpr-button-pause')
+            .removeClass('tpr-button-pause')
+            .addClass('tpr-button-play');
     }
 };
 
@@ -343,6 +376,9 @@ Viewer.prototype.play = function(start, end) {
     // Reset anything currently playing.
     this.reset();
     this.playing = true;
+    $('.tpr-button-play')
+        .removeClass('tpr-button-play')
+        .addClass('tpr-button-pause');
 
     var time = Date.now();
     var startTime = time;
