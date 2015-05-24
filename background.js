@@ -7,6 +7,7 @@
  */
 (function(window) {
 
+var manager = new RenderManager();
 /**
  * Clones an object.
  * @param {object} obj - The object to clone.
@@ -63,6 +64,7 @@ function generateReplayInfo(replay) {
     });
     info.rendered = false;
     info.renderId = null;
+    info.rendering = false;
     return info;
 }
 
@@ -376,9 +378,13 @@ function(message, sender, sendResponse) {
  */
 messageListener("getReplayList",
 function(message, sender, sendResponse) {
+    // Pause render manager so it doesn't interfere with list population.
+    manager.pause();
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
     getAllReplayInfo(function(err, list) {
+        // Resume render manager.
+        manager.resume();
         if (err) {
             // TODO: Handle error.
         } else {
@@ -516,11 +522,49 @@ function(message, sender, sendResponse) {
  * @param {object} message - object with a property `id` which
  *   is an integer id of the replay to render.
  */
-messageListener("renderReplay",
+messageListener(["renderReplay", "renderReplays"],
+function(message, sender, sendResponse) {
+    var ids = message.id ? [message.id] : message.ids;
+    console.log('Received request to render replay(s) ' + ids + '.');
+    manager.add(ids, function(err) {
+        sendResponse({ error: err });
+    });
+    return true;
+});
+
+/**
+ * Retrieve the queue of rendering replays.
+ */
+messageListener("getRenderList",
 function(message, sender, sendResponse) {
     var id = message.id;
-    console.log('Received request to render replay ' + id + '.');
+    console.log('Received request to render replay(s) ' + id + '.');
     setStatus("rendering");
+    // TODO: Handle error.
+    renderReplay(id, function(err) {
+        if (err) {
+            sendMessage("replayRendered", {
+                id: id,
+                failure: true
+            });
+        } else {
+            sendMessage("replayRendered", {
+                id: id,
+                failure: false
+            });
+        }
+        setStatus("idle");
+        sendResponse();
+    });
+    return true;
+});
+
+/**
+ * Cancel the rendering of one or more replays.
+ */
+messageListener("cancelRenders",
+function(message, sender, sendResponse) {
+    var ids = message.ids;
     // TODO: Handle error.
     renderReplay(id, function(err) {
         if (err) {

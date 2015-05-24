@@ -58,7 +58,7 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
     if (areaName === "local") {
         if (changes.hasOwnProperty("status")) {
             changeListeners.forEach(function(callback) {
-                callback.call(null, changes.status.newValue);
+                callback.call(null, changes.status.newValue, changes.status.oldValue);
             });
         }
     }

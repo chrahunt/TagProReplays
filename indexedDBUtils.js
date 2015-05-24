@@ -45,7 +45,17 @@ var initialize = {};
  *   database.
  */
 window.idbAddInitialization = function(version, fn) {
-    initialize[version] = fn;
+    if (!initialize.hasOwnProperty(version)) {
+        initialize[version] = [];
+    }
+    initialize[version].push(fn);
+};
+
+// Functions to call after database is initialized.
+var ready = [];
+
+window.idbReady = function(fn) {
+    ready.push(fn);
 };
 
 // Initialize the IndexedDB.
@@ -89,9 +99,11 @@ window.idbOpen = function(name, version) {
                 e.target.transaction.abort();
             }
         } else {
-            // Initiailize database.
-            if (initialize[version]) {
-                initialize[version].call(null, db);
+            // Initialize database.
+            if (initialize.hasOwnProperty(version)) {
+                initialize[version].forEach(function(initialization) {
+                    initialization.call(null, db);
+                });
             }
         }
     };
@@ -99,6 +111,9 @@ window.idbOpen = function(name, version) {
     openRequest.onsuccess = function (e) {
         // Assign to function global.
         db = e.target.result;
+        ready.forEach(function(fn) {
+            fn.call(null);
+        });
         db.onerror = function (e) {
             alert("Sorry, an unforseen error was thrown.");
             console.log("***ERROR***");

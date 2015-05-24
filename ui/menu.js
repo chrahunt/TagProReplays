@@ -104,6 +104,20 @@ Menu.prototype._init = function() {
         }
     };
 
+    $(".nav-home").click(function() {
+        $(this).addClass("active");
+        $(".nav-render").removeClass("active");
+        $("#replays").show();
+        $("#rendering").hide();
+    });
+
+    $(".nav-render").click(function() {
+        $(this).addClass("active");
+        $(".nav-home").removeClass("active");
+        $("#rendering").show();
+        $("#replays").hide();
+    });
+
     // Run initialization for other parts of the menu.
     this._initListeners();
     this._initSettings();
@@ -156,8 +170,8 @@ Menu.prototype._initState = function() {
     });
 
     addStateCallback({ empty: true }, function() {
-        $('#noReplays').show();
-        $('#replayList').hide();
+        $('#replays .section-empty').show();
+        $('#replays .section-list').hide();
 
         $('#renderSelectedButton').prop('disabled', true);
         $('#deleteSelectedButton').prop('disabled', true);
@@ -167,8 +181,8 @@ Menu.prototype._initState = function() {
     });
 
     addStateCallback({ empty: false }, function() {
-        $('#replayList').show();
-        $('#noReplays').hide();
+        $('#replays .section-list').show();
+        $('#replays .section-empty').hide();
         
         $('#selectAllCheckbox').prop('disabled', false);
     });
@@ -265,19 +279,19 @@ Menu.prototype._initReplayList = function() {
     $('#raw-upload').change(this._list_Import());
 
     // Replay row listeners.
-    $("#replayList tbody").on("click", ".playback-link", function() {
+    $("#replays .section-list tbody").on("click", ".playback-link", function() {
         var id = $(this).closest('tr').data("info").id;
         $('#menuContainer').hide();
         menu.viewer.preview(id);
     });
-    $("#replayList tbody").on("click", ".download-movie-button", function() {
+    $("#replays .section-list tbody").on("click", ".download-movie-button", function() {
         var id = $(this).closest('tr').data("info").id;
         console.log('Requesting movie download for replay ' + id + '.');
         sendMessage("downloadMovie", {
             id: id
         });
     });
-    $("#replayList tbody").on("click", ".rename-button", function() {
+    $("#replays .section-list tbody").on("click", ".rename-button", function() {
         var replay = $(this).closest('tr').data("info");
         var newName = prompt('How would you like to rename ' + replay.name + '?');
         if (newName !== null && newName !== "") {
@@ -288,10 +302,10 @@ Menu.prototype._initReplayList = function() {
             });
         }
     });
-    $("#replayList tbody").on("click", ".selected-checkbox", this._entry_Check());
+    $("#replays .section-list tbody").on("click", ".selected-checkbox", this._entry_Check());
 
     // Initialize listener for list modifications.
-    var target = $('#replayList tbody')[0];
+    var target = $('#replays .section-list tbody')[0];
     var observer = new MutationObserver(function(mutations) {
         var update = mutations.some(function(mutation) {
             return mutation.type === 'childList';
@@ -312,7 +326,7 @@ Menu.prototype._initReplayList = function() {
     }, function(response) {
         var replays = response.data;
         // Hide loader.
-        $('#replaysLoading').hide();
+        $('#replays .section-loading').hide();
         replays.forEach(function(replay) {
             this.addRow(replay);
         }, this);
@@ -555,7 +569,8 @@ Menu.prototype._list_Import = function() {
  * Function called in response to a list update.
  */
 Menu.prototype._list_Update = function() {
-    var entries = $('#replayList .replayRow').not('.clone');
+    var entries = $('#replays .section-list .replayRow').not('.clone');
+    $(".nav-home .badge").text(entries.length);
     if (entries.length === 0) {
         this.updateState("empty", true);
     } else {
@@ -563,7 +578,7 @@ Menu.prototype._list_Update = function() {
     }
 
     // Updating.
-    $('#replayList').height('auto');
+    $('#replays .section-list').height('auto');
     // Automatic height adjustment for replay list.
     $('#menuContainer .modal-dialog').data(
         'original-height',
@@ -584,9 +599,9 @@ Menu.prototype._setListHeight = function() {
         if ($(window).height() > 500) {
             newHeight = $(window).height() - 315;
         }
-        $('#replayList').height(newHeight);
+        $('#replays .section-list').height(newHeight);
         // Fix table header width.
-        $('#replay-headers').width($('#replayList table').actual('width'));
+        $('#replay-headers').width($('#replays .section-list table').actual('width'));
     }
 };
 
@@ -602,40 +617,15 @@ Menu.prototype._setListWidth = function() {
  */
 Menu.prototype._list_Render = function() {
     var menu = this;
-    // Render replays in session storage.
-    function renderReplays() {
-        var ids = JSON.parse(sessionStorage.getItem("render-list"));
-        if (ids !== null && ids.length > 0) {
-            var id = ids.shift();
-            sendMessage("renderReplay", {
-                id: id
-            }, function() {
-                renderReplays();
-            });
-            $('#replay-' + id + ' .rendered-check').text("Starting...");
-            sessionStorage.setItem("render-list", JSON.stringify(ids));
-        } else {
-            menu.updateState("rendering", false);
-        }
-    }
+
     var ids = this.getCheckedEntries();
     if (ids.length > 0) {
-        var msg = "You will not be able to edit, view, or record " +
-            "replays while rendering. Do not close the browser or " +
-            "navigate away from this page until rendering is " +
-            "complete. Would you like to continue?";
-        if (confirm(msg)) {
-            this.updateState("rendering", true);
-            // Display queued message on replays.
-            ids.forEach(function(replay) {
-                $('#replay-' + replay + ' .rendered-check').text('Queued...');
-                $('#replay-' + replay + ' .rendered-check')
-                    .css('color', 'green');
-            });
-            // Set replays to be rendered.
-            sessionStorage.setItem("render-list", JSON.stringify(ids));
-            renderReplays();
-        }
+        sendMessage("renderReplays", {
+            ids: ids
+        }, function(response) {
+            // TODO: Handle error adding replays to queue.
+            // TODO: Move replays to rendering list.
+        });
     } else {
         alert("You have to select at least 1 replay.");
     }
@@ -786,7 +776,7 @@ Menu.prototype._entry_Check = function() {
                 if(num > bounds[0] && num < bounds[1]) box.checked = true;
             });
         }
-    }
+    };
 };
 
 /**
@@ -994,7 +984,7 @@ Menu.prototype.sort = function(sortType) {
     });
 
     // Get entries.
-    var sorted = $('#replayList .replayRow').not('.clone').sort(function(a, b) {
+    var sorted = $('#replays .section-list .replayRow').not('.clone').sort(function(a, b) {
         var aInfo = $(a).data("info"),
             bInfo = $(b).data("info");
         if (dir === 'A') {
@@ -1003,7 +993,7 @@ Menu.prototype.sort = function(sortType) {
             return sortMethod(bInfo, aInfo);
         }
     });
-    $('#replayList tBody').append(sorted);
+    $('#replays .section-list tBody').append(sorted);
 };
 
 /**
@@ -1044,7 +1034,7 @@ Menu.prototype.addRow = function(replay) {
     var titleText = getTitleText(replay);
     var rendered = replay.rendered;
     
-    var newRow = $('#replayList .replayRow.clone:first').clone(true);
+    var newRow = $('#replays .section-list .replayRow.clone:first').clone(true);
     newRow.removeClass('clone');
 
     newRow.data("info", replay);
@@ -1066,7 +1056,7 @@ Menu.prototype.addRow = function(replay) {
     newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
     newRow.find('.duration').text(duration.format("m:ss"));
     newRow[0].title = titleText;
-    $('#replayList tbody').prepend(newRow);
+    $('#replays .section-list tbody').prepend(newRow);
 };
 
 /**
@@ -1075,6 +1065,63 @@ Menu.prototype.addRow = function(replay) {
  */
 Menu.prototype.removeRow = function(id) {
     $('#replay-' + id).remove();
+};
+
+/**
+ * Add a replay as being rendered.
+ * @param {ReplayInfo} replay - The info for the replay that is being
+ *   rendered.
+ */
+Menu.prototype.addRenderRow = function(replay) {
+    // Formats metadata object to put into title text.
+    function getTitleText(replay) {
+        var title = '';
+        title += "Map: " + replay.mapName + "\n";
+        title += "FPS: " + replay.fps + "\n";
+        var red = [];
+        var blue = [];
+        $.each(replay.players, function(id, player) {
+            var name;
+            if (id == replay.player) {
+                name = player.name + " (*)";
+            } else {
+                name = player.name;
+            }
+            if (player.team === 1) {
+                red.push(name);
+            } else {
+                blue.push(name);
+            }
+        });
+        title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
+        title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
+        return title;
+    }
+
+    var id = replay.id;
+    var name = replay.name;
+    var date = moment(replay.dateRecorded);
+    var duration = moment.utc(replay.duration);
+    var titleText = getTitleText(replay);
+    var rendered = replay.rendered;
+    
+    var newRow = $('#rendering .section-list .render-row.clone:first').clone(true);
+    newRow.removeClass('clone');
+
+    newRow.data("info", replay);
+    newRow.attr("id", "render-" + id);
+    // Set name text.
+    newRow.find('.render-name').text(name);
+    // TODO: Get render status (rendering, queued)
+    newRow.find('.render-status').text();
+    newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
+    newRow.find('.duration').text(duration.format("m:ss"));
+    newRow[0].title = titleText;
+    $('#replays .section-list tbody').prepend(newRow);
+};
+
+Menu.prototype.removeRenderRow = function(id) {
+    $('#render-' + id).remove();
 };
 
 /**

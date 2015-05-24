@@ -39,6 +39,8 @@ idbAddInitialization(3, function(db) {
         keyPath: "id"
     });
     replayStore.createIndex("info_id", "info_id", { unique: true });
+
+    var taskStore = db.createObjectStore("task");
 });
 
 idbOpen("ReplayDatabase", 3);

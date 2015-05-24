@@ -7,7 +7,7 @@
     "scripts": [
       "lib/semver-compare.js",
       "status.js",
-      "process.js",
+      "task.js",
       "filesystem.js",
       "migrations.js",
       "indexedDBUtils.js",
