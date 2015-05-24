@@ -103,7 +103,46 @@
     background: no-repeat url('chrome-extension://__MSG_@@extension_id__/ui/images/stop.png');
 }
 
-/* for debugging */
+/* Hide crop slider and sub-elements. */
 #crop-slider {
-    display: none;
+    border: none !important;
+    height: 0px !important;
+}
+
+#crop-slider .ui-slider-range {
+    border: none;
+    background: none;
+}
+
+#crop-slider .ui-slider-handle {
+    width: 0px;
+    height: 0px;
+    border: none !important;
+    background: none !important;
+}
+
+/* crop arrows */
+.arrow-down-outer {
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 15px solid black;
+    height: 0px;
+    width: 0px;
+}
+
+#crop-slider .ui-slider-handle:first-child .arrow-down-outer {
+    transform: translateY(-25px) translateX(-4px);
+}
+
+#crop-slider .ui-slider-handle:nth-child(2) .arrow-down-outer {
+    transform: translateY(-25px) translateX(4px);
+}
+
+.arrow-down-inner {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 7px solid white;
+    transform: translateX(-4px) translateY(-12px);
+    height: 0px;
+    width: 0px;
 }

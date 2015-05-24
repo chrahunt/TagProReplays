@@ -6,7 +6,7 @@
 
 // Handle the interaction with the viewer for a replay.
 var Viewer = function() {
-    $('article').append('<div id="tpr-viewer-container">');
+    $('article').append('<div id="tpr-viewer-container" class="bootstrap-container">');
     var url = chrome.extension.getURL("ui/viewer.html");
     $("#tpr-viewer-container").load(url, function() {
         $("#tpr-viewer-container").hide();
@@ -77,12 +77,25 @@ Viewer.prototype.init = function() {
         }
     });
 
+    // Setup crop slider.
     $("#crop-slider").slider({
         range: true,
         min: 0,
         max: this.frames,
         values: [0, this.frames]
     });
+
+    //$("#crop-slider").show();
+
+    function setupcrop() {
+        $first = $("#crop-slider .ui-slider-handle:first");
+        $first.tooltip({
+            title: 'start',
+            trigger: 'manual'
+        });
+        $first.tooltip('show');
+    }
+    //setupcrop();
 
     $(".controls").on("click", ".tpr-button-stop", function() {
         viewer.close();
@@ -108,6 +121,8 @@ Viewer.prototype.init = function() {
         var newRange = [newStart];
         if (newStart >= cropRange[1]) {
             newRange.push(viewer.frames);
+        } else {
+            newRange.push(cropRange[1]);
         }
         $("#crop-slider").slider('values', newRange);
     });
@@ -118,6 +133,8 @@ Viewer.prototype.init = function() {
         var newRange = [newEnd];
         if (newEnd <= cropRange[0]) {
             newRange.unshift(0);
+        } else {
+            newRange.unshift(cropRange[0]);
         }
         $("#crop-slider").slider('values', newRange);
     });
