@@ -527,7 +527,13 @@ function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
     console.log('Received request to render replay(s) ' + ids + '.');
     manager.add(ids, function(err) {
-        sendResponse({ error: err });
+        if (!err) {
+            sendMessage("replayRenderAdded", {
+                ids: ids
+            });
+        } else {
+            // TODO: Handle error.
+        }
     });
     return true;
 });
@@ -537,24 +543,14 @@ function(message, sender, sendResponse) {
  */
 messageListener("getRenderList",
 function(message, sender, sendResponse) {
-    var id = message.id;
-    console.log('Received request to render replay(s) ' + id + '.');
-    setStatus("rendering");
-    // TODO: Handle error.
-    renderReplay(id, function(err) {
+    manager.getQueue(function(err, list) {
         if (err) {
-            sendMessage("replayRendered", {
-                id: id,
-                failure: true
-            });
+
         } else {
-            sendMessage("replayRendered", {
-                id: id,
-                failure: false
+            sendResponse({
+                data: list
             });
         }
-        setStatus("idle");
-        sendResponse();
     });
     return true;
 });
@@ -562,26 +558,16 @@ function(message, sender, sendResponse) {
 /**
  * Cancel the rendering of one or more replays.
  */
-messageListener("cancelRenders",
+messageListener(["cancelRender", "cancelRenders"],
 function(message, sender, sendResponse) {
-    var ids = message.ids;
-    // TODO: Handle error.
-    renderReplay(id, function(err) {
-        if (err) {
-            sendMessage("replayRendered", {
-                id: id,
-                failure: true
-            });
-        } else {
-            sendMessage("replayRendered", {
-                id: id,
-                failure: false
+    var ids = message.id ? [message.id] : message.ids;
+    manager.cancel(ids, function(err) {
+        if (!err) {
+            sendMessage("replayRenderCancelled", {
+                ids: ids
             });
         }
-        setStatus("idle");
-        sendResponse();
     });
-    return true;
 });
 
 })(window);

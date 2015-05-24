@@ -43,6 +43,7 @@ RenderManager.prototype.init = function() {
                 self._renderLoop(result[0]);
             } else {
                 console.log("No pending renders in queue.");
+                setStatus("idle");
             }
         };
     });
@@ -56,12 +57,42 @@ RenderManager.prototype.init = function() {
  *   or failure of the cancellation operation.
  */
 RenderManager.prototype.cancel = function(ids, callback) {
-    // Remove ids from render queue and rendering from info objects.
-    var db = getDb();
-    var transaction = db.transaction(["info", "task"], "readwrite");
+    // Cancel current task if current id is being cancelled.
+    if (this.task && ids.indexOf(this.id) !== -1) {
+        this.task.cancel();
+    }
+    var cursorIds = ids.slice().sort();
+    // Add replay to render queue and set property on info.
+    var transaction = getDb().transaction(["task", "info"], "readwrite");
+    var taskStore = transaction.objectStore("task");
     var infoStore = transaction.objectStore("info");
-    // Cancel current task if for id.
-    // TODO: Complete.
+
+    var cursor = infoStore
+        .openCursor(IDBKeyRange.bound(cursorIds[0], cursorIds[cursorIds.length - 1]));
+    cursorIds.shift();
+    cursor.onsuccess = function(event) {
+        var cursor = event.target.result;
+        if (cursor) {
+            // Remove rendering property from rendering replays.
+            if (cursor.value.rendering) {
+                cursor.value.rendering = false;
+                infoStore.put(cursor.value);
+            }
+            cursor.continue(cursorIds.shift());
+        } else {
+            taskStore.get("renders").onsuccess = function(event) {
+                var queue = event.target.result;
+                queue = queue.filter(function(id) {
+                    return ids.indexOf(id) === -1;
+                });
+                taskStore.put(queue, "renders");
+            };
+        }
+    };
+
+    transaction.oncomplete = function() {
+        callback(null);
+    };
 };
 
 /**
@@ -84,11 +115,13 @@ RenderManager.prototype.resume = function() {
         this.task.resume();
     } else {
         // Initialize loop.
-        this.getQueue(function(queue) {
-            if (queue.length > 0) {
-                this._renderLoop(queue[0]);
-            } else {
-                console.log("No renders in queue after resuming.");
+        this.getQueue(function(err, queue) {
+            if (!err) {
+                if (queue.length > 0) {
+                    this._renderLoop(queue[0]);
+                } else {
+                    console.log("No renders in queue after resuming.");
+                }
             }
         }.bind(this));
     }
@@ -145,7 +178,8 @@ RenderManager.prototype.add = function(ids, callback) {
 /**
  * Internal method, 
  * @param {[type]} id [description]
- * @param {Function} callback [description]
+ * @param {Function} callback - receives the error if any. May be "cancelled" or error
+ *   output from saveMovie
  * @private
  */
 RenderManager.prototype._render = function(id, callback) {
@@ -185,9 +219,9 @@ RenderManager.prototype._render = function(id, callback) {
                     return true;
                 },
                 loop: function loop(frame) {
-                    if (frame / Math.round(this.frames / 100) === 1) {
+                    if (frame / Math.round(this.frames / 100) % 1 === 0) {
                         var progress = frame / this.frames;
-                        sendMessage("replayRendering", {
+                        sendMessage("replayRenderProgress", {
                             id: this.id,
                             progress: progress
                         });
@@ -207,14 +241,9 @@ RenderManager.prototype._render = function(id, callback) {
                 saveMovie(result.id, output, function(err) {
                     callback(err);
                 });
-            }, function(reason) {
-                if (reason === "cancelled") {
-                    self.task = null;
-                    // Continue with next replay.
-                }
-            });
+            }, callback);
 
-            sendMessage("replayRendering", {
+            sendMessage("replayRenderProgress", {
                 id: id,
                 progress: 0
             });
@@ -237,23 +266,9 @@ RenderManager.prototype._renderLoop = function(id) {
     this._render(id, function(err) {
         self.id = null;
         if (err) {
-            // TODO: Alert of rendering failure, but not if cancelled because that would
-            // be handled through a different way?
-        } else {
-            // TODO: Alert the menu of a newly rendered replay.
-            // TODO: Also remove the rendering property from the item.
-            // Remove the id from the render queue.
-            var db = getDb();
-            var transaction = db.transaction("task", "readwrite");
-            var taskStore = transaction.objectStore("task");
-            var request = taskStore.get("renders");
-            request.onsuccess = function(event) {
-                var queue = event.target.result;
-                var index = queue.indexOf(id);
-                if (index !== -1) {
-                    queue.splice(index, 1);
-                    var request = taskStore.put(queue, "renders");
-                    request.onsuccess = function() {
+            if (err === "cancelled") {
+                self.getQueue(function(err, queue) {
+                    if (!err) {
                         if (queue.length > 0) {
                             self._renderLoop(queue[0]);
                         } else {
@@ -261,10 +276,49 @@ RenderManager.prototype._renderLoop = function(id) {
                             self.rendering = false;
                             setStatus("idle");
                         }
-                    };
-                } else {
-                    // TODO: Handle job not found error?
-                }
+                    }
+                });
+                // Nothing to do.
+            } else {
+                // TODO: Alert of render failure.
+            }
+        } else {
+            // Remove the id from the render queue.
+            var transaction = getDb().transaction(["task", "info"], "readwrite");
+            var taskStore = transaction.objectStore("task");
+            var infoStore = transaction.objectStore("info");
+            infoStore.get(id).onsuccess = function(event) {
+                var info = event.target.result;
+                if (info && info.rendering) {
+                    info.rendering = false;
+                    // TODO: Handle error.
+                    infoStore.put(info);
+                } // TODO: Handle not rendering?
+                taskStore.get("renders").onsuccess = function(event) {
+                    var queue = event.target.result;
+                    var index = queue.indexOf(id);
+                    if (index !== -1) {
+                        queue.splice(index, 1);
+                        // TODO: Handle queue update error?
+                        taskStore.put(queue, "renders").onsuccess = function() {
+                            if (queue.length > 0) {
+                                self._renderLoop(queue[0]);
+                            } else {
+                                // Done with rendering for the moment.
+                                self.rendering = false;
+                                setStatus("idle");
+                            }
+                        };
+                    } else {
+                        // TODO: Handle job not found error?
+                    }
+                };
+            };
+
+            transaction.oncomplete = function() {
+                sendMessage("replayRenderCompleted", {
+                    id: id
+                });
             };
         }
     });
@@ -275,13 +329,14 @@ RenderManager.prototype._renderLoop = function(id) {
  * @param {DBCallback} callback - The callback that receives the render queue.
  */
 RenderManager.prototype.getQueue = function(callback) {
-    // TODO: Ensure transaction is complete?
+    // TODO: Ensure transaction is complete so queue can be used in
+    // other situations?
     var db = getDb();
     var transaction = db.transaction("task");
     var taskStore = transaction.objectStore("task");
     var request = taskStore.get("renders");
     request.onsuccess = function(event) {
-        callback(event.target.result);
+        callback(null, event.target.result);
     };
 };
 

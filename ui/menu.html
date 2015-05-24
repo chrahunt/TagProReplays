@@ -21,7 +21,7 @@
                     <table class="table table-condensed" class="section-headers">
                         <thead>
                         <tr>
-                            <th class="col-sm-1"><input type="checkbox" id="selectAllCheckbox" style="float:right;"></th>
+                            <th class="text-right col-sm-1"><input type="checkbox" class="select-all"></th>
                             <th class="list-header col-sm-3" id="nameHeader">Name</th>
                             <th class="list-header col-sm-1" id="renderedHeader">Rendered</th>
                             <th class="list-header col-sm-1" id="durationHeader">Duration</th>
@@ -47,7 +47,7 @@
                         <table class="table table-condensed">
                             <tbody>
                             <tr class="replayRow clone">
-                                <td class="text-right"><input type="checkbox" class="selected-checkbox"></td>
+                                <td class="text-right col-sm-1"><input type="checkbox" class="selected-checkbox"></td>
                                 <td class="col-sm-3"><a class="playback-link" data-toggle="popover" href="#"></a></td>
                                 <td class="col-sm-1">
                                     <div class="rendered-check"></div>
@@ -73,7 +73,7 @@
                     <table class="table table-condensed" class="section-headers">
                         <thead>
                         <tr>
-                            <th class="col-sm-1"><input type="checkbox" id="selectAllCheckbox" style="float:right;"></th>
+                            <th class="text-right col-sm-1"><input type="checkbox" class="select-all"></th>
                             <th class="list-header col-sm-3">Name</th>
                             <th class="list-header col-sm-2">Date</th>
                             <th class="list-header col-sm-1">Status</th>
@@ -98,16 +98,16 @@
                         <table class="table table-condensed">
                             <tbody>
                             <tr class="render-row clone">
-                                <td class="text-right"><input type="checkbox" class="selected-checkbox"></td>
+                                <td class="col-sm-1 text-right"><input type="checkbox" class="selected-checkbox"></td>
                                 <td class="col-sm-3"><span class="render-name">render</span></td>
-                                <td class="col-sm-1">
-                                    <span class="render-status"></span>
+                                <td class="col-sm-2">
+                                    <span class="render-date"></span>
                                 </td>
                                 <td class="col-sm-1">
-                                    <div class="duration"></div>
+                                    <span class="status"></span>
                                 </td>
                                 <td class="col-sm-2">
-                                    <txt class="replay-date"></txt>
+                                    <div class="render-progress"></div>
                                 </td>
                                 <td class="col-sm-1">
                                     <button class="cancel-render-button">Cancel</button>
@@ -118,15 +118,20 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div id="replay-footer" class="modal-footer">
                 <div class="pull-left">
-                    <button type="button" class="btn btn-danger" id="deleteSelectedButton">Delete Selected</button>
-                    <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
-                    <button type="button" class="btn btn-primary" id="downloadRawButton">Download Raw Data</button>
+                    <button type="button" class="btn btn-danger selected-action" id="deleteSelectedButton">Delete Selected</button>
+                    <button type="button" class="btn btn-primary selected-action" id="renderSelectedButton">Render Selected</button>
+                    <button type="button" class="btn btn-primary selected-action" id="downloadRawButton">Download Raw Data</button>
                 </div>
                 <div class="pull-right">
                     <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
                     <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input" multiple="multiple">
+                </div>
+            </div>
+            <div id="render-footer" class="modal-footer">
+                <div class="pull-left">
+                    <button type="button" class="btn btn-danger selected-action" id="cancel-selected-button">Cancel Selected</button>
                 </div>
             </div>
         </div>

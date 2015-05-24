@@ -86,10 +86,11 @@ Task.prototype._run = function(resolve, reject) {
     reject("cancelled");
   } else if (this.paused || this.waiting) {
     setTimeout(function() {
-      resolve(new Promise(this._run.bind(this)));
+      //resolve(new Promise(this._run.bind(this)));
+      this._run(resolve, reject);
     }.bind(this), this.polling_length);
   } else {
-    var stop = Math.min(this.end, this.iteration + this.rate);
+    var stop = Math.min(this.end, this.iteration + Math.floor(this.rate));
 
     for (; this.iteration < stop; this.iteration++) {
       var start = performance.now();
@@ -102,8 +103,11 @@ Task.prototype._run = function(resolve, reject) {
     if (this.iteration === this.end) {
       resolve(this.tmpl.context);
     } else {
+      var now = performance.now();
       setTimeout(function() {
-        resolve(new Promise(this._run.bind(this)));
+        console.log("Time between cycles: " + (performance.now() - now) + "ms.");
+        //resolve(new Promise(this._run.bind(this)));
+        this._run(resolve, reject);
       }.bind(this), this.wait);
     }
   }

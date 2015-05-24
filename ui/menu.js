@@ -104,24 +104,30 @@ Menu.prototype._init = function() {
         }
     };
 
+    // Menu navigation.
     $(".nav-home").click(function() {
         $(this).addClass("active");
         $(".nav-render").removeClass("active");
         $("#replays").show();
+        $("#replay-footer").show();
         $("#rendering").hide();
+        $("#render-footer").hide();
     });
 
     $(".nav-render").click(function() {
         $(this).addClass("active");
         $(".nav-home").removeClass("active");
         $("#rendering").show();
+        $("#render-footer").show();
         $("#replays").hide();
+        $("#replay-footer").hide();
     });
 
     // Run initialization for other parts of the menu.
     this._initListeners();
     this._initSettings();
     this._initReplayList();
+    this._initRenderList();
 };
 
 /**
@@ -141,72 +147,26 @@ Menu.prototype._initState = function() {
     this.stateCallbacks = [];
     this.state = {
         loaded: false,
-        rendering: false,
         background: null
     };
 
-    addStateCallback({ background: "rendering", rendering: false, loaded: false }, function() {
+    addStateCallback({ background: "rendering", loaded: false }, function() {
         this.alert.warn("render",
             "Background page is still rendering, it may take a moment to load your replays.");
     });
 
-    addStateCallback({ background: "rendering", rendering: false, loaded: true }, function() {
+    addStateCallback({ background: "rendering", loaded: true }, function() {
         this.alert.warn("render",
-            "Background page is still rendering, some functions will be unavailable until it is complete.");
+            "Background page is rendering, some functions will be slower until it is complete.");
     });
 
-    addStateCallback({ background: "rendering", rendering: true }, function() {
-        this.alert.warn("render",
-            "Background page is rendering, some functions will be unavailable until it is complete.");
-    });
-
-    addStateCallback({ background: "idle", rendering: false, loaded: true, empty: false }, function() {
+    addStateCallback({ background: "idle" }, function() {
         this.alert.hide("render");
-        $('.rename-button').prop('disabled', false);
-        $('#deleteSelectedButton').prop('disabled', false);
-        $('#renderSelectedButton').prop('disabled', false);
-        $('#downloadRawButton').prop('disabled', false);
-        $(".rendered .download-movie-button").prop('disabled', false);
-    });
-
-    addStateCallback({ empty: true }, function() {
-        $('#replays .section-empty').show();
-        $('#replays .section-list').hide();
-
-        $('#renderSelectedButton').prop('disabled', true);
-        $('#deleteSelectedButton').prop('disabled', true);
-        $('#downloadRawButton').prop('disabled', true);
-        $('#selectAllCheckbox').prop('checked', false);
-        $('#selectAllCheckbox').prop('disabled', true);
-    });
-
-    addStateCallback({ empty: false }, function() {
-        $('#replays .section-list').show();
-        $('#replays .section-empty').hide();
-        
-        $('#selectAllCheckbox').prop('disabled', false);
     });
 
     addStateCallback({ background: "upgrading" }, function() {
         this.alert.info("upgrade",
             "The background page is doing an extension update, this may take some time.");
-    });
-
-    function renderingUI() {
-        console.log("Running render UI change.");
-        $('.rename-button').prop('disabled', true);
-        $('.download-movie-button').prop('disabled', true);
-        $('#renderSelectedButton').prop('disabled', true);
-        $('#deleteSelectedButton').prop('disabled', true);
-        $('#downloadRawButton').prop('disabled', true);
-    }
-
-    addStateCallback({ background: "rendering" }, renderingUI);
-    addStateCallback({ rendering: true }, renderingUI);
-    addStateCallback({ background: "idle", rendering: false }, function() {
-        $('.rename-button').prop('disabled', false);
-        $('#deleteSelectedButton').prop('disabled', false);
-        $('#renderSelectedButton').prop('disabled', false);
     });
 
     // Listen for background status change.
@@ -236,9 +196,14 @@ Menu.prototype._initReplayList = function() {
     $('#downloadRawButton').click(this._list_RawDownload.bind(this));
 
     // "Select all" checkbox.
-    $("#selectAllCheckbox").change(function() {
+    $("#replays .select-all").change(function() {
         $(".replayRow:not(.clone) .selected-checkbox")
             .prop("checked", this.checked);
+        if (this.checked) {
+            $("#replay-footer .selected-action").prop("disabled", false);
+        } else {
+            $("#replay-footer .selected-action").prop("disabled", true);
+        }
     });
 
     /*
@@ -302,7 +267,7 @@ Menu.prototype._initReplayList = function() {
             });
         }
     });
-    $("#replays .section-list tbody").on("click", ".selected-checkbox", this._entry_Check());
+    $("#replays .section-list tbody").on("click", ".selected-checkbox", this._entry_Check("replay"));
 
     // Initialize listener for list modifications.
     var target = $('#replays .section-list tbody')[0];
@@ -321,24 +286,78 @@ Menu.prototype._initReplayList = function() {
     $(window).resize(this._setListWidth);
 
     // Send request for initially populating list.
-    chrome.runtime.sendMessage({
-        method: 'getReplayList'
-    }, function(response) {
+    sendMessage("getReplayList", function(response) {
         var replays = response.data;
         // Hide loader.
         $('#replays .section-loading').hide();
+        var rendering = {};
         replays.forEach(function(replay) {
-            this.addRow(replay);
-        }, this);
+            if (!replay.rendering) {
+                menu.addRow(replay);
+            } else {
+                rendering[replay.id] = replay;
+            }
+        });
         // Sort the replays.
-        this.sort(this._getSortType('sortMethod'));
-        this.listInitialized = true;
-        this.updateState("loaded", true);
-    }.bind(this));
+        menu.sort(menu._getSortType('sortMethod'));
+        // Get the order of renders and make render rows.
+        sendMessage("getRenderList", function(response) {
+            $('#rendering .section-loading').hide();
+            var list = response.data;
+            var renders = list.map(function(id) {
+                return rendering[id];
+            }).filter(function(replay) {
+                return !!replay;
+            });
+            renders.forEach(function(replay) {
+                menu.addRenderRow(replay);
+            });
+            menu.listInitialized = true;
+            menu.updateState("loaded", true);
+        });
+    });
 
     // Initially set list UI in case above request doesn't result in
     // any new rows being added.
     this._list_Update();
+};
+
+Menu.prototype._initRenderList = function() {
+    var self = this;
+
+    // "Select all" checkbox.
+    $("#rendering .select-all").change(function() {
+        $(".render-row:not(.clone) .selected-checkbox")
+            .prop("checked", this.checked);
+        if (this.checked) {
+            $("#render-footer .selected-action").prop("disabled", false);
+        } else {
+            $("#render-footer .selected-action").prop("disabled", true);
+        }
+    });
+
+    // Single cancellation buttons.
+    $("#rendering .section-list tbody").on("click", ".cancel-render-button", function() {
+        var id = $(this).closest('tr').data("info").id;
+        console.log('Requesting render cancellation for replay ' + id + '.');
+        sendMessage("cancelRender", {
+            id: id
+        });
+    });
+
+    // Multi-cancellation buttons.
+    $('#cancel-selected-button').click(function() {
+        var ids = self.getCheckedEntries("render");
+        if (ids.length > 0) {
+            sendMessage("cancelRenders", {
+                ids: ids
+            });
+        } else {
+            alert("You have to select at least 1 render.");
+        }
+    });
+
+    $("#rendering .section-list tbody").on("click", ".selected-checkbox", this._entry_Check("render"));
 };
 
 /**
@@ -448,22 +467,70 @@ Menu.prototype._initListeners = function() {
     }.bind(this));
 
     /**
+     * Notification that replays have been set to render.
+     * @param {object} message - with property `ids` which is an array
+     *   of integer ids.
+     */
+    messageListener("replayRenderAdded",
+    function (message, sender, sendResponse) {
+        var ids = message.ids;
+        ids.map(function(id) {
+            return $("#replay-" + id).data("info");
+        }).filter(function(replay) {
+            return !!replay;
+        }).forEach(function(replay) {
+            replay.rendering = true;
+            this.removeRow(replay.id);
+            this.addRenderRow(replay);
+        }, this);
+    }.bind(this));
+
+    /**
+     * Notification that rendering has been cancelled for replays.
+     */
+    messageListener("replayRenderCancelled",
+    function (message, sender, sendResponse) {
+        var ids = message.ids;
+        // TODO: Set render status as being cancelled on page?
+        ids.map(function(id) {
+            return $("#render-" + id).data("info");
+        }).filter(function(replay) {
+            return !!replay;
+        }).forEach(function(replay) {
+            replay.rendering = false;
+            this.removeRenderRow(replay.id);
+            this.addRow(replay);
+        }, this);
+    }.bind(this));
+
+    /**
      * Notification that a replay is in the process of being rendered.
      * Create/update progress bar and ensure editing functionality for
      * the specific replay is disabled.
      */
-    messageListener("replayRendering",
+    messageListener("replayRenderProgress",
     function(message, sender, sendResponse) {
-        console.log('Received notice that ' + message.id + ' is being rendered.');
-        // Update UI for rendering mode.
-        if (this.listInitialized && !$('#replay-' + message.id).data('rendering')) {
-            $('#replay-' + message.id).data('rendering', true);
-            $('#replay-' + message.id + ' .rendered-check').html('<progress class="progressbar">');
-            // TODO: Disable editing buttons on in-page-previewer.
+        var id = message.id;
+        console.log('Received notice that ' + id + ' is being rendered.');
+        // Ensure that menu is loaded and check if this replay is still in replay list.
+        if (this.listInitialized) {
+            // Ensure that replay row is made into render row.
+            if ($('#replay-' + id).length > 0) {
+                var replay = $("#replay-" + id).data("info");
+                replay.rendering = true;
+                this.removeRow(id);
+                this.addRenderRow(replay);
+            }
+            $("#render-" + id + " .render-status").text("Rendering...");
+            // TODO: Add progress bar.
+            $("#render-" + id + " .render-progress").html("<div class='progress'>" +
+                "<div class='progress-bar'></div></div>");
         }
 
-        if ($('#replay-' + message.id).data('rendering')) {
-            $('#replay-' + message.id + ' .progressbar')[0].value = message.progress;
+        // TODO: Better progress bar.
+        // TODO: Estimated time remaining.
+        if ($('#render-' + id).length > 0) {
+            $('#render-' + id + ' .progress-bar').css("width", (message.progress * 100) + "%");
         }
     }.bind(this));
 
@@ -472,11 +539,16 @@ Menu.prototype._initListeners = function() {
      * updated with the result of the rendering.
      * message has properties failure and name.
      */
-    messageListener("replayRendered",
+    messageListener("replayRenderCompleted",
     function(message, sender, sendResponse) {
-        $('#replay-' + message.id + ' .progressbar').remove();
-        $('#replay-' + message.id).removeData('rendering');
-
+        var id = message.id;
+        console.log("Received notice that replay " + id + " has finished rendering.");
+        var replay = $("#render-" + id).data("info");
+        replay.rendered = true;
+        replay.rendering = false;
+        this.removeRenderRow(id);
+        this.addRow(replay);
+        
         if (message.failure) {
             console.log('Rendering of ' + message.id + ' was a failure.');
             $('#replay-' + message.id + ' .rendered-check').text('✘');
@@ -486,7 +558,7 @@ Menu.prototype._initListeners = function() {
             $('#replay-' + message.id + ' .rendered-check').text('✓');
             $('#replay-' + message.id + ' .download-movie-button').prop('disabled', false);
         }
-    });
+    }.bind(this));
 };
 
 /**
@@ -569,14 +641,33 @@ Menu.prototype._list_Import = function() {
  * Function called in response to a list update.
  */
 Menu.prototype._list_Update = function() {
-    var entries = $('#replays .section-list .replayRow').not('.clone');
-    $(".nav-home .badge").text(entries.length);
-    if (entries.length === 0) {
-        this.updateState("empty", true);
+    var replayEntries = $('#replays .section-list .replayRow').not('.clone');
+    $(".nav-home .badge").text(replayEntries.length);
+    if (replayEntries.length === 0) {
+        $('#replays .section-empty').show();
+        $('#replays .section-list').hide();
+        $('#replays .select-all').prop("disabled", true);
+        $('#replay-footer .selected-action').prop("disabled", true);
     } else {
-        this.updateState("empty", false);
+        $('#replays .section-list').show();
+        $('#replays .section-empty').hide();
+        $('#replays .select-all').prop("disabled", false);
     }
 
+    var renderEntries = $('#rendering .section-list .render-row').not('.clone');
+    $(".nav-render .badge").text(renderEntries.length);
+    if (renderEntries.length === 0) {
+        $('#rendering .section-empty').show();
+        $('#rendering .section-list').hide();
+        $('#rendering .select-all').prop("disabled", true);
+        $("#render-footer .selected-action").prop("disabled", true);
+    } else {
+        $('#rendering .section-list').show();
+        $('#rendering .section-empty').hide();
+        $('#rendering .select-all').prop("disabled", false);
+    }
+
+    // TODO: Force to use the current panel.
     // Updating.
     $('#replays .section-list').height('auto');
     // Automatic height adjustment for replay list.
@@ -618,7 +709,7 @@ Menu.prototype._setListWidth = function() {
 Menu.prototype._list_Render = function() {
     var menu = this;
 
-    var ids = this.getCheckedEntries();
+    var ids = this.getCheckedEntries("replay");
     if (ids.length > 0) {
         sendMessage("renderReplays", {
             ids: ids
@@ -635,7 +726,7 @@ Menu.prototype._list_Render = function() {
  * Delete checked items on the replay list after confirmation.
  */
 Menu.prototype._list_Delete = function() {
-    var ids = this.getCheckedEntries();
+    var ids = this.getCheckedEntries("replay");
 
     if (ids.length > 0) {
         if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
@@ -652,7 +743,7 @@ Menu.prototype._list_Delete = function() {
  * Download raw replay data corresponding to checked items.
  */
 Menu.prototype._list_RawDownload = function() {
-    var ids = this.getCheckedEntries();
+    var ids = this.getCheckedEntries("replay");
     if (ids.length > 0) {
         console.log('Requesting raw replay download for ' + ids + '.');
         chrome.runtime.sendMessage({
@@ -749,24 +840,29 @@ Menu.prototype._entry_Preview = function() {
 
 /**
  * Returns callback for entry checkboxes to support the shift-click
- * multi-select behavior.
+ * multi-select behavior. Also updates buttons that are related to
+ * selected replays/renders to be enabled/disabled.
+ * @param {string} scope - One of "replay" or "render" to limit effects to
+ *   one or the other panel.
  * @return {Function} - The function to be used as a callback on entry
  *   checkboxes.
  */
-Menu.prototype._entry_Check = function() {
+Menu.prototype._entry_Check = function(scope) {
+    var rowSelector = scope === "replay" ? ".replayRow" : ".render-row";
+    var footerSelector = scope === "replay" ? "#replay-footer" : "#render-footer";
     return function(e) {
-        var boxesChecked = $('.replayRow:not(.clone) .selected-checkbox:checked').length;
+        var boxesChecked = $(rowSelector + ':not(.clone) .selected-checkbox:checked').length;
         if(this.checked && e.shiftKey && boxesChecked > 1) {
-            var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
+            var boxes = $(rowSelector + ':not(.clone) .selected-checkbox'),
                 closestBox,
                 thisBox;
             for(var i = 0; i < boxes.length; i++) {
                 if ( this == boxes[i] ) { 
-                    var thisBox = i; 
+                    thisBox = i; 
                     if (closestBox) break;
                     continue;
                 }
-                if (boxes[i].checked) var closestBox = i;
+                if (boxes[i].checked) closestBox = i;
                 if ( thisBox && closestBox ) break;
             }
             var bounds = [closestBox, thisBox].sort(function(a, b){
@@ -775,6 +871,11 @@ Menu.prototype._entry_Check = function() {
             boxes.map(function(num, box) { 
                 if(num > bounds[0] && num < bounds[1]) box.checked = true;
             });
+            $(footerSelector + " .selected-action").prop("disabled", false);
+        } else if (boxesChecked > 0) {
+            $(footerSelector + " .selected-action").prop("disabled", false);
+        } else if (boxesChecked === 0) {
+            $(footerSelector + " .selected-action").prop("disabled", true);
         }
     };
 };
@@ -1056,7 +1157,7 @@ Menu.prototype.addRow = function(replay) {
     newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
     newRow.find('.duration').text(duration.format("m:ss"));
     newRow[0].title = titleText;
-    $('#replays .section-list tbody').prepend(newRow);
+    $('#replays .section-list tbody').append(newRow);
 };
 
 /**
@@ -1073,37 +1174,9 @@ Menu.prototype.removeRow = function(id) {
  *   rendered.
  */
 Menu.prototype.addRenderRow = function(replay) {
-    // Formats metadata object to put into title text.
-    function getTitleText(replay) {
-        var title = '';
-        title += "Map: " + replay.mapName + "\n";
-        title += "FPS: " + replay.fps + "\n";
-        var red = [];
-        var blue = [];
-        $.each(replay.players, function(id, player) {
-            var name;
-            if (id == replay.player) {
-                name = player.name + " (*)";
-            } else {
-                name = player.name;
-            }
-            if (player.team === 1) {
-                red.push(name);
-            } else {
-                blue.push(name);
-            }
-        });
-        title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
-        title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
-        return title;
-    }
-
     var id = replay.id;
     var name = replay.name;
     var date = moment(replay.dateRecorded);
-    var duration = moment.utc(replay.duration);
-    var titleText = getTitleText(replay);
-    var rendered = replay.rendered;
     
     var newRow = $('#rendering .section-list .render-row.clone:first').clone(true);
     newRow.removeClass('clone');
@@ -1112,12 +1185,9 @@ Menu.prototype.addRenderRow = function(replay) {
     newRow.attr("id", "render-" + id);
     // Set name text.
     newRow.find('.render-name').text(name);
-    // TODO: Get render status (rendering, queued)
-    newRow.find('.render-status').text();
-    newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
-    newRow.find('.duration').text(duration.format("m:ss"));
-    newRow[0].title = titleText;
-    $('#replays .section-list tbody').prepend(newRow);
+    newRow.find('.render-date').text(date.format("ddd MMM D, YYYY h:mm A"));
+    newRow.find('.render-status').text("Queued..."); // Default status.
+    $('#rendering .section-list tbody').prepend(newRow);
 };
 
 Menu.prototype.removeRenderRow = function(id) {
@@ -1126,13 +1196,16 @@ Menu.prototype.removeRenderRow = function(id) {
 
 /**
  * Retrieve currently checked table entries.
+ * @param {string} type - The type of checkboxes to get, either
+ *   "replay" or "render".
  * @return {Array.<string>} - The replay ids corresponding to the
  *   checked rows.
  */
-Menu.prototype.getCheckedEntries = function() {
+Menu.prototype.getCheckedEntries = function(type) {
     var checkedEntries = [];
     var menu = this;
-    $('.selected-checkbox').each(function () {
+    var scope = type === "replay" ? "#replays" : "#rendering";
+    $(scope + ' .selected-checkbox').each(function () {
         if (this.checked) {
             checkedEntries.push(menu._getRowInfo(this).id);
         }

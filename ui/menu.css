@@ -133,6 +133,10 @@
     display: none;
 }
 
+#tpr-container #render-footer {
+    display: none;
+}
+
 /*#tpr-container #alert-message {
     display: none;
 }*/
