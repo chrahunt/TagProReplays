@@ -14,10 +14,38 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 
 ## Development
 
+### Building the Extension
+
+```
+npm install
+gulp browserify  # or ./node_modules/.bin/gulp if not installed globally
+```
+
+When the extension is built, the `background.js`, `TagProReplays.js`, and `replayRecording.js` files are run through browserify and their output is placed in the `js` directory of `build`. The folders `css`, `html`, and `images` are also copied over to `build`. As a result, references to assets using `chrome.extension.getURL` can assume the same relative location as in the `src` directory.
+
+Dependencies are resolved by browserify at compile-time, but the assets that may be required for those extensions are moved from their respective folders and into the `build` directory. This applies to bootstrap and jQuery-UI, and their CSS has been updated to properly refer to the images in the build directory.
+
+`require` resolution for internal modules is done by specifying the relative location, but third-party dependencies (both in `lib` and those installed as node modules) are defined in `package.json` under the `browser` key. See [browserify-shim](https://github.com/thlorenz/browserify-shim) for more information on this.
+
+### Developing on the Extension
+
+1. watchify
+
+### More Information
+
+**Customized Dependencies**
+
+As mentioned below, one reason for having specific dependencies included in the extension is because they required changes before use. Those changes are documented here:
+* Bootstrap (3.2.0): CSS compiled so that any and all changes are scoped to `.bootstrap-container`. URL for fonts substituted to use `chrome-extension://__MSG_@@extension_id__/`, which allows it to resolve the file even as a content-script injected file.
+* jQuery-UI (1.11.4): CSS scoped to `.jquery-ui-container` and image resource references changed similar to the above.
+* FileSaver: No changes, just easier to shim than using the bower module.
+* spinkit: No changes.
+* Whammy: No changes, just needed to shim.
+
 **Extension File Organization**:
-* **img/**: Holds the default image assets used by the extension for the user interface and as textures for replay rendering.
-* **lib/**: Directory to hold third-party libraries used by the extension.
-* **ui/**: Holds the assets and html that correspond to the in-page user interface for the extension.
+* **build/**: This is the directory that the extension gets built to.
+* **lib/**: Third-party libraries that either don't have a proper module, or which required customization.
+* **src/**: Main source files for the extension.
 * **background.js**: The background page for the extension. It handles initial setup of the database that holds the extension data as well as the rendered movie data. It also has functions for getting and setting the textures, rendering movies, and other tasks to support the user interface.
 * **cookies.js**: Utility script with functions for getting and setting cookies.
 * **filesystem.js**: FileSystem API interface for storing, retrieving, and deleting rendered webm videos.

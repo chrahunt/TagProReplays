@@ -1,68 +1,26 @@
-var gulp = require('gulp'),
-    inject = require('gulp-inject'),
-    rename = require('gulp-rename'),
-    mochaPhantomJS = require('gulp-mocha-phantomjs');
+var source = require('vinyl-source-stream');
+//var streamify = require('gulp-streamify');
+var browserify = require('browserify');
+var rename = require('gulp-rename');
+var gulp = require('gulp');
 
-var background_libs = [
-    'migrations.js',
-    'filesystem.js',
-    'indexedDBUtils.js',
-    'map_draw_functions.js',
-    'messaging.js'
-];
+// using vinyl-source-stream:
+gulp.task('browserify', function() {
+  browserify('./src/background.js')
+    .bundle()
+    .pipe(source('./src/background.js'))
+    .pipe(rename('background.js'))
+    .pipe(gulp.dest('./build/js'));
 
-var background_test = [
-    'test/test-migrations.js'
-];
+  browserify('./src/TagProReplays.js')
+    .bundle()
+    .pipe(source('./src/TagProReplays.js'))
+    .pipe(rename('TagProReplays.js'))
+    .pipe(gulp.dest('./build/js'));
 
-var common_libs = [
-    'barrier.js'
-];
-
-var common_test = [
-    'test/test-barrier.js'
-];
-
-var content_libs = [
-    'cookies.js',
-    'messaging.js',
-    'textures.js'
-];
-
-var test_libs = [
-    'expect.js/index.js',
-    'mocha/mocha.js',
-    // Dependency for chrome stubs.
-    'sinon/pkg/sinon.js',
-    // Chrome stubs.
-    'sinon-chrome/chrome.js',
-    'sinon-chrome/phantom-tweaks.js'
-].map(function(lib) {return 'node_modules/' + lib;});
-
-gulp.task('inject-tests', function() {
-    var sources = background_libs.concat(common_libs);
-    var tests = background_test.concat(common_test);
-    return gulp.src('test/index-template.html')
-        // source files.
-        .pipe(inject(
-            gulp.src(sources, {read: false}),
-            {name: 'scripts', relative: true}
-        ))
-        // Testing libraries.
-        .pipe(inject(
-            gulp.src(test_libs, {read: false}),
-            {name: 'libs', relative: true}
-        ))
-        // test files.
-        .pipe(inject(
-            gulp.src(tests, {read: false}),
-            {name: 'tests', relative: true}
-        ))
-        .pipe(rename('index.html'))
-        .pipe(gulp.dest('test'));
-});
-
-gulp.task('test', ['inject-tests'], function() {
-    return gulp.src('test/index.html', {read: false})
-        .pipe(mochaPhantomJS());
+  browserify('./src/replayRecording.js')
+    .bundle()
+    .pipe(source('./src/replayRecording.js'))
+    .pipe(rename('replayRecording.js'))
+    .pipe(gulp.dest('./build/js'));
 });

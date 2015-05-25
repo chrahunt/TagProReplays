@@ -1,0 +1,142 @@
+#tpr-container {
+    color: #333;
+}
+
+#tpr-container .section-panel table {
+    table-layout: fixed;
+    margin-bottom: 0;
+}
+
+#tpr-container .section-list {
+    overflow-y: auto;
+}
+
+#tpr-container .section-headers th {
+    text-align: center;
+}
+
+#tpr-container .clone {
+    display: none;
+}
+
+#tpr-container .replayRow td:first-of-type, #replay-headers th:first-of-type {
+    width: 4%;
+}
+
+#tpr-container #tpr-settings {
+    font-size: 24px;
+    color: #999;
+}
+
+#tpr-container #tpr-settings:hover {
+    color: #222;
+}
+
+#tpr-container .input-xs {
+    height: 22px;
+    padding: 5px 5px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 3px;
+}
+
+#tpr-container .narrow-input {
+    width: 65px !important;
+}
+
+#tpr-container .control-label-sm {
+    padding-top: 0px;
+    margin-bottom: 0px;
+    text-align: right;
+}
+
+#tpr-container #noReplays {
+    display: none;
+}
+
+#tpr-container .rendered-check {
+    text-align: center;
+}
+
+#tpr-container .duration {
+    text-align: center;
+}
+
+#tpr-container .progressbar {
+    width: 100%;
+}
+
+#tpr-container button:disabled {
+    color: #BBB;
+}
+
+#tpr-container .focused {
+    border-color: #66afe9;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+}
+
+#tpr-container #record-key-input-container {
+    padding-top: 2px;
+    padding-right: 2px;
+    text-align: left;
+}
+
+#tpr-container #record-key-remove {
+    margin-top: 1px;
+    display: none;
+}
+
+#tpr-container .hidden-file-input {
+    display: none;
+}
+
+#tpr-container .popover {
+    max-width: 800px;
+    width: auto;
+}
+
+#tpr-container .list-header {
+    cursor: pointer;
+}
+
+#tpr-container .modal-body {
+    padding-bottom: 0px;
+}
+
+#tpr-container .section-empty {
+    height: 36px;
+}
+
+#tpr-container .section-empty p {
+    line-height: 36px;
+    margin: 0px;
+}
+
+#tpr-container .section-loading {
+    height: 36px;
+    padding-top: 3px;
+}
+
+/* Vertically center spinner for animation */
+#tpr-container .replayRow .popover .sk-spinner {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Static height for vertical centering. */
+#tpr-container .popover-content {
+    height: 100%;
+}
+
+#tpr-container #rendering {
+    display: none;
+}
+
+#tpr-container #render-footer {
+    display: none;
+}
+
+/*#tpr-container #alert-message {
+    display: none;
+}*/
