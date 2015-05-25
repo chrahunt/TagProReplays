@@ -4,11 +4,11 @@ require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
 
-var Barrier = require('./modules/barrier');
-var Cookies = require('./modules/cookies');
-var Messaging = require('./modules/messaging');
-var Status = require('./modules/status');
-var Textures = require('./modules/textures');
+var Barrier = require('./barrier');
+var Cookies = require('./cookies');
+var Messaging = require('./messaging');
+var Status = require('./status');
+var Textures = require('./textures');
 var Viewer = require('./viewer');
 
 /**

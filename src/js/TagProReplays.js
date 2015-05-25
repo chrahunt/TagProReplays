@@ -2,7 +2,7 @@ var $ = require('jquery');
 
 var Cookies = require('./modules/cookies');
 var Messaging = require('./modules/messaging');
-var Menu = require('./menu');
+var Menu = require('./modules/menu');
 
 /**
  * Takes page-specific actions, either initializing the main menu on

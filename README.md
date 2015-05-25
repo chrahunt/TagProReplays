@@ -4,6 +4,8 @@ TagProReplays is a Chrome extension designed to enable users to record short cli
 
 This Chrome extension is meant to serve as a replacement for screen capture software like OBS for users that don't require all the features or whose computers take a performance hit when running both the game and the screen capture software at the same time.
 
+This project was initially authored by [Ballparts](https://github.com/ballparts), who may still pop in from time-to-time.
+
 ## Where do I get the extension?
 
 You can find the TagProReplays Extension in the Chrome Web Store [here](https://chrome.google.com/webstore/detail/tagproreplays/ejbnakhldlocljfcglmeibhhdnmmcodh).
@@ -16,20 +18,24 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 
 ### Building the Extension
 
+There are two options for building the extension, development and production, which correspond to the `build-dev` and `build-prod` gulp tasks, respectively. The development build drops all the files into `build/dev` and includes source maps (TODO: incorporate watchify and gulp-watch). The production build puts the files into `build/release` and is only for releases.
+
+In either case, when the extension is built, all non-JS files are copied into the relevant folder from `src` and `vendor`, then the files in the top-level of `src/js` are compiled using browserify and placed in the `js` directory of the target folder for the build.
+
 ```
 npm install
-gulp browserify  # or ./node_modules/.bin/gulp if not installed globally
+gulp build-dev  # or ./node_modules/.bin/gulp if not installed globally
 ```
 
-When the extension is built, the `background.js`, `TagProReplays.js`, and `replayRecording.js` files are run through browserify and their output is placed in the `js` directory of `build`. The folders `css`, `html`, and `images` are also copied over to `build`. As a result, references to assets using `chrome.extension.getURL` can assume the same relative location as in the `src` directory.
+References to assets using `chrome.extension.getURL` can assume the same relative location as in the `src` directory.
 
-Dependencies are resolved by browserify at compile-time, but the assets that may be required for those extensions are moved from their respective folders and into the `build` directory. This applies to bootstrap and jQuery-UI, and their CSS has been updated to properly refer to the images in the build directory.
+Dependencies are resolved by browserify at compile-time, but the assets that may be required for those libraries are moved from their respective folders and into the `build` directory. This applies to bootstrap and jQuery-UI, and their CSS has been updated to properly refer to the images in the build directory.
 
-`require` resolution for internal modules is done by specifying the relative location, but third-party dependencies (both in `lib` and those installed as node modules) are defined in `package.json` under the `browser` key. See [browserify-shim](https://github.com/thlorenz/browserify-shim) for more information on this.
+`require` resolution for internal modules is done by specifying the relative location, but third-party dependencies (both in `vendor` and those installed as node modules) can be accessed using aliases defined in `package.json` under the `browser` key. See [browserify-shim](https://github.com/thlorenz/browserify-shim) for more information on this.
 
 ### Developing on the Extension
 
-1. watchify
+1. with watchify
 
 ### More Information
 
@@ -43,22 +49,14 @@ As mentioned below, one reason for having specific dependencies included in the 
 * Whammy: No changes, just needed to shim.
 
 **Extension File Organization**:
-* **build/**: This is the directory that the extension gets built to.
-* **lib/**: Third-party libraries that either don't have a proper module, or which required customization.
+* **build/**: This is the directory that the extension gets built to. `dev` is the target for the development build process and `release` is the target for the production build.
 * **src/**: Main source files for the extension.
-* **background.js**: The background page for the extension. It handles initial setup of the database that holds the extension data as well as the rendered movie data. It also has functions for getting and setting the textures, rendering movies, and other tasks to support the user interface.
-* **cookies.js**: Utility script with functions for getting and setting cookies.
-* **filesystem.js**: FileSystem API interface for storing, retrieving, and deleting rendered webm videos.
-* **in-page-preview.js**: Create the in-browser replay viewer UI and provide additional functions for editing the replay from the replay viewer.
-* **indexedDBUtils.js**: Provides interface for interaction with IndexedDB store, which is used for holding replay information.
-* **map_draw_functions.js**: Contains methods for drawing and animating replays from the raw position/game state data.
-* **menu.js**: Provides the interface to the in-page user interface. Initialized on tagprop server home pages by `TagProReplays.js`.
-* **messaging.js**: Provides messaging interface for content script <=> background script messaging.
-* **replayRecordings.js**: Content script for in-game recording. This is injected by code in TagProReplays.js when the user is in a game.
-* **TagProReplays.js**: The main content script. Contains functions for initializing the user interface, injecting the recording script into the game page, updating the settings cookies used by the recording script, and relaying recorded information to the background page to be saved.
-* **textures.js**: Contains functions for generating DataURL representations for textures from URLs as well as retrieving and converting textures between different formats.
+    - **js/**: Files directly under this directory are treated as individual entry points for the browserify build.
+        + **modules/**: These files are disregarded by the build process (it's assumed that they'll be required by the top-level js files).
+* **vendor/**: Third-party libraries that either don't have a proper module, or which required customization. Subdirectories other than `js` are copied to the `build` directory on build.
 
 For CSS content scripts, ensure that referenced resources are prepended with `chrome-extension://__MSG_@@extension_id__/`, and listed under `web_accessible_resources` in the manifest.
+
 ### Testing
 
 With [npm](https://github.com/npm/npm) installed, run `npm install` in the project root directory.

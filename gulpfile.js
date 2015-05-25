@@ -1,26 +1,51 @@
-var source = require('vinyl-source-stream');
-//var streamify = require('gulp-streamify');
-var browserify = require('browserify');
-var rename = require('gulp-rename');
-var gulp = require('gulp');
+var gulp = require('gulp'),
+    browserify = require('browserify'),
+    es = require('event-stream'),
+    glob = require('glob'),
+    rename = require('gulp-rename'),
+    source = require('vinyl-source-stream');
+
+gulp.task('build-dev', function() {
+    var bundle = glob('./src/js/*.js', function (err, files) {
+        var streams = files.map(function (entry) {
+            return browserify({
+                    entries: entry,
+                    debug: true
+                })
+                .bundle()
+                .pipe(source(entry.replace(/^\.\/src\//, '')))
+                .pipe(gulp.dest('./build/dev'));
+        });
+        return es.merge(streams);
+    });
+    // Copy asset files from src.
+    gulp.src(['./src/**/*', '!./src/js/**/*'])
+        .pipe(gulp.dest('./build/dev'));
+    // Copy asset files from vendor.
+    gulp.src(['./vendor/**/*', '!./vendor/js/**/*'])
+        .pipe(gulp.dest('./build/dev'));
+    return bundle;
+});
 
 // using vinyl-source-stream:
-gulp.task('browserify', function() {
-  browserify('./src/background.js')
-    .bundle()
-    .pipe(source('./src/background.js'))
-    .pipe(rename('background.js'))
-    .pipe(gulp.dest('./build/js'));
-
-  browserify('./src/TagProReplays.js')
-    .bundle()
-    .pipe(source('./src/TagProReplays.js'))
-    .pipe(rename('TagProReplays.js'))
-    .pipe(gulp.dest('./build/js'));
-
-  browserify('./src/replayRecording.js')
-    .bundle()
-    .pipe(source('./src/replayRecording.js'))
-    .pipe(rename('replayRecording.js'))
-    .pipe(gulp.dest('./build/js'));
+gulp.task('build-prod', function() {
+    var dir = "./build/release";
+    var bundle = glob('./src/js/*.js', function (err, files) {
+        var streams = files.map(function (entry) {
+            return browserify({
+                    entries: entry
+                })
+                .bundle()
+                .pipe(source(entry.replace(/^\.\/src\//, '')))
+                .pipe(gulp.dest(dir));
+        });
+        return es.merge(streams);
+    });
+    // Copy asset files from src.
+    gulp.src(['./src/**/*', '!./src/js/**/*'])
+        .pipe(gulp.dest(dir));
+    // Copy asset files from vendor.
+    gulp.src(['./vendor/**/*', '!./vendor/js/**/*'])
+        .pipe(gulp.dest(dir));
+    return bundle;
 });

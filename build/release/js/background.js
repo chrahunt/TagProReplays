@@ -579,494 +579,7 @@ function(message, sender, sendResponse) {
     });
 });
 
-},{"./modules/data":49,"./modules/messaging":52,"./modules/rendermanager":55,"./modules/textures":58,"file-saver":2,"jszip":17,"sanitize-filename":48}],2:[function(require,module,exports){
-(function (global){
-; var __browserify_shim_require__=require;(function browserifyShim(module, exports, require, define, browserify_shim__define__module__export__) {
-/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
-var saveAs=saveAs||typeof navigator!=="undefined"&&navigator.msSaveOrOpenBlob&&navigator.msSaveOrOpenBlob.bind(navigator)||function(view){"use strict";if(typeof navigator!=="undefined"&&/MSIE [1-9]\./.test(navigator.userAgent)){return}var doc=view.document,get_URL=function(){return view.URL||view.webkitURL||view},save_link=doc.createElementNS("http://www.w3.org/1999/xhtml","a"),can_use_save_link="download"in save_link,click=function(node){var event=doc.createEvent("MouseEvents");event.initMouseEvent("click",true,false,view,0,0,0,0,0,false,false,false,false,0,null);node.dispatchEvent(event)},webkit_req_fs=view.webkitRequestFileSystem,req_fs=view.requestFileSystem||webkit_req_fs||view.mozRequestFileSystem,throw_outside=function(ex){(view.setImmediate||view.setTimeout)(function(){throw ex},0)},force_saveable_type="application/octet-stream",fs_min_size=0,arbitrary_revoke_timeout=500,revoke=function(file){var revoker=function(){if(typeof file==="string"){get_URL().revokeObjectURL(file)}else{file.remove()}};if(view.chrome){revoker()}else{setTimeout(revoker,arbitrary_revoke_timeout)}},dispatch=function(filesaver,event_types,event){event_types=[].concat(event_types);var i=event_types.length;while(i--){var listener=filesaver["on"+event_types[i]];if(typeof listener==="function"){try{listener.call(filesaver,event||filesaver)}catch(ex){throw_outside(ex)}}}},FileSaver=function(blob,name){var filesaver=this,type=blob.type,blob_changed=false,object_url,target_view,dispatch_all=function(){dispatch(filesaver,"writestart progress write writeend".split(" "))},fs_error=function(){if(blob_changed||!object_url){object_url=get_URL().createObjectURL(blob)}if(target_view){target_view.location.href=object_url}else{var new_tab=view.open(object_url,"_blank");if(new_tab==undefined&&typeof safari!=="undefined"){view.location.href=object_url}}filesaver.readyState=filesaver.DONE;dispatch_all();revoke(object_url)},abortable=function(func){return function(){if(filesaver.readyState!==filesaver.DONE){return func.apply(this,arguments)}}},create_if_not_found={create:true,exclusive:false},slice;filesaver.readyState=filesaver.INIT;if(!name){name="download"}if(can_use_save_link){object_url=get_URL().createObjectURL(blob);save_link.href=object_url;save_link.download=name;click(save_link);filesaver.readyState=filesaver.DONE;dispatch_all();revoke(object_url);return}if(view.chrome&&type&&type!==force_saveable_type){slice=blob.slice||blob.webkitSlice;blob=slice.call(blob,0,blob.size,force_saveable_type);blob_changed=true}if(webkit_req_fs&&name!=="download"){name+=".download"}if(type===force_saveable_type||webkit_req_fs){target_view=view}if(!req_fs){fs_error();return}fs_min_size+=blob.size;req_fs(view.TEMPORARY,fs_min_size,abortable(function(fs){fs.root.getDirectory("saved",create_if_not_found,abortable(function(dir){var save=function(){dir.getFile(name,create_if_not_found,abortable(function(file){file.createWriter(abortable(function(writer){writer.onwriteend=function(event){target_view.location.href=file.toURL();filesaver.readyState=filesaver.DONE;dispatch(filesaver,"writeend",event);revoke(file)};writer.onerror=function(){var error=writer.error;if(error.code!==error.ABORT_ERR){fs_error()}};"writestart progress write abort".split(" ").forEach(function(event){writer["on"+event]=filesaver["on"+event]});writer.write(blob);filesaver.abort=function(){writer.abort();filesaver.readyState=filesaver.DONE};filesaver.readyState=filesaver.WRITING}),fs_error)}),fs_error)};dir.getFile(name,{create:false},abortable(function(file){file.remove();save()}),abortable(function(ex){if(ex.code===ex.NOT_FOUND_ERR){save()}else{fs_error()}}))}),fs_error)}),fs_error)},FS_proto=FileSaver.prototype,saveAs=function(blob,name){return new FileSaver(blob,name)};FS_proto.abort=function(){var filesaver=this;filesaver.readyState=filesaver.DONE;dispatch(filesaver,"abort")};FS_proto.readyState=FS_proto.INIT=0;FS_proto.WRITING=1;FS_proto.DONE=2;FS_proto.error=FS_proto.onwritestart=FS_proto.onprogress=FS_proto.onwrite=FS_proto.onabort=FS_proto.onerror=FS_proto.onwriteend=null;return saveAs}(typeof self!=="undefined"&&self||typeof window!=="undefined"&&window||this.content);if(typeof module!=="undefined"&&module.exports){module.exports.saveAs=saveAs}else if(typeof define!=="undefined"&&define!==null&&define.amd!=null){define([],function(){return saveAs})}
-
-; browserify_shim__define__module__export__(typeof saveAs != "undefined" ? saveAs : window.saveAs);
-
-}).call(global, undefined, undefined, undefined, undefined, function defineExport(ex) { module.exports = ex; });
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],3:[function(require,module,exports){
-(function (global){
-; var __browserify_shim_require__=require;(function browserifyShim(module, exports, require, define, browserify_shim__define__module__export__) {
-/*
- var vid = new Whammy.Video();
- vid.add(canvas or data url)
- vid.compile()
- */
-
-window.Whammy = (function () {
-    // in this case, frames has a very specific meaning, which will be
-    // detailed once i finish writing the code
-
-    function toWebM(frames, outputAsArray) {
-        var info = checkFrames(frames);
-
-        //max duration by cluster in milliseconds
-        var CLUSTER_MAX_DURATION = 30000;
-
-        var EBML = [
-            {
-                "id": 0x1a45dfa3, // EBML
-                "data": [
-                    {
-                        "data": 1,
-                        "id": 0x4286 // EBMLVersion
-                    },
-                    {
-                        "data": 1,
-                        "id": 0x42f7 // EBMLReadVersion
-                    },
-                    {
-                        "data": 4,
-                        "id": 0x42f2 // EBMLMaxIDLength
-                    },
-                    {
-                        "data": 8,
-                        "id": 0x42f3 // EBMLMaxSizeLength
-                    },
-                    {
-                        "data": "webm",
-                        "id": 0x4282 // DocType
-                    },
-                    {
-                        "data": 2,
-                        "id": 0x4287 // DocTypeVersion
-                    },
-                    {
-                        "data": 2,
-                        "id": 0x4285 // DocTypeReadVersion
-                    }
-                ]
-            },
-            {
-                "id": 0x18538067, // Segment
-                "data": [
-                    {
-                        "id": 0x1549a966, // Info
-                        "data": [
-                            {
-                                "data": 1e6, //do things in millisecs (num of nanosecs for duration scale)
-                                "id": 0x2ad7b1 // TimecodeScale
-                            },
-                            {
-                                "data": "whammy",
-                                "id": 0x4d80 // MuxingApp
-                            },
-                            {
-                                "data": "whammy",
-                                "id": 0x5741 // WritingApp
-                            },
-                            {
-                                "data": doubleToString(info.duration),
-                                "id": 0x4489 // Duration
-                            }
-                        ]
-                    },
-                    {
-                        "id": 0x1654ae6b, // Tracks
-                        "data": [
-                            {
-                                "id": 0xae, // TrackEntry
-                                "data": [
-                                    {
-                                        "data": 1,
-                                        "id": 0xd7 // TrackNumber
-                                    },
-                                    {
-                                        "data": 1,
-                                        "id": 0x63c5 // TrackUID
-                                    },
-                                    {
-                                        "data": 0,
-                                        "id": 0x9c // FlagLacing
-                                    },
-                                    {
-                                        "data": "und",
-                                        "id": 0x22b59c // Language
-                                    },
-                                    {
-                                        "data": "V_VP8",
-                                        "id": 0x86 // CodecID
-                                    },
-                                    {
-                                        "data": "VP8",
-                                        "id": 0x258688 // CodecName
-                                    },
-                                    {
-                                        "data": 1,
-                                        "id": 0x83 // TrackType
-                                    },
-                                    {
-                                        "id": 0xe0,  // Video
-                                        "data": [
-                                            {
-                                                "data": info.width,
-                                                "id": 0xb0 // PixelWidth
-                                            },
-                                            {
-                                                "data": info.height,
-                                                "id": 0xba // PixelHeight
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-
-                    //cluster insertion point
-                ]
-            }
-        ];
-
-
-        //Generate clusters (max duration)
-        var frameNumber = 0;
-        var clusterTimecode = 0;
-        while (frameNumber < frames.length) {
-
-            var clusterFrames = [];
-            var clusterDuration = 0;
-            do {
-                clusterFrames.push(frames[frameNumber]);
-                clusterDuration += frames[frameNumber].duration;
-                frameNumber++;
-            } while (frameNumber < frames.length && clusterDuration < CLUSTER_MAX_DURATION);
-
-            var clusterCounter = 0;
-            var cluster = {
-                "id": 0x1f43b675, // Cluster
-                "data": [
-                    {
-                        "data": Math.round(clusterTimecode),
-                        "id": 0xe7 // Timecode
-                    }
-                ].concat(clusterFrames.map(function (webp) {
-                        var block = makeSimpleBlock({
-                            discardable: 0,
-                            frame: webp.data.slice(4),
-                            invisible: 0,
-                            keyframe: 1,
-                            lacing: 0,
-                            trackNum: 1,
-                            timecode: Math.round(clusterCounter)
-                        });
-                        clusterCounter += webp.duration;
-                        return {
-                            data: block,
-                            id: 0xa3
-                        };
-                    }))
-            }
-
-            //Add cluster to segment
-            EBML[1].data.push(cluster);
-            clusterTimecode += clusterDuration;
-        }
-
-        return generateEBML(EBML, outputAsArray)
-    }
-
-    // sums the lengths of all the frames and gets the duration, woo
-
-    function checkFrames(frames) {
-        var width = frames[0].width,
-            height = frames[0].height,
-            duration = frames[0].duration;
-        for (var i = 1; i < frames.length; i++) {
-            if (frames[i].width != width) throw "Frame " + (i + 1) + " has a different width";
-            if (frames[i].height != height) throw "Frame " + (i + 1) + " has a different height";
-            if (frames[i].duration < 0 || frames[i].duration > 0x7fff) throw "Frame " + (i + 1) + " has a weird duration (must be between 0 and 32767)";
-            duration += frames[i].duration;
-        }
-        return {
-            duration: duration,
-            width: width,
-            height: height
-        };
-    }
-
-
-    function numToBuffer(num) {
-        var parts = [];
-        while (num > 0) {
-            parts.push(num & 0xff)
-            num = num >> 8
-        }
-        return new Uint8Array(parts.reverse());
-    }
-
-    function strToBuffer(str) {
-        // return new Blob([str]);
-
-        var arr = new Uint8Array(str.length);
-        for (var i = 0; i < str.length; i++) {
-            arr[i] = str.charCodeAt(i)
-        }
-        return arr;
-        // this is slower
-        // return new Uint8Array(str.split('').map(function(e){
-        //     return e.charCodeAt(0)
-        // }))
-    }
-
-
-    //sorry this is ugly, and sort of hard to understand exactly why this was done
-    // at all really, but the reason is that there's some code below that i dont really
-    // feel like understanding, and this is easier than using my brain.
-
-    function bitsToBuffer(bits) {
-        var data = [];
-        var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
-        bits = pad + bits;
-        for (var i = 0; i < bits.length; i += 8) {
-            data.push(parseInt(bits.substr(i, 8), 2))
-        }
-        return new Uint8Array(data);
-    }
-
-    function generateEBML(json, outputAsArray) {
-        var ebml = [];
-        for (var i = 0; i < json.length; i++) {
-            var data = json[i].data;
-            if (typeof data == 'object') data = generateEBML(data, outputAsArray);
-            if (typeof data == 'number') data = bitsToBuffer(data.toString(2));
-            if (typeof data == 'string') data = strToBuffer(data);
-
-            if (data.length) {
-                var z = z;
-            }
-
-            var len = data.size || data.byteLength || data.length;
-            var zeroes = Math.ceil(Math.ceil(Math.log(len) / Math.log(2)) / 8);
-            var size_str = len.toString(2);
-            var padded = (new Array((zeroes * 7 + 7 + 1) - size_str.length)).join('0') + size_str;
-            var size = (new Array(zeroes)).join('0') + '1' + padded;
-
-            //i actually dont quite understand what went on up there, so I'm not really
-            //going to fix this, i'm probably just going to write some hacky thing which
-            //converts that string into a buffer-esque thing
-
-            ebml.push(numToBuffer(json[i].id));
-            ebml.push(bitsToBuffer(size));
-            ebml.push(data)
-
-
-        }
-
-        //output as blob or byteArray
-        if (outputAsArray) {
-            //convert ebml to an array
-            var buffer = toFlatArray(ebml)
-            return new Uint8Array(buffer);
-        } else {
-            return new Blob(ebml, {type: "video/webm"});
-        }
-    }
-
-    function toFlatArray(arr, outBuffer) {
-        if (outBuffer == null) {
-            outBuffer = [];
-        }
-        for (var i = 0; i < arr.length; i++) {
-            if (typeof arr[i] == 'object') {
-                //an array
-                toFlatArray(arr[i], outBuffer)
-            } else {
-                //a simple element
-                outBuffer.push(arr[i]);
-            }
-        }
-        return outBuffer;
-    }
-
-    //OKAY, so the following two functions are the string-based old stuff, the reason they're
-    //still sort of in here, is that they're actually faster than the new blob stuff because
-    //getAsFile isn't widely implemented, or at least, it doesn't work in chrome, which is the
-    // only browser which supports get as webp
-
-    //Converting between a string of 0010101001's and binary back and forth is probably inefficient
-    //TODO: get rid of this function
-    function toBinStr_old(bits) {
-        var data = '';
-        var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
-        bits = pad + bits;
-        for (var i = 0; i < bits.length; i += 8) {
-            data += String.fromCharCode(parseInt(bits.substr(i, 8), 2))
-        }
-        return data;
-    }
-
-    function generateEBML_old(json) {
-        var ebml = '';
-        for (var i = 0; i < json.length; i++) {
-            var data = json[i].data;
-            if (typeof data == 'object') data = generateEBML_old(data);
-            if (typeof data == 'number') data = toBinStr_old(data.toString(2));
-
-            var len = data.length;
-            var zeroes = Math.ceil(Math.ceil(Math.log(len) / Math.log(2)) / 8);
-            var size_str = len.toString(2);
-            var padded = (new Array((zeroes * 7 + 7 + 1) - size_str.length)).join('0') + size_str;
-            var size = (new Array(zeroes)).join('0') + '1' + padded;
-
-            ebml += toBinStr_old(json[i].id.toString(2)) + toBinStr_old(size) + data;
-
-        }
-        return ebml;
-    }
-
-    //woot, a function that's actually written for this project!
-    //this parses some json markup and makes it into that binary magic
-    //which can then get shoved into the matroska comtainer (peaceably)
-
-    function makeSimpleBlock(data) {
-        var flags = 0;
-        if (data.keyframe) flags |= 128;
-        if (data.invisible) flags |= 8;
-        if (data.lacing) flags |= (data.lacing << 1);
-        if (data.discardable) flags |= 1;
-        if (data.trackNum > 127) {
-            throw "TrackNumber > 127 not supported";
-        }
-        var out = [data.trackNum | 0x80, data.timecode >> 8, data.timecode & 0xff, flags].map(function (e) {
-                return String.fromCharCode(e)
-            }).join('') + data.frame;
-
-        return out;
-    }
-
-    // here's something else taken verbatim from weppy, awesome rite?
-
-    function parseWebP(riff) {
-        var VP8 = riff.RIFF[0].WEBP[0];
-
-        var frame_start = VP8.indexOf('\x9d\x01\x2a'); //A VP8 keyframe starts with the 0x9d012a header
-        for (var i = 0, c = []; i < 4; i++) c[i] = VP8.charCodeAt(frame_start + 3 + i);
-
-        var width, horizontal_scale, height, vertical_scale, tmp;
-
-        //the code below is literally copied verbatim from the bitstream spec
-        tmp = (c[1] << 8) | c[0];
-        width = tmp & 0x3FFF;
-        horizontal_scale = tmp >> 14;
-        tmp = (c[3] << 8) | c[2];
-        height = tmp & 0x3FFF;
-        vertical_scale = tmp >> 14;
-        return {
-            width: width,
-            height: height,
-            data: VP8,
-            riff: riff
-        }
-    }
-
-    // i think i'm going off on a riff by pretending this is some known
-    // idiom which i'm making a casual and brilliant pun about, but since
-    // i can't find anything on google which conforms to this idiomatic
-    // usage, I'm assuming this is just a consequence of some psychotic
-    // break which makes me make up puns. well, enough riff-raff (aha a
-    // rescue of sorts), this function was ripped wholesale from weppy
-
-    function parseRIFF(string) {
-        var offset = 0;
-        var chunks = {};
-
-        while (offset < string.length) {
-            var id = string.substr(offset, 4);
-            var len = parseInt(string.substr(offset + 4, 4).split('').map(function (i) {
-                var unpadded = i.charCodeAt(0).toString(2);
-                return (new Array(8 - unpadded.length + 1)).join('0') + unpadded
-            }).join(''), 2);
-            var data = string.substr(offset + 4 + 4, len);
-            offset += 4 + 4 + len;
-            chunks[id] = chunks[id] || [];
-
-            if (id == 'RIFF' || id == 'LIST') {
-                chunks[id].push(parseRIFF(data));
-            } else {
-                chunks[id].push(data);
-            }
-        }
-        return chunks;
-    }
-
-    // here's a little utility function that acts as a utility for other functions
-    // basically, the only purpose is for encoding "Duration", which is encoded as
-    // a double (considerably more difficult to encode than an integer)
-    function doubleToString(num) {
-        return [].slice.call(
-            new Uint8Array(
-                (
-                    new Float64Array([num]) //create a float64 array
-                ).buffer) //extract the array buffer
-            , 0) // convert the Uint8Array into a regular array
-            .map(function (e) { //since it's a regular array, we can now use map
-                return String.fromCharCode(e) // encode all the bytes individually
-            })
-            .reverse() //correct the byte endianness (assume it's little endian for now)
-            .join('') // join the bytes in holy matrimony as a string
-    }
-
-    function WhammyVideo(speed, quality) { // a more abstract-ish API
-        this.frames = [];
-        this.duration = 1000 / speed;
-        this.quality = quality || 0.8;
-    }
-
-    WhammyVideo.prototype.add = function (frame, duration) {
-        if (typeof duration != 'undefined' && this.duration) throw "you can't pass a duration if the fps is set";
-        if (typeof duration == 'undefined' && !this.duration) throw "if you don't have the fps set, you ned to have durations here."
-        if ('canvas' in frame) { //CanvasRenderingContext2D
-            frame = frame.canvas;
-        }
-        if ('toDataURL' in frame) {
-            frame = frame.toDataURL('image/webp', this.quality)
-        } else if (typeof frame != "string") {
-            throw "frame must be a a HTMLCanvasElement, a CanvasRenderingContext2D or a DataURI formatted string"
-        }
-        if (!(/^data:image\/webp;base64,/ig).test(frame)) {
-            throw "Input must be formatted properly as a base64 encoded DataURI of type image/webp";
-        }
-        this.frames.push({
-            image: frame,
-            duration: duration || this.duration
-        })
-    }
-
-    WhammyVideo.prototype.compile = function (outputAsArray) {
-        return new toWebM(this.frames.map(function (frame) {
-            var webp = parseWebP(parseRIFF(atob(frame.image.slice(23))));
-            webp.duration = frame.duration;
-            return webp;
-        }), outputAsArray)
-    }
-
-    return {
-        Video: WhammyVideo,
-        fromImageArray: function (images, fps, outputAsArray) {
-            return toWebM(images.map(function (image) {
-                var webp = parseWebP(parseRIFF(atob(image.slice(23))))
-                webp.duration = 1000 / fps;
-                return webp;
-            }), outputAsArray)
-        },
-        toWebM: toWebM
-        // expose methods of madness
-    }
-})()
-
-; browserify_shim__define__module__export__(typeof Whammy != "undefined" ? Whammy : window.Whammy);
-
-}).call(global, undefined, undefined, undefined, undefined, function defineExport(ex) { module.exports = ex; });
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],4:[function(require,module,exports){
+},{"./modules/data":47,"./modules/messaging":50,"./modules/rendermanager":53,"./modules/textures":56,"file-saver":57,"jszip":15,"sanitize-filename":46}],2:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -2482,7 +1995,7 @@ function decodeUtf8Char (str) {
   }
 }
 
-},{"base64-js":5,"ieee754":6,"is-array":7}],5:[function(require,module,exports){
+},{"base64-js":3,"ieee754":4,"is-array":5}],3:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -2608,7 +2121,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],6:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -2694,7 +2207,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],7:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 
 /**
  * isArray
@@ -2729,7 +2242,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],8:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.1.4
  * http://jquery.com/
@@ -11941,7 +11454,7 @@ return jQuery;
 
 }));
 
-},{}],9:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 // private property
 var _keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
@@ -12013,7 +11526,7 @@ exports.decode = function(input, utf8) {
 
 };
 
-},{}],10:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 'use strict';
 function CompressedObject() {
     this.compressedSize = 0;
@@ -12043,7 +11556,7 @@ CompressedObject.prototype = {
 };
 module.exports = CompressedObject;
 
-},{}],11:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 'use strict';
 exports.STORE = {
     magic: "\x00\x00",
@@ -12058,7 +11571,7 @@ exports.STORE = {
 };
 exports.DEFLATE = require('./flate');
 
-},{"./flate":16}],12:[function(require,module,exports){
+},{"./flate":14}],10:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -12162,7 +11675,7 @@ module.exports = function crc32(input, crc) {
 };
 // vim: set shiftwidth=4 softtabstop=4:
 
-},{"./utils":29}],13:[function(require,module,exports){
+},{"./utils":27}],11:[function(require,module,exports){
 'use strict';
 var utils = require('./utils');
 
@@ -12271,7 +11784,7 @@ DataReader.prototype = {
 };
 module.exports = DataReader;
 
-},{"./utils":29}],14:[function(require,module,exports){
+},{"./utils":27}],12:[function(require,module,exports){
 'use strict';
 exports.base64 = false;
 exports.binary = false;
@@ -12284,7 +11797,7 @@ exports.comment = null;
 exports.unixPermissions = null;
 exports.dosPermissions = null;
 
-},{}],15:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 'use strict';
 var utils = require('./utils');
 
@@ -12391,7 +11904,7 @@ exports.isRegExp = function (object) {
 };
 
 
-},{"./utils":29}],16:[function(require,module,exports){
+},{"./utils":27}],14:[function(require,module,exports){
 'use strict';
 var USE_TYPEDARRAY = (typeof Uint8Array !== 'undefined') && (typeof Uint16Array !== 'undefined') && (typeof Uint32Array !== 'undefined');
 
@@ -12409,7 +11922,7 @@ exports.uncompress =  function(input) {
     return pako.inflateRaw(input);
 };
 
-},{"pako":32}],17:[function(require,module,exports){
+},{"pako":30}],15:[function(require,module,exports){
 'use strict';
 
 var base64 = require('./base64');
@@ -12490,7 +12003,7 @@ JSZip.base64 = {
 JSZip.compressions = require('./compressions');
 module.exports = JSZip;
 
-},{"./base64":9,"./compressions":11,"./defaults":14,"./deprecatedPublicUtils":15,"./load":18,"./object":21,"./support":25}],18:[function(require,module,exports){
+},{"./base64":7,"./compressions":9,"./defaults":12,"./deprecatedPublicUtils":13,"./load":16,"./object":19,"./support":23}],16:[function(require,module,exports){
 'use strict';
 var base64 = require('./base64');
 var ZipEntries = require('./zipEntries');
@@ -12523,7 +12036,7 @@ module.exports = function(data, options) {
     return this;
 };
 
-},{"./base64":9,"./zipEntries":30}],19:[function(require,module,exports){
+},{"./base64":7,"./zipEntries":28}],17:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 module.exports = function(data, encoding){
@@ -12534,7 +12047,7 @@ module.exports.test = function(b){
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4}],20:[function(require,module,exports){
+},{"buffer":2}],18:[function(require,module,exports){
 'use strict';
 var Uint8ArrayReader = require('./uint8ArrayReader');
 
@@ -12556,7 +12069,7 @@ NodeBufferReader.prototype.readData = function(size) {
 };
 module.exports = NodeBufferReader;
 
-},{"./uint8ArrayReader":26}],21:[function(require,module,exports){
+},{"./uint8ArrayReader":24}],19:[function(require,module,exports){
 'use strict';
 var support = require('./support');
 var utils = require('./utils');
@@ -13441,7 +12954,7 @@ var out = {
 };
 module.exports = out;
 
-},{"./base64":9,"./compressedObject":10,"./compressions":11,"./crc32":12,"./defaults":14,"./nodeBuffer":19,"./signature":22,"./stringWriter":24,"./support":25,"./uint8ArrayWriter":27,"./utf8":28,"./utils":29}],22:[function(require,module,exports){
+},{"./base64":7,"./compressedObject":8,"./compressions":9,"./crc32":10,"./defaults":12,"./nodeBuffer":17,"./signature":20,"./stringWriter":22,"./support":23,"./uint8ArrayWriter":25,"./utf8":26,"./utils":27}],20:[function(require,module,exports){
 'use strict';
 exports.LOCAL_FILE_HEADER = "PK\x03\x04";
 exports.CENTRAL_FILE_HEADER = "PK\x01\x02";
@@ -13450,7 +12963,7 @@ exports.ZIP64_CENTRAL_DIRECTORY_LOCATOR = "PK\x06\x07";
 exports.ZIP64_CENTRAL_DIRECTORY_END = "PK\x06\x06";
 exports.DATA_DESCRIPTOR = "PK\x07\x08";
 
-},{}],23:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 var DataReader = require('./dataReader');
 var utils = require('./utils');
@@ -13488,7 +13001,7 @@ StringReader.prototype.readData = function(size) {
 };
 module.exports = StringReader;
 
-},{"./dataReader":13,"./utils":29}],24:[function(require,module,exports){
+},{"./dataReader":11,"./utils":27}],22:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -13520,7 +13033,7 @@ StringWriter.prototype = {
 
 module.exports = StringWriter;
 
-},{"./utils":29}],25:[function(require,module,exports){
+},{"./utils":27}],23:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 exports.base64 = true;
@@ -13558,7 +13071,7 @@ else {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4}],26:[function(require,module,exports){
+},{"buffer":2}],24:[function(require,module,exports){
 'use strict';
 var DataReader = require('./dataReader');
 
@@ -13607,7 +13120,7 @@ Uint8ArrayReader.prototype.readData = function(size) {
 };
 module.exports = Uint8ArrayReader;
 
-},{"./dataReader":13}],27:[function(require,module,exports){
+},{"./dataReader":11}],25:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -13645,7 +13158,7 @@ Uint8ArrayWriter.prototype = {
 
 module.exports = Uint8ArrayWriter;
 
-},{"./utils":29}],28:[function(require,module,exports){
+},{"./utils":27}],26:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -13854,7 +13367,7 @@ exports.utf8decode = function utf8decode(buf) {
 };
 // vim: set shiftwidth=4 softtabstop=4:
 
-},{"./nodeBuffer":19,"./support":25,"./utils":29}],29:[function(require,module,exports){
+},{"./nodeBuffer":17,"./support":23,"./utils":27}],27:[function(require,module,exports){
 'use strict';
 var support = require('./support');
 var compressions = require('./compressions');
@@ -14182,7 +13695,7 @@ exports.isRegExp = function (object) {
 };
 
 
-},{"./compressions":11,"./nodeBuffer":19,"./support":25}],30:[function(require,module,exports){
+},{"./compressions":9,"./nodeBuffer":17,"./support":23}],28:[function(require,module,exports){
 'use strict';
 var StringReader = require('./stringReader');
 var NodeBufferReader = require('./nodeBufferReader');
@@ -14405,7 +13918,7 @@ ZipEntries.prototype = {
 // }}} end of ZipEntries
 module.exports = ZipEntries;
 
-},{"./nodeBufferReader":20,"./object":21,"./signature":22,"./stringReader":23,"./support":25,"./uint8ArrayReader":26,"./utils":29,"./zipEntry":31}],31:[function(require,module,exports){
+},{"./nodeBufferReader":18,"./object":19,"./signature":20,"./stringReader":21,"./support":23,"./uint8ArrayReader":24,"./utils":27,"./zipEntry":29}],29:[function(require,module,exports){
 'use strict';
 var StringReader = require('./stringReader');
 var utils = require('./utils');
@@ -14717,7 +14230,7 @@ ZipEntry.prototype = {
 };
 module.exports = ZipEntry;
 
-},{"./compressedObject":10,"./object":21,"./stringReader":23,"./utils":29}],32:[function(require,module,exports){
+},{"./compressedObject":8,"./object":19,"./stringReader":21,"./utils":27}],30:[function(require,module,exports){
 // Top level file is just a mixin of submodules & constants
 'use strict';
 
@@ -14732,7 +14245,7 @@ var pako = {};
 assign(pako, deflate, inflate, constants);
 
 module.exports = pako;
-},{"./lib/deflate":33,"./lib/inflate":34,"./lib/utils/common":35,"./lib/zlib/constants":38}],33:[function(require,module,exports){
+},{"./lib/deflate":31,"./lib/inflate":32,"./lib/utils/common":33,"./lib/zlib/constants":36}],31:[function(require,module,exports){
 'use strict';
 
 
@@ -15097,7 +14610,7 @@ exports.Deflate = Deflate;
 exports.deflate = deflate;
 exports.deflateRaw = deflateRaw;
 exports.gzip = gzip;
-},{"./utils/common":35,"./utils/strings":36,"./zlib/deflate.js":40,"./zlib/messages":45,"./zlib/zstream":47}],34:[function(require,module,exports){
+},{"./utils/common":33,"./utils/strings":34,"./zlib/deflate.js":38,"./zlib/messages":43,"./zlib/zstream":45}],32:[function(require,module,exports){
 'use strict';
 
 
@@ -15466,7 +14979,7 @@ exports.inflate = inflate;
 exports.inflateRaw = inflateRaw;
 exports.ungzip  = inflate;
 
-},{"./utils/common":35,"./utils/strings":36,"./zlib/constants":38,"./zlib/gzheader":41,"./zlib/inflate.js":43,"./zlib/messages":45,"./zlib/zstream":47}],35:[function(require,module,exports){
+},{"./utils/common":33,"./utils/strings":34,"./zlib/constants":36,"./zlib/gzheader":39,"./zlib/inflate.js":41,"./zlib/messages":43,"./zlib/zstream":45}],33:[function(require,module,exports){
 'use strict';
 
 
@@ -15569,7 +15082,7 @@ exports.setTyped = function (on) {
 };
 
 exports.setTyped(TYPED_OK);
-},{}],36:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 // String encode/decode helpers
 'use strict';
 
@@ -15756,7 +15269,7 @@ exports.utf8border = function(buf, max) {
   return (pos + _utf8len[buf[pos]] > max) ? pos : max;
 };
 
-},{"./common":35}],37:[function(require,module,exports){
+},{"./common":33}],35:[function(require,module,exports){
 'use strict';
 
 // Note: adler32 takes 12% for level 0 and 2% for level 6.
@@ -15789,7 +15302,7 @@ function adler32(adler, buf, len, pos) {
 
 
 module.exports = adler32;
-},{}],38:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 module.exports = {
 
   /* Allowed flush values; see deflate() and inflate() below for details */
@@ -15837,7 +15350,7 @@ module.exports = {
   Z_DEFLATED:               8
   //Z_NULL:                 null // Use -1 or null inline, depending on var type
 };
-},{}],39:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 
 // Note: we can't get significant speed boost here.
@@ -15879,7 +15392,7 @@ function crc32(crc, buf, len, pos) {
 
 
 module.exports = crc32;
-},{}],40:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 var utils   = require('../utils/common');
@@ -17645,7 +17158,7 @@ exports.deflatePending = deflatePending;
 exports.deflatePrime = deflatePrime;
 exports.deflateTune = deflateTune;
 */
-},{"../utils/common":35,"./adler32":37,"./crc32":39,"./messages":45,"./trees":46}],41:[function(require,module,exports){
+},{"../utils/common":33,"./adler32":35,"./crc32":37,"./messages":43,"./trees":44}],39:[function(require,module,exports){
 'use strict';
 
 
@@ -17686,7 +17199,7 @@ function GZheader() {
 }
 
 module.exports = GZheader;
-},{}],42:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 'use strict';
 
 // See state defs from inflate.js
@@ -18013,7 +17526,7 @@ module.exports = function inflate_fast(strm, start) {
   return;
 };
 
-},{}],43:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 'use strict';
 
 
@@ -19517,7 +19030,7 @@ exports.inflateSync = inflateSync;
 exports.inflateSyncPoint = inflateSyncPoint;
 exports.inflateUndermine = inflateUndermine;
 */
-},{"../utils/common":35,"./adler32":37,"./crc32":39,"./inffast":42,"./inftrees":44}],44:[function(require,module,exports){
+},{"../utils/common":33,"./adler32":35,"./crc32":37,"./inffast":40,"./inftrees":42}],42:[function(require,module,exports){
 'use strict';
 
 
@@ -19844,7 +19357,7 @@ module.exports = function inflate_table(type, lens, lens_index, codes, table, ta
   return 0;
 };
 
-},{"../utils/common":35}],45:[function(require,module,exports){
+},{"../utils/common":33}],43:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -19858,7 +19371,7 @@ module.exports = {
   '-5':   'buffer error',        /* Z_BUF_ERROR     (-5) */
   '-6':   'incompatible version' /* Z_VERSION_ERROR (-6) */
 };
-},{}],46:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 
@@ -21058,7 +20571,7 @@ exports._tr_stored_block = _tr_stored_block;
 exports._tr_flush_block  = _tr_flush_block;
 exports._tr_tally = _tr_tally;
 exports._tr_align = _tr_align;
-},{"../utils/common":35}],47:[function(require,module,exports){
+},{"../utils/common":33}],45:[function(require,module,exports){
 'use strict';
 
 
@@ -21088,7 +20601,7 @@ function ZStream() {
 }
 
 module.exports = ZStream;
-},{}],48:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 /*jshint node:true*/
 'use strict';
 
@@ -21138,7 +20651,7 @@ module.exports = function (input, options) {
   return sanitize(output, '');
 };
 
-},{}],49:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 var IDB = require('./indexedDBUtils');
 var fs = require('./filesystem');
 
@@ -21486,7 +20999,7 @@ exports.deleteMovie = function(id, callback) {
     });
 };
 
-},{"./filesystem":50,"./indexedDBUtils":51}],50:[function(require,module,exports){
+},{"./filesystem":48,"./indexedDBUtils":49}],48:[function(require,module,exports){
 /**
  * This script provides functions for saving and retrieving rendered
  * movie files stored using the FileSystem API.
@@ -21631,7 +21144,7 @@ exports.createDirectory = function(path, callback, error) {
     }, error);
 };
 
-},{}],51:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 var Migrations = require('./migrations');
 
 // Script-global database object.
@@ -21772,7 +21285,7 @@ exports.getDb = function() {
     return db;
 };
 
-},{"./migrations":53}],52:[function(require,module,exports){
+},{"./migrations":51}],50:[function(require,module,exports){
 /**
  * Methods for setting chrome message listeners. Objects being passed
  * by methods in this library have the corresponding message name
@@ -21896,7 +21409,7 @@ Messaging.prototype.send = function(id, name, message, callback) {
 
 module.exports = new Messaging();
 
-},{}],53:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 // Holds information about the migrations that can be applied
 // sequentially to an object or objects.
 var Migrations = function() {
@@ -22009,7 +21522,7 @@ Migrations.prototype.getPatchFunction = function(from, to) {
     };
 };
 
-},{}],54:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 /**
  * This file contains the functions used to draw the replay data onto
  * the canvas for the in-page preview as well as for replay rendering.
@@ -23424,7 +22937,7 @@ exports.drawPreview = function(positions, options, textures) {
     return result;
 };
 
-},{}],55:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 var Whammy = require('whammy');
 
 var Task = require('./task');
@@ -23804,7 +23317,7 @@ RenderManager.prototype._getRenderSettings = function(callback) {
     }
 };
 
-},{"./data":49,"./indexedDBUtils":51,"./messaging":52,"./render":54,"./status":56,"./task":57,"./textures":58,"whammy":3}],56:[function(require,module,exports){
+},{"./data":47,"./indexedDBUtils":49,"./messaging":50,"./render":52,"./status":54,"./task":55,"./textures":56,"whammy":58}],54:[function(require,module,exports){
 var Status = {
     /**
      * Set extension background page status.
@@ -23868,7 +23381,7 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
     }
 });
 
-},{}],57:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 /**
  * @typedef {object} TaskOptions
  * @property {integer} [target=200] - The target time, in ms, of each loop
@@ -23982,7 +23495,7 @@ Task.prototype._run = function(resolve, reject) {
   }
 };
 
-},{}],58:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 $ = require('jquery');
 
 exports.saveSettings = function() {
@@ -24197,4 +23710,491 @@ exports.getDefault = function(callback) {
     }
 };
 
-},{"jquery":8}]},{},[1]);
+},{"jquery":6}],57:[function(require,module,exports){
+(function (global){
+; var __browserify_shim_require__=require;(function browserifyShim(module, exports, require, define, browserify_shim__define__module__export__) {
+/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+var saveAs=saveAs||typeof navigator!=="undefined"&&navigator.msSaveOrOpenBlob&&navigator.msSaveOrOpenBlob.bind(navigator)||function(view){"use strict";if(typeof navigator!=="undefined"&&/MSIE [1-9]\./.test(navigator.userAgent)){return}var doc=view.document,get_URL=function(){return view.URL||view.webkitURL||view},save_link=doc.createElementNS("http://www.w3.org/1999/xhtml","a"),can_use_save_link="download"in save_link,click=function(node){var event=doc.createEvent("MouseEvents");event.initMouseEvent("click",true,false,view,0,0,0,0,0,false,false,false,false,0,null);node.dispatchEvent(event)},webkit_req_fs=view.webkitRequestFileSystem,req_fs=view.requestFileSystem||webkit_req_fs||view.mozRequestFileSystem,throw_outside=function(ex){(view.setImmediate||view.setTimeout)(function(){throw ex},0)},force_saveable_type="application/octet-stream",fs_min_size=0,arbitrary_revoke_timeout=500,revoke=function(file){var revoker=function(){if(typeof file==="string"){get_URL().revokeObjectURL(file)}else{file.remove()}};if(view.chrome){revoker()}else{setTimeout(revoker,arbitrary_revoke_timeout)}},dispatch=function(filesaver,event_types,event){event_types=[].concat(event_types);var i=event_types.length;while(i--){var listener=filesaver["on"+event_types[i]];if(typeof listener==="function"){try{listener.call(filesaver,event||filesaver)}catch(ex){throw_outside(ex)}}}},FileSaver=function(blob,name){var filesaver=this,type=blob.type,blob_changed=false,object_url,target_view,dispatch_all=function(){dispatch(filesaver,"writestart progress write writeend".split(" "))},fs_error=function(){if(blob_changed||!object_url){object_url=get_URL().createObjectURL(blob)}if(target_view){target_view.location.href=object_url}else{var new_tab=view.open(object_url,"_blank");if(new_tab==undefined&&typeof safari!=="undefined"){view.location.href=object_url}}filesaver.readyState=filesaver.DONE;dispatch_all();revoke(object_url)},abortable=function(func){return function(){if(filesaver.readyState!==filesaver.DONE){return func.apply(this,arguments)}}},create_if_not_found={create:true,exclusive:false},slice;filesaver.readyState=filesaver.INIT;if(!name){name="download"}if(can_use_save_link){object_url=get_URL().createObjectURL(blob);save_link.href=object_url;save_link.download=name;click(save_link);filesaver.readyState=filesaver.DONE;dispatch_all();revoke(object_url);return}if(view.chrome&&type&&type!==force_saveable_type){slice=blob.slice||blob.webkitSlice;blob=slice.call(blob,0,blob.size,force_saveable_type);blob_changed=true}if(webkit_req_fs&&name!=="download"){name+=".download"}if(type===force_saveable_type||webkit_req_fs){target_view=view}if(!req_fs){fs_error();return}fs_min_size+=blob.size;req_fs(view.TEMPORARY,fs_min_size,abortable(function(fs){fs.root.getDirectory("saved",create_if_not_found,abortable(function(dir){var save=function(){dir.getFile(name,create_if_not_found,abortable(function(file){file.createWriter(abortable(function(writer){writer.onwriteend=function(event){target_view.location.href=file.toURL();filesaver.readyState=filesaver.DONE;dispatch(filesaver,"writeend",event);revoke(file)};writer.onerror=function(){var error=writer.error;if(error.code!==error.ABORT_ERR){fs_error()}};"writestart progress write abort".split(" ").forEach(function(event){writer["on"+event]=filesaver["on"+event]});writer.write(blob);filesaver.abort=function(){writer.abort();filesaver.readyState=filesaver.DONE};filesaver.readyState=filesaver.WRITING}),fs_error)}),fs_error)};dir.getFile(name,{create:false},abortable(function(file){file.remove();save()}),abortable(function(ex){if(ex.code===ex.NOT_FOUND_ERR){save()}else{fs_error()}}))}),fs_error)}),fs_error)},FS_proto=FileSaver.prototype,saveAs=function(blob,name){return new FileSaver(blob,name)};FS_proto.abort=function(){var filesaver=this;filesaver.readyState=filesaver.DONE;dispatch(filesaver,"abort")};FS_proto.readyState=FS_proto.INIT=0;FS_proto.WRITING=1;FS_proto.DONE=2;FS_proto.error=FS_proto.onwritestart=FS_proto.onprogress=FS_proto.onwrite=FS_proto.onabort=FS_proto.onerror=FS_proto.onwriteend=null;return saveAs}(typeof self!=="undefined"&&self||typeof window!=="undefined"&&window||this.content);if(typeof module!=="undefined"&&module.exports){module.exports.saveAs=saveAs}else if(typeof define!=="undefined"&&define!==null&&define.amd!=null){define([],function(){return saveAs})}
+
+; browserify_shim__define__module__export__(typeof saveAs != "undefined" ? saveAs : window.saveAs);
+
+}).call(global, undefined, undefined, undefined, undefined, function defineExport(ex) { module.exports = ex; });
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],58:[function(require,module,exports){
+(function (global){
+; var __browserify_shim_require__=require;(function browserifyShim(module, exports, require, define, browserify_shim__define__module__export__) {
+/*
+ var vid = new Whammy.Video();
+ vid.add(canvas or data url)
+ vid.compile()
+ */
+
+window.Whammy = (function () {
+    // in this case, frames has a very specific meaning, which will be
+    // detailed once i finish writing the code
+
+    function toWebM(frames, outputAsArray) {
+        var info = checkFrames(frames);
+
+        //max duration by cluster in milliseconds
+        var CLUSTER_MAX_DURATION = 30000;
+
+        var EBML = [
+            {
+                "id": 0x1a45dfa3, // EBML
+                "data": [
+                    {
+                        "data": 1,
+                        "id": 0x4286 // EBMLVersion
+                    },
+                    {
+                        "data": 1,
+                        "id": 0x42f7 // EBMLReadVersion
+                    },
+                    {
+                        "data": 4,
+                        "id": 0x42f2 // EBMLMaxIDLength
+                    },
+                    {
+                        "data": 8,
+                        "id": 0x42f3 // EBMLMaxSizeLength
+                    },
+                    {
+                        "data": "webm",
+                        "id": 0x4282 // DocType
+                    },
+                    {
+                        "data": 2,
+                        "id": 0x4287 // DocTypeVersion
+                    },
+                    {
+                        "data": 2,
+                        "id": 0x4285 // DocTypeReadVersion
+                    }
+                ]
+            },
+            {
+                "id": 0x18538067, // Segment
+                "data": [
+                    {
+                        "id": 0x1549a966, // Info
+                        "data": [
+                            {
+                                "data": 1e6, //do things in millisecs (num of nanosecs for duration scale)
+                                "id": 0x2ad7b1 // TimecodeScale
+                            },
+                            {
+                                "data": "whammy",
+                                "id": 0x4d80 // MuxingApp
+                            },
+                            {
+                                "data": "whammy",
+                                "id": 0x5741 // WritingApp
+                            },
+                            {
+                                "data": doubleToString(info.duration),
+                                "id": 0x4489 // Duration
+                            }
+                        ]
+                    },
+                    {
+                        "id": 0x1654ae6b, // Tracks
+                        "data": [
+                            {
+                                "id": 0xae, // TrackEntry
+                                "data": [
+                                    {
+                                        "data": 1,
+                                        "id": 0xd7 // TrackNumber
+                                    },
+                                    {
+                                        "data": 1,
+                                        "id": 0x63c5 // TrackUID
+                                    },
+                                    {
+                                        "data": 0,
+                                        "id": 0x9c // FlagLacing
+                                    },
+                                    {
+                                        "data": "und",
+                                        "id": 0x22b59c // Language
+                                    },
+                                    {
+                                        "data": "V_VP8",
+                                        "id": 0x86 // CodecID
+                                    },
+                                    {
+                                        "data": "VP8",
+                                        "id": 0x258688 // CodecName
+                                    },
+                                    {
+                                        "data": 1,
+                                        "id": 0x83 // TrackType
+                                    },
+                                    {
+                                        "id": 0xe0,  // Video
+                                        "data": [
+                                            {
+                                                "data": info.width,
+                                                "id": 0xb0 // PixelWidth
+                                            },
+                                            {
+                                                "data": info.height,
+                                                "id": 0xba // PixelHeight
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+
+                    //cluster insertion point
+                ]
+            }
+        ];
+
+
+        //Generate clusters (max duration)
+        var frameNumber = 0;
+        var clusterTimecode = 0;
+        while (frameNumber < frames.length) {
+
+            var clusterFrames = [];
+            var clusterDuration = 0;
+            do {
+                clusterFrames.push(frames[frameNumber]);
+                clusterDuration += frames[frameNumber].duration;
+                frameNumber++;
+            } while (frameNumber < frames.length && clusterDuration < CLUSTER_MAX_DURATION);
+
+            var clusterCounter = 0;
+            var cluster = {
+                "id": 0x1f43b675, // Cluster
+                "data": [
+                    {
+                        "data": Math.round(clusterTimecode),
+                        "id": 0xe7 // Timecode
+                    }
+                ].concat(clusterFrames.map(function (webp) {
+                        var block = makeSimpleBlock({
+                            discardable: 0,
+                            frame: webp.data.slice(4),
+                            invisible: 0,
+                            keyframe: 1,
+                            lacing: 0,
+                            trackNum: 1,
+                            timecode: Math.round(clusterCounter)
+                        });
+                        clusterCounter += webp.duration;
+                        return {
+                            data: block,
+                            id: 0xa3
+                        };
+                    }))
+            }
+
+            //Add cluster to segment
+            EBML[1].data.push(cluster);
+            clusterTimecode += clusterDuration;
+        }
+
+        return generateEBML(EBML, outputAsArray)
+    }
+
+    // sums the lengths of all the frames and gets the duration, woo
+
+    function checkFrames(frames) {
+        var width = frames[0].width,
+            height = frames[0].height,
+            duration = frames[0].duration;
+        for (var i = 1; i < frames.length; i++) {
+            if (frames[i].width != width) throw "Frame " + (i + 1) + " has a different width";
+            if (frames[i].height != height) throw "Frame " + (i + 1) + " has a different height";
+            if (frames[i].duration < 0 || frames[i].duration > 0x7fff) throw "Frame " + (i + 1) + " has a weird duration (must be between 0 and 32767)";
+            duration += frames[i].duration;
+        }
+        return {
+            duration: duration,
+            width: width,
+            height: height
+        };
+    }
+
+
+    function numToBuffer(num) {
+        var parts = [];
+        while (num > 0) {
+            parts.push(num & 0xff)
+            num = num >> 8
+        }
+        return new Uint8Array(parts.reverse());
+    }
+
+    function strToBuffer(str) {
+        // return new Blob([str]);
+
+        var arr = new Uint8Array(str.length);
+        for (var i = 0; i < str.length; i++) {
+            arr[i] = str.charCodeAt(i)
+        }
+        return arr;
+        // this is slower
+        // return new Uint8Array(str.split('').map(function(e){
+        //     return e.charCodeAt(0)
+        // }))
+    }
+
+
+    //sorry this is ugly, and sort of hard to understand exactly why this was done
+    // at all really, but the reason is that there's some code below that i dont really
+    // feel like understanding, and this is easier than using my brain.
+
+    function bitsToBuffer(bits) {
+        var data = [];
+        var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
+        bits = pad + bits;
+        for (var i = 0; i < bits.length; i += 8) {
+            data.push(parseInt(bits.substr(i, 8), 2))
+        }
+        return new Uint8Array(data);
+    }
+
+    function generateEBML(json, outputAsArray) {
+        var ebml = [];
+        for (var i = 0; i < json.length; i++) {
+            var data = json[i].data;
+            if (typeof data == 'object') data = generateEBML(data, outputAsArray);
+            if (typeof data == 'number') data = bitsToBuffer(data.toString(2));
+            if (typeof data == 'string') data = strToBuffer(data);
+
+            if (data.length) {
+                var z = z;
+            }
+
+            var len = data.size || data.byteLength || data.length;
+            var zeroes = Math.ceil(Math.ceil(Math.log(len) / Math.log(2)) / 8);
+            var size_str = len.toString(2);
+            var padded = (new Array((zeroes * 7 + 7 + 1) - size_str.length)).join('0') + size_str;
+            var size = (new Array(zeroes)).join('0') + '1' + padded;
+
+            //i actually dont quite understand what went on up there, so I'm not really
+            //going to fix this, i'm probably just going to write some hacky thing which
+            //converts that string into a buffer-esque thing
+
+            ebml.push(numToBuffer(json[i].id));
+            ebml.push(bitsToBuffer(size));
+            ebml.push(data)
+
+
+        }
+
+        //output as blob or byteArray
+        if (outputAsArray) {
+            //convert ebml to an array
+            var buffer = toFlatArray(ebml)
+            return new Uint8Array(buffer);
+        } else {
+            return new Blob(ebml, {type: "video/webm"});
+        }
+    }
+
+    function toFlatArray(arr, outBuffer) {
+        if (outBuffer == null) {
+            outBuffer = [];
+        }
+        for (var i = 0; i < arr.length; i++) {
+            if (typeof arr[i] == 'object') {
+                //an array
+                toFlatArray(arr[i], outBuffer)
+            } else {
+                //a simple element
+                outBuffer.push(arr[i]);
+            }
+        }
+        return outBuffer;
+    }
+
+    //OKAY, so the following two functions are the string-based old stuff, the reason they're
+    //still sort of in here, is that they're actually faster than the new blob stuff because
+    //getAsFile isn't widely implemented, or at least, it doesn't work in chrome, which is the
+    // only browser which supports get as webp
+
+    //Converting between a string of 0010101001's and binary back and forth is probably inefficient
+    //TODO: get rid of this function
+    function toBinStr_old(bits) {
+        var data = '';
+        var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
+        bits = pad + bits;
+        for (var i = 0; i < bits.length; i += 8) {
+            data += String.fromCharCode(parseInt(bits.substr(i, 8), 2))
+        }
+        return data;
+    }
+
+    function generateEBML_old(json) {
+        var ebml = '';
+        for (var i = 0; i < json.length; i++) {
+            var data = json[i].data;
+            if (typeof data == 'object') data = generateEBML_old(data);
+            if (typeof data == 'number') data = toBinStr_old(data.toString(2));
+
+            var len = data.length;
+            var zeroes = Math.ceil(Math.ceil(Math.log(len) / Math.log(2)) / 8);
+            var size_str = len.toString(2);
+            var padded = (new Array((zeroes * 7 + 7 + 1) - size_str.length)).join('0') + size_str;
+            var size = (new Array(zeroes)).join('0') + '1' + padded;
+
+            ebml += toBinStr_old(json[i].id.toString(2)) + toBinStr_old(size) + data;
+
+        }
+        return ebml;
+    }
+
+    //woot, a function that's actually written for this project!
+    //this parses some json markup and makes it into that binary magic
+    //which can then get shoved into the matroska comtainer (peaceably)
+
+    function makeSimpleBlock(data) {
+        var flags = 0;
+        if (data.keyframe) flags |= 128;
+        if (data.invisible) flags |= 8;
+        if (data.lacing) flags |= (data.lacing << 1);
+        if (data.discardable) flags |= 1;
+        if (data.trackNum > 127) {
+            throw "TrackNumber > 127 not supported";
+        }
+        var out = [data.trackNum | 0x80, data.timecode >> 8, data.timecode & 0xff, flags].map(function (e) {
+                return String.fromCharCode(e)
+            }).join('') + data.frame;
+
+        return out;
+    }
+
+    // here's something else taken verbatim from weppy, awesome rite?
+
+    function parseWebP(riff) {
+        var VP8 = riff.RIFF[0].WEBP[0];
+
+        var frame_start = VP8.indexOf('\x9d\x01\x2a'); //A VP8 keyframe starts with the 0x9d012a header
+        for (var i = 0, c = []; i < 4; i++) c[i] = VP8.charCodeAt(frame_start + 3 + i);
+
+        var width, horizontal_scale, height, vertical_scale, tmp;
+
+        //the code below is literally copied verbatim from the bitstream spec
+        tmp = (c[1] << 8) | c[0];
+        width = tmp & 0x3FFF;
+        horizontal_scale = tmp >> 14;
+        tmp = (c[3] << 8) | c[2];
+        height = tmp & 0x3FFF;
+        vertical_scale = tmp >> 14;
+        return {
+            width: width,
+            height: height,
+            data: VP8,
+            riff: riff
+        }
+    }
+
+    // i think i'm going off on a riff by pretending this is some known
+    // idiom which i'm making a casual and brilliant pun about, but since
+    // i can't find anything on google which conforms to this idiomatic
+    // usage, I'm assuming this is just a consequence of some psychotic
+    // break which makes me make up puns. well, enough riff-raff (aha a
+    // rescue of sorts), this function was ripped wholesale from weppy
+
+    function parseRIFF(string) {
+        var offset = 0;
+        var chunks = {};
+
+        while (offset < string.length) {
+            var id = string.substr(offset, 4);
+            var len = parseInt(string.substr(offset + 4, 4).split('').map(function (i) {
+                var unpadded = i.charCodeAt(0).toString(2);
+                return (new Array(8 - unpadded.length + 1)).join('0') + unpadded
+            }).join(''), 2);
+            var data = string.substr(offset + 4 + 4, len);
+            offset += 4 + 4 + len;
+            chunks[id] = chunks[id] || [];
+
+            if (id == 'RIFF' || id == 'LIST') {
+                chunks[id].push(parseRIFF(data));
+            } else {
+                chunks[id].push(data);
+            }
+        }
+        return chunks;
+    }
+
+    // here's a little utility function that acts as a utility for other functions
+    // basically, the only purpose is for encoding "Duration", which is encoded as
+    // a double (considerably more difficult to encode than an integer)
+    function doubleToString(num) {
+        return [].slice.call(
+            new Uint8Array(
+                (
+                    new Float64Array([num]) //create a float64 array
+                ).buffer) //extract the array buffer
+            , 0) // convert the Uint8Array into a regular array
+            .map(function (e) { //since it's a regular array, we can now use map
+                return String.fromCharCode(e) // encode all the bytes individually
+            })
+            .reverse() //correct the byte endianness (assume it's little endian for now)
+            .join('') // join the bytes in holy matrimony as a string
+    }
+
+    function WhammyVideo(speed, quality) { // a more abstract-ish API
+        this.frames = [];
+        this.duration = 1000 / speed;
+        this.quality = quality || 0.8;
+    }
+
+    WhammyVideo.prototype.add = function (frame, duration) {
+        if (typeof duration != 'undefined' && this.duration) throw "you can't pass a duration if the fps is set";
+        if (typeof duration == 'undefined' && !this.duration) throw "if you don't have the fps set, you ned to have durations here."
+        if ('canvas' in frame) { //CanvasRenderingContext2D
+            frame = frame.canvas;
+        }
+        if ('toDataURL' in frame) {
+            frame = frame.toDataURL('image/webp', this.quality)
+        } else if (typeof frame != "string") {
+            throw "frame must be a a HTMLCanvasElement, a CanvasRenderingContext2D or a DataURI formatted string"
+        }
+        if (!(/^data:image\/webp;base64,/ig).test(frame)) {
+            throw "Input must be formatted properly as a base64 encoded DataURI of type image/webp";
+        }
+        this.frames.push({
+            image: frame,
+            duration: duration || this.duration
+        })
+    }
+
+    WhammyVideo.prototype.compile = function (outputAsArray) {
+        return new toWebM(this.frames.map(function (frame) {
+            var webp = parseWebP(parseRIFF(atob(frame.image.slice(23))));
+            webp.duration = frame.duration;
+            return webp;
+        }), outputAsArray)
+    }
+
+    return {
+        Video: WhammyVideo,
+        fromImageArray: function (images, fps, outputAsArray) {
+            return toWebM(images.map(function (image) {
+                var webp = parseWebP(parseRIFF(atob(image.slice(23))))
+                webp.duration = 1000 / fps;
+                return webp;
+            }), outputAsArray)
+        },
+        toWebM: toWebM
+        // expose methods of madness
+    }
+})()
+
+; browserify_shim__define__module__export__(typeof Whammy != "undefined" ? Whammy : window.Whammy);
+
+}).call(global, undefined, undefined, undefined, undefined, function defineExport(ex) { module.exports = ex; });
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}]},{},[1]);

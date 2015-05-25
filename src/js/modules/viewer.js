@@ -2,9 +2,9 @@ var $ = require('jquery');
 require('jquery-ui');
 require('bootstrap');
 
-var Messaging = require('./modules/messaging');
-var Textures = require('./modules/textures');
-var Render = require('./modules/render');
+var Messaging = require('./messaging');
+var Textures = require('./textures');
+var Render = require('./render');
 
 /**
  * Code to support the in-page replay viewer. This file is included as

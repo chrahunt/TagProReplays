@@ -1,24 +1,34 @@
 {
   "name": "TagProReplays",
-  "version": "1.2.20",
+  "version": "1.2.26",
   "description": "Record yourself in TagPro!",
-  "main": "inject.js",
   "scripts": {
     "test": "gulp test"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ballparts/TagProReplays"
+    "url": "https://github.com/chrahunt/TagProReplays"
   },
-  "author": "Ballparts <ballpartstagpro@gmail.com> (https://github.com/ballparts)",
+  "author": "Chris Hunt <chrahunt@gmail.com> (https://github.com/chrahunt)",
+  "contributors": [
+    {
+      "name": "Ballparts",
+      "email": "ballpartstagpro@gmail.com",
+      "url": "https://github.com/ballparts"
+    }
+  ],
   "license": "GPLv3",
   "bugs": {
-    "url": "https://github.com/ballparts/TagProReplays/issues"
+    "url": "https://github.com/chrahunt/TagProReplays/issues"
   },
-  "homepage": "https://github.com/ballparts/TagProReplays",
+  "keywords": [
+    "tagpro"
+  ],
+  "homepage": "https://github.com/chrahunt/TagProReplays",
   "devDependencies": {
     "browserify": "^10.2.1",
     "browserify-shim": "^3.8.7",
+    "event-stream": "^3.3.1",
     "expect.js": "^0.3.1",
     "gulp": "^3.8.11",
     "gulp-inject": "^1.2.0",
@@ -28,7 +38,8 @@
     "phantomjs": "^1.9.16",
     "sinon": "^1.14.1",
     "sinon-chrome": "^0.1.1",
-    "vinyl-source-stream": "^1.1.0"
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.2.1"
   },
   "dependencies": {
     "jquery": "^2.1.4",
@@ -61,10 +72,10 @@
     }
   },
   "browser": {
-    "bootstrap": "./lib/bootstrap.min.js",
-    "file-saver": "./lib/FileSaver.min.js",
-    "jquery.actual": "./lib/jquery.actual.min.js",
-    "jquery-ui": "./lib/jquery-ui.min.js",
-    "whammy": "./lib/whammy.js"
+    "bootstrap": "./vendor/js/bootstrap.min.js",
+    "file-saver": "./vendor/js/FileSaver.min.js",
+    "jquery.actual": "./vendor/js/jquery.actual.min.js",
+    "jquery-ui": "./vendor/js/jquery-ui.min.js",
+    "whammy": "./vendor/js/whammy.js"
   }
 }
