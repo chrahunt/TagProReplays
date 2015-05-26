@@ -28,13 +28,13 @@ Migrations.prototype.getFunctionName = function(from, to) {
 /**
  * Add the given function as a migration from the given version to the
  * given version.
- * @param {(integer|Array.<integer>)} from - The version(s) the
+ * @param {((integer|string)|Array.<(integer|string)>)} from - The version(s) the
  *  function migrates from.
- * @param {integer} to - The version the function migrates to.
+ * @param {(integer|string)} to - The version the function migrates to.
  * @param {MigrationFunction} fn
  */
 Migrations.prototype.add = function(from, to, fn) {
-    if (typeof from == "number") from = [from];
+    if (typeof from == "number" || typeof from == "string") from = [from];
     from.forEach(function(version) {
         this.patch[version] = to;
         this.functions[this.getFunctionName(version, to)] = fn;
@@ -46,8 +46,8 @@ Migrations.prototype.add = function(from, to, fn) {
  * Creates the function that will make incremental changes to the
  * objects expected by the individual migration functions. If a
  * migration is not needed then null is returned.
- * @param {integer} from - The version transitioning from.
- * @param {integer} to - The version transitioning to.
+ * @param {(integer|string)} from - The version transitioning from.
+ * @param {(integer|string)} to - The version transitioning to.
  * @return {Function?} - The function to use to transition the object(s).
  */
 Migrations.prototype.getPatchFunction = function(from, to) {

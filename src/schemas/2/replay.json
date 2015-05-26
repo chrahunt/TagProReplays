@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Raw Replay Data.",
+  "description": "The format of a replay as exported from the extension and used in the database.",
+  "properties": {
+    "data": { "$ref": "data.json#" },
+    "info": { "$ref": "info.json#" },
+    "version": { "type": "string" }
+  },
+  "required": [
+    "data",
+    "info",
+    "version"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "definitions": {
+    "flair": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "description": "The x position of the flair on the flair sprite.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The y position of the flair on the flair sprite.",
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        },
+        "degree": {
+          "description": "The visible degree for the player, or omitted entirely if not present.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "description"
+      ]
+    },
+    "playerArrayItem": {
+      "description": "Array that tracks the state of the properties of a player over time. Initially 0 (prior to player start), but if a player leaves then values are null.",
+      "anyOf": [
+        { "type": "null" },
+        {
+          "description": "Just 0 allowed otherwise.",
+          "type": "integer",
+          "enum": [0]
+        }
+      ],
+      "bool": {
+        "anyOf": [
+          { "$ref": "#/definitions/playerArrayItem" },
+          { "type": "boolean" }
+        ]
+      },
+      "number": {
+        "anyOf": [
+          { "$ref": "#/definitions/playerArrayItem" },
+          { "type": "number" }
+        ]
+      },
+      "integer": {
+        "anyOf": [
+          { "$ref": "#/definitions/playerArrayItem" },
+          { "type": "integer" }
+        ]
+      }
+    }
+  },
+  "properties": {
+    "angle": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+    },
+    "auth": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "bomb": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "dead": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "degree": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/integer" }
+    },
+    "draw": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "flag": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "title": "Flag Value.",
+            "description": "The type of flag held by a player in a specific frame, or null if there was no flag held.",
+            "type": ["number", "string"]
+          },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "flair": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "$ref": "#/definitions/flair" },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "fps": {
+      "description": "The FPS that the replay was recorded at.",
+      "type": "integer"
+    },
+    "grip": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "map": {
+      "description": "The name of the map played on in the replay.",
+      "type": "string"
+    },
+    "me": {
+      "description": "'me' if this player was the player recording, 'other' otherwise. Used for determining world center for replay rendering.",
+      "type": "string",
+      "enum": ["other", "me"]
+    },
+    "name": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "type": "string" },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "tagpro": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "team": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "$ref": "definitions.json#/team" },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "x": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+    },
+    "y": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+    }
+  },
+  "required": [
+    "auth",
+    "bomb",
+    "dead",
+    "degree",
+    "draw",
+    "flag",
+    "flair",
+    "grip",
+    "me",
+    "map",
+    "fps",
+    "name",
+    "tagpro",
+    "team",
+    "x",
+    "y"
+  ],
+  "additionalProperties": false
+}

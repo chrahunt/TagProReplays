@@ -6,6 +6,8 @@ var Data = require('./modules/data');
 var Messaging = require('./modules/messaging');
 var RenderManager = require('./modules/rendermanager');
 var Textures = require('./modules/textures');
+var validate = require('./modules/validate');
+var convert = require('./modules/convert');
 
 /**
  * Acts as the intermediary for content script and background page
@@ -37,6 +39,7 @@ function findIndex(array, fn) {
     }
     return -1;
 }
+
 /**
  * Return the first value in the array that satisfies the given function. Same
  * functionality as `find`.
@@ -339,24 +342,47 @@ function(message, sender, sendResponse) {
 Messaging.listen("importReplay",
 function(message, sender, sendResponse) {
     // TODO: Handle validating/converting imported replay.
-    // Get replay version.
-    // Validate replay against schema.
-    // Convert replay to current format if needed.
-    // Save replay to database.
-    
     var replay = JSON.parse(message.data);
-    // Generate DB Info from Replay.
-    var info = generateReplayInfo(replay);
-    Data.saveReplay(info, replay, function(err, id) {
-        sendResponse({
-            failed: false
-        });
-        info.id = id;
-        // Send new replay notification to any tabs that may have menu open.
-        Messaging.send("replayAdded", {
-            data: info
-        });
+    console.log("Validating " + message.filename + ".");
+    // Validate replay.
+    validate(replay, function(err, version) {
+        if (err) {
+            console.error(message.filename + " could not be validated!");
+            console.error(err);
+        } else {
+            console.log(message.filename + " is a valid v" + version + " replay.");
+            console.log("Applying necessary conversions...");
+            var data = {
+                data: replay,
+                name: message.filename
+            };
+            convert(data, function(err) {
+                if (err) {
+                    console.error(err);
+                    sendResponse({ failed: true });
+                } else {
+                    // Retrieve converted replay.
+                    var replay = data.data;
+                    // Generate DB Info from Replay.
+                    var info = generateReplayInfo(replay);
+                    Data.saveReplay(info, replay, function(err, id) {
+                        if (err) {
+                            console.error(err);
+                            sendResponse({ failed: true });
+                        } else {
+                            sendResponse({ failed: false });
+                            info.id = id;
+                            // Send new replay notification to any tabs that may have menu open.
+                            Messaging.send("replayAdded", {
+                                data: info
+                            });
+                        }
+                    });
+                }
+            });
+        }
     });
+    
     return true;
 });
 

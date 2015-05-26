@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "definitions": {
+    "flair": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "description": "The x position of the flair on the flair sprite sheet.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The y position of the flair on the flair sprite sheet.",
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        },
+        "degree": {
+          "description": "The visible degree for the player, or omitted entirely if not visible.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "description"
+      ]
+    },
+    "playerArrayItem": {
+      "description": "Array that tracks the state of the properties of a player over each frame. Values may be null outside the frames during which the player was actually in-game.",
+      "type": "null",
+      "bool": {
+        "anyOf": [
+          { "$ref": "#/definitions/playerArrayItem" },
+          { "type": "boolean" }
+        ]
+      },
+      "number": {
+        "anyOf": [
+          { "$ref": "#/definitions/playerArrayItem" },
+          { "type": "number" }
+        ]
+      },
+      "integer": {
+        "anyOf": [
+          { "$ref": "#/definitions/playerArrayItem" },
+          { "type": "integer" }
+        ]
+      }
+    }
+  },
+  "properties": {
+    "angle": {
+      "description": "The angle of the player for each frame, or omitted for replays that did not have angle recorded.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+    },
+    "auth": {
+      "description": "Whether the player was authorized (registered, with a display name matching their reserved name).",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "bomb": {
+      "description": "Whether player had the rolling bomb powerup.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "dead": {
+      "description": "Whether player was dead.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "degree": {
+      "description": "Player's degree in each frame.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/integer" }
+    },
+    "draw": {
+      "type": "array",
+      "description": "Whether player should be drawn (i.e. was visible).",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "flag": {
+      "description": "The flag carried by the player, or null if no flag held during a frame.",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "title": "Flag Value.",
+            "description": "The type of flag held by a player in a specific frame, may be 1, 2, 3 for red, blue, yellow.",
+            "type": ["number", "string"]
+          },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "flair": {
+      "description": "The flair assigned to the player in each frame, or null if no flair is visible. Even if player has a visible degree, flair is null unless a flair is visible.",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "$ref": "#/definitions/flair" },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "grip": {
+      "description": "Whether the player had the juke juice powerup.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "id": {
+      "description": "The ID of the player in the game.",
+      "type": "integer"
+    },
+    "name": {
+      "description": "The visible name for the player over each frame in the replay.",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "type": "string" },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "tagpro": {
+      "description": "Whether the player had the tagpro powerup.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+    },
+    "team": {
+      "description": "The team of the player during each frame of the replay.",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "$ref": "definitions.json#/team" },
+          { "$ref": "#/definitions/playerArrayItem" }
+        ]
+      }
+    },
+    "x": {
+      "title": "X Position.",
+      "description": "The player's X position during each frame of the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+    },
+    "y": {
+      "title": "Y Position.",
+      "description": "The player's Y position during each frame of the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+    }
+  },
+  "required": [
+    "auth",
+    "bomb",
+    "dead",
+    "degree",
+    "draw",
+    "flag",
+    "flair",
+    "grip",
+    "id",
+    "name",
+    "tagpro",
+    "team",
+    "x",
+    "y"
+  ],
+  "additionalProperties": false
+}

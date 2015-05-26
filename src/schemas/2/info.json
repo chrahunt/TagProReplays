@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Replay Info.",
+  "description": "Properties common to both the raw replay and database replay objects.",
+  "properties": {
+    "mapName": { "type": "string" },
+    "fps": {
+      "title": "FPS.",
+      "description": "The FPS the replay was recorded at.",
+      "type": "integer"
+    },
+    "name": {
+      "title": "Replay Name.",
+      "description": "The name of the replay as set by the player, or the default set by the script.",
+      "type": "string",
+      "minLength": 1
+    },
+    "player": {
+      "title": "Player ID.",
+      "description": "The id of the player recording.",
+      "type": "integer"
+    },
+    "teamNames": {
+      "properties": {
+        "1": { "type": "string" },
+        "2": { "type": "string" }
+      },
+      "required": [
+        "1",
+        "2"
+      ],
+      "additionalProperties": false
+    },
+    "dateRecorded": { "$ref": "definitions.json#/time" }
+  },
+  "required": [
+    "mapName",
+    "fps",
+    "name",
+    "player",
+    "dateRecorded",
+    "teamNames"
+  ],
+  "additionalProperties": false
+}
