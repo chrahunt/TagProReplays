@@ -6,10 +6,46 @@ var gulp = require('gulp'),
     gutil = require('gulp-util'),
     rename = require('gulp-rename'),
     source = require('vinyl-source-stream'),
-    assign = require('lodash.assign');
+    assign = require('lodash.assign'),
+    watch = require('gulp-watch'),
+    plumber = require('gulp-plumber');
+
+var assets = [
+    // Asset files in src
+    ['src/**/*', '!src/js/**/*'],
+    // Asset files in vendor
+    ['vendor/**/*', '!vendor/js/**/*']
+];
+
+var sources = 'src/js/*.js';
+var dirs = {
+    dev: './build/dev',
+    release: './build/release'
+};
+
+gulp.task('build-dev', function() {
+    var bundle = glob(sources, function (err, files) {
+        var streams = files.map(function (entry) {
+            return browserify({
+                    entries: entry,
+                    debug: true
+                })
+                .bundle()
+                .pipe(source(entry.replace(/^\.\/src\//, '')))
+                .pipe(gulp.dest(dirs.dev));
+        });
+        return es.merge(streams);
+    });
+    
+    assets.forEach(function(asset) {
+        gulp.src(asset)
+            .pipe(gulp.dest(dirs.dev));
+    });
+    return bundle;
+});
 
 // Compile and watchify sourced file.
-function watch(src, out) {
+function watchifyFile(src, out) {
     var opts = assign({}, watchify.args, {
         entries: src,
         debug: true
@@ -26,49 +62,38 @@ function watch(src, out) {
     return bundle();
 }
 
-gulp.task('build-dev', function() {
-    var dir = "./build/dev";
-    var bundle = glob('./src/js/*.js', function (err, files) {
+gulp.task('watch-dev', function() {
+    var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
-            return watch(entry, dir);
-            /*return browserify({
-                    entries: entry,
-                    debug: true
-                })
-                .bundle()
-                .pipe(source(entry.replace(/^\.\/src\//, '')))
-                .pipe(gulp.dest('./build/dev'));*/
+            return watchifyFile(entry, dirs.dev);
         });
         return es.merge(streams);
     });
-    // Copy asset files from src.
-    gulp.src(['./src/**/*', '!./src/js/**/*'])
-        .pipe(gulp.dest(dir));
-    // Copy asset files from vendor.
-    gulp.src(['./vendor/**/*', '!./vendor/js/**/*'])
-        .pipe(gulp.dest(dir));
+    
+    assets.forEach(function(asset) {
+        gulp.src(asset)
+            .pipe(watch(asset))
+            .pipe(plumber())
+            .pipe(gulp.dest(dirs.dev));
+    });
     return bundle;
 });
 
-// using vinyl-source-stream:
 gulp.task('build-prod', function() {
-    var dir = "./build/release";
-    var bundle = glob('./src/js/*.js', function (err, files) {
+    var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
             return browserify({
                     entries: entry
                 })
                 .bundle()
                 .pipe(source(entry.replace(/^\.\/src\//, '')))
-                .pipe(gulp.dest(dir));
+                .pipe(gulp.dest(dirs.release));
         });
         return es.merge(streams);
     });
-    // Copy asset files from src.
-    gulp.src(['./src/**/*', '!./src/js/**/*'])
-        .pipe(gulp.dest(dir));
-    // Copy asset files from vendor.
-    gulp.src(['./vendor/**/*', '!./vendor/js/**/*'])
-        .pipe(gulp.dest(dir));
+    assets.forEach(function(asset) {
+        gulp.src(asset)
+            .pipe(gulp.dest(dirs.release));
+    });
     return bundle;
 });

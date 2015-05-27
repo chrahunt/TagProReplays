@@ -16,26 +16,18 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 
 ## Development
 
-### Building the Extension
+### Building/Updating the Extension
 
-There are two options for building the extension, development and production, which correspond to the `build-dev` and `build-prod` gulp tasks, respectively. The development build drops all the files into `build/dev` and includes source maps (TODO: incorporate watchify and gulp-watch). The production build puts the files into `build/release` and is only for releases.
-
-In either case, when the extension is built, all non-JS files are copied into the relevant folder from `src` and `vendor`, then the files in the top-level of `src/js` are compiled using browserify and placed in the `js` directory of the target folder for the build.
-
-```
-npm install
-gulp build-dev  # or ./node_modules/.bin/gulp if not installed globally
-```
+Because the project uses browserify, the individual JavaScript files can't be used directly, and compilation with browserify is needed before release and during development. The utility [`gulp`](http://gulpjs.com/) makes this a breeze to deal with. After reading about and installing the utility, you can execute one of the tasks below by running `gulp [task name]` (without brackets) in the root directory of the project
+* `build-dev`: Browserifies the top-level JS source files in `src/js` (including source maps) and moves them along with all assets folders from `src` and `vendor` to `build/dev`. This directory isn't tracked, so when making non-release commits or debugging, this is the command to use.
+* `build-prod`: Same as `build-dev` except without source maps and the files end up in `build/release`.
+* `watch-dev`: This is `build-dev`+. It builds as above, but watches for changes to source and asset files, rebrowserifying and moving when any changes are made. The process is pretty much immediate, so developing requires nothing more than saving the file and refreshing the page.
 
 References to assets using `chrome.extension.getURL` can assume the same relative location as in the `src` directory.
 
 Dependencies are resolved by browserify at compile-time, but the assets that may be required for those libraries are moved from their respective folders and into the `build` directory. This applies to bootstrap and jQuery-UI, and their CSS has been updated to properly refer to the images in the build directory.
 
 `require` resolution for internal modules is done by specifying the relative location, but third-party dependencies (both in `vendor` and those installed as node modules) can be accessed using aliases defined in `package.json` under the `browser` key. See [browserify-shim](https://github.com/thlorenz/browserify-shim) for more information on this.
-
-### Developing on the Extension
-
-1. with watchify
 
 ### More Information
 
