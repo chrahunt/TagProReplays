@@ -1,6 +1,7 @@
 var $ = require('jquery');
 
 var Cookies = require('./modules/cookies');
+var DOMMessaging = require('./modules/messaging.dom');
 var Messaging = require('./modules/messaging');
 var Menu = require('./modules/menu');
 
@@ -73,7 +74,7 @@ function createReplayPageButton(menu) {
         buttons = $('article>div.buttons.smaller>a');
         for (var i = 0; i < buttons.length; i++) {
             textcontent = buttons[i].textContent;
-            if (textcontent.search('Leaders') >= 0) {
+            if (textcontent.search('Play') >= 0) {
                 return buttons[i];
             }
         }
@@ -86,27 +87,14 @@ function createReplayPageButton(menu) {
     });
 }
 
-// This is an easy method wrapper to dispatch events
-function emit(event, data) {
-    var e = new CustomEvent(event, {detail: data});
-    window.dispatchEvent(e);
-}
-
-// this function sets up a listener wrapper
-function listen(event, listener) {
-    window.addEventListener(event, function (e) {
-        listener(e.detail);
-    });
-}
-
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
-listen('saveReplay', function (data) {
+DOMMessaging.listen('saveReplay', function (data) {
     console.log('Received replay data from injected script, sending to background page.');
     Messaging.send("saveReplay", {
         data: data
     }, function(response) {
-        emit('replaySaved', response.failed);
+        DOMMessaging.send('replaySaved', response.failed);
     });
 });
 

@@ -1,3 +1,6 @@
+var Cookies = require('./modules/cookies');
+var DOMMessaging = require('./modules/messaging.dom');
+
 /**
  * Record and save the state of the game, emitting an event to the
  * window with the replay data which is picked up by a content script.
@@ -6,25 +9,6 @@
  * necessary in order to listen to the game socket, which provides game
  * state information.
  */
-(function(window, document, undefined) {
-
-/**
- * Read cookie with given name, returning its value if found. If no
- * cookie with the name is found, returns `null`.
- * @param {string} name - The name of the cookie to retrieve the value
- *   for.
- * @return {?string} - The value of the cookie, or null if not found.
- */
-function readCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-}
 
 /**
  * Create an array of size `n` filled with null.
@@ -57,7 +41,7 @@ function createNullArray(n) {
  */
 function getOptions() {
     function getBooleanCookie(name, defaultValue) {
-        var cookie = readCookie(name);
+        var cookie = Cookies.read(name);
         if (cookie) {
             return cookie == "true";
         } else {
@@ -65,10 +49,10 @@ function getOptions() {
         }
     }
 
-    var fps = +readCookie('fps') || 60;
-    var duration = +readCookie('duration') || 30;
+    var fps = +Cookies.read('fps') || 60;
+    var duration = +Cookies.read('duration') || 30;
     var record_key_enabled = getBooleanCookie('useRecordKey', true);
-    var record_key = +readCookie('replayRecordKey') || 47;
+    var record_key = +Cookies.read('replayRecordKey') || 47;
     var record = getBooleanCookie('record', true);
 
     var options = {
@@ -249,18 +233,6 @@ function recordReplayData(data) {
     thing = setInterval(saveFrame, 1000 / fps);
 }
 
-function emit(event, data) {
-    var e = new CustomEvent(event, {detail: data});
-    window.dispatchEvent(e);
-}
-
-// this function sets up a listener wrapper
-function listen(event, listener) {
-    window.addEventListener(event, function (e) {
-        listener(e.detail);
-    });
-}
-
 // Send replay data to content script.
 function saveReplayData(data) {
     // Create the info.
@@ -281,13 +253,13 @@ function saveReplayData(data) {
         info: info,
         version: "2"
     };
-    // DEBUG
-    //localStorage.setItem("test_replay", data);
-    emit('saveReplay', replay);
+    // Convert for performance.
+    //replay = JSON.stringify(replay);
+    DOMMessaging.send('saveReplay', replay);
 }
 
 // Listen for content script save confirmation/failure.
-listen('replaySaved', function(err) {
+DOMMessaging.listen('replaySaved', function(err) {
     console.log('Got confirmation message.');
     if (err) {
         $("#savedFeedback").text("Failed!");
@@ -350,5 +322,3 @@ if (options.record) {
         });
     });
 }
-
-})(window, document);
