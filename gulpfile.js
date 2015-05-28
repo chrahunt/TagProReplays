@@ -31,7 +31,7 @@ gulp.task('build-dev', function() {
                     debug: true
                 })
                 .bundle()
-                .pipe(source(entry.replace(/^\.\/src\//, '')))
+                .pipe(source(entry.replace(/^src\//, '')))
                 .pipe(gulp.dest(dirs.dev));
         });
         return es.merge(streams);
@@ -54,7 +54,7 @@ function watchifyFile(src, out) {
     function bundle() {
         return b.bundle()
             .on('error', gutil.log.bind(gutil, "Browserify Error"))
-            .pipe(source(src.replace(/^\.\/src\//, '')))
+            .pipe(source(src.replace(/^src\//, '')))
             .pipe(gulp.dest(out));
     }
     b.on('update', bundle);
@@ -86,7 +86,7 @@ gulp.task('build-prod', function() {
                     entries: entry
                 })
                 .bundle()
-                .pipe(source(entry.replace(/^\.\/src\//, '')))
+                .pipe(source(entry.replace(/^src\//, '')))
                 .pipe(gulp.dest(dirs.release));
         });
         return es.merge(streams);
