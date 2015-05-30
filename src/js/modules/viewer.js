@@ -35,10 +35,10 @@ Viewer.prototype.init = function() {
     this.cropping = false;
     this.timeActive = false;
 
-    // Adjust viewer dimensions on window resize.
-    window.onresize = this.resize;
-
     var viewer = this;
+
+    // Opt-in to bootstrap tooltips.
+    $("#tpr-viewer-container [data-toggle='tooltip']").tooltip();
 
     // Set listeners.
     $("#time-slider").slider({
@@ -46,9 +46,19 @@ Viewer.prototype.init = function() {
         max: this.frames,
         value: 0,
         range: "min",
-        slide: function() {
-            viewer.frame = $("#time-slider").slider("value");
-            viewer.drawFrame();
+        slide: function(event, ui) {
+            var value = ui.value;
+            if (!viewer.playing) {
+                viewer.frame = value;
+                viewer.drawFrame();
+            } else {
+                clearInterval(viewer.playInterval);
+                if (value >= viewer.lastFrame) {
+                    viewer.play(value, viewer.frames);
+                } else {
+                    viewer.play(value, viewer.lastFrame);
+                }
+            }
         },
         change: function(event) {
             // Ensure this was a user-initiated event.
@@ -62,25 +72,17 @@ Viewer.prototype.init = function() {
     $(".time-slider-container").mouseenter(function() {
         if (!viewer.timeActive) {
             viewer.timeActive = true;
-            $("#time-slider").animate({
-                top: "17px",
-                height: "8px"
-            });
-            $("#time-slider .ui-slider-handle").fadeIn(300);
+            viewer.showSeek();
         }
     });
 
     $(".time-slider-container").mouseleave(function() {
-        if (viewer.timeActive) {
+        if (viewer.timeActive && viewer.playing) {
             viewer.timeActive = false;
             setTimeout(function() {
                 // Don't hide if active again.
-                if (viewer.timeActive) return;
-                $("#time-slider").animate({
-                    top: "20px",
-                    height: "5px"
-                });
-                $("#time-slider .ui-slider-handle").fadeOut(300);
+                if (viewer.timeActive || !viewer.playing) return;
+                viewer.hideSeek();
             }, 500);
         }
     });
@@ -93,37 +95,24 @@ Viewer.prototype.init = function() {
         values: [0, this.frames]
     });
 
-    //$("#crop-slider").show();
-
-    function setupcrop() {
-        $first = $("#crop-slider .ui-slider-handle:first");
-        $first.tooltip({
-            title: 'start',
-            trigger: 'manual'
-        });
-        $first.tooltip('show');
-    }
-    //setupcrop();
-
-    $(".controls").on("click", ".tpr-button-stop", function() {
+    $("#viewer-controls").on("click", ".tpr-button-stop", function() {
         viewer.close();
     });
 
-    $(".controls").on("click", ".tpr-button-reset", function() {
+    $("#viewer-controls").on("click", ".tpr-button-reset", function() {
         viewer.reset();
         viewer.drawFrame();
     });
 
-    $(".controls").on("click", ".tpr-button-play", function() {
+    $("#viewer-controls").on("click", ".tpr-button-play", function() {
         viewer.play(viewer.frame, viewer.frames);
-        $(this).removeClass('tpr-button-play').addClass('tpr-button-pause');
     });
 
-    $(".controls").on("click", ".tpr-button-pause", function() {
+    $("#viewer-controls").on("click", ".tpr-button-pause", function() {
         viewer.pause();
     });
 
-    $("#viewerCropStartButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-crop-start", function() {
         var cropRange = $("#crop-slider").slider("values");
         var newStart = $("#time-slider").slider("value");
         var newRange = [newStart];
@@ -133,9 +122,13 @@ Viewer.prototype.init = function() {
             newRange.push(cropRange[1]);
         }
         $("#crop-slider").slider('values', newRange);
+        if (!viewer.cropping) {
+            viewer.cropping = true;
+            viewer.showCrop();
+        }
     });
 
-    $("#viewerCropEndButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-crop-end", function() {
         var cropRange = $("#crop-slider").slider("values");
         var newEnd = $("#time-slider").slider("value");
         var newRange = [newEnd];
@@ -145,15 +138,20 @@ Viewer.prototype.init = function() {
             newRange.unshift(cropRange[0]);
         }
         $("#crop-slider").slider('values', newRange);
+        if (!viewer.cropping) {
+            viewer.cropping = true;
+            viewer.showCrop();
+        }
     });
 
-    $("#viewerPlayCroppedMovieButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-crop-play", function() {
         var range = $("#crop-slider").slider("values");
         viewer.play(range[0], range[1]);
     });
-    
+
     // Crop replay data and save as a new replay.
-    $("#viewerCropButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-crop", function() {
+        viewer.pause();
         var newName = prompt('If you would also like to name the new' +
             ' cropped replay, type the new name here. Leave it blank ' +
             'to make a generic name.');
@@ -174,11 +172,14 @@ Viewer.prototype.init = function() {
             // TODO: Handle error.
             if (!response.failed) {
                 viewer._viewReplay(response.id, response.data);
+            } else {
+
             }
         });
     });
 
-    $("#viewerCropAndReplaceButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-crop-replace", function() {
+        viewer.pause();
         var newName = prompt('If you would also like to rename this ' +
             'replay, type the new name here. Leave it blank to use ' +
             'the old name.');
@@ -198,7 +199,7 @@ Viewer.prototype.init = function() {
         Messaging.send("cropAndReplaceReplay", msg);
     });
 
-    $("#viewerDeleteButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-delete", function() {
         if (confirm('Are you sure you want to delete this replay?')) {
             viewer.close();
             console.log('Requesting deletion of replay ' + viewer.id + '.');
@@ -208,7 +209,7 @@ Viewer.prototype.init = function() {
         }
     });
 
-    $("#viewerRenderButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-render", function() {
         if (confirm('Are you sure you want to render this replay?')) {
             viewer.close();
             console.log('Requesting render of replay ' + viewer.id + '.');
@@ -218,7 +219,7 @@ Viewer.prototype.init = function() {
         }
     });
 
-    $("#viewerRenameButton").click(function() {
+    $("#viewer-controls").on("click", ".tpr-button-rename", function() {
         // TODO: Handle blank rename value.
         var newName = prompt('How would you like to rename ' + viewer.replay.info.name + '?');
         if (newName !== null && newName !== "") {
@@ -229,49 +230,6 @@ Viewer.prototype.init = function() {
             });
         }
     });
-};
-
-// Adjust viewer dimensions based on window size.
-Viewer.prototype.resize = function() {
-    // Resize container.
-    /*if($(window).width() > 1280) {
-        $('#tpr-viewer-container').width(1280);
-        $('#tpr-viewer-container').css('left', $(window).width()/2 - $('#tpr-viewer-container').width()/2);
-    } else {
-        $('#tpr-viewer-container').width('100%');
-        $('#tpr-viewer-container').css('left', 0);
-    }
-    if($(window).height() > (800/0.9)) {
-        $('#tpr-viewer-container').height(800/0.9);
-        $('#tpr-viewer-container').css('top', $(window).height()/2 - $('#tpr-viewer-container').height()/2);
-    } else {
-        $('#tpr-viewer-container').height('100%');
-        $('#tpr-viewer-container').css('top', 0);
-    }
-    $('#viewer-canvas')[0].height = $('#tpr-viewer-container').height() * 0.90 - 20;
-    $('#viewer-canvas')[0].width = $('#tpr-viewer-container').width() - 20;
-    $('#viewer-canvas').height($('#viewer-canvas')[0].height);
-    $('#viewer-canvas').width($('#viewer-canvas')[0].width);*/
-
-    // Resize buttons.
-    var IMGWIDTH          = 57,
-        BUTTONWIDTH       = 90,
-        widthFactor       = $('#tpr-viewer-container').width() / 1280,
-        heightFactor      = $('#tpr-viewer-container').height() / (800/0.9),
-        IMGWIDTHFACTOR    = IMGWIDTH / 1280, 
-        BUTTONWIDTHFACTOR = BUTTONWIDTH / 1280,
-        IMGHEIGHTFACTOR   = IMGWIDTH / (800/0.9);
-
-    $('#tpr-viewer-container button').width(BUTTONWIDTHFACTOR * Math.pow($('#tpr-viewer-container').width(), 0.99));
-    if ( widthFactor >= heightFactor ) {
-        $('#tpr-viewer-container img').height(IMGHEIGHTFACTOR * heightFactor * (800/0.9));
-        $('#tpr-viewer-container img').width('auto');
-        $('#button-bar button').css('font-size', $('#button-bar button').height()/2.5);
-    } else {
-        $('#tpr-viewer-container img').width(IMGWIDTHFACTOR * widthFactor * 1280);
-        $('#tpr-viewer-container img').height('auto');
-        $('#button-bar button').css('font-size', $('#button-bar button').width()/5);
-    }
 };
 
 // Initialize viewer to work with replay that has provided id.
@@ -303,7 +261,6 @@ Viewer.prototype._viewReplay = function(id, replay) {
 // Display the viewer.
 Viewer.prototype.show = function() {
     $("#tpr-viewer-container").fadeIn(500);
-    this.resize();
 };
 
 // Hide the viewer.
@@ -321,9 +278,18 @@ Viewer.prototype.replayInit = function() {
     $("#time-slider").slider("option", "max", this.frames);
     $("#crop-slider").slider("option", "max", this.frames);
     $("#crop-slider").slider("values", [0, this.frames]);
+    // Reset crop indicators.
+    if (this.cropping) {
+        this.cropping = false;
+        this.hideCrop();
+    }
 
+    // Pause if playing.
+    this.pause();
+
+    // Reset to beginning.
     this.reset();
-    // TODO: Show previewer with loading spinner.
+    // TODO: Show previewer with loading spinner?
     // Get options and textures.
     chrome.storage.local.get(["options", "textures", "default_textures"], function(items) {
         function onTextureLoad(textureImages) {
@@ -338,6 +304,60 @@ Viewer.prototype.replayInit = function() {
             Textures.getImages(items.textures, onTextureLoad);
         }
     });
+};
+
+/**
+ * Hide cropping indicators.
+ */
+Viewer.prototype.showCrop = function() {
+    $("#crop-slider .ui-slider-handle").show();
+};
+
+/**
+ * Show cropping indicators.
+ */
+Viewer.prototype.hideCrop = function() {
+    $("#crop-slider .ui-slider-handle").hide();
+};
+
+/**
+ * Show the seek bar and handle.
+ * @param {boolean} [instant=false] - Whether the bar should display
+ *   instantly.
+ */
+Viewer.prototype.showSeek = function(instant) {
+    var transform = {
+        transform: 'scaleY(1)',
+        transition: 'transform .1s ease-out'
+    };
+    $("#time-slider").css(transform);
+    $("#crop-slider .ui-slider-handle").css(transform);
+    $("#time-slider .ui-slider-handle").css({
+        display: 'block',
+        opacity: 1
+    });
+};
+
+/**
+ * Hide the seek bar and handle.
+ * @param {boolean} [instant=false] - Whether the bar should hide
+ *   instantly.
+ */
+Viewer.prototype.hideSeek = function(instant) {
+    function remove() {
+        $("#time-slider .ui-slider-handle").css({ display: 'none' });
+        $("#time-slider .ui-slider-handle")[0].removeEventListener("transitionend", remove);
+    }
+    var transform = {
+        transform: 'scaleY(0.375)',
+        transition: 'transform .5s ease-in'
+    };
+    $("#time-slider").css(transform);
+    $("#crop-slider .ui-slider-handle").css(transform);
+    $("#time-slider .ui-slider-handle").css({
+        opacity: 0
+    });
+    $("#time-slider .ui-slider-handle")[0].addEventListener("transitionend", remove);
 };
 
 // Initialize replay after everything has been loaded.
@@ -365,7 +385,7 @@ Viewer.prototype.drawFrame = function() {
 };
 
 /**
- * Close the previewer
+ * Close the previewer, resetting necessary state.
  */
 Viewer.prototype.close = function() {
     this.reset();
@@ -380,10 +400,15 @@ Viewer.prototype.pause = function() {
     if (this.playing) {
         clearInterval(this.playInterval);
         this.playInterval = null;
+        this.lastFrame = null;
         this.playing = false;
-        $('.tpr-button-pause')
-            .removeClass('tpr-button-pause')
-            .addClass('tpr-button-play');
+        $('.tpr-button-pause').css("display", "none");
+        if (this.frame >= this.frames) {
+            $('.tpr-button-reset').css("display", "inline-flex");
+        } else {
+            $('.tpr-button-play').css("display", "inline-flex");
+        }
+        this.showSeek();
     }
 };
 
@@ -391,8 +416,9 @@ Viewer.prototype.pause = function() {
  * Reset the replay to the beginning.
  */
 Viewer.prototype.reset = function() {
-    this.pause();
     this.setFrame(0);
+    $('.tpr-button-reset').css("display", "none");
+    $('.tpr-button-play').css("display", "inline-flex");
 };
 
 // Play preview starting at the given frame and ending at the other
@@ -401,16 +427,17 @@ Viewer.prototype.play = function(start, end) {
     // Reset anything currently playing.
     this.reset();
     this.playing = true;
-    $('.tpr-button-play')
-        .removeClass('tpr-button-play')
-        .addClass('tpr-button-pause');
+    this.hideSeek();
+    $('.tpr-button-play').css("display", "none");
+    $('.tpr-button-pause').css("display", "inline-flex");
 
     var time = Date.now();
     var startTime = time;
     var fps = this.replay.info.fps;
     this.setFrame(start);
+    this.lastFrame = end;
     this.playInterval = setInterval(function() {
-        if (this.frame >= end) {
+        if (this.frame >= this.lastFrame) {
             this.pause();
             return;
         }
@@ -418,6 +445,7 @@ Viewer.prototype.play = function(start, end) {
         var dt = Date.now() - time;
         time = Date.now();
         var nFramesToAdvance = Math.round(dt / (1000 / fps));
-        this.setFrame(this.frame + nFramesToAdvance);
+        var newFrame = Math.min(this.frame + nFramesToAdvance, this.frames);
+        this.setFrame(newFrame);
     }.bind(this), 1000 / fps);
 };

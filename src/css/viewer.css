@@ -1,3 +1,4 @@
+/* background of viewer */
 #tpr-viewer-container {
     height: 100%;
     width: 100%;
@@ -5,41 +6,101 @@
     top: 0;
     left: 0;
     z-index: 2000;
-    display: 'none';
+    display: none;
 }
 
+/* Properties applicable for all sizes. */
+
+/* default viewer values, good for 673px */
 #tpr-viewer {
     position: relative;
-    height: 90%;
-    width: 90%;
+    width: 640px;
     top: 5%;
-    left: 5%;
+    margin: auto;
 }
 
-#viewer {
+#viewer-background {
+    height: 430px;
+}
+
+#viewer-background {
     border: 10px solid white;
     border-radius: 4px;
+    height: 430px;
+    width: 620px;
+    position: relative;
+    margin: auto;
+}
+
+/* beautiful at every size */
+/*
+Variables:
+sw - visible screen width
+Formulas:
+#viewer-background
+width = whatever looks good. At small sizes, sw - 53
+height = ceiling of ((#viewer-background.width - 620) / 1.6) + 430
+
+#tpr-viewer
+width = #viewer-background.width + 20
+*/
+/* half-screen 1600px display = 790px */
+@media (min-width: 780px) {
+    #viewer-background {
+        width: 727px;
+        height: 497px;
+    }
+
+    #tpr-viewer {
+        width: 747px;
+    }
+}
+
+/* full-screen 1366px display = 1366px */
+@media (min-width: 1360px) {
+    #viewer-background {
+        width: 900px;
+        height: 605px;
+    }
+
+    #tpr-viewer {
+        width: 920px;
+    }
+}
+
+@media (min-width: 1590px) {
+    #viewer-background {
+        width: 1000px;
+        height: 668px;
+    }
+
+    #tpr-viewer {
+        width: 1020px;
+    }
+}
+
+#viewer-container {
+    width: 100%;
 }
 
 #tpr-viewer-container #viewer-canvas {
-    height: 100%;
     width: 100%;
     background: black;
     display: block;
 }
 
-#screen {
-    margin-bottom: -20px;
-}
-
 #tpr-viewer-container #viewer-controls {
-    height: 10%;
+    height: 58px;
     width: 100%;
-    position: relative;
+    bottom: 0;
+    position: absolute;
 }
 
 .time-slider-container {
     height: 25px;
+    position: absolute;
+    bottom: 33px;
+    width: 100%;
 }
 
 #time-slider .ui-slider-range {
@@ -47,14 +108,21 @@
 }
 
 #time-slider {
-    top: 20px;
     border-radius: 0px !important;
     border: none !important;
-    height: 5px;
+    height: 8px;
+    width: 100%;
+    position: absolute;
+    bottom: 0px;
+    transform-origin: center bottom;
 }
 
 #time-slider .ui-slider-handle {
     display: none;
+    transition-property: opacity;
+    transition-duration: 1s;
+    border: 4px solid rgb(204, 204, 204);
+    border-radius: 10px;
 }
 
 #time-slider .ui-slider-range {
@@ -62,87 +130,82 @@
     border: none;
 }
 
-#tpr-viewer-container .controls {
-    padding: 5px;
-    text-align: left;
-    background: black;
+.viewer-buttons {
+    height: 33px;
+    width: 100%;
+    position: absolute;
+    bottom: 0px;
+    background-color: #111;
 }
 
-.controls button {
-    vertical-align: middle;
-    max-height: 70%;
-    height: 70%;
-    width: auto;
-    font-weight: bold;
-    color: black;
+.tpr-button {
+    height: 33px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    color: #bbb;
+    font-size: 19px;
+}
+
+/* Text options */
+.tpr-option {
+    display: flex;
+    float: right;
+    height: 33px;
+    color: #ddd;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
     cursor: pointer;
 }
 
-.controls .tpr-button {
-    vertical-align: middle;
-    display: inline-block;
-    width: 38px;
-    height: 38px;
-    background-size: contain;
-    cursor: pointer;
+.tpr-option:hover, .tpr-button:hover {
+    box-shadow: 0px 0px 2px #eee;
 }
 
-.tpr-button-play {
-    background: no-repeat url('chrome-extension://__MSG_@@extension_id__/images/ui/play.png');
+.tpr-button-play, .tpr-button-pause, .tpr-button-reset {
+    width: 45px;
 }
 
-.tpr-button-pause {
-    background: no-repeat url('chrome-extension://__MSG_@@extension_id__/images/ui/pause.png');
+.tpr-button-pause, .tpr-button-reset {
+    display: none;
 }
 
-.tpr-button-reset {
-    background: no-repeat url('chrome-extension://__MSG_@@extension_id__/images/ui/reset.png');
-}
-
-.tpr-button-stop {
-    background: no-repeat url('chrome-extension://__MSG_@@extension_id__/images/ui/stop.png');
+.tpr-button:nth-child(n+4) {
+    width: 30px;
 }
 
 /* Hide crop slider and sub-elements. */
 #crop-slider {
     border: none !important;
     height: 0px !important;
+    width: 100%;
+    position: absolute;
+    bottom: 0px;
 }
 
 #crop-slider .ui-slider-range {
-    border: none;
-    background: none;
-}
-
-#crop-slider .ui-slider-handle {
-    width: 0px;
-    height: 0px;
     border: none !important;
     background: none !important;
 }
 
-/* crop arrows */
-.arrow-down-outer {
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-top: 15px solid black;
-    height: 0px;
-    width: 0px;
+/* Keep right crop indicator in bar */
+#crop-slider .ui-slider-handle:nth-child(2) {
+    margin-left: -4px !important;
 }
 
-#crop-slider .ui-slider-handle:first-child .arrow-down-outer {
-    transform: translateY(-25px) translateX(-4px);
-}
-
-#crop-slider .ui-slider-handle:nth-child(2) .arrow-down-outer {
-    transform: translateY(-25px) translateX(4px);
-}
-
-.arrow-down-inner {
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 7px solid white;
-    transform: translateX(-4px) translateY(-12px);
-    height: 0px;
-    width: 0px;
+#crop-slider .ui-slider-handle {
+    width: 4px;
+    height: 10px;
+    position: absolute;
+    bottom: 0px;
+    margin: -5px 0px 0px 0px;
+    transform-origin: bottom center;
+    background-color: white !important;
+    border-radius: 2px 2px 0px 0px;
+    border: 1px solid black  !important;
+    border-bottom-width: 0px !important;
+    display: none; /* initially hidden */
 }

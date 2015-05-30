@@ -1,38 +1,33 @@
 <!-- In-Browser Preview Viewer -->
 <div id="tpr-viewer">
-    <div id="viewer">
-        <div id="screen">
-            <canvas id="viewer-canvas" width="1280" height="800"></canvas>
-        </div>
-        <div id="viewer-controls">
-            <div class="time-slider-container">
-                <div id="time-slider"></div>
+    <div id="viewer-background">
+        <div id="viewer-container">
+            <div id="viewer-screen">
+                <canvas id="viewer-canvas" width="1280" height="800"></canvas>
             </div>
-            <div class="controls">
-                <div id="crop-slider">
-                    <div class="crop-handle ui-slider-handle">
-                        <div class="arrow-down-outer">
-                            <div class="arrow-down-inner"></div>
-                        </div>
-                    </div>
-                    <div class="crop-handle ui-slider-handle">
-                        <div class="arrow-down-outer">
-                            <div class="arrow-down-inner"></div>
-                        </div>
+            <div id="viewer-controls">
+                <div class="time-slider-container">
+                    <div id="time-slider"></div>
+                    <div id="crop-slider">
+                        <div class="crop-handle ui-slider-handle"></div>
+                        <div class="crop-handle ui-slider-handle"></div>
                     </div>
                 </div>
-                <div class="tpr-button tpr-button-play"></div>
-                <div class="tpr-button tpr-button-reset"></div>
-                <div class="tpr-button tpr-button-stop"></div>
-                <button id="viewerCropStartButton" title="This sets the beginning of the cropped portion of the replay. Everything before this point will be erased when you crop the replay.">Crop Start</button>
-                <button id="viewerCropEndButton" title="This sets the end of the cropped portion of the replay. Everything after this point will be erased when you crop the replay.">Crop End</button>
-                <button id="viewerPlayCroppedMovieButton" title='This plays the section of the replay between the "crop start" and "crop end" so you know what your cropped replay will look like.'>Play Cropped</button>
-                <button id="viewerCropButton" title="This actually crops the replay. It leaves the original replay intact, though, and saves a new cropped replay.">Crop</button>
-                <button id="viewerCropAndReplaceButton" title="This also actually crops the replay, but it replaces the original replay with the cropped one.">Crop and Replace</button>
-                <button id="viewerDeleteButton" title="This deletes the current replay.">Delete</button>
-                <button id="viewerRenderButton" title="This renders the current replay.">Render</button>
-                <button id="viewerRenameButton" title="This renames the current replay.">Rename</button>
+                <div class="viewer-buttons">
+                    <div class="tpr-button tpr-button-play"><span class="glyphicon glyphicon-play"></span></div>
+                    <div class="tpr-button tpr-button-pause"><span class="glyphicon glyphicon-pause"></span></div>
+                    <div class="tpr-button tpr-button-reset"><span class="glyphicon glyphicon-step-backward"></span></div>
+                    <div class="tpr-button tpr-button-stop"><span class="glyphicon glyphicon-stop"></span></div>
+                    <div class="tpr-button tpr-button-crop-start" data-toggle="tooltip" data-placement="bottom" title="Set trim start."><span class="glyphicon glyphicon-chevron-right"></span></div>
+                    <div class="tpr-button tpr-button-crop-end" data-toggle="tooltip" data-placement="bottom" title="Set trim end."><span class="glyphicon glyphicon-chevron-left"></span></div>
+                    <div class="tpr-button tpr-button-crop-play" data-toggle="tooltip" data-placement="bottom" title="Preview trimmed replay."><span class="glyphicon glyphicon-eye-open"></span></div>
+                    <div class="tpr-button tpr-button-rename" data-toggle="tooltip" data-placement="bottom" title="Rename this replay."><span class="glyphicon glyphicon-pencil"></span></div>
+                    <div class="tpr-button tpr-button-delete" data-toggle="tooltip" data-placement="bottom" title="Delete this replay."><span class="glyphicon glyphicon-trash"></span></div>
+                    <div class="tpr-option tpr-button-crop" data-toggle="tooltip" data-placement="bottom" title="Trim and save as a new replay.">Save As</div>
+                    <div class="tpr-option tpr-button-crop-replace" data-toggle="tooltip" data-placement="bottom" title="Trim and replace this replay.">Save</div>
+                    <div class="tpr-option tpr-button-render" data-toggle="tooltip" data-placement="bottom" title="Renders the current replay.">Render</div>
                 </div>
+            </div>
         </div>
     </div>
 </div>
