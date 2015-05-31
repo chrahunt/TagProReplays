@@ -63,16 +63,30 @@ function find(array, fn) {
   }
 }
 
+// Initialize FileSystem Replay folder.
+fs.createDirectory("savedMovies").then(function () {
+    console.log("Saved movies directory created.");
+}).catch(function (err) {
+    console.error("Error creating saved movies directory: %o.", err);
+});
+
 var db = new Dexie("ReplayDatabase");
 
 exports.db = db;
 
+// Initial version of the database.
 db.version(1.0 / 10).stores({
     positions: ''
 });
 
-// Versions 1 and 2 were pre-Dexie.
-db.version(3.0 / 10).stores({
+// Possible intermediate version.
+db.version(2.0 / 10).stores({
+    positions: '',
+    savedMovies: ''
+});
+
+// Current version.
+db.version(3).stores({
     info: '++id,&replay_id',
     replay: '++id,&info_id',
     failed_info: '++id,&replay_id',
@@ -81,6 +95,10 @@ db.version(3.0 / 10).stores({
     Status.set("upgrading");
     transaction.on('complete', function () {
         Status.set("idle");
+    });
+
+    db.positions.each(function (item, cursor) {
+        console.log("Found replay %s of size: %d.", cursor.key, item.length);
     });
 
     /*
@@ -267,22 +285,13 @@ exports.util = {
 
 // Reset the database, for debugging.
 exports.resetDatabase = function() {
-    IDB.close();
-    indexedDB.deleteDatabase("ReplayDatabase");
+    db.delete();
 };
-
-// Initialize FileSystem Replay folder.
-fs.createDirectory("savedMovies", function() {
-    console.log("Created saved movies directory.");
-}, function(err) {
-    console.error("Error creating saved movies directory: " + err);
-});
 
 // Reset the file system, for debugging.
 exports.resetFileSystem = function() {
 
 };
-
 
 // Remove database-specific information from replays.
 function cleanReplay(replay) {
@@ -359,27 +368,17 @@ exports.getReplay = function(id) {
 
 /**
  * Iterate over each replay.
- * @param {[type]} ids [description]
- * @param {Function} fn [description]
- * @param {[type]} end [description]
- * @return {[type]} [description]
+ * @param {Arrray.<integer>} ids - Array of ids for the replays to
+ *   iterate over.
+ * @param {Function} callback - Callback function that receives each of
+ *   the replays in turn.
+ * @return {Promise} - Promise that resolves when the iteration is
+ *   complete.
  */
-exports.forEachReplay = function(ids, fn, end) {
-    ids = ids.slice().sort();
-    var transaction = IDB.getDb().transaction("replay");
-    var cursor = transaction.objectStore("replay")
-        .index("info_id")
-        .openCursor(IDBKeyRange.bound(ids[0], ids[ids.length - 1]));
-    ids.shift();
-    cursor.onsuccess = function(event) {
-        var cursor = event.target.result;
-        if (cursor) {
-            fn(cleanReplay(cursor.value));
-            cursor.continue(ids.shift());
-        } else {
-            end();
-        }
-    };
+exports.forEachReplay = function(ids, callback) {
+    return db.replay.where("info_id").anyOf(ids).each(function (replay) {
+        callback(cleanReplay(replay));
+    });
 };
 
 /**
@@ -389,24 +388,6 @@ exports.forEachReplay = function(ids, fn, end) {
  */
 exports.getAllReplayInfo = function() {
     return db.info.toArray();
-};
-
-/**
- * Get info for single replay.
- * @param {DBCallback} callback - The callback to receive the replay
- *   info.
- */
-exports.getReplayInfo = function(id, callback) {
-    var transaction = IDB.getDb().transaction("info");
-    var infoStore = transaction.objectStore("info");
-    var request = infoStore.get(id);
-    request.onsuccess = function(e) {
-        if (e.target.result) {
-            callback(null, e.target.result);
-        } else {
-            callback(new Error("No replay found."));
-        }
-    };
 };
 
 /**
@@ -500,13 +481,13 @@ exports.renameReplay = function(id, name) {
  * Delete replay data, includes the info and raw replay as well as the
  * rendered video, if present.
  * @param {Array.<integer>} ids - The ids of the replays to delete
- * @param {DBCallback} callback - The callback to receive the success
- *   or failure of the delete operation.
+ * @return {Promise} - Promise that resolves when all ids have been
+ *   deleted properly, or rejects on error.
  */
 function deleteReplays(ids) {
     return db.transaction("rw", db.info, db.replay, function() {
-        ids.forEach(function (id) {
-            db.info.get(id).then(function (info) {
+        return Promise.all(ids.map(function (id) {
+            return db.info.get(id).then(function (info) {
                 db.info.delete(id);
                 db.replay.delete(info.replay_id);
                 if (info.rendered) {
@@ -514,7 +495,7 @@ function deleteReplays(ids) {
                     return deleteMovie(movieId);
                 }
             });
-        });
+        }));
     });
 }
 exports.deleteReplays = deleteReplays;

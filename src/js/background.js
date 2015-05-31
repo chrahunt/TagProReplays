@@ -155,8 +155,7 @@ function(message, sender, sendResponse) {
 Messaging.listen("saveReplay",
 function(message, sender, sendResponse) {
     var replay = message.data;
-    // TODO: Validate replay.
-    // TODO: Crop replay.
+    // TODO: Validate replay. If invalid, save to other object store.
     var startFrame = findIndex(replay.data.time, function(t) {
         return t !== null;
     });
@@ -169,10 +168,7 @@ function(message, sender, sendResponse) {
         return true;
     }
     replay = Data.util.cropReplay(replay, startFrame, replay.data.time.length);
-    // Generate DB Info from Replay.
-    var info = generateReplayInfo(replay);
     Data.saveReplay(replay).then(function (info) {
-        // TODO: Handle error.
         sendResponse({
             failed: false
         });
@@ -182,6 +178,9 @@ function(message, sender, sendResponse) {
         });
     }).catch(function (err) {
         console.error("Error saving replay: %o.", err);
+        sendResponse({
+            failed: true
+        });
     });
     return true;
 });
@@ -216,20 +215,15 @@ function(message, sender, sendResponse) {
                 } else {
                     // Retrieve converted replay.
                     var replay = data.data;
-                    // Generate DB Info from Replay.
-                    var info = generateReplayInfo(replay);
-                    Data.saveReplay(info, replay, function(err, id) {
-                        if (err) {
-                            console.error(err);
-                            sendResponse({ failed: true });
-                        } else {
-                            sendResponse({ failed: false });
-                            info.id = id;
-                            // Send new replay notification to any tabs that may have menu open.
-                            Messaging.send("replayAdded", {
-                                data: info
-                            });
-                        }
+                    Data.saveReplay(replay).then(function (info) {
+                        sendResponse({ failed: false });
+                        // Send new replay notification to any tabs that may have menu open.
+                        Messaging.send("replayAdded", {
+                            data: info
+                        });
+                    }).catch(function (err) {
+                        console.error("Error saving replay: %o.", err);
+                        sendResponse({ failed: true });
                     });
                 }
             });
@@ -316,18 +310,15 @@ function(message, sender, sendResponse) {
                 }
             }
             zip.file(filename + ".json", JSON.stringify(data));
-        }, function() {
+        }).then(function () {
             var content = zip.generate({
                 type: "blob",
                 compression: "DEFLATE"
             });
             saveAs(content, "replays.zip");
+        }).catch(function (err) {
+            console.error("Error compiling raw replays into zip: %o.", err);
         });
-        // Iterate over values and retrieve replay data, accumulating into zip file/blob.
-        // Double-check file size to ensure we aren't going over the maximum.
-        // Initiate download of zip file.
-    } else {
-        // TODO: Alert that replays should be selected.
     }
 });
 

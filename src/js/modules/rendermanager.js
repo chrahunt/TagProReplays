@@ -61,11 +61,7 @@ RenderManager.prototype.cancel = function(ids) {
     return Data.db.info.where(":id").anyOf(ids).modify({
         rendering: false
     }).then(function () {
-        return db.transaction("rw", db.renders, function () {
-            ids.forEach(function (id) {
-                db.renders.delete(id);
-            });
-        });
+        return db.renders.where("replay_id").anyOf(ids).delete();
     });
 };
 
