@@ -1,12 +1,20 @@
+var Dexie = require('dexie');
 var Whammy = require('whammy');
 
 var Task = require('./task');
-var IDB = require('./indexedDBUtils');
 var Status = require('./status');
 var Messaging = require('./messaging');
 var Data = require('./data');
 var Textures = require('./textures');
 var Render = require('./render');
+
+// Setup task database.
+var db = new Dexie("TaskDatabase");
+db.version(1).stores({
+    renders: '++id,&replay_id'
+});
+
+db.open();
 
 /**
  * Manages the rendering of replays on the background page.
@@ -17,39 +25,22 @@ var RenderManager = function() {
         options: null,
         textures: null
     };
-    this.init();
+    this.rendering = false;
+    this.task = null;
+    this.paused = false;
+
+    this.start();
 };
 
 module.exports = RenderManager;
 
 /**
- * Initialize the render manager.
- * @private
+ * Start the render process manager.
  */
-RenderManager.prototype.init = function() {
-    var self = this;
-    // Check for renders to resume.
-    // Check for pending renders, initialize rendering if present.
-    IDB.ready(function() {
-        var transaction = IDB.getDb().transaction("task", "readwrite");
-        var taskStore = transaction.objectStore("task");
-        var request = taskStore.get("renders");
-        request.onsuccess = function(event) {
-            var result = event.target.result;
-            if (!result) {
-                // Add renders array to object store.
-                var request = taskStore.add([], "renders");
-                request.onsuccess = function(event) {
-                    console.log("Added render queue to database.");
-                };
-            } else if (result.length > 0) {
-                // Initialize rendering.
-                self._renderLoop(result[0]);
-            } else {
-                console.log("No pending renders in queue.");
-                Status.set("idle");
-            }
-        };
+RenderManager.prototype.start = function() {
+    // Start loop and listen for errors.
+    this._loop().catch(function (err) {
+        console.error("Rendering error: %o.", err);
     });
 };
 
@@ -57,46 +48,25 @@ RenderManager.prototype.init = function() {
  * Cancel the rendering of the replays with the given ids.
  * @param {Array.<integer>} ids - The ids of the replays to cancel
  *   rendering for.
- * @param {Function} callback - The callback which receives the success
- *   or failure of the cancellation operation.
+ * @return {Promise} - Resolves if the cancellation was successful or
+ *   rejects if unsuccessful.
  */
-RenderManager.prototype.cancel = function(ids, callback) {
+RenderManager.prototype.cancel = function(ids) {
     // Cancel current task if current id is being cancelled.
     if (this.task && ids.indexOf(this.id) !== -1) {
+        // Cancelling task doesn't end the loop, it will be handled
+        // properly.
         this.task.cancel();
     }
-    var cursorIds = ids.slice().sort();
-    // Add replay to render queue and set property on info.
-    var transaction = IDB.getDb().transaction(["task", "info"], "readwrite");
-    var taskStore = transaction.objectStore("task");
-    var infoStore = transaction.objectStore("info");
-
-    var cursor = infoStore
-        .openCursor(IDBKeyRange.bound(cursorIds[0], cursorIds[cursorIds.length - 1]));
-    cursorIds.shift();
-    cursor.onsuccess = function(event) {
-        var cursor = event.target.result;
-        if (cursor) {
-            // Remove rendering property from rendering replays.
-            if (cursor.value.rendering) {
-                cursor.value.rendering = false;
-                infoStore.put(cursor.value);
-            }
-            cursor.continue(cursorIds.shift());
-        } else {
-            taskStore.get("renders").onsuccess = function(event) {
-                var queue = event.target.result;
-                queue = queue.filter(function(id) {
-                    return ids.indexOf(id) === -1;
-                });
-                taskStore.put(queue, "renders");
-            };
-        }
-    };
-
-    transaction.oncomplete = function() {
-        callback(null);
-    };
+    return Data.db.info.where(":id").anyOf(ids).modify({
+        rendering: false
+    }).then(function () {
+        return db.transaction("rw", db.renders, function () {
+            ids.forEach(function (id) {
+                db.renders.delete(id);
+            });
+        });
+    });
 };
 
 /**
@@ -110,7 +80,7 @@ RenderManager.prototype.pause = function() {
 };
 
 /**
- * Restart rendering, if it is pending.
+ * Restart rendering, if it is paused.
  */
 RenderManager.prototype.resume = function() {
     this.paused = false;
@@ -118,89 +88,72 @@ RenderManager.prototype.resume = function() {
     if (this.task) {
         this.task.resume();
     } else {
-        // Initialize loop.
-        this.getQueue(function(err, queue) {
-            if (!err) {
-                if (queue.length > 0) {
-                    this._renderLoop(queue[0]);
-                } else {
-                    console.log("No renders in queue after resuming.");
-                }
-            }
-        }.bind(this));
+        this.start();
     }
 };
 
 /**
  * Add replays to be rendered.
  * @param {Array.<integer>} ids - The ids of the replays to render.
- * @param {Function} callback - The callback which receives the success
+ * @param {Promise} callback - The callback which receives the success
  *   or failure of the replay render task adding.
  */
-RenderManager.prototype.add = function(ids, callback) {
+RenderManager.prototype.add = function(ids) {
     var self = this;
-    ids = ids.slice().sort();
-    // Add replay to render queue and set property on info.
-    var transaction = IDB.getDb().transaction(["task", "info"], "readwrite");
-    var taskStore = transaction.objectStore("task");
-    var infoStore = transaction.objectStore("info");
-
-    var cursor = infoStore
-        .openCursor(IDBKeyRange.bound(ids[0], ids[ids.length - 1]));
-    ids.shift();
-    var nonRenderingIds = [];
-    cursor.onsuccess = function(event) {
-        var cursor = event.target.result;
-        if (cursor) {
-            // Only add ids for replays that aren't already rendering.
-            if (!cursor.value.rendering) {
-                nonRenderingIds.push(cursor.value.id);
-                cursor.value.rendering = true;
-                infoStore.put(cursor.value);
+    // Update replayInfo.
+    return Data.db.transaction("rw", Data.db.info, function() {
+        var nonRenderingIds = [];
+        return Data.db.info.where(":id").anyOf(ids).each(function (info) {
+            if (!info.rendering && !info.rendered) {
+                nonRenderingIds.push(info.id);
             }
-            cursor.continue(ids.shift());
-        } else {
-            var request = taskStore.get("renders");
-            request.onsuccess = function(event) {
-                var queue = event.target.result;
-                queue = queue.concat(nonRenderingIds);
-                var request = taskStore.put(queue, "renders");
-                request.onsuccess = function() {
-                    // Check before doing render loop in case it's already going.
-                    if (!self.rendering && queue.length > 0) {
-                        self._renderLoop(queue[0]);
-                    }
-                    // TODO: Send any errors from adding replays to database back to caller.
-                    callback(null);
-                };
-            };
-        }
-    };
+        }).then(function () {
+            Data.db.info.where(":id").anyOf(nonRenderingIds).modify({
+                rendering: true
+            });
+            return nonRenderingIds;
+        });
+    }).then(function (nonRenderingIds) {
+        return db.transaction("rw", db.renders, function () {
+            nonRenderingIds.forEach(function (id) {
+                db.renders.add({
+                    replay_id: id
+                });
+            });
+        }).then(function () {
+            if (!self.rendering) {
+                self.start();
+            }
+        });
+    });
 };
 
 /**
- * Internal method, 
- * @param {[type]} id [description]
- * @param {Function} callback - receives the error if any. May be "cancelled" or error
- *   output from saveMovie
+ * Internal method, renders the replay with the given id.
+ * @param {integer} id - The id of the replay to render.
+ * @return {Promise} - Promise which resolves if the movie was rendered
+ *   and saved, or rejects if there was an error.
  * @private
  */
-RenderManager.prototype._render = function(id, callback) {
+RenderManager.prototype._render = function(id) {
     var self = this;
-    // Retrieve replay data that corresponds to the given name.
-    Data.getReplay(id, function(err, replay) {
-        if (err) {
-            callback(err);
-            return;
-        }
+    return Data.getReplay(id).then(function (replay) {
         // TODO: Validate replay?
-        self._getRenderSettings(function(options, textures) {
+        return self._getRenderSettings().then(function (settings) {
+            var options = settings[0],
+                textures = settings[1];
+            Messaging.send("replayRenderProgress", {
+                id: id,
+                progress: 0
+            });
+
             var context = {
                 options: options,
                 textures: textures,
                 replay: replay,
                 id: id
             };
+
             self.task = new Task({
                 context: context,
                 init: function init(ready) {
@@ -234,114 +187,86 @@ RenderManager.prototype._render = function(id, callback) {
                     this.encoder.add(this.context);
                 },
                 options: {
-                    end: replay.data.time.length
+                    end: replay.data.time.length,
+                    target: 1000
                 }
             });
 
-            self.task.result.then(function(result) {
+            return self.task.getResult().then(function(result) {
                 self.task = null;
                 var output = result.encoder.compile();
-                Data.saveMovie(result.id, output, function(err) {
-                    callback(err);
-                });
-            }, callback);
-
-            Messaging.send("replayRenderProgress", {
-                id: id,
-                progress: 0
+                return Data.saveMovie(result.id, output);
             });
         });
     });
 };
 
 /**
- * Called to continue the render loop, takes id of the next replay to
- * render.
+ * Called to continue the render loop.
+ * @return {Promise} - Rejects if there is an error.
  * @private
  */
-RenderManager.prototype._renderLoop = function(id) {
-    if (this.paused) return;
+RenderManager.prototype._loop = function() {
+    if (this.paused) return Promise.resolve();
     var self = this;
-    // Set background page status.
-    Status.set("rendering");
-    this.rendering = true;
-    this.id = id;
-    this._render(id, function(err) {
-        self.id = null;
-        if (err) {
-            if (err === "cancelled") {
-                self.getQueue(function(err, queue) {
-                    if (!err) {
-                        if (queue.length > 0) {
-                            self._renderLoop(queue[0]);
-                        } else {
-                            // Done with rendering for the moment.
-                            self.rendering = false;
-                            Status.set("idle");
-                        }
-                    }
-                });
-                // Nothing to do.
-            } else {
-                // TODO: Alert of render failure.
-            }
-        } else {
-            // Remove the id from the render queue.
-            var transaction = IDB.getDb().transaction(["task", "info"], "readwrite");
-            var taskStore = transaction.objectStore("task");
-            var infoStore = transaction.objectStore("info");
-            infoStore.get(id).onsuccess = function(event) {
-                var info = event.target.result;
-                if (info && info.rendering) {
-                    info.rendering = false;
-                    // TODO: Handle error.
-                    infoStore.put(info);
-                } // TODO: Handle not rendering?
-                taskStore.get("renders").onsuccess = function(event) {
-                    var queue = event.target.result;
-                    var index = queue.indexOf(id);
-                    if (index !== -1) {
-                        queue.splice(index, 1);
-                        // TODO: Handle queue update error?
-                        taskStore.put(queue, "renders").onsuccess = function() {
-                            if (queue.length > 0) {
-                                self._renderLoop(queue[0]);
-                            } else {
-                                // Done with rendering for the moment.
-                                self.rendering = false;
-                                Status.set("idle");
-                            }
-                        };
-                    } else {
-                        // TODO: Handle job not found error?
-                    }
-                };
-            };
-
-            transaction.oncomplete = function() {
-                Messaging.send("replayRenderCompleted", {
-                    id: id
-                });
-            };
+    return this.getNext().then(function (id) {
+        if (typeof id == "undefined") {
+            Status.set("idle");
+            self.rendering = false;
+            return;
         }
+        // Set background page status.
+        Status.set("rendering");
+        self.rendering = true;
+        self.id = id;
+        
+        return self._render(id).then(function () {
+            self.id = null;
+            return Data.db.info.update(id, {
+                rendering: false
+            }).then(function () {
+                return db.renders.where("replay_id").equals(id)
+                    .delete().then(function () {
+                    Messaging.send("replayRenderCompleted", {
+                        id: id
+                    });
+                    return self._loop();
+                });
+            });
+        }).catch(function (err) {
+            self.id = null;
+            if (err === "cancelled") {
+                return self._loop();
+            } else {
+                console.error("Error in rendering: %o.", err);
+            }
+        });
     });
 };
 
 /**
  * Retrieve the render queue.
- * @param {DBCallback} callback - The callback that receives the render queue.
+ * @return {Promise} - Promise that resolves to an array of ids for
+ *   rendering replays.
  */
-RenderManager.prototype.getQueue = function(callback) {
-    // TODO: Ensure transaction is complete so queue can be used in
-    // other situations?
-    var transaction = IDB.getDb().transaction("task");
-    var taskStore = transaction.objectStore("task");
-    var request = taskStore.get("renders");
-    request.onsuccess = function(event) {
-        callback(null, event.target.result);
-    };
+RenderManager.prototype.getQueue = function() {
+    return db.renders.toArray().then(function (list) {
+        return list.map(function(task) {
+            return task.replay_id;
+        });
+    });
 };
 
+/**
+ * Get the next id for rendering.
+ * @return {Promise} - Resolves to the id of the next replay to render,
+ *   or undefined if there are no more replays.
+ */
+RenderManager.prototype.getNext = function() {
+    return db.renders.toCollection().first().then(function (value) {
+        return value && value.replay_id;
+    });
+};
 /**
  * Callback function that needs options and textures.
  * @callback OptionsCallback
@@ -354,25 +279,31 @@ RenderManager.prototype.getQueue = function(callback) {
  */
 RenderManager.prototype._getRenderSettings = function(callback) {
     if (!this.cached.options || !this.cached.textures) {
-        // Retrieve options and textures and render the movie.
-        chrome.storage.local.get(["options", "textures"], function(items) {
-            var options = items.options;
-            var textures;
-            if (!options.custom_textures) {
-                Textures.getDefault(function(defaultTextures) {
-                    Textures.getImages(defaultTextures, function(textureImages) {
-                        textures = textureImages;
-                        callback(options, textures);
+        return new Promise(function (resolve, reject) {
+            // Retrieve options and textures and render the movie.
+            chrome.storage.local.get(["options", "textures"], function(items) {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                    return;
+                }
+                var options = items.options;
+                var textures;
+                if (!options.custom_textures) {
+                    Textures.getDefault(function(defaultTextures) {
+                        Textures.getImages(defaultTextures, function(textureImages) {
+                            textures = textureImages;
+                            resolve([options, textures]);
+                        });
                     });
-                });
-            } else {
-                Textures.getImages(items.textures, function(textureImages) {
-                    textures = textureImages;
-                    callback(options, textures);
-                });
-            }
+                } else {
+                    Textures.getImages(items.textures, function(textureImages) {
+                        textures = textureImages;
+                        resolve([options, textures]);
+                    });
+                }
+            });
         });
     } else {
-        callback(this.cached.options, this.cached.textures);
+        return Promise.resolve([this.cached.options, this.cached.textures]);
     }
 };

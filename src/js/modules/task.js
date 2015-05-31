@@ -79,6 +79,20 @@ Task.prototype.resume = function() {
   this.paused = false;
 };
 
+/**
+ * Resolves to result of the task.
+ * @return {Promise} - The promise that resolves to the result of the
+ *   task.
+ */
+Task.prototype.getResult = function() {
+  return this.result;
+};
+
+/**
+ * Executor function passed to promise constructor for this task's
+ * result.
+ * @private
+ */
 Task.prototype._run = function(resolve, reject) {
   if (this.cancelled) {
     reject("cancelled");

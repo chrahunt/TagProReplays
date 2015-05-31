@@ -18,14 +18,6 @@ var convert = require('./modules/convert');
  */
 
 var manager = new RenderManager();
-/**
- * Clones an object.
- * @param {object} obj - The object to clone.
- * @return {object} - The cloned object.
- */
-function clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
-}
 
 /**
  * Return the index of the first value in the array that satisfies the given
@@ -52,33 +44,6 @@ function find(array, fn) {
   }
 }
 
-/**
- * Generates the information stored separately for the replay.
- * @param {Replay} replay - The replay to generate information for.
- * @return {ReplayInfo} - The information for the replay.
- */
-function generateReplayInfo(replay) {
-    // Copy replay information.
-    // Add player information.
-    // Add duration.
-    var info = clone(replay.info);
-    info.duration = Math.round((1e3 / info.fps) * replay.data.time.length);
-    info.players = {};
-    // Get player information.
-    Object.keys(replay.data.players).forEach(function(id) {
-        var player = replay.data.players[id];
-        info.players[id] = {
-            name: find(player.name, function(v) { return v !== null; }),
-            team: find(player.team, function(v) { return v !== null; }),
-            id: player.id
-        };
-    });
-    info.rendered = false;
-    info.renderId = null;
-    info.rendering = false;
-    return info;
-}
-
 // Ensure textures are set.
 chrome.storage.local.get(["default_textures", "textures"], function(items) {
     if (!items.textures || !items.default_textures) {
@@ -101,126 +66,6 @@ chrome.storage.local.get(["default_textures", "textures"], function(items) {
 });
 
 /**
- * Crops a replay to the given start and end frames.
- * @param {Replay} replay - The replay to crop
- * @param {integer} startFrame - The frame to use for the start of the
- *   new replay.
- * @param {integer} endFrame - The frame to use for the end of the new
- *   replay.
- * @return {Replay} - The cropped replay.
- */
-function cropReplay(replay, startFrame, endFrame) {
-    // Don't do anything if this replay is already the correct size.
-    if (startFrame === 0 && endFrame === replay.data.time.length)
-        return replay;
-
-    function clone(obj) {
-        return JSON.parse(JSON.stringify(obj));
-    }
-    var startTime = replay.data.time[startFrame],
-        endTime = replay.data.time[endFrame];
-
-    // Crop an array that only contains information for each frame
-    // and impacts no later.
-    function cropFrameArray(ary) {
-        return ary.slice(startFrame, endFrame + 1);
-    }
-
-    // Remove events from provided array that occur after the end
-    // of the cropped replay, or far enough in advance of the start
-    // that they are not relevant.
-    function cropEventArray(ary, cutoff) {
-        if (typeof cutoff == "undefined") cutoff = null;
-        return ary.filter(function(event) {
-            return event.time < endTime && (cutoff === null || startTime - event.time < cutoff);
-        });
-    }
-
-    // Crop the arrays for a player, returning the player or null
-    // if this results in the player no longer being relevant.
-    function cropPlayer(player) {
-        var name = cropFrameArray(player.name);
-        var valid = name.some(function(val) {
-            return val !== null;
-        });
-        if (!valid) return null;
-        var newPlayer = {
-            auth: cropFrameArray(player.auth),
-            bomb: cropFrameArray(player.bomb),
-            dead: cropFrameArray(player.dead),
-            degree: cropFrameArray(player.degree),
-            draw: cropFrameArray(player.draw),
-            flag: cropFrameArray(player.flag),
-            flair: cropFrameArray(player.flair).map(clone), // Necessary to clone?
-            grip: cropFrameArray(player.grip),
-            id: player.id,
-            name: name,
-            tagpro: cropFrameArray(player.tagpro),
-            team: cropFrameArray(player.team),
-            x: cropFrameArray(player.x),
-            y: cropFrameArray(player.y)
-        };
-        if (player.hasOwnProperty("angle")) {
-            newPlayer.angle = cropFrameArray(player.angle);
-        }
-        return newPlayer;
-    }
-
-    // Return a dynamic tile with its value array cropped.
-    function cropDynamicTile(tile) {
-        return {
-            x: tile.x,
-            y: tile.y,
-            value: cropFrameArray(tile.value)
-        };
-    }
-
-    // Crop array of spawns, taking into account the waiting period
-    // for the cutoff.
-    function cropSpawns(spawns) {
-        return spawns.filter(function(spawn) {
-            return spawn.time <= endTime && startTime - spawn.time <= spawn.wait;
-        }).map(clone);
-    }
-
-    // New, cropped replay.
-    var newReplay = {
-        info: clone(replay.info),
-        data: {
-            bombs: cropEventArray(replay.data.bombs, 200),
-            chat: cropEventArray(replay.data.chat, 3e4),
-            dynamicTiles: replay.data.dynamicTiles.map(cropDynamicTile),
-            endTimes: replay.data.endTimes.filter(function(time) {
-                return time >= startTime;
-            }),
-            map: clone(replay.data.map),
-            players: {},
-            score: cropFrameArray(replay.data.score).map(clone), // necessary to clone?
-            spawns: cropSpawns(replay.data.spawns),
-            splats: cropEventArray(replay.data.splats),
-            time: cropFrameArray(replay.data.time),
-            wallMap: clone(replay.data.wallMap)
-        },
-        version: "2"
-    };
-
-    var gameEnd = replay.data.gameEnd;
-    if (gameEnd && gameEnd.time <= endTime) {
-        newReplay.gameEnd = clone(gameEnd);
-    }
-
-    // Crop player properties.
-    $.each(replay.data.players, function(id, player) {
-        var newPlayer = cropPlayer(player);
-        if (newPlayer !== null) {
-            newReplay.data.players[id] = newPlayer;
-        }
-    });
-
-    return newReplay;
-}
-
-/**
  * Functions wrapped in calls to Messaging.listen are invoked by calling
  * Messaging.send in content scripts with the string name of the function
  * and an optional message and callback.
@@ -239,9 +84,30 @@ function cropReplay(replay, startFrame, endFrame) {
  */
 Messaging.listen("cropAndReplaceReplay",
 function(message, sender, sendResponse) {
-    // Get original replay.
-    // Crop.
-    // Remove old replay and save new in the same transaction.
+    var request = {
+        id: message.id,
+        start: message.start,
+        end: message.end,
+        name: message.name
+    };
+    Data.cropAndSaveReplay(request).then(function (data) {
+        var info = data[0];
+        var replay = data[1];
+        sendResponse({
+            id: info.id,
+            data: replay,
+            failed: false
+        });
+        Messaging.send("replayDeleted", {
+            id: request.id
+        });
+        Messaging.send("replayAdded", {
+            data: info
+        });
+    }).catch(function (err) {
+        console.error("Error cropping and replacing replay: %o", err);
+    });
+    return true;
 });
 
 /**
@@ -255,39 +121,25 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen("cropReplay",
 function(message, sender, sendResponse) {
-    var id = message.id,
-        start = message.start,
-        end = message.end,
-        name = message.name;
-
-    // Retrieve the replay.
-    Data.getReplay(message.id, function(err, data) {
-        if (err) {
-            // TODO: Handle error.
-        } else {
-            var replay = data;
-            if (!name) {
-                replay.info.name = replay.info.name + " (cropped)";
-            } else {
-                replay.info.name = name;
-            }
-            replay = cropReplay(replay, start, end);
-            // Generate DB Info from Replay.
-            var info = generateReplayInfo(replay);
-            Data.saveReplay(info, replay, function(err, id) {
-                // TODO: Handle error.
-                sendResponse({
-                    id: id,
-                    data: replay,
-                    failed: false
-                });
-                info.id = id;
-                // Send new replay notification to any listening pages.
-                Messaging.send("replayAdded", {
-                    data: info
-                });
-            });
-        }
+    var request = {
+        id: message.id,
+        start: message.start,
+        end: message.end,
+        name: message.name
+    };
+    Data.cropAndSaveReplayAs(request).then(function (data) {
+        var info = data[0];
+        var replay = data[1];
+        sendResponse({
+            id: info.id,
+            data: replay,
+            failed: false
+        });
+        Messaging.send("replayAdded", {
+            data: info
+        });
+    }).catch(function (err) {
+        console.error("Error cropping and saving replay: %o", err);
     });
     return true;
 });
@@ -316,19 +168,20 @@ function(message, sender, sendResponse) {
         });
         return true;
     }
-    replay = cropReplay(replay, startFrame, replay.data.time.length);
+    replay = Data.util.cropReplay(replay, startFrame, replay.data.time.length);
     // Generate DB Info from Replay.
     var info = generateReplayInfo(replay);
-    Data.saveReplay(info, replay, function(err, id) {
+    Data.saveReplay(replay).then(function (info) {
         // TODO: Handle error.
         sendResponse({
             failed: false
         });
-        info.id = id;
         // Send new replay notification to any listening pages.
         Messaging.send("replayAdded", {
             data: info
         });
+    }).catch(function (err) {
+        console.error("Error saving replay: %o.", err);
     });
     return true;
 });
@@ -396,12 +249,12 @@ function(message, sender, sendResponse) {
 Messaging.listen("getReplay",
 function(message, sender, sendResponse) {
     // Get replay.
-    Data.getReplay(message.id, function(err, data) {
-        if (err) {
-            // TODO: Handle error.
-        } else {
-            sendResponse({ data: data });
-        }
+    Data.getReplay(message.id).then(function (replay) {
+        sendResponse({
+            data: replay
+        });
+    }).catch(function (err) {
+        console.error("Error retrieving replay: %o.", err);
     });
     return true;
 });
@@ -416,14 +269,11 @@ function(message, sender, sendResponse) {
     manager.pause();
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
-    Data.getAllReplayInfo(function(err, list) {
-        // Resume render manager.
+    Data.getAllReplayInfo().then(function (list) {
         manager.resume();
-        if (err) {
-            // TODO: Handle error.
-        } else {
-            sendResponse({ data: list });
-        }
+        sendResponse({ data: list });
+    }).catch(function (err) {
+        console.error("Could not retrieve list: %o.", err);
     });
     return true;
 });
@@ -441,18 +291,16 @@ function(message, sender, sendResponse) {
     if (ids.length === 1) {
         // Single JSON file.
         var id = ids[0];
-        Data.getReplay(id, function(err, data) {
-            if (!err) {
-                var blob = new Blob([JSON.stringify(data)],
-                    { type: 'application/json' });
-                var filename = sanitize(data.info.name);
-                if (filename === "") {
-                    filename = "replay";
-                }
-                saveAs(blob, filename + '.json');
-            } else {
-                // TODO: Handle error.
+        Data.getReplay(id).then(function (data) {
+            var blob = new Blob([JSON.stringify(data)],
+                { type: 'application/json' });
+            var filename = sanitize(data.info.name);
+            if (filename === "") {
+                filename = "replay";
             }
+            saveAs(blob, filename + '.json');
+        }).catch(function (err) {
+            console.error("Error retrieving replay: %o.", err);
         });
     } else  if (ids.length !== 0) {
         // Multiple replay files.
@@ -494,14 +342,12 @@ function(message, sender, sendResponse) {
     // Check if single or multiple replays and normalize.
     var ids = message.id ? [message.id] : message.ids;
 
-    Data.deleteReplays(ids, function(err) {
-        if (err) {
-            // TODO: Handle error.
-        } else {
-            Messaging.send("replaysDeleted", {
-                ids: ids
-            });
-        }
+    Data.deleteReplays(ids).then(function () {
+        Messaging.send("replaysDeleted", {
+            ids: ids
+        });
+    }).catch(function (err) {
+        console.error("Error deleting replays: %o.", err);
     });
 });
 
@@ -513,15 +359,13 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen("renameReplay",
 function(message, sender, sendResponse) {
-    Data.renameReplay(message.id, message.name, function(err) {
-        if (err) {
-            // TODO: Handle error.
-        } else {
-            Messaging.send("replayRenamed", {
-                id: message.id,
-                name: message.name
-            });
-        }
+    Data.renameReplay(message.id, message.name).then(function () {
+        Messaging.send("replayRenamed", {
+            id: message.id,
+            name: message.name
+        });
+    }).catch(function (err) {
+        console.error("Error renaming replay: %o.", err);
     });
 });
 
@@ -533,21 +377,15 @@ function(message, sender, sendResponse) {
 Messaging.listen("downloadMovie",
 function(message, sender, sendResponse) {
     var id = message.id;
-    Data.getMovie(id, function(err, name, data) {
-        if (err) {
-            // TODO: Handle error.
-        } else {
-            var movie = new Blob([data], { type: 'video/webm' });
-            if (typeof movie !== "undefined") {
-                var filename = sanitize(name);
-                if (filename === "") {
-                    filename = "replay";
-                }
-                saveAs(movie, filename + ".webm");
-            } else {
-                // TODO: Handle error.
-            }
+    Data.getMovie(id).then(function (file) {
+        var movie = new Blob([file.data], { type: 'video/webm' });
+        var filename = sanitize(file.name);
+        if (filename === "") {
+            filename = "replay";
         }
+        saveAs(movie, filename + ".webm");
+    }).catch(function (err) {
+        console.error("Error retrieving movie for download: %o.", err);
     });
 });
 
@@ -560,16 +398,13 @@ Messaging.listen(["renderReplay", "renderReplays"],
 function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
     console.log('Received request to render replay(s) ' + ids + '.');
-    manager.add(ids, function(err) {
-        if (!err) {
-            Messaging.send("replayRenderAdded", {
-                ids: ids
-            });
-        } else {
-            // TODO: Handle error.
-        }
+    manager.add(ids).then(function () {
+        Messaging.send("replayRenderAdded", {
+            ids: ids
+        });
+    }).catch(function (err) {
+        console.error("Error adding replays to render queue: %o", err);
     });
-    return true;
 });
 
 /**
@@ -577,14 +412,12 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen("getRenderList",
 function(message, sender, sendResponse) {
-    manager.getQueue(function(err, list) {
-        if (err) {
-
-        } else {
-            sendResponse({
-                data: list
-            });
-        }
+    manager.getQueue().then(function (list) {
+        sendResponse({
+            data: list
+        });
+    }).catch(function (err) {
+        console.error("Error getting render list: %o.", err);
     });
     return true;
 });
@@ -595,11 +428,11 @@ function(message, sender, sendResponse) {
 Messaging.listen(["cancelRender", "cancelRenders"],
 function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
-    manager.cancel(ids, function(err) {
-        if (!err) {
-            Messaging.send("replayRenderCancelled", {
-                ids: ids
-            });
-        }
+    manager.cancel(ids).then(function () {
+        Messaging.send("replayRenderCancelled", {
+            ids: ids
+        });
+    }).catch(function (err) {
+        console.error("Error cancelling renders: %o.", err);
     });
 });

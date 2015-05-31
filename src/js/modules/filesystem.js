@@ -6,6 +6,29 @@
  */
 
 /**
+ * Takes a filesystem function that takes a callback and error function
+ * in its last two arguments and wraps it in a Promise that returns a
+ * value (if one is returned), or rejects on any error.
+ * @param {Function} fn - The function to wrap.
+ * @return {Function} - The wrapped function.
+ */
+function wrap(fn) {
+    // Returns function that calls the given function with arguments
+    // provided when called.
+    function caller(fn) {
+        return function() {
+            fn.apply(null, arguments);
+        };
+    }
+    return function() {
+        var args = Array.prototype.concat.apply([], arguments);
+        return new Promise(function (resolve, reject) {
+            fn.apply(null, args.concat([caller(resolve), caller(reject)]));
+        });
+    };
+}
+
+/**
  * Generic error handler for file system interactions.
  * @param  {FileException} err - The error.
  */
@@ -62,13 +85,13 @@ function getDirectory(directory, callback, error) {
  * @param {Function} callback - The function called on success.
  * @param {Function} error - The function called with any error.
  */
-exports.deleteFile = function(path, callback, error) {
+ function deleteFile(path, callback, error) {
     getFileSystem(function(fs) {
         fs.root.getFile(path, {}, function(fileEntry) {
             fileEntry.remove(callback, error);
         }, error);
     }, error);
-};
+}
 
 /**
  * Write data to given path.
@@ -76,7 +99,7 @@ exports.deleteFile = function(path, callback, error) {
  * @param  {*} data - Data to write to the path.
  * @param  {Function} [error=errorHandler] - The error handler to use.
  */
-exports.saveFile = function(path, data, callback, error) {
+function saveFile(path, data, callback, error) {
     getFileSystem(function(fs) {
         fs.root.getFile(path, { create: true }, function (fileEntry) {
             fileEntry.createWriter(function (fileWriter) {
@@ -91,7 +114,7 @@ exports.saveFile = function(path, data, callback, error) {
             }, error);
         }, error);
     }, error);
-};
+}
 
 /**
  * Get file from filesystem and pass the retrieved file to the callback
@@ -100,7 +123,7 @@ exports.saveFile = function(path, data, callback, error) {
  * @param {Function} callback
  * @param {Function} error
  */
-exports.getFile = function(path, callback, error) {
+ function getFile(path, callback, error) {
     getFileSystem(function(fs) {
         fs.root.getFile(path, {}, function(fileEntry) {
             fileEntry.file(function(file) {
@@ -108,7 +131,7 @@ exports.getFile = function(path, callback, error) {
             });
         }, error);
     }, error);
-};
+}
 
 /**
  * Retrieve the name of rendered movie files and pass to callback. The
@@ -116,7 +139,7 @@ exports.getFile = function(path, callback, error) {
  * @param {Function} callback - The callback function that receives the
  *   array of file names from the directory.
  */
-exports.readDirectory = function(path, callback, error) {
+ function readDirectory(path, callback, error) {
     function readFullDirectory(dirReader, names) {
         dirReader.readEntries(function (entries) {
             if (entries.length === 0) {
@@ -134,10 +157,18 @@ exports.readDirectory = function(path, callback, error) {
         var movieNames = [];
         readFullDirectory(dirReader, []);
     }, error);
-};
+}
 
-exports.createDirectory = function(path, callback, error) {
+function createDirectory(path, callback, error) {
     getDirectory(path, function(dirEntry) {
         callback();
     }, error);
+}
+
+module.exports = {
+    deleteFile: wrap(deleteFile),
+    saveFile: wrap(saveFile),
+    getFile: wrap(getFile),
+    readDirectory: wrap(readDirectory),
+    createDirectory: wrap(createDirectory)
 };

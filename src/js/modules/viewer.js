@@ -168,12 +168,9 @@ Viewer.prototype.init = function() {
         }
         // TODO: Handle error with replay cropping, or refresh
         // previewer with cropped replay.
-        Messaging.send("cropReplay", msg, function(response) {
-            // TODO: Handle error.
+        Messaging.send("cropReplay", msg, function (response) {
             if (!response.failed) {
                 viewer._viewReplay(response.id, response.data);
-            } else {
-
             }
         });
     });
@@ -196,7 +193,11 @@ Viewer.prototype.init = function() {
         }
         // TODO: Handle error with replay cropping, or refresh
         // previewer with cropped replay.
-        Messaging.send("cropAndReplaceReplay", msg);
+        Messaging.send("cropAndReplaceReplay", msg, function (response) {
+            if (!response.failed) {
+                viewer._viewReplay(response.id, response.data);
+            }
+        });
     });
 
     $("#viewer-controls").on("click", ".tpr-button-delete", function() {
