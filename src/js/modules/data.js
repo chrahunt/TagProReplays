@@ -1,7 +1,7 @@
 var $ = require('jquery');
 var Dexie = require('dexie');
 
-var oldConvert = require('./convert');
+var convert = require('./convert');
 var fs = require('./filesystem');
 var IDB = require('./indexedDBUtils');
 var Status = require('./status');
@@ -15,19 +15,6 @@ var Status = require('./status');
  * 
  * This file is included as a background script.
  */
-
-// Wrapper around convert to use promises.
-var convert = function(data) {
-    return new Promise(function (resolve, reject) {
-        oldConvert(data, function(err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data);
-            }
-        });
-    });
-};
 
 /**
  * Clones an object.
@@ -74,13 +61,15 @@ var db = new Dexie("ReplayDatabase");
 
 exports.db = db;
 
-// Initial version of the database.
-db.version(1.0 / 10).stores({
-    positions: ''
+// Initial versions of the database may be either 1 or 2 with
+// a 'positions' object store and an empty 'savedMovies' object
+// store.
+db.version(0.1).stores({
+    positions: '',
+    savedMovies: ''
 });
 
-// Possible intermediate version.
-db.version(2.0 / 10).stores({
+db.version(0.2).stores({
     positions: '',
     savedMovies: ''
 });
@@ -90,45 +79,71 @@ db.version(3).stores({
     info: '++id,&replay_id',
     replay: '++id,&info_id',
     failed_info: '++id,&replay_id',
-    failed_replays: '++id,&info_id'
-}).upgrade(function (transaction) {
+    failed_replays: '++id,&info_id',
+    positions: null,
+    savedMovies: null
+}).upgrade(function (trans) {
     Status.set("upgrading");
-    transaction.on('complete', function () {
+    trans.on('complete', function () {
         Status.set("idle");
     });
 
-    db.positions.each(function (item, cursor) {
-        console.log("Found replay %s of size: %d.", cursor.key, item.length);
+    trans.on('abort', function () {
+        Status.set("error");
     });
 
-    /*
-    db.positions.each(function (item, cursor) {
-        // Skip if data is not present.
+    trans.positions.each(function (item, cursor) {
+        // Skip null values.
+        // TODO: Progress update.
         if (item === null) return;
-        var data = JSON.parse(item);
-        var item = {
+
+        convert({
             name: cursor.key,
-            data: data
-        };
-
-        // Convert.
-        convert(item).then(function (replay) {
-            db.replays.add();
-        }).catch(function (err) {
-
+            data: JSON.parse(item)
+        }).then(function (data) {
+            var replay = data.data;
+            var info = generateReplayInfo(replay);
+            return trans.info.add(info).then(function (info_id) {
+                replay.info_id = info_id;
+                return trans.replay.add(replay).then(function (replay_id) {
+                    info.replay_id = replay_id;
+                    trans.info.update(info_id, { replay_id: replay_id });
+                }).then(function () {
+                    // Console alert that replay was saved, progress update.
+                });
+            });
+        }).catch(function (reason) {
+            console.warn("Couldn't convert %s due to: %o.", cursor.key, reason);
+            console.log("Saving %s to failed replay database.", cursor.key);
+            var failedInfo = {
+                name: cursor.key,
+                failure_type: "upgrade_error",
+                message: reason
+            };
+            trans.failed_info.add(failedInfo).then(function (info_id) {
+                var failedReplay = {
+                    info_id: info_id,
+                    data: item
+                };
+                return trans.failed_replays.add(failedReplay).then(function (replay_id) {
+                    trans.failed_info.update(info_id, { replay_id: replay_id });
+                });
+            }).catch(function (err) {
+                // Database error, abort transaction.
+                console.error("Aborting upgrade due to database error: %o.", err);
+                trans.abort();
+            });
         });
-        // Check if valid.
-
-    }).then().catch(function () {
-        // JSON parse error.
-        // Putting item error.
-        // 
     });
-    */
 });
 
-db.open().catch(function (err) {
-    console.error("Error opening database: %o.", err);
+// Wait for conversion function to be ready before opening database.
+convert.ready().then(function () {
+    db.open().catch(function (err) {
+        console.error("Error opening database: %o.", err);
+    });
+}).catch(function (err) {
+    console.error("Error loading conversion function: %o.", err);
 });
 
 /**
