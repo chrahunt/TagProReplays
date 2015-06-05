@@ -594,7 +594,10 @@ Menu.prototype.updateState = function(name, value) {
                 } else {
                     val = this.state[prop];
                 }
-                if (val !== condition[prop]) {
+                if (Array.isArray(condition[prop]) && condition[prop].indexOf(val) === -1) {
+                    // No match for array condition.
+                    return;
+                } else if (val !== condition[prop]) {
                     // No match, skip this function.
                     return;
                 }

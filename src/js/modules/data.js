@@ -3,7 +3,6 @@ var Dexie = require('dexie');
 
 var convert = require('./convert');
 var fs = require('./filesystem');
-var IDB = require('./indexedDBUtils');
 var Status = require('./status');
 
 /**
@@ -12,8 +11,6 @@ var Status = require('./status');
  * services.
  *
  * Everywhere a replay id is needed, it refers to the replay info id.
- * 
- * This file is included as a background script.
  */
 
 /**
@@ -83,13 +80,14 @@ db.version(3).stores({
     positions: null,
     savedMovies: null
 }).upgrade(function (trans) {
-    Status.set("upgrading");
+    Status.add("upgrading");
     trans.on('complete', function () {
-        Status.set("idle");
+        Status.remove("upgrading");
     });
 
     trans.on('abort', function () {
-        Status.set("error");
+        Status.add("error");
+        Status.remove("upgrading");
     });
 
     trans.positions.each(function (item, cursor) {

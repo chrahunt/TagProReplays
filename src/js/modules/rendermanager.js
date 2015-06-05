@@ -207,12 +207,12 @@ RenderManager.prototype._loop = function() {
     var self = this;
     return this.getNext().then(function (id) {
         if (typeof id == "undefined") {
-            Status.set("idle");
+            Status.remove("rendering");
             self.rendering = false;
             return;
         }
         // Set background page status.
-        Status.set("rendering");
+        Status.add("rendering");
         self.rendering = true;
         self.id = id;
         

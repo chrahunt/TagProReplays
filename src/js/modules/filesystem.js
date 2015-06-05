@@ -1,10 +1,7 @@
 /**
  * This script provides functions for saving and retrieving rendered
  * movie files stored using the FileSystem API.
- * 
- * This script is included as a background script.
  */
-
 /**
  * Takes a filesystem function that takes a callback and error function
  * in its last two arguments and wraps it in a Promise that returns a

@@ -1,12 +1,16 @@
 /**
  * Functions for reading and writing cookies.
- * 
- * This file is included as a content script.
  */
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
 
+/**
+ * Get the cookie with the given name, or null if no cookie with that
+ * value is found.
+ * @param {string} name - The name of the cookie to retrieve.
+ * @return {string?} - The retrieved value, or null if not found.
+ */
 exports.read = function(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
@@ -27,6 +31,12 @@ function setCookieInternal(name, value, domain) {
     //console.log('cookie: name=' + name + ' value=' + value + ' expires=' + now.toGMTString() + ' domain=' + domain);
 }
 
+/**
+ * Set a cookie with the given name to the provided value on the
+ * current domain.
+ * @param {string} name - The name of the cookie to set.
+ * @param {(string|number)} value - The value to set for the cookie.
+ */
 exports.set = function(name, value) {
     return setCookieInternal(name, value, cookieDomain);
 };
