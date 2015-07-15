@@ -23,7 +23,7 @@ var dirs = {
     release: './build/release'
 };
 
-gulp.task('build-dev', function() {
+gulp.task('build', function() {
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
             return browserify({
@@ -62,7 +62,7 @@ function watchifyFile(src, out) {
     return bundle();
 }
 
-gulp.task('watch-dev', function() {
+gulp.task('watch', function() {
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
             return watchifyFile(entry, dirs.dev);
