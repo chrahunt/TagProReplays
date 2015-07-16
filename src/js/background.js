@@ -197,37 +197,34 @@ function(message, sender, sendResponse) {
     var replay = JSON.parse(message.data);
     console.log("Validating " + message.filename + ".");
     // Validate replay.
-    validate(replay, function(err, version) {
-        if (err) {
-            console.error(message.filename + " could not be validated!");
-            console.error(err);
-        } else {
-            console.log(message.filename + " is a valid v" + version + " replay.");
-            console.log("Applying necessary conversions...");
-            var data = {
-                data: replay,
-                name: message.filename
-            };
-            convert(data, function(err) {
-                if (err) {
-                    console.error(err);
-                    sendResponse({ failed: true });
-                } else {
-                    // Retrieve converted replay.
-                    var replay = data.data;
-                    Data.saveReplay(replay).then(function (info) {
-                        sendResponse({ failed: false });
-                        // Send new replay notification to any tabs that may have menu open.
-                        Messaging.send("replayAdded", {
-                            data: info
-                        });
-                    }).catch(function (err) {
-                        console.error("Error saving replay: %o.", err);
-                        sendResponse({ failed: true });
-                    });
-                }
+    validate(replay).then(function(version) {
+        console.log(message.filename + " is a valid v" + version + " replay.");
+        console.log("Applying necessary conversions...");
+        var data = {
+            data: replay,
+            name: message.filename
+        };
+        convert(data).then(function(data) {
+            // Retrieve converted replay.
+            var replay = data.data;
+            Data.saveReplay(replay).then(function (info) {
+                sendResponse({ failed: false });
+                // Send new replay notification to any tabs that may have menu open.
+                Messaging.send("replayAdded", {
+                    data: info
+                });
+            }).catch(function (err) {
+                console.error("Error saving replay: %o.", err);
+                sendResponse({ failed: true });
             });
-        }
+        }).catch(function (err) {
+            console.error(err);
+            sendResponse({ failed: true });
+        });
+    }).catch(function (err) {
+        console.error(message.filename + " could not be validated!");
+        console.error(err);
+        sendResponse({ failed: true });
     });
     
     return true;

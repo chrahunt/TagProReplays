@@ -282,7 +282,7 @@ var CURRENT_VERSION = "2";
  * @return {Promise} - Promise that resolves to a ReplayData object with
  *   the converted replay, or rejects on error.
  */
-module.exports = function convert(data, callback) {
+module.exports = function convert(data) {
   var newData = {
     name: data.name,
     data: data.data
@@ -298,7 +298,7 @@ module.exports = function convert(data, callback) {
           // Upgrade data.
           fn(newData, function(err) {
             if (err) {
-              callback(err);
+              reject(err);
             } else {
               validate(newData.data).then(function (version) {
                 if (version === CURRENT_VERSION) {
@@ -307,7 +307,7 @@ module.exports = function convert(data, callback) {
                   reject("Replay not fully transformed.");
                 }
               }).catch(function (err) {
-                reject("Final replay not valid.");
+                reject("Final convertedreplay not valid: %o.", err);
               });
             }
           });

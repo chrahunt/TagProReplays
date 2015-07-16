@@ -632,8 +632,12 @@ Menu.prototype._list_Import = function() {
 
             Messaging.send('importReplay', info, function (response) {
                 // TODO: Handle failed replay adding.
-                // Read next file.
-                parseRawData();
+                if (response.failed) {
+                    console.error("Failed to import replay %s.", info.filename);
+                } else {
+                    // Read next file.
+                    parseRawData();
+                }
             });
         });
         // Read in each of the files.
