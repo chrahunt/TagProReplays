@@ -782,80 +782,6 @@ Menu.prototype._list_Sort = function(baseSortType) {
 };
 
 /**
- * Callback for hover on playback link, which shows a preview for the
- * replay.
- */
-Menu.prototype._entry_Preview = function() {
-    var menu = this;
-
-    // Replace the loader icon with the preview image.
-    function replaceLoaderWithPreview(id, preview) {
-        // Cache preview image.
-        $('#replay-' + id + ' a.playback-link').data('preview', preview);
-
-        var $popover = $('#' + id + ' .popover');
-        // Don't show preview image if popover has already been
-        // removed.
-        if ($popover.length === 0) return;
-        var previewImage = new Image();
-        previewImage.onload = function() {
-            var $content = $('#' + id + ' .popover-content');
-            var poHeight = $popover.height();
-            var poWidth = $popover.width();
-            var poTop = +$popover.css('top').replace('px', '');
-            var cHeight = $content.height();
-            var cWidth = $content.width();
-            var height = poHeight + previewImage.height - cHeight;
-            var width = poWidth + previewImage.width - cWidth;
-            var top = poTop - (height - poHeight) / 2;
-            $popover.animate({
-                height: height,
-                width: width,
-                top: top
-            }, {
-                duration: 600,
-                complete: function() {
-                    // Replace loading image with preview.
-                    $('#' + id + ' .popover-content > div')
-                        .replaceWith(previewImage);
-                }
-            });
-        };
-        previewImage.src = preview;
-    }
-
-    return function () {
-        // Check if image data has been cached on element data
-        // property.
-        if (!$(this).data('preview')) {
-            var id = menu._getRowInfo(this).id;
-            var key = "preview:" + id;
-            // Check if preview has previously been generated and stored.
-            chrome.storage.local.get(key, function(items) {
-                if (!items[key]) {
-                    // Generate preview.
-                    // TODO: Handle generation failure.
-                    this._generatePreview(id, function(preview) {
-                        var store = {};
-                        store[key] = preview;
-                        // TODO: Handle save failure.
-                        chrome.storage.local.set(store);
-                        replaceLoaderWithPreview(id, preview);
-                        
-                    });
-                } else {
-                    replaceLoaderWithPreview(id, items[key]);
-                }
-            }.bind(menu));
-            // Return loading icon.
-            return '<div class="sk-spinner sk-spinner-rotating-plane"></div>';
-        } else {
-            return '<img src="' + $(this).data('preview') + '"/>';
-        }
-    };
-};
-
-/**
  * Returns callback for entry checkboxes to support the shift-click
  * multi-select behavior. Also updates buttons that are related to
  * selected replays/renders to be enabled/disabled.
@@ -1157,12 +1083,6 @@ Menu.prototype.addRow = function(replay) {
     newRow.attr("id", "replay-" + id);
     // Set playback link text
     newRow.find('a.playback-link').text(name);
-    newRow.find('a.playback-link').popover({
-        html: true,
-        trigger: 'hover',
-        placement : 'right',
-        content: this._entry_Preview()
-    });
     if (rendered) {
         newRow.addClass('rendered');
         newRow.find('.rendered-check').text('✓');
@@ -1293,43 +1213,6 @@ Menu.prototype._setSettingsFormTitles = function() {
 Menu.prototype._getRowInfo = function(elt) {
     var replayRow = $(elt).closest('tr');
     return replayRow.data("info");
-};
-
-Menu.prototype._generatePreview = function(id, callback) {
-    function requestPreview(data, options, textures) {
-        var preview = drawPreview(data, options, textures);
-        callback(preview);
-    }
-
-    // First call that completes changes this to true, the next call
-    // to run sees that the other values were retrieved and executes
-    // the function above.
-    var retrieved = false;
-
-    var data, options, textures;
-    // Get Replay data.
-    Messaging.send( "requestData", {
-        id: id
-    }, function(response) {
-        data = JSON.parse(response.data);
-        if (retrieved) {
-            requestPreview(data, options, textures);
-        } else {
-            retrieved = true;
-        }
-    });
-    // Get options and textures.
-    chrome.storage.local.get(["options", "default_textures"], function(items) {
-        options = items.options;
-        Textures.getImages(items.default_textures, function(textureImages) {
-            textures = textureImages;
-            if (retrieved) {
-                requestPreview(data, options, textures);
-            } else {
-                retrieved = true;
-            }
-        });
-    });
 };
 
 /**
