@@ -51,6 +51,26 @@ var Menu = function() {
 module.exports = Menu;
 
 /**
+ * Shows the menu.
+ */
+Menu.prototype.open = function() {
+    if ($('#menuContainer').length) {
+        this._list_Update();
+        $('#menuContainer').modal('show');
+    }
+};
+
+/**
+ * Get replay id for row, given an element in it.
+ * @param  {HTMLElement} elt
+ * @return {string} - The id of the replay corresponding to the row.
+ */
+Menu.prototype._getRowInfo = function(elt) {
+    var replayRow = $(elt).closest('tr');
+    return replayRow.data("id");
+};
+
+/**
  * Carry out initialization. Should be called after (or in response to)
  * the loading of the html for the menu.
  */
@@ -125,7 +145,6 @@ Menu.prototype._init = function() {
         $(this).addClass("active");
         $(".nav-render").removeClass("active");
         $("#replays").show();
-        $("#replay-footer").show();
         $("#rendering").hide();
         $("#render-footer").hide();
     });
@@ -136,8 +155,19 @@ Menu.prototype._init = function() {
         $("#rendering").show();
         $("#render-footer").show();
         $("#replays").hide();
-        $("#replay-footer").hide();
     });
+
+    // Replay import.
+    // Visible link invokes the actual file input.
+    $('#replay-import').click(function (e) {
+        // Empty file input so change listener is invoked even if same
+        // file is selected.
+        $('#raw-upload').val('');
+        $('#raw-upload').click();
+        e.preventDefault();
+    });
+    $('#raw-upload').attr('accept', '.txt,.json');
+    $('#raw-upload').change(this._list_Import());
 
     // Run initialization for other parts of the menu.
     this._initListeners();
@@ -205,8 +235,32 @@ Menu.prototype._initState = function() {
  */
 Menu.prototype._initReplayList = function() {
     var menu = this;
-    var x = menu;
     this.selected_replays = [];
+
+    // Given replay info, generate title text for rows.
+    function getTitleText(replay) {
+        var title = '';
+        title += "Map: " + replay.mapName + "\n";
+        title += "FPS: " + replay.fps + "\n";
+        var red = [];
+        var blue = [];
+        $.each(replay.players, function(id, player) {
+            var name;
+            if (id == replay.player) {
+                name = player.name + " (*)";
+            } else {
+                name = player.name;
+            }
+            if (player.team === 1) {
+                red.push(name);
+            } else {
+                blue.push(name);
+            }
+        });
+        title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
+        title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
+        return title;
+    }
 
     this.replay_table = $("#replay-table").DataTable({
         ajax: function (data, callback, settings) {
@@ -227,7 +281,8 @@ Menu.prototype._initReplayList = function() {
                         DT_RowId: "replay-row-" + replay.id,
                         DT_RowData: {
                             id: replay.id
-                        }
+                        },
+                        replay: replay
                     };
                 });
                 console.log("Response: %o", response);
@@ -284,6 +339,7 @@ Menu.prototype._initReplayList = function() {
                     .find('.selected-checkbox')
                     .prop('checked', true);
             }
+            row.title = getTitleText(data.replay);
         },
         drawCallback: function (settings) {
             updateWhenChecked();
@@ -292,65 +348,75 @@ Menu.prototype._initReplayList = function() {
 
     // Track selected rows across all pages.
     $("#replay-table tbody").on("change", ".selected-checkbox", function () {
-        var replayId = $(this).closest("tr").data("id");
-        if (this.checked) {
+        var tr = $(this).closest("tr");
+        var replayId = tr.data("id");
+        var idx = menu.selected_replays.indexOf(replayId);
+        if (this.checked && idx === -1) {
             menu.selected_replays.push(replayId);
-        } else {
-            var idx = menu.selected_replays.indexOf(replayId);
+            tr.addClass('selected');
+        } else if (!this.checked) {
             menu.selected_replays.splice(idx, 1);
+            tr.removeClass('selected');
         }
-    });    
+    });
 
     // Selection behavior.
     $("#replay-table tbody").on("click", ".selected-checkbox", function (evt) {
         var elt = $(this);
         var numChecked = $("#replay-table .selected-checkbox:checked").length;
         var tr = elt.closest("tr");
-        if (elt.prop('checked')) {
-            tr.addClass('selected');
-            if (evt.shiftKey && numChecked > 1) {
-                var boxes = $("#replay-table .selected-checkbox"),
-                    closestBox,
-                    thisBox;
-                for (var i = 0; i < boxes.length; i++) {
-                    if (this == boxes[i]) {
-                        thisBox = i;
-                        if (closestBox) break;
-                        continue;
-                    }
-                    if (boxes[i].checked) closestBox = i;
-                    if (thisBox && closestBox) break;
+        if (elt.prop('checked') && evt.shiftKey && numChecked > 1) {
+            var boxes = $("#replay-table .selected-checkbox"),
+                closestBox,
+                thisBox;
+            for (var i = 0; i < boxes.length; i++) {
+                if (this == boxes[i]) {
+                    thisBox = i;
+                    if (closestBox) break;
+                    continue;
                 }
-                var bounds = [closestBox, thisBox].sort(function(a, b){
-                    return a - b;
-                });
-                boxes.slice(bounds[0], bounds[1]).each(function (i) {
-                    this.checked = true;
-                    $(this).closest("tr").addClass('selected');
-                });
+                if (boxes[i].checked) closestBox = i;
+                if (thisBox && closestBox) break;
             }
-        } else {
-            tr.removeClass('selected');
+            var bounds = [closestBox, thisBox].sort(function(a, b){
+                return a - b;
+            });
+            boxes.slice(bounds[0], bounds[1]).each(function (i) {
+                this.checked = true;
+                $(this).closest("tr").addClass('selected');
+            });
         }
         updateWhenChecked();
     });
 
     // Update table when entry is checked.
     function updateWhenChecked() {
-        var numChecked = $("#replay-table .selected-checkbox:checked").length;
-        if (numChecked > 0) {
-            $("#replays .table-header").addClass("actions");
-            if (numChecked === 1) {
-                $("#replays .table-header .text").text(numChecked + " replay selected");
-            } else {
-                $("#replays .table-header .text").text(numChecked + " replays selected");
-            }
-            $("#replays .table-header .controls").css({ display: "inline-block" });
+        var rows = $("#replay-table .selected-checkbox").length;
+        if (rows === 0) {
+            $("#replay-table .select-all").prop("disabled", true);
+            $("#replay-table .select-all").prop("checked", false);
         } else {
-            // Normal header content.
-            $("#replays .table-header").removeClass("actions");
-            $("#replays .table-header .text").text("Replays");
-            $("#replays .table-header .controls").css({ display: "none" });
+            $("#replay-table .select-all").prop("disabled", false);
+            var numChecked = $("#replay-table .selected-checkbox:checked").length;
+            if (numChecked === rows) {
+                $("#replay-table .select-all").prop("checked", true);
+            } else {
+                $("#replay-table .select-all").prop("checked", false);
+            }
+            if (numChecked > 0) {
+                $("#replays .table-header").addClass("actions");
+                if (numChecked === 1) {
+                    $("#replays .table-header .text").text(numChecked + " replay selected");
+                } else {
+                    $("#replays .table-header .text").text(numChecked + " replays selected");
+                }
+                $("#replays .table-header .controls").css({ display: "inline-block" });
+            } else {
+                // Normal header content.
+                $("#replays .table-header").removeClass("actions");
+                $("#replays .table-header .text").text("Replays");
+                $("#replays .table-header .controls").css({ display: "none" });
+            }
         }
     }
     
@@ -360,27 +426,12 @@ Menu.prototype._initReplayList = function() {
     $('#replays .table-header .controls .download-raw').click(this._list_RawDownload.bind(this));
 
     // "Select all" checkbox.
-    /*$("#replays .select-all").change(function() {
-        $(".replayRow:not(.clone) .selected-checkbox")
-            .prop("checked", this.checked);
-        if (this.checked) {
-            $("#replay-footer .selected-action").prop("disabled", false);
-        } else {
-            $("#replay-footer .selected-action").prop("disabled", true);
-        }
-    });*/
-
-    // Raw data import functionality.
-    // Visible button invokes the actual file input.
-    $('#raw-upload-button').click(function (e) {
-        // Empty file input so change listener is invoked even if same
-        // file is selected.
-        $('#raw-upload').val('');
-        $('#raw-upload').click();
-        e.preventDefault();
+    $("#replay-table .select-all").change(function() {
+        $("#replay-table tbody .selected-checkbox")
+            .prop("checked", this.checked)
+            .trigger("change");
+        updateWhenChecked();
     });
-    $('#raw-upload').attr('accept', '.txt,.json');
-    $('#raw-upload').change(this._list_Import());
 
     // Replay row listeners.
     $("#replay-table tbody").on("click", ".row-preview", function() {
@@ -389,6 +440,7 @@ Menu.prototype._initReplayList = function() {
         menu.viewer.preview(id);
     });
 
+    // Row movie download.
     $("#replay-table tbody").on("click", ".row-download-movie", function() {
         var id = $(this).closest('tr').data("id");
         console.log('Requesting movie download for replay ' + id + '.');
@@ -397,6 +449,7 @@ Menu.prototype._initReplayList = function() {
         });
     });
 
+    // Row name editing.
     $("#replay-table tbody").on("click", ".replay-name-edit", function() {
         var tr = $(this).closest('tr');
         var id = tr.data("id");
@@ -537,66 +590,6 @@ Menu.prototype._initRenderList = function() {
     });
 
     $("#rendering .section-list tbody").on("click", ".selected-checkbox", this._entry_Check("render"));
-};
-
-/**
- * Initialize state related to the settings panel.
- */
-Menu.prototype._initSettings = function() {
-    $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
-    this._setSettingsFormTitles();
-    $('#saveSettingsButton').click(this._settings_Save());
-
-    // Set initial settings values.
-    chrome.storage.local.get("options", function(items) {
-        if (items.options) {
-            this._settingsSet(items.options);
-        }
-    }.bind(this));
-
-    // Update options fields if options are updated.
-    chrome.storage.onChanged.addListener(function(changes, areaName) {
-        if (changes.options && changes.options.newValue) {
-            this._settingsSet(changes.options.newValue);
-        }
-    }.bind(this));
-    $('#textureSaveButton').click(function () {
-        Textures.saveSettings();
-        $('#textureContainer').modal('hide');
-    });
-
-    // Record key functionality.
-    keyListener = function (e) {
-        currentRecordKey = e.which
-        $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
-        $('#recordKeyChooserInput').data('record', true);
-        $('#record-key-remove').show();
-        stopInputting();
-    }
-
-    stopInputting = function () {
-        $('#record-key-input-container').removeClass('focused');
-        $(document).off("keypress", keyListener);
-    }
-
-    $('#record-key-input-container').click(function (e) {
-        $(this).addClass('focused');
-        $(document).on("keypress", keyListener)
-    });
-
-    $('#record-key-remove').click(function (e) {
-        e.stopPropagation();
-        $('#recordKeyChooserInput').data('record', false);
-        $('#recordKeyChooserInput').text('None');
-        $('#record-key-remove').hide();
-        return false;
-    });
-
-    $(document).click(function (e) {
-        if (!$(e.target).parents().andSelf().is('#record-key-input-container')) {
-            stopInputting();
-        }
-    });
 };
 
 /**
@@ -962,6 +955,146 @@ Menu.prototype._entry_Check = function(scope) {
 };
 
 /**
+ * Remove the replay for corresponding to the given id.
+ * @param  {string} id The id of the replay to remove the row for.
+ */
+Menu.prototype.removeRow = function(id) {
+    $('#replay-' + id).remove();
+};
+
+/**
+ * Add a replay as being rendered.
+ * @param {ReplayInfo} replay - The info for the replay that is being
+ *   rendered.
+ */
+Menu.prototype.addRenderRow = function(replay) {
+    var id = replay.id;
+    var name = replay.name;
+    var date = moment(replay.dateRecorded);
+    
+    var newRow = $('#rendering .section-list .render-row.clone:first').clone(true);
+    newRow.removeClass('clone');
+
+    newRow.data("info", replay);
+    newRow.attr("id", "render-" + id);
+    // Set name text.
+    newRow.find('.render-name').text(name);
+    newRow.find('.render-date').text(date.format("ddd MMM D, YYYY h:mm A"));
+    newRow.find('.render-status').text("Queued..."); // Default status.
+    $('#rendering .section-list tbody').prepend(newRow);
+};
+
+Menu.prototype.removeRenderRow = function(id) {
+    $('#render-' + id).remove();
+};
+
+/**
+ * Retrieve currently checked table entries.
+ * @param {string} type - The type of checkboxes to get, either
+ *   "replay" or "render".
+ * @return {Array.<string>} - The replay ids corresponding to the
+ *   checked rows.
+ */
+Menu.prototype.getCheckedEntries = function(type) {
+    var checkedEntries = [];
+    var menu = this;
+    var scope = type === "replay" ? "#replays" : "#rendering";
+    $(scope + ' .selected-checkbox').each(function () {
+        if (this.checked) {
+            checkedEntries.push(menu._getRowInfo(this));
+        }
+    });
+    return checkedEntries;
+};
+
+/**
+ * Initialize state related to the settings panel.
+ */
+Menu.prototype._initSettings = function() {
+    $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
+    this._setSettingsFormTitles();
+    $('#saveSettingsButton').click(this._settings_Save());
+
+    // Set initial settings values.
+    chrome.storage.local.get("options", function(items) {
+        if (items.options) {
+            this._settingsSet(items.options);
+        }
+    }.bind(this));
+
+    // Update options fields if options are updated.
+    chrome.storage.onChanged.addListener(function(changes, areaName) {
+        if (changes.options && changes.options.newValue) {
+            this._settingsSet(changes.options.newValue);
+        }
+    }.bind(this));
+    $('#textureSaveButton').click(function () {
+        Textures.saveSettings();
+        $('#textureContainer').modal('hide');
+    });
+
+    // Record key functionality.
+    keyListener = function (e) {
+        currentRecordKey = e.which
+        $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
+        $('#recordKeyChooserInput').data('record', true);
+        $('#record-key-remove').show();
+        stopInputting();
+    }
+
+    stopInputting = function () {
+        $('#record-key-input-container').removeClass('focused');
+        $(document).off("keypress", keyListener);
+    }
+
+    $('#record-key-input-container').click(function (e) {
+        $(this).addClass('focused');
+        $(document).on("keypress", keyListener)
+    });
+
+    $('#record-key-remove').click(function (e) {
+        e.stopPropagation();
+        $('#recordKeyChooserInput').data('record', false);
+        $('#recordKeyChooserInput').text('None');
+        $('#record-key-remove').hide();
+        return false;
+    });
+
+    $(document).click(function (e) {
+        if (!$(e.target).parents().andSelf().is('#record-key-input-container')) {
+            stopInputting();
+        }
+    });
+};
+
+/**
+ * Set value of form fields in settings panel.
+ * @param  {[type]} options [description]
+ */
+Menu.prototype._settingsSet = function(options) {
+    $('#fpsInput')[0].value = options.fps;
+    $('#durationInput')[0].value = options.duration;
+    if (options.shortcut_key_enabled) {
+        $('#recordKeyChooserInput').text(
+            String.fromCharCode(options.shortcut_key));
+        $('#recordKeyChooserInput').data('record', true);
+        $('#record-key-remove').show();
+    } else {
+        $('#recordKeyChooserInput').text('None');
+        $('#recordKeyChooserInput').data('record', false);
+        $('#record-key-remove').hide();
+    }
+    $('#useTextureCheckbox')[0].checked = options.custom_textures;
+    $('#useSplatsCheckbox')[0].checked = options.splats;
+    $('#recordCheckbox')[0].checked = options.record;
+    $('#useSpinCheckbox')[0].checked = options.spin;
+    $('#useClockAndScoreCheckbox')[0].checked = options.ui;
+    $('#useChatCheckbox')[0].checked = options.chat;
+    $('#canvasWidthInput').val(options.canvas_width);
+    $('#canvasHeightInput').val(options.canvas_height);
+};
+
+/**
  * Callback for the save settings button.
  */
 Menu.prototype._settings_Save = function() {
@@ -1026,153 +1159,6 @@ Menu.prototype._settings_Save = function() {
 };
 
 /**
- * Set value of form fields in settings panel.
- * @param  {[type]} options [description]
- */
-Menu.prototype._settingsSet = function(options) {
-    $('#fpsInput')[0].value = options.fps;
-    $('#durationInput')[0].value = options.duration;
-    if (options.shortcut_key_enabled) {
-        $('#recordKeyChooserInput').text(
-            String.fromCharCode(options.shortcut_key));
-        $('#recordKeyChooserInput').data('record', true);
-        $('#record-key-remove').show();
-    } else {
-        $('#recordKeyChooserInput').text('None');
-        $('#recordKeyChooserInput').data('record', false);
-        $('#record-key-remove').hide();
-    }
-    $('#useTextureCheckbox')[0].checked = options.custom_textures;
-    $('#useSplatsCheckbox')[0].checked = options.splats;
-    $('#recordCheckbox')[0].checked = options.record;
-    $('#useSpinCheckbox')[0].checked = options.spin;
-    $('#useClockAndScoreCheckbox')[0].checked = options.ui;
-    $('#useChatCheckbox')[0].checked = options.chat;
-    $('#canvasWidthInput').val(options.canvas_width);
-    $('#canvasHeightInput').val(options.canvas_height);
-};
-
-/**
- * Add a row to the list.
- * @param {EntryData} entry - The information for the replay to add
- *   to the list.
- */
-Menu.prototype.addRow = function(replay) {
-    // Formats metadata object to put into title text.
-    function getTitleText(replay) {
-        var title = '';
-        title += "Map: " + replay.mapName + "\n";
-        title += "FPS: " + replay.fps + "\n";
-        var red = [];
-        var blue = [];
-        $.each(replay.players, function(id, player) {
-            var name;
-            if (id == replay.player) {
-                name = player.name + " (*)";
-            } else {
-                name = player.name;
-            }
-            if (player.team === 1) {
-                red.push(name);
-            } else {
-                blue.push(name);
-            }
-        });
-        title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
-        title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
-        return title;
-    }
-
-    var id = replay.id;
-    var name = replay.name;
-    var date = moment(replay.dateRecorded);
-    var duration = moment.utc(replay.duration);
-    var titleText = getTitleText(replay);
-    var rendered = replay.rendered;
-    
-    var newRow = $('#replays .section-list .replayRow.clone:first').clone(true);
-    newRow.removeClass('clone');
-
-    newRow.data("info", replay);
-    newRow.attr("id", "replay-" + id);
-    // Set playback link text
-    newRow.find('a.playback-link').text(name);
-    if (rendered) {
-        newRow.addClass('rendered');
-        newRow.find('.rendered-check').text('✓');
-    } else {
-        newRow.find('.download-movie-button').prop('disabled', true);
-    }
-    newRow.find('.replay-date').text(date.format("ddd MMM D, YYYY h:mm A"));
-    newRow.find('.duration').text(duration.format("m:ss"));
-    newRow[0].title = titleText;
-    $('#replays .section-list tbody').append(newRow);
-};
-
-/**
- * Remove the replay for corresponding to the given id.
- * @param  {string} id The id of the replay to remove the row for.
- */
-Menu.prototype.removeRow = function(id) {
-    $('#replay-' + id).remove();
-};
-
-/**
- * Add a replay as being rendered.
- * @param {ReplayInfo} replay - The info for the replay that is being
- *   rendered.
- */
-Menu.prototype.addRenderRow = function(replay) {
-    var id = replay.id;
-    var name = replay.name;
-    var date = moment(replay.dateRecorded);
-    
-    var newRow = $('#rendering .section-list .render-row.clone:first').clone(true);
-    newRow.removeClass('clone');
-
-    newRow.data("info", replay);
-    newRow.attr("id", "render-" + id);
-    // Set name text.
-    newRow.find('.render-name').text(name);
-    newRow.find('.render-date').text(date.format("ddd MMM D, YYYY h:mm A"));
-    newRow.find('.render-status').text("Queued..."); // Default status.
-    $('#rendering .section-list tbody').prepend(newRow);
-};
-
-Menu.prototype.removeRenderRow = function(id) {
-    $('#render-' + id).remove();
-};
-
-/**
- * Retrieve currently checked table entries.
- * @param {string} type - The type of checkboxes to get, either
- *   "replay" or "render".
- * @return {Array.<string>} - The replay ids corresponding to the
- *   checked rows.
- */
-Menu.prototype.getCheckedEntries = function(type) {
-    var checkedEntries = [];
-    var menu = this;
-    var scope = type === "replay" ? "#replays" : "#rendering";
-    $(scope + ' .selected-checkbox').each(function () {
-        if (this.checked) {
-            checkedEntries.push(menu._getRowInfo(this));
-        }
-    });
-    return checkedEntries;
-};
-
-/**
- * Shows the menu.
- */
-Menu.prototype.open = function() {
-    if ($('#menuContainer').length) {
-        this._list_Update();
-        $('#menuContainer').modal('show');
-    }
-};
-
-/**
  * Set form titles for input controls on settings window.
  */
 Menu.prototype._setSettingsFormTitles = function() {
@@ -1217,16 +1203,6 @@ Menu.prototype._setSettingsFormTitles = function() {
     'but set it to 1280 by 720 for true 720p resolution';
     $('#canvasWidthInput').prop('title', canvasWidthAndHeightTitle);
     $('#canvasHeightInput').prop('title', canvasWidthAndHeightTitle);
-};
-
-/**
- * Get replay id for row, given an element in it.
- * @param  {HTMLElement} elt
- * @return {string} - The id of the replay corresponding to the row.
- */
-Menu.prototype._getRowInfo = function(elt) {
-    var replayRow = $(elt).closest('tr');
-    return replayRow.data("id");
 };
 
 /**

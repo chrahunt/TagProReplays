@@ -29,10 +29,6 @@
       ],
       "css": [
         "css/bootstrap.css",
-        "css/material-fullpalette.min.css",
-        "css/material.min.css",
-        "css/ripples.min.css",
-        "css/roboto.min.css",
         "css/jquery-ui.min.css",
         "css/spinkit.css",
         "css/menu.css",

@@ -8,15 +8,17 @@
             </div>
             <div class="modal-body">
                 <div id="alert-messages"></div>
-                <div>
-                    <a class="pull-right" id="tpr-settings" data-toggle="modal" data-target="#settingsContainer"><span
-                            class="glyphicon glyphicon-cog"></span></a>
-
-                    <ul class="nav nav-pills">
-                        <li class="active nav-home"><a href="#">Replays <span class="badge">0</span></a></li>
-                        <li class="nav-render"><a href="#">Rendering <span class="badge">0</span></a></li>
-                    </ul>
-                </div>
+                <ul class="nav nav-pills">
+                    <li class="active nav-home"><a href="#">Replays <span class="badge">0</span></a></li>
+                    <li class="nav-render"><a href="#">Rendering <span class="badge">0</span></a></li>
+                    <li class="dropdown pull-right">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Menu <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a id="open-settings" href="#" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
+                            <li><a id="replay-import" href="#">Import...</a></li>
+                        </ul>
+                    </li>
+                </ul>
                 <div id="replays" class="section-panel">
                     <div class="table-header">
                         <div class="table-header-left">
@@ -90,17 +92,6 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
-            <div id="replay-footer" class="modal-footer">
-                <div class="pull-left">
-                    <button type="button" class="btn btn-danger selected-action" id="deleteSelectedButton">Delete Selected</button>
-                    <button type="button" class="btn btn-primary selected-action" id="renderSelectedButton">Render Selected</button>
-                    <button type="button" class="btn btn-primary selected-action" id="downloadRawButton">Download Raw Data</button>
-                </div>
-                <div class="pull-right">
-                    <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
-                    <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input" multiple="multiple">
                 </div>
             </div>
             <div id="render-footer" class="modal-footer">
