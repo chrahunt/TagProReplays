@@ -47,6 +47,7 @@
     "watchify": "^3.2.1"
   },
   "dependencies": {
+    "datatables": "^1.10.7",
     "dexie": "^1.1.0",
     "is-my-json-valid": "^2.12.0",
     "jquery": "^2.1.4",
@@ -67,6 +68,16 @@
         "jquery:jQuery"
       ]
     },
+    "material": {
+      "depends": [
+        "jquery:jQuery"
+      ]
+    },
+    "ripples": {
+      "depends": [
+        "jquery:jQuery"
+      ]
+    },
     "bootstrap": {
       "depends": [
         "jquery:jQuery"
@@ -83,6 +94,8 @@
     "file-saver": "./vendor/js/FileSaver.min.js",
     "jquery.actual": "./vendor/js/jquery.actual.min.js",
     "jquery-ui": "./vendor/js/jquery-ui.min.js",
+    "material": "./vendor/js/material.min.js",
+    "ripples": "./vendor/js/ripples.min.js",
     "whammy": "./vendor/js/whammy.js"
   }
 }

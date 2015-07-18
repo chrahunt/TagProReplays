@@ -260,9 +260,14 @@ function(message, sender, sendResponse) {
     manager.pause();
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
-    Data.getAllReplayInfo().then(function (list) {
+    Data.getReplayInfo(message).then(function (data) {
+        // TODO: Get total.
         manager.resume();
-        sendResponse({ data: list });
+        sendResponse({
+            data: data[1],
+            total: data[0],
+            filtered: data[0]
+        });
     }).catch(function (err) {
         console.error("Could not retrieve list: %o.", err);
     });

@@ -3,6 +3,10 @@ var $ = require('jquery');
 require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
+//require('material');
+//require('ripples');
+//$.material.init();
+var DataTable = require('datatables');
 
 var Barrier = require('./barrier');
 var Cookies = require('./cookies');
@@ -201,14 +205,162 @@ Menu.prototype._initState = function() {
  */
 Menu.prototype._initReplayList = function() {
     var menu = this;
+    var x = menu;
+    this.selected_replays = [];
 
+    this.replay_table = $("#replay-table").DataTable({
+        ajax: function (data, callback, settings) {
+            var args = {
+                length: data.length,
+                sortedBy: data.columns[data.order[0].column].data,
+                dir: data.order[0].dir,
+                start: data.start
+            };
+            Messaging.send("getReplayList", args, function (response) {
+                var list = response.data.map(function (replay) {
+                    return {
+                        name: replay.name,
+                        date: moment(replay.dateRecorded).format("ddd MMM D, YYYY h:mm A"),
+                        duration: moment.utc(replay.duration).format("m:ss"),
+                        rendered: replay.rendered,
+                        id: replay.id,
+                        DT_RowId: "replay-row-" + replay.id,
+                        DT_RowData: {
+                            id: replay.id
+                        }
+                    };
+                });
+                console.log("Response: %o", response);
+                callback({
+                    data: list,
+                    draw: data.draw,
+                    recordsTotal: response.total,
+                    recordsFiltered: response.filtered
+                });
+            });
+            console.log("Data: %o", data);
+            console.log("Settings: %o", settings);
+            console.log("Sending list request: %d.", data.draw);
+        },
+        serverSide: true,
+        columns: [
+            {
+                data: null,
+                defaultContent: '<input type="checkbox" class="selected-checkbox">',
+                orderable: false
+            },
+            {
+                data: "name",
+                render: function (data, type, row, meta) {
+                    return '<div class="replay-static"><span class="replay-name">' +
+                        data + '</span><div class="replay-name-edit pull-right">' +
+                        '<span class="glyphicon glyphicon-pencil"></span></div></div>' +
+                        '<div class="replay-edit">' +
+                        '<input type="text" class="replay-name-input" value="' + data + '"></div>';
+                }
+            },
+            { data: "rendered" },
+            { data: "duration" },
+            { data: "date" },
+            {
+                data: null,
+                render: function (data, type, row, meta) {
+                    return '<div class="controls">' +
+                        '<div class="row-download-json"><span class="glyphicon glyphicon-save"></span></div>' +
+                        '<div class="row-download-movie"><span class="glyphicon glyphicon-save"></span></div>' +
+                        '<div class="row-preview"><span class="glyphicon glyphicon-film"></span></div>' +
+                        '<div class="row-delete"><span class="glyphicon glyphicon-trash"></span></div>' +
+                        '</div>';
+                },
+                orderable: false
+            }
+        ],
+        dom: '<"header">rtlip',
+        searching: false,
+        order: [[1, 'asc']],
+        rowCallback: function (row, data) {
+            if (menu.selected_replays.indexOf(data.id) !== -1) {
+                $(row).addClass('selected')
+                    .find('.selected-checkbox')
+                    .prop('checked', true);
+            }
+        },
+        drawCallback: function (settings) {
+            updateWhenChecked();
+        }
+    });
+
+    // Track selected rows across all pages.
+    $("#replay-table tbody").on("change", ".selected-checkbox", function () {
+        var replayId = $(this).closest("tr").data("id");
+        if (this.checked) {
+            menu.selected_replays.push(replayId);
+        } else {
+            var idx = menu.selected_replays.indexOf(replayId);
+            menu.selected_replays.splice(idx, 1);
+        }
+    });    
+
+    // Selection behavior.
+    $("#replay-table tbody").on("click", ".selected-checkbox", function (evt) {
+        var elt = $(this);
+        var numChecked = $("#replay-table .selected-checkbox:checked").length;
+        var tr = elt.closest("tr");
+        if (elt.prop('checked')) {
+            tr.addClass('selected');
+            if (evt.shiftKey && numChecked > 1) {
+                var boxes = $("#replay-table .selected-checkbox"),
+                    closestBox,
+                    thisBox;
+                for (var i = 0; i < boxes.length; i++) {
+                    if (this == boxes[i]) {
+                        thisBox = i;
+                        if (closestBox) break;
+                        continue;
+                    }
+                    if (boxes[i].checked) closestBox = i;
+                    if (thisBox && closestBox) break;
+                }
+                var bounds = [closestBox, thisBox].sort(function(a, b){
+                    return a - b;
+                });
+                boxes.slice(bounds[0], bounds[1]).each(function (i) {
+                    this.checked = true;
+                    $(this).closest("tr").addClass('selected');
+                });
+            }
+        } else {
+            tr.removeClass('selected');
+        }
+        updateWhenChecked();
+    });
+
+    // Update table when entry is checked.
+    function updateWhenChecked() {
+        var numChecked = $("#replay-table .selected-checkbox:checked").length;
+        if (numChecked > 0) {
+            $("#replays .table-header").addClass("actions");
+            if (numChecked === 1) {
+                $("#replays .table-header .text").text(numChecked + " replay selected");
+            } else {
+                $("#replays .table-header .text").text(numChecked + " replays selected");
+            }
+            $("#replays .table-header .controls").css({ display: "inline-block" });
+        } else {
+            // Normal header content.
+            $("#replays .table-header").removeClass("actions");
+            $("#replays .table-header .text").text("Replays");
+            $("#replays .table-header .controls").css({ display: "none" });
+        }
+    }
+    
     // Buttons that take action on multiple entries.
-    $('#renderSelectedButton').click(this._list_Render.bind(this));
-    $('#deleteSelectedButton').click(this._list_Delete.bind(this));
-    $('#downloadRawButton').click(this._list_RawDownload.bind(this));
+    $('#replays .table-header .controls .render').click(this._list_Render.bind(this));
+    $('#replays .table-header .controls .delete').click(this._list_Delete.bind(this));
+    $('#replays .table-header .controls .download-raw').click(this._list_RawDownload.bind(this));
 
     // "Select all" checkbox.
-    $("#replays .select-all").change(function() {
+    /*$("#replays .select-all").change(function() {
         $(".replayRow:not(.clone) .selected-checkbox")
             .prop("checked", this.checked);
         if (this.checked) {
@@ -216,32 +368,7 @@ Menu.prototype._initReplayList = function() {
         } else {
             $("#replay-footer .selected-action").prop("disabled", true);
         }
-    });
-
-    /*
-    These next functions allow toggling of the various sort methods.
-    A cookie is used to store the current sort preference.
-    Values of this cookie include:
-        - "alphaA"  : alphabetical ascending - normal alphabetical order
-        - "alphaD"  : alphabetical descending - reverse alphabetical
-        - "chronoA" : chronological ascending - older replays appear at the top
-        - "chronoD" : chronological descending - newer replays appear at the top
-        - "durA"    : duration ascending - shorter replays appear at the top
-        - "durD"    : duration descending - longer replays appear at the top
-        - "renA"    : rendered ascending - unrendered replays appear at the top
-        - "renD"    : rendered descending - rendered replays appear at the top
-    
-    */
-    // Sorting functionality.
-    $('#nameHeader').click(this._getSortFunction("alpha"));
-    $('#dateHeader').click(this._getSortFunction("chrono"));
-    $('#durationHeader').click(this._getSortFunction("dur"));
-    $('#renderedHeader').click(this._getSortFunction("ren"));
-
-    // If no sortmethod cookie exists, default is chronoD.
-    if(!Cookies.read('sortMethod')) {
-        Cookies.set('sortMethod', 'chronoD');
-    }
+    });*/
 
     // Raw data import functionality.
     // Visible button invokes the actual file input.
@@ -256,31 +383,70 @@ Menu.prototype._initReplayList = function() {
     $('#raw-upload').change(this._list_Import());
 
     // Replay row listeners.
-    $("#replays .section-list tbody").on("click", ".playback-link", function() {
-        var id = $(this).closest('tr').data("info").id;
+    $("#replay-table tbody").on("click", ".row-preview", function() {
+        var id = $(this).closest('tr').data("id");
         $('#menuContainer').hide();
         menu.viewer.preview(id);
     });
-    $("#replays .section-list tbody").on("click", ".download-movie-button", function() {
-        var id = $(this).closest('tr').data("info").id;
+
+    $("#replay-table tbody").on("click", ".row-download-movie", function() {
+        var id = $(this).closest('tr').data("id");
         console.log('Requesting movie download for replay ' + id + '.');
         Messaging.send("downloadMovie", {
             id: id
         });
     });
-    $("#replays .section-list tbody").on("click", ".rename-button", function() {
-        var replay = $(this).closest('tr').data("info");
-        var newName = prompt('How would you like to rename ' + replay.name + '?');
-        if (newName !== null && newName !== "") {
-            console.log('Requesting rename from ' + replay.name + ' to ' + newName + '.');
+
+    $("#replay-table tbody").on("click", ".replay-name-edit", function() {
+        var tr = $(this).closest('tr');
+        var id = tr.data("id");
+        tr.find(".replay-static").hide();
+        var input_container = tr.find(".replay-edit");
+        input_container.show();
+        var input = input_container.find(".replay-name-input");
+
+        function isValid(text) {
+            return text !== "";
+        }
+
+        function save(id, text) {
+            console.log("Renaming replay %d to %s.", id, text);
             Messaging.send("renameReplay", {
-                id: replay.id,
-                name: newName
+                id: id,
+                name: text
             });
         }
-    });
-    $("#replays .section-list tbody").on("click", ".selected-checkbox", this._entry_Check("replay"));
 
+        function enter(evt) {
+            // Enter key.
+            if (evt.which === 13) {
+                var text = $(this).val();
+                if (isValid(text)) {
+                    var id = $(this).closest("tr").data("id");
+                    save(id, text);
+                    // TODO: Saving feedback?
+                    dismiss();
+                } else {
+                    // Show invalid error.
+                }
+            }
+        }
+
+        function dismiss() {
+            tr.find(".replay-static").show();
+            input_container.hide();
+            input.off("keypress", enter);
+            input.off("blur", dismiss);
+        }
+        input.keypress(enter);
+        input.blur(dismiss);
+        input.focus(function () {
+            this.selectionStart = 0;
+            this.selectionEnd = this.value.length;
+        });
+        input.focus();
+    });
+    /*
     // Initialize listener for list modifications.
     var target = $('#replays .section-list tbody')[0];
     var observer = new MutationObserver(function(mutations) {
@@ -332,6 +498,7 @@ Menu.prototype._initReplayList = function() {
     // Initially set list UI in case above request doesn't result in
     // any new rows being added.
     this._list_Update();
+    */
 };
 
 Menu.prototype._initRenderList = function() {
@@ -442,12 +609,7 @@ Menu.prototype._initListeners = function() {
      */
     Messaging.listen("replayAdded",
     function(message, sender, sendResponse) {
-        // Remove any existing rows with the same id (for overwrites).
-        this.removeRow(message.id);
-        // Add to list.
-        this.addRow(message.data);
-        // Re-sort list.
-        this.sort(Cookies.read('sortMethod'));
+        this.replay_table.ajax.reload();
     }.bind(this));
 
     /**
@@ -456,26 +618,13 @@ Menu.prototype._initListeners = function() {
     Messaging.listen(["replayDeleted", "replaysDeleted"],
     function(message, sender, sendResponse) {
         console.log('Replays have been deleted.');
-        // Normalize id/ids.
-        var ids = message.id ? [message.id] : message.ids;
-        ids.forEach(function(id) {
-            this.removeRow(id);
-        }, this);
+        this.replay_table.ajax.reload();
     }.bind(this));
 
     Messaging.listen("replayRenamed",
     function(message, sender, sendResponse) {
         console.log('Received confirmation of replay rename from background script.');
-        var id = message.id;
-        var name = message.name;
-        var row = $('#replay-' + id);
-        // Change row name.
-        $('#replay-' + id + ' .playback-link').text(name);
-        // Update replay object.
-        var data = row.data("info");
-        data.name = name;
-        row.data("info", data);
-        this.sort(Cookies.read('sortMethod'));
+        this.replay_table.ajax.reload();
     }.bind(this));
 
     /**
@@ -771,17 +920,6 @@ Menu.prototype._list_RawDownload = function() {
 };
 
 /**
- * Sort replays according to given sort type.
- * @param  {string} type [description]
- */
-Menu.prototype._list_Sort = function(baseSortType) {
-    // Get sort type and save it.
-    var type = this._getSortTypeFromDesired(baseSortType);
-    this._saveSortType(type);
-    this.sort(type);
-};
-
-/**
  * Returns callback for entry checkboxes to support the shift-click
  * multi-select behavior. Also updates buttons that are related to
  * selected replays/renders to be enabled/disabled.
@@ -821,17 +959,6 @@ Menu.prototype._entry_Check = function(scope) {
             $(footerSelector + " .selected-action").prop("disabled", true);
         }
     };
-};
-
-/**
- * Return a function to use as a callback for sort-invoking elements.
- * @param  {string} type - The type to sort by.
- * @return {Function} - The function to use as a callback.
- */
-Menu.prototype._getSortFunction = function(type) {
-    return function() {
-        this._list_Sort(type);
-    }.bind(this);
 };
 
 /**
@@ -923,119 +1050,6 @@ Menu.prototype._settingsSet = function(options) {
     $('#useChatCheckbox')[0].checked = options.chat;
     $('#canvasWidthInput').val(options.canvas_width);
     $('#canvasHeightInput').val(options.canvas_height);
-};
-
-/**
- * Save sort type to cookie.
- * @param  {string} type - The type to save.
- */
-Menu.prototype._saveSortType = function(type) {
-    Cookies.set('sortMethod', type);
-};
-
-/**
- * Get sort type from cookie. If no cookie is set then it returns
- * "alphaD".
- * @return {string} - The sort type.
- */
-Menu.prototype._getSortType = function() {
-    var val = Cookies.read('sortMethod');
-    return val || 'alphaD';
-};
-
-/**
- * Takes a desired sort type and returns the sort type to use next. If
- * the entries are currently sorted by the type passed in then the type
- * will be the opposite direction, otherwise it will be descending in
- * the provided type.
- * @param  {string} type - enum of "alpha", "chrono", "dur", or "ren"
- * @return {string}
- */
-Menu.prototype._getSortTypeFromDesired = function(type) {
-    function getOppositeDirection(type) {
-        var typeRe = /(\w+)(A|D)/;
-        var found = type.match(typeRe);
-        var dir = found[2] == 'A' ? 'D' : 'A';
-        return found[1] + dir;
-    }
-    var currentType = this._getSortType();
-    if (currentType.search(type) == 0) {
-        return getOppositeDirection(currentType);
-    } else {
-        return type + 'D';
-    }
-};
-
-/**
- * Sort table entries by type given.
- * @param  {string} sortType - One of 'alpha', 'chrono', 'dur', or 'ren'
- *   with the direction 'D' or 'A' for descending or ascending
- *   appended. Types correspond to alphabetical by name, chronological
- *   by date, ordered by duration length, and ordered by rendered
- *   status.
- */
-Menu.prototype.sort = function(sortType) {
-    var headers = [
-        { type: "alpha", id: "nameHeader", text: "Name" },
-        { type: "chrono", id: "dateHeader", text: "Date" },
-        { type: "dur", id: "durationHeader", text: "Duration" },
-        { type: "ren", id: "renderedHeader", text: "Rendered" }
-    ];
-
-    function compare(a, b) {
-        if (typeof a == 'string' && typeof b == 'string') {
-            return a.localeCompare(b);
-        } else {
-            if (a < b) return -1;
-            if (a > b) return 1;
-            return 0;
-        }
-    }
-
-    // Sort methods in ascending order.
-    var sortMethods = {
-        alpha: function(a, b) {
-            return compare(a.name, b.name);
-        },
-        chrono: function(a, b) {
-            return compare(a.dateRecorded, b.dateRecorded);
-        },
-        dur: function(a, b) {
-            return compare(a.duration, b.duration);
-        },
-        ren: function(a, b) {
-            return compare(a.rendered, b.rendered);
-        }
-    };
-
-    var type = sortType.slice(0, -1);
-    var sortMethod = sortMethods[type];
-    var dir = sortType.slice(-1);
-
-    // Set column headers.
-    headers.forEach(function(header) {
-        var text = header.text;
-        if (header.type == type) {
-            if (dir == 'A') {
-                text = text + ' ' + UP_ARROW;
-            } else {
-                text = text + ' ' + DOWN_ARROW;
-            }
-        }
-        $('#' + header.id).text(text);
-    });
-
-    // Get entries.
-    var sorted = $('#replays .section-list .replayRow').not('.clone').sort(function(a, b) {
-        var aInfo = $(a).data("info"),
-            bInfo = $(b).data("info");
-        if (dir === 'A') {
-            return sortMethod(aInfo, bInfo);
-        } else {
-            return sortMethod(bInfo, aInfo);
-        }
-    });
-    $('#replays .section-list tBody').append(sorted);
 };
 
 /**
@@ -1142,7 +1156,7 @@ Menu.prototype.getCheckedEntries = function(type) {
     var scope = type === "replay" ? "#replays" : "#rendering";
     $(scope + ' .selected-checkbox').each(function () {
         if (this.checked) {
-            checkedEntries.push(menu._getRowInfo(this).id);
+            checkedEntries.push(menu._getRowInfo(this));
         }
     });
     return checkedEntries;
@@ -1212,7 +1226,7 @@ Menu.prototype._setSettingsFormTitles = function() {
  */
 Menu.prototype._getRowInfo = function(elt) {
     var replayRow = $(elt).closest('tr');
-    return replayRow.data("info");
+    return replayRow.data("id");
 };
 
 /**

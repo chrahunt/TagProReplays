@@ -140,3 +140,52 @@
 /*#tpr-container #alert-message {
     display: none;
 }*/
+
+/** Replay table. **/
+
+#replay-table .controls > div {
+    display: inline-block;
+    padding: 8px;
+    cursor: pointer;
+}
+
+/* Last cell leaves spacing to action icons. */
+#replay-table tr td:last-child {
+    padding: 0px;
+}
+
+/* Table controls. */
+#replays .table-header .controls {
+    display: none;
+    float: right;
+    cursor: pointer;
+}
+
+#replays .table-header .controls > div {
+    display: inline-block;
+}
+
+#replays .table-header-left {
+    display: inline-block;
+    height: 40px;
+    line-height: 40px; /* vertical align */
+    padding-left: 8px;
+}
+
+#replays .table-header-left .text {
+    font-weight: bold;
+    font-size: medium;
+}
+
+#replays .table-header {
+    height: 40px;
+}
+
+#replay-table tr .replay-edit {
+    display: none;
+}
+
+#replay-table tr .replay-name-edit {
+    cursor: pointer;
+    padding: 8px;
+}

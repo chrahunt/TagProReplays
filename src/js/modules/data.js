@@ -73,7 +73,7 @@ db.version(0.2).stores({
 
 // Current version.
 db.version(3).stores({
-    info: '++id,&replay_id',
+    info: '++id,&replay_id,name,rendered,duration,dateRecorded',
     replay: '++id,&info_id',
     failed_info: '++id,&replay_id',
     failed_replays: '++id,&info_id',
@@ -401,6 +401,44 @@ exports.forEachReplay = function(ids, callback) {
  */
 exports.getAllReplayInfo = function() {
     return db.info.toArray();
+};
+
+/**
+ * @typedef {object} ReplaySelector
+ * @property {integer} length - The number of replays to select.
+ * @property {string} dir - The direction the replays should be sorted
+ *   by.
+ * @property {integer} start - The offset of the replays from the start
+ *   of the sorted list.
+ * @property {string} sortedBy - String value referencing an indexed
+ *   column in the replays object store. Can be one of "name", "date",
+ *   "rendered", or "duration".
+ */
+/**
+ * Retrieve information for a subset of replays.
+ * @param {ReplaySelector} data - Information on which replays to
+ *   select.
+ * @return {Promise} - Promise that resolves to an array with the number
+ *   of total replays and the replays that were retrieved.
+ */
+exports.getReplayInfo = function(data) {
+    var mapped = {
+        "name": "name",
+        "date": "dateRecorded",
+        "rendered": "rendered",
+        "duration": "duration"
+    };
+    var index = mapped[data.sortedBy];
+    var collection = db.info.orderBy(index);
+    if (data.dir !== "asc") {
+        collection.reverse();
+    }
+
+    return collection.count().then(function (n) {
+        return collection.offset(data.start).limit(data.length).toArray().then(function (results) {
+            return [n, results];
+        });
+    });
 };
 
 /**
