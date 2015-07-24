@@ -4,10 +4,6 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">TagPro Replays</h4>
-            </div>
-            <div class="modal-body">
-                <div id="alert-messages"></div>
                 <ul class="nav nav-pills">
                     <li class="active nav-home"><a href="#">Replays <span class="badge">0</span></a></li>
                     <li class="nav-render"><a href="#">Rendering <span class="badge">0</span></a></li>
@@ -15,15 +11,20 @@
                         <a href="#" class="dropdown-toggle" data-toggle="dropdown">Menu <span class="caret"></span></a>
                         <ul class="dropdown-menu">
                             <li><a id="open-settings" href="#" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
-                            <li><a id="replay-import" href="#">Import...</a></li>
+                            <li>
+                                <a id="replay-import" href="#">Import...</a>
+                                <input type="file" class="hidden-file-input" id="raw-upload">
+                            </li>
                         </ul>
                     </li>
                 </ul>
+            </div>
+            <div class="modal-body">
+                <div id="alert-messages"></div>
                 <div id="replays" class="section-panel">
                     <div class="table-header">
                         <div class="table-header-left">
                             <span class="text">Replays</span>
-                            <span class="text-action"></span>
                         </div>
                         <div class="controls">
                             <div class="delete"><span class="glyphicon glyphicon-trash"></span></div>
@@ -32,7 +33,7 @@
                         </div>
                         <div class="menu"></div>
                     </div>
-                    <table id="replay-table" class="table table-condensed" class="section-headers">
+                    <table id="replay-table" class="table table-condensed">
                         <thead>
                         <tr>
                             <th><input type="checkbox" class="select-all"></th>
@@ -46,57 +47,28 @@
                     </table>
                 </div>
                 <div id="rendering" class="section-panel">
-                    <table class="table table-condensed" class="section-headers">
+                    <div class="table-header">
+                        <div class="table-header-left">
+                            <span class="text">Render Tasks</span>
+                        </div>
+                        <div class="controls">
+                            <div class="cancel"><span>Cancel</span></div>
+                        </div>
+                        <div class="menu"></div>
+                    </div>
+                    <table id="render-table" class="table table-condensed">
                         <thead>
                         <tr>
-                            <th class="text-right col-sm-1"><input type="checkbox" class="select-all"></th>
-                            <th class="list-header col-sm-3">Name</th>
-                            <th class="list-header col-sm-2">Date</th>
-                            <th class="list-header col-sm-1">Status</th>
-                            <th class="list-header col-sm-2">Progress</th>
-                            <th class="list-header col-sm-1"><!-- Cancel --></th>
+                            <th><input type="checkbox" class="select-all"></th>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th><!-- Controls --></th>
                         </tr>
                         </thead>
                     </table>
-                    <div class="section-loading">
-                        <div class="sk-spinner sk-spinner-wave">
-                            <div class="sk-rect1"></div>
-                            <div class="sk-rect2"></div>
-                            <div class="sk-rect3"></div>
-                            <div class="sk-rect4"></div>
-                            <div class="sk-rect5"></div>
-                        </div>
-                    </div>
-                    <div class="section-empty text-center">
-                        <p>You aren't rendering any replays!</p>
-                    </div>
-                    <div class="section-list">
-                        <table class="table table-condensed">
-                            <tbody>
-                            <tr class="render-row clone">
-                                <td class="col-sm-1 text-right"><input type="checkbox" class="selected-checkbox"></td>
-                                <td class="col-sm-3"><span class="render-name">render</span></td>
-                                <td class="col-sm-2">
-                                    <span class="render-date"></span>
-                                </td>
-                                <td class="col-sm-1">
-                                    <span class="status"></span>
-                                </td>
-                                <td class="col-sm-2">
-                                    <div class="render-progress"></div>
-                                </td>
-                                <td class="col-sm-1">
-                                    <button class="cancel-render-button">Cancel</button>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div id="render-footer" class="modal-footer">
-                <div class="pull-left">
-                    <button type="button" class="btn btn-danger selected-action" id="cancel-selected-button">Cancel Selected</button>
                 </div>
             </div>
         </div>
@@ -249,3 +221,6 @@
 </div>
 <!-- DataTables CSS -->
 <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.css">
+<!-- Material design icons -->
+<link href="//fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link href='//fonts.googleapis.com/css?family=Roboto:400,500' rel='stylesheet' type='text/css'>

@@ -14,6 +14,19 @@ var Messaging = require('./messaging');
 var Status = require('./status');
 var Textures = require('./textures');
 var Viewer = require('./viewer');
+var Table = require('./table');
+
+// Moment calendar customization.
+moment.locale('en', {
+    calendar: {
+        lastDay: '[Yesterday at] LT',
+        sameDay: 'LT',
+        nextDay: '[Tomorrow at] LT',
+        lastWeek: 'lll',
+        nextWeek: 'lll',
+        sameElse: 'lll'
+    }
+});
 
 /**
  * Holds the interface to the main page user interface.
@@ -55,19 +68,11 @@ module.exports = Menu;
  */
 Menu.prototype.open = function() {
     if ($('#menuContainer').length) {
-        this._list_Update();
+        //this._list_Update();
         $('#menuContainer').modal('show');
+        this.replay_table.table.columns.adjust();
+        this.render_table.table.columns.adjust();
     }
-};
-
-/**
- * Get replay id for row, given an element in it.
- * @param  {HTMLElement} elt
- * @return {string} - The id of the replay corresponding to the row.
- */
-Menu.prototype._getRowInfo = function(elt) {
-    var replayRow = $(elt).closest('tr');
-    return replayRow.data("id");
 };
 
 /**
@@ -167,6 +172,7 @@ Menu.prototype._init = function() {
         e.preventDefault();
     });
     $('#raw-upload').attr('accept', '.txt,.json');
+    $('#raw-upload').prop('multiple', true);
     $('#raw-upload').change(this._list_Import());
 
     // Run initialization for other parts of the menu.
@@ -235,7 +241,6 @@ Menu.prototype._initState = function() {
  */
 Menu.prototype._initReplayList = function() {
     var menu = this;
-    this.selected_replays = [];
 
     // Given replay info, generate title text for rows.
     function getTitleText(replay) {
@@ -262,8 +267,15 @@ Menu.prototype._initReplayList = function() {
         return title;
     }
 
-    this.replay_table = $("#replay-table").DataTable({
-        ajax: function (data, callback, settings) {
+    this.replay_table = new Table({
+        id: "replay-table",
+        header: {
+            selector: "#replays .table-header",
+            singular: "replay",
+            plural: "replays",
+            none: "Replays"
+        },
+        update: function (data, callback) {
             var args = {
                 length: data.length,
                 sortedBy: data.columns[data.order[0].column].data,
@@ -274,18 +286,18 @@ Menu.prototype._initReplayList = function() {
                 var list = response.data.map(function (replay) {
                     return {
                         name: replay.name,
-                        date: moment(replay.dateRecorded).format("ddd MMM D, YYYY h:mm A"),
-                        duration: moment.utc(replay.duration).format("m:ss"),
+                        date: moment(replay.dateRecorded),
+                        duration: moment.utc(replay.duration).format('mm:ss'),
                         rendered: replay.rendered,
                         id: replay.id,
-                        DT_RowId: "replay-row-" + replay.id,
+                        rendering: replay.rendering,
                         DT_RowData: {
                             id: replay.id
                         },
                         replay: replay
                     };
                 });
-                console.log("Response: %o", response);
+                $(".nav-home .badge").text(response.total);
                 callback({
                     data: list,
                     draw: data.draw,
@@ -293,145 +305,81 @@ Menu.prototype._initReplayList = function() {
                     recordsFiltered: response.filtered
                 });
             });
-            console.log("Data: %o", data);
-            console.log("Settings: %o", settings);
-            console.log("Sending list request: %d.", data.draw);
         },
-        serverSide: true,
         columns: [
             {
-                data: null,
-                defaultContent: '<input type="checkbox" class="selected-checkbox">',
-                orderable: false
+                data: "rendering",
+                render: function (data, type, row, meta) {
+                    if (data) {
+                        return '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>';
+                    } else {
+                        return '<input type="checkbox" class="selected-checkbox">';
+                    }
+                },
+                orderable: false,
+                width: "18px",
+                className: "cb-cell"
             },
             {
                 data: "name",
                 render: function (data, type, row, meta) {
-                    return '<div class="replay-static"><span class="replay-name">' +
-                        data + '</span><div class="replay-name-edit pull-right">' +
-                        '<span class="glyphicon glyphicon-pencil"></span></div></div>' +
-                        '<div class="replay-edit">' +
-                        '<input type="text" class="replay-name-input" value="' + data + '"></div>';
+                    if (row.rendering) {
+                        return data;
+                    } else {
+                        return '<div class="replay-static"><span class="replay-name">' +
+                            data + '</span><span class="replay-name-edit pull-right">' +
+                            '<span class="glyphicon glyphicon-pencil"></span></span></div>' +
+                            '<div class="replay-edit">' +
+                            '<input type="text" class="replay-name-input" value="' + data + '"></div>';
+                    }
+                },
+                className: "row-name fixed-cell"
+                // width set via css.
+            },
+            {
+                data: "rendered",
+                orderable: false,
+                render: function (data) {
+                    return data ? '&#10003;' : '';
+                },
+                width: "65px",
+                className: "data-cell"
+            },
+            {
+                data: "duration",
+                width: "60px",
+                className: "data-cell"
+            },
+            {
+                data: "date",
+                width: "180px",
+                className: "data-cell",
+                render: function (date) {
+                    return date.calendar();
                 }
             },
-            { data: "rendered" },
-            { data: "duration" },
-            { data: "date" },
             {
                 data: null,
                 render: function (data, type, row, meta) {
                     return '<div class="controls">' +
-                        '<div class="row-download-json"><span class="glyphicon glyphicon-save"></span></div>' +
                         '<div class="row-download-movie"><span class="glyphicon glyphicon-save"></span></div>' +
                         '<div class="row-preview"><span class="glyphicon glyphicon-film"></span></div>' +
-                        '<div class="row-delete"><span class="glyphicon glyphicon-trash"></span></div>' +
                         '</div>';
                 },
-                orderable: false
+                orderable: false,
+                width: "60px"
             }
         ],
-        dom: '<"header">rtlip',
-        searching: false,
         order: [[1, 'asc']],
         rowCallback: function (row, data) {
-            if (menu.selected_replays.indexOf(data.id) !== -1) {
-                $(row).addClass('selected')
-                    .find('.selected-checkbox')
-                    .prop('checked', true);
-            }
             row.title = getTitleText(data.replay);
-        },
-        drawCallback: function (settings) {
-            updateWhenChecked();
         }
     });
 
-    // Track selected rows across all pages.
-    $("#replay-table tbody").on("change", ".selected-checkbox", function () {
-        var tr = $(this).closest("tr");
-        var replayId = tr.data("id");
-        var idx = menu.selected_replays.indexOf(replayId);
-        if (this.checked && idx === -1) {
-            menu.selected_replays.push(replayId);
-            tr.addClass('selected');
-        } else if (!this.checked) {
-            menu.selected_replays.splice(idx, 1);
-            tr.removeClass('selected');
-        }
-    });
-
-    // Selection behavior.
-    $("#replay-table tbody").on("click", ".selected-checkbox", function (evt) {
-        var elt = $(this);
-        var numChecked = $("#replay-table .selected-checkbox:checked").length;
-        var tr = elt.closest("tr");
-        if (elt.prop('checked') && evt.shiftKey && numChecked > 1) {
-            var boxes = $("#replay-table .selected-checkbox"),
-                closestBox,
-                thisBox;
-            for (var i = 0; i < boxes.length; i++) {
-                if (this == boxes[i]) {
-                    thisBox = i;
-                    if (closestBox) break;
-                    continue;
-                }
-                if (boxes[i].checked) closestBox = i;
-                if (thisBox && closestBox) break;
-            }
-            var bounds = [closestBox, thisBox].sort(function(a, b){
-                return a - b;
-            });
-            boxes.slice(bounds[0], bounds[1]).each(function (i) {
-                this.checked = true;
-                $(this).closest("tr").addClass('selected');
-            });
-        }
-        updateWhenChecked();
-    });
-
-    // Update table when entry is checked.
-    function updateWhenChecked() {
-        var rows = $("#replay-table .selected-checkbox").length;
-        if (rows === 0) {
-            $("#replay-table .select-all").prop("disabled", true);
-            $("#replay-table .select-all").prop("checked", false);
-        } else {
-            $("#replay-table .select-all").prop("disabled", false);
-            var numChecked = $("#replay-table .selected-checkbox:checked").length;
-            if (numChecked === rows) {
-                $("#replay-table .select-all").prop("checked", true);
-            } else {
-                $("#replay-table .select-all").prop("checked", false);
-            }
-            if (numChecked > 0) {
-                $("#replays .table-header").addClass("actions");
-                if (numChecked === 1) {
-                    $("#replays .table-header .text").text(numChecked + " replay selected");
-                } else {
-                    $("#replays .table-header .text").text(numChecked + " replays selected");
-                }
-                $("#replays .table-header .controls").css({ display: "inline-block" });
-            } else {
-                // Normal header content.
-                $("#replays .table-header").removeClass("actions");
-                $("#replays .table-header .text").text("Replays");
-                $("#replays .table-header .controls").css({ display: "none" });
-            }
-        }
-    }
-    
     // Buttons that take action on multiple entries.
     $('#replays .table-header .controls .render').click(this._list_Render.bind(this));
     $('#replays .table-header .controls .delete').click(this._list_Delete.bind(this));
     $('#replays .table-header .controls .download-raw').click(this._list_RawDownload.bind(this));
-
-    // "Select all" checkbox.
-    $("#replay-table .select-all").change(function() {
-        $("#replay-table tbody .selected-checkbox")
-            .prop("checked", this.checked)
-            .trigger("change");
-        updateWhenChecked();
-    });
 
     // Replay row listeners.
     $("#replay-table tbody").on("click", ".row-preview", function() {
@@ -499,53 +447,28 @@ Menu.prototype._initReplayList = function() {
         });
         input.focus();
     });
-    /*
-    // Initialize listener for list modifications.
-    var target = $('#replays .section-list tbody')[0];
-    var observer = new MutationObserver(function(mutations) {
-        var update = mutations.some(function(mutation) {
-            return mutation.type === 'childList';
-        });
-        if (update) {
-            this._list_Update();
-        }
-    }.bind(this));
-    observer.observe(target, { childList: true });
 
+    
     // Re-set menu dimensions on window resize.
-    $(window).resize(this._setListHeight);
-    $(window).resize(this._setListWidth);
+    $(window).resize(function () {
+        menu.replay_table.recalcMaxHeight();
+    });
+    //$(window).resize(this._setListWidth);
 
-    // Send request for initially populating list.
-    Messaging.send("getReplayList", function(response) {
-        var replays = response.data;
-        // Hide loader.
-        $('#replays .section-loading').hide();
-        var rendering = {};
-        replays.forEach(function(replay) {
-            if (!replay.rendering) {
-                menu.addRow(replay);
-            } else {
-                rendering[replay.id] = replay;
-            }
+    // Get the order of renders and make render rows.
+    /*Messaging.send("getRenderList", function(response) {
+        $('#rendering .section-loading').hide();
+        var list = response.data;
+        var renders = list.map(function(id) {
+            return rendering[id];
+        }).filter(function(replay) {
+            return !!replay;
         });
-        // Sort the replays.
-        menu.sort(menu._getSortType('sortMethod'));
-        // Get the order of renders and make render rows.
-        Messaging.send("getRenderList", function(response) {
-            $('#rendering .section-loading').hide();
-            var list = response.data;
-            var renders = list.map(function(id) {
-                return rendering[id];
-            }).filter(function(replay) {
-                return !!replay;
-            });
-            renders.forEach(function(replay) {
-                menu.addRenderRow(replay);
-            });
-            menu.listInitialized = true;
-            menu.updateState("loaded", true);
+        renders.forEach(function(replay) {
+            menu.addRenderRow(replay);
         });
+        menu.listInitialized = true;
+        menu.updateState("loaded", true);
     });
 
     // Initially set list UI in case above request doesn't result in
@@ -557,20 +480,86 @@ Menu.prototype._initReplayList = function() {
 Menu.prototype._initRenderList = function() {
     var self = this;
 
-    // "Select all" checkbox.
-    $("#rendering .select-all").change(function() {
-        $(".render-row:not(.clone) .selected-checkbox")
-            .prop("checked", this.checked);
-        if (this.checked) {
-            $("#render-footer .selected-action").prop("disabled", false);
-        } else {
-            $("#render-footer .selected-action").prop("disabled", true);
-        }
+    this.render_table = new Table({
+        id: "render-table",
+        header: {
+            selector: "#rendering .table-header",
+            singular: "task",
+            plural: "tasks",
+            none: "Render Tasks"
+        },
+        update: function (data, callback) {
+            var args = {
+                length: data.length,
+                dir: data.order[0].dir,
+                start: data.start
+            };
+
+            Messaging.send("getRenderList", args, function (response) {
+                var list = response.data.map(function (task) {
+                    return {
+                        name: task.data.name,
+                        date: moment(task.data.date).format("ddd MMM D, YYYY h:mm A"),
+                        // Task id.
+                        id: task.id,
+                        DT_RowData: {
+                            // Replay id.
+                            id: task.replay_id
+                        },
+                        DT_RowId: "render-" + task.replay_id
+                    };
+                });
+                $(".nav-render .badge").text(response.total);
+                console.log("got render list: " + response.total);
+                callback({
+                    data: list,
+                    draw: data.draw,
+                    recordsTotal: response.total,
+                    recordsFiltered: response.filtered
+                });
+            });
+        },
+        columns: [
+            {
+                data: null,
+                defaultContent: '<input type="checkbox" class="selected-checkbox">',
+                className: 'cb-cell',
+                orderable: false
+            },
+            {
+                data: "id",
+                visible: false
+            },
+            {
+                data: "name",
+                orderable: false
+            },
+            {
+                data: "date",
+                orderable: false
+            },
+            {
+                data: null,
+                defaultContent: '<span class="render-status">Queued</span>',
+                orderable: false
+            },
+            { // Progress indicator.
+                data: null,
+                defaultContent: '<div class="render-progress"></div>',
+                orderable: false
+            },
+            {
+                data: null,
+                defaultContent: '<span class="glyphicon glyphicon-trash"></span>',
+                orderable: false
+            }
+        ],
+        order: [[1, 'asc']]
     });
 
     // Single cancellation buttons.
     $("#rendering .section-list tbody").on("click", ".cancel-render-button", function() {
-        var id = $(this).closest('tr').data("info").id;
+        var id = $(this).closest('tr').data("id");
         console.log('Requesting render cancellation for replay ' + id + '.');
         Messaging.send("cancelRender", {
             id: id
@@ -578,18 +567,17 @@ Menu.prototype._initRenderList = function() {
     });
 
     // Multi-cancellation buttons.
-    $('#cancel-selected-button').click(function() {
-        var ids = self.getCheckedEntries("render");
+    $('#rendering .table-header .controls .cancel').click(function() {
+        var ids = self.render_table.selected();
+        self.render_table.deselect(ids);
         if (ids.length > 0) {
             Messaging.send("cancelRenders", {
                 ids: ids
             });
         } else {
-            alert("You have to select at least 1 render.");
+            console.warn("At least 1 task must be selected to cancel.");
         }
     });
-
-    $("#rendering .section-list tbody").on("click", ".selected-checkbox", this._entry_Check("render"));
 };
 
 /**
@@ -602,7 +590,7 @@ Menu.prototype._initListeners = function() {
      */
     Messaging.listen("replayAdded",
     function(message, sender, sendResponse) {
-        this.replay_table.ajax.reload();
+        this.replay_table.reload();
     }.bind(this));
 
     /**
@@ -611,13 +599,13 @@ Menu.prototype._initListeners = function() {
     Messaging.listen(["replayDeleted", "replaysDeleted"],
     function(message, sender, sendResponse) {
         console.log('Replays have been deleted.');
-        this.replay_table.ajax.reload();
+        this.replay_table.reload();
     }.bind(this));
 
     Messaging.listen("replayRenamed",
     function(message, sender, sendResponse) {
         console.log('Received confirmation of replay rename from background script.');
-        this.replay_table.ajax.reload();
+        this.replay_table.reload();
     }.bind(this));
 
     /**
@@ -627,16 +615,8 @@ Menu.prototype._initListeners = function() {
      */
     Messaging.listen("replayRenderAdded",
     function (message, sender, sendResponse) {
-        var ids = message.ids;
-        ids.map(function(id) {
-            return $("#replay-" + id).data("info");
-        }).filter(function(replay) {
-            return !!replay;
-        }).forEach(function(replay) {
-            replay.rendering = true;
-            this.removeRow(replay.id);
-            this.addRenderRow(replay);
-        }, this);
+        this.replay_table.reload();
+        this.render_table.reload();
     }.bind(this));
 
     /**
@@ -644,17 +624,8 @@ Menu.prototype._initListeners = function() {
      */
     Messaging.listen("replayRenderCancelled",
     function (message, sender, sendResponse) {
-        var ids = message.ids;
-        // TODO: Set render status as being cancelled on page?
-        ids.map(function(id) {
-            return $("#render-" + id).data("info");
-        }).filter(function(replay) {
-            return !!replay;
-        }).forEach(function(replay) {
-            replay.rendering = false;
-            this.removeRenderRow(replay.id);
-            this.addRow(replay);
-        }, this);
+        this.replay_table.reload();
+        this.render_table.reload();
     }.bind(this));
 
     /**
@@ -666,26 +637,20 @@ Menu.prototype._initListeners = function() {
     function(message, sender, sendResponse) {
         var id = message.id;
         console.log('Received notice that ' + id + ' is being rendered.');
-        // Ensure that menu is loaded and check if this replay is still in replay list.
-        if (this.listInitialized) {
-            // Ensure that replay row is made into render row.
-            if ($('#replay-' + id).length > 0) {
-                var replay = $("#replay-" + id).data("info");
-                replay.rendering = true;
-                this.removeRow(id);
-                this.addRenderRow(replay);
-            }
-            $("#render-" + id + " .render-status").text("Rendering...");
-            // TODO: Add progress bar.
-            $("#render-" + id + " .render-progress").html("<div class='progress'>" +
-                "<div class='progress-bar'></div></div>");
-        }
-
+        // Check that render row exists.
+        var row = $("#render-" + id);
         // TODO: Better progress bar.
         // TODO: Estimated time remaining.
-        if ($('#render-' + id).length > 0) {
+        if (row.length === 1) {
+            var rendering = row.data("rendering");
+            if (!rendering) {
+                row.find(".render-status").text("Rendering...");
+                row.find(".render-progress").html("<div class='progress'>" +
+                    "<div class='progress-bar'></div></div>");
+                row.data("rendering", true);
+            }
             $('#render-' + id + ' .progress-bar').css("width", (message.progress * 100) + "%");
-        }
+        } // else render table not yet set up.
     }.bind(this));
 
     /**
@@ -695,23 +660,8 @@ Menu.prototype._initListeners = function() {
      */
     Messaging.listen("replayRenderCompleted",
     function(message, sender, sendResponse) {
-        var id = message.id;
-        console.log("Received notice that replay " + id + " has finished rendering.");
-        var replay = $("#render-" + id).data("info");
-        replay.rendered = true;
-        replay.rendering = false;
-        this.removeRenderRow(id);
-        this.addRow(replay);
-        
-        if (message.failure) {
-            console.log('Rendering of ' + message.id + ' was a failure.');
-            $('#replay-' + message.id + ' .rendered-check').text('✘');
-            $('#replay-' + message.id + ' .rendered-check').css('color', 'red');
-        } else {
-            $("#replay-" + message.id).addClass("rendered");
-            $('#replay-' + message.id + ' .rendered-check').text('✓');
-            $('#replay-' + message.id + ' .download-movie-button').prop('disabled', false);
-        }
+        this.replay_table.reload();
+        this.render_table.reload();
     }.bind(this));
 };
 
@@ -802,59 +752,7 @@ Menu.prototype._list_Import = function() {
  * Function called in response to a list update.
  */
 Menu.prototype._list_Update = function() {
-    var replayEntries = $('#replays .section-list .replayRow').not('.clone');
-    $(".nav-home .badge").text(replayEntries.length);
-    if (replayEntries.length === 0) {
-        $('#replays .section-empty').show();
-        $('#replays .section-list').hide();
-        $('#replays .select-all').prop("disabled", true);
-        $('#replay-footer .selected-action').prop("disabled", true);
-    } else {
-        $('#replays .section-list').show();
-        $('#replays .section-empty').hide();
-        $('#replays .select-all').prop("disabled", false);
-    }
-
-    var renderEntries = $('#rendering .section-list .render-row').not('.clone');
-    $(".nav-render .badge").text(renderEntries.length);
-    if (renderEntries.length === 0) {
-        $('#rendering .section-empty').show();
-        $('#rendering .section-list').hide();
-        $('#rendering .select-all').prop("disabled", true);
-        $("#render-footer .selected-action").prop("disabled", true);
-    } else {
-        $('#rendering .section-list').show();
-        $('#rendering .section-empty').hide();
-        $('#rendering .select-all').prop("disabled", false);
-    }
-
-    // TODO: Force to use the current panel.
-    // Updating.
-    $('#replays .section-list').height('auto');
-    // Automatic height adjustment for replay list.
-    $('#menuContainer .modal-dialog').data(
-        'original-height',
-        $('#menuContainer .modal-dialog').actual('height'));
-
-    this._setListHeight();
     this._setListWidth();
-};
-
-/**
- * Set replay list height relative to the visible height of the window
- * unless the window is very short.
- */
-Menu.prototype._setListHeight = function() {
-    if ($('#menuContainer .modal-dialog').data('original-height') > $(window).height()) {
-        var setHeight = false;
-        var newHeight = 185;
-        if ($(window).height() > 500) {
-            newHeight = $(window).height() - 315;
-        }
-        $('#replays .section-list').height(newHeight);
-        // Fix table header width.
-        $('#replay-headers').width($('#replays .section-list table').actual('width'));
-    }
 };
 
 /**
@@ -870,7 +768,8 @@ Menu.prototype._setListWidth = function() {
 Menu.prototype._list_Render = function() {
     var menu = this;
 
-    var ids = this.getCheckedEntries("replay");
+    var ids = this.replay_table.selected();
+    this.replay_table.deselect(ids);
     if (ids.length > 0) {
         Messaging.send("renderReplays", {
             ids: ids
@@ -887,7 +786,8 @@ Menu.prototype._list_Render = function() {
  * Delete checked items on the replay list after confirmation.
  */
 Menu.prototype._list_Delete = function() {
-    var ids = this.getCheckedEntries("replay");
+    var ids = this.replay_table.selected();
+    this.replay_table.deselect(ids);
 
     if (ids.length > 0) {
         if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
@@ -903,108 +803,13 @@ Menu.prototype._list_Delete = function() {
  * Download raw replay data corresponding to checked items.
  */
 Menu.prototype._list_RawDownload = function() {
-    var ids = this.getCheckedEntries("replay");
+    var ids = this.replay_table.selected();
     if (ids.length > 0) {
         console.log('Requesting raw replay download for ' + ids + '.');
         Messaging.send("downloadReplays", {
             ids: ids
         });
     }
-};
-
-/**
- * Returns callback for entry checkboxes to support the shift-click
- * multi-select behavior. Also updates buttons that are related to
- * selected replays/renders to be enabled/disabled.
- * @param {string} scope - One of "replay" or "render" to limit effects to
- *   one or the other panel.
- * @return {Function} - The function to be used as a callback on entry
- *   checkboxes.
- */
-Menu.prototype._entry_Check = function(scope) {
-    var rowSelector = scope === "replay" ? ".replayRow" : ".render-row";
-    var footerSelector = scope === "replay" ? "#replay-footer" : "#render-footer";
-    return function(e) {
-        var boxesChecked = $(rowSelector + ':not(.clone) .selected-checkbox:checked').length;
-        if(this.checked && e.shiftKey && boxesChecked > 1) {
-            var boxes = $(rowSelector + ':not(.clone) .selected-checkbox'),
-                closestBox,
-                thisBox;
-            for(var i = 0; i < boxes.length; i++) {
-                if ( this == boxes[i] ) { 
-                    thisBox = i; 
-                    if (closestBox) break;
-                    continue;
-                }
-                if (boxes[i].checked) closestBox = i;
-                if ( thisBox && closestBox ) break;
-            }
-            var bounds = [closestBox, thisBox].sort(function(a, b){
-                return a - b;
-            });
-            boxes.map(function(num, box) { 
-                if(num > bounds[0] && num < bounds[1]) box.checked = true;
-            });
-            $(footerSelector + " .selected-action").prop("disabled", false);
-        } else if (boxesChecked > 0) {
-            $(footerSelector + " .selected-action").prop("disabled", false);
-        } else if (boxesChecked === 0) {
-            $(footerSelector + " .selected-action").prop("disabled", true);
-        }
-    };
-};
-
-/**
- * Remove the replay for corresponding to the given id.
- * @param  {string} id The id of the replay to remove the row for.
- */
-Menu.prototype.removeRow = function(id) {
-    $('#replay-' + id).remove();
-};
-
-/**
- * Add a replay as being rendered.
- * @param {ReplayInfo} replay - The info for the replay that is being
- *   rendered.
- */
-Menu.prototype.addRenderRow = function(replay) {
-    var id = replay.id;
-    var name = replay.name;
-    var date = moment(replay.dateRecorded);
-    
-    var newRow = $('#rendering .section-list .render-row.clone:first').clone(true);
-    newRow.removeClass('clone');
-
-    newRow.data("info", replay);
-    newRow.attr("id", "render-" + id);
-    // Set name text.
-    newRow.find('.render-name').text(name);
-    newRow.find('.render-date').text(date.format("ddd MMM D, YYYY h:mm A"));
-    newRow.find('.render-status').text("Queued..."); // Default status.
-    $('#rendering .section-list tbody').prepend(newRow);
-};
-
-Menu.prototype.removeRenderRow = function(id) {
-    $('#render-' + id).remove();
-};
-
-/**
- * Retrieve currently checked table entries.
- * @param {string} type - The type of checkboxes to get, either
- *   "replay" or "render".
- * @return {Array.<string>} - The replay ids corresponding to the
- *   checked rows.
- */
-Menu.prototype.getCheckedEntries = function(type) {
-    var checkedEntries = [];
-    var menu = this;
-    var scope = type === "replay" ? "#replays" : "#rendering";
-    $(scope + ' .selected-checkbox').each(function () {
-        if (this.checked) {
-            checkedEntries.push(menu._getRowInfo(this));
-        }
-    });
-    return checkedEntries;
 };
 
 /**
@@ -1034,22 +839,22 @@ Menu.prototype._initSettings = function() {
     });
 
     // Record key functionality.
-    keyListener = function (e) {
-        currentRecordKey = e.which
-        $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
+    function keyListener(e) {
+        currentRecordKey = e.which;
+        $('#recordKeyChooserInput').text(String.fromCharCode(e.which));
         $('#recordKeyChooserInput').data('record', true);
         $('#record-key-remove').show();
         stopInputting();
     }
 
-    stopInputting = function () {
+    function stopInputting() {
         $('#record-key-input-container').removeClass('focused');
         $(document).off("keypress", keyListener);
     }
 
     $('#record-key-input-container').click(function (e) {
         $(this).addClass('focused');
-        $(document).on("keypress", keyListener)
+        $(document).on("keypress", keyListener);
     });
 
     $('#record-key-remove').click(function (e) {

@@ -15,7 +15,7 @@ var Status = {
                 statuses.push(status);
                 this._set(statuses);
             }
-        });
+        }.bind(this));
     },
     /**
      * Set statuses in chrome storage.
@@ -46,7 +46,7 @@ var Status = {
                     this._set(statuses);
                 }
             }
-        });
+        }.bind(this));
     },
     /**
      * Retrieve the extension background page status.

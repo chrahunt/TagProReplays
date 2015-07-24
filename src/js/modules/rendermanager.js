@@ -58,10 +58,10 @@ RenderManager.prototype.cancel = function(ids) {
         // properly.
         this.task.cancel();
     }
-    return Data.db.info.where(":id").anyOf(ids).modify({
-        rendering: false
-    }).then(function () {
-        return db.renders.where("replay_id").anyOf(ids).delete();
+    return db.renders.where("replay_id").anyOf(ids).delete().then(function () {
+        return Data.db.info.where(":id").anyOf(ids).modify({
+            rendering: false
+        });
     });
 };
 
@@ -99,24 +99,35 @@ RenderManager.prototype.add = function(ids) {
     // Update replayInfo.
     return Data.db.transaction("rw", Data.db.info, function() {
         var nonRenderingIds = [];
+        var nonRenderingData = [];
         return Data.db.info.where(":id").anyOf(ids).each(function (info) {
+            // Get replays being added that aren't already rendering.
             if (!info.rendering && !info.rendered) {
                 nonRenderingIds.push(info.id);
+                nonRenderingData.push({
+                    id: info.id,
+                    name: info.name,
+                    date: info.dateRecorded
+                });
             }
         }).then(function () {
+            // Update rendering property to lock the replays.
             Data.db.info.where(":id").anyOf(nonRenderingIds).modify({
                 rendering: true
             });
-            return nonRenderingIds;
+            return nonRenderingData;
         });
-    }).then(function (nonRenderingIds) {
+    }).then(function (nonRenderingData) {
+        // Add tasks.
         return db.transaction("rw", db.renders, function () {
-            nonRenderingIds.forEach(function (id) {
+            nonRenderingData.forEach(function (data) {
                 db.renders.add({
-                    replay_id: id
+                    replay_id: data.id,
+                    data: data
                 });
             });
         }).then(function () {
+            // Start render manager if needed.
             if (!self.rendering) {
                 self.start();
             }
@@ -242,13 +253,16 @@ RenderManager.prototype._loop = function() {
 
 /**
  * Retrieve the render queue.
- * @return {Promise} - Promise that resolves to an array of ids for
- *   rendering replays.
+ * @param {object} data - Information governing how many items are
+ *   returned.
+ * @return {Promise} - Promise that resolves to an array with the
+ *   number of total tasks and the replay ids for the tasks.
  */
-RenderManager.prototype.getQueue = function() {
-    return db.renders.toArray().then(function (list) {
-        return list.map(function(task) {
-            return task.replay_id;
+RenderManager.prototype.getQueue = function(data) {
+    var collection = db.renders.orderBy(":id");
+    return collection.count().then(function (n) {
+        return collection.offset(data.start).limit(data.length).toArray().then(function (results) {
+            return [n, results];
         });
     });
 };
@@ -259,7 +273,7 @@ RenderManager.prototype.getQueue = function() {
  *   or undefined if there are no more replays.
  */
 RenderManager.prototype.getNext = function() {
-    return db.renders.toCollection().first().then(function (value) {
+    return db.renders.orderBy(":id").first().then(function (value) {
         return value && value.replay_id;
     });
 };

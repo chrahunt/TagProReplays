@@ -261,7 +261,6 @@ function(message, sender, sendResponse) {
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
     Data.getReplayInfo(message).then(function (data) {
-        // TODO: Get total.
         manager.resume();
         sendResponse({
             data: data[1],
@@ -405,9 +404,11 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen("getRenderList",
 function(message, sender, sendResponse) {
-    manager.getQueue().then(function (list) {
+    manager.getQueue(message).then(function (data) {
         sendResponse({
-            data: list
+            data: data[1],
+            total: data[0],
+            filtered: data[0]
         });
     }).catch(function (err) {
         console.error("Error getting render list: %o.", err);
