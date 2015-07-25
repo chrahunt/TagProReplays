@@ -243,25 +243,9 @@ i.sort-icon {
         }
     }
 
-    // Content.
-    th, td {
-        vertical-align: middle;
-    }
-
-    // Row values;
-    .table tbody tr {
-        height: 48px;
-
-        &:hover {
-            background-color: #EEEEEE;
-        }
-
-        // Selected row.
+    // Checkbox behavior.
+    .table tr {
         &.selected {
-            // dt override.
-            background-color: #F5F5F5;
-
-            // Visible checkbox.
             .checked {
                 display: inline-block;
             }
@@ -277,6 +261,26 @@ i.sort-icon {
 
         .unchecked {
             display: inline-block;
+        }
+    }
+
+    // Content.
+    th, td {
+        vertical-align: middle;
+    }
+
+    // Table content row style.
+    .table tbody tr {
+        height: 48px;
+
+        &:hover {
+            background-color: #EEEEEE;
+        }
+
+        // Selected row.
+        &.selected {
+            // dt override.
+            background-color: #F5F5F5;
         }
     }
 

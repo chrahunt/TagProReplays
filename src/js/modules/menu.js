@@ -313,9 +313,7 @@ Menu.prototype._initReplayList = function() {
                     if (data) {
                         return '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>';
                     } else {
-                        return '<label><i class="material-icons checked">check_box</i>' +
-                            '<i class="material-icons unchecked">check_box_outline_blank</i>' +
-                            '<input type="checkbox" class="selected-checkbox hidden"></label>';
+                        return Table.checkbox;
                     }
                 },
                 orderable: false,
@@ -379,9 +377,9 @@ Menu.prototype._initReplayList = function() {
     });
 
     // Buttons that take action on multiple entries.
-    $('#replays .card-header .controls .render').click(this._list_Render.bind(this));
-    $('#replays .card-header .controls .delete').click(this._list_Delete.bind(this));
-    $('#replays .card-header .controls .download-raw').click(this._list_RawDownload.bind(this));
+    $('#replays .card-header .actions .render').click(this._list_Render.bind(this));
+    $('#replays .card-header .actions .delete').click(this._list_Delete.bind(this));
+    $('#replays .card-header .actions .download-raw').click(this._list_RawDownload.bind(this));
 
     // Replay row listeners.
     $("#replay-table tbody").on("click", ".row-preview", function() {
@@ -523,9 +521,7 @@ Menu.prototype._initRenderList = function() {
         columns: [
             {
                 data: null,
-                defaultContent: '<label><i class="material-icons checked">check_box</i>' +
-                    '<i class="material-icons unchecked">check_box_outline_blank</i>' +
-                    '<input type="checkbox" class="selected-checkbox hidden"></label>',
+                defaultContent: Table.checkbox,
                 className: 'cb-cell',
                 orderable: false
             },
@@ -570,7 +566,7 @@ Menu.prototype._initRenderList = function() {
     });
 
     // Multi-cancellation buttons.
-    $('#rendering .table-header .controls .cancel').click(function() {
+    $('#rendering .card-header .actions .cancel').click(function() {
         var ids = self.render_table.selected();
         self.render_table.deselect(ids);
         if (ids.length > 0) {

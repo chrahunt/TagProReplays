@@ -11,7 +11,28 @@ function Table(options) {
     var table = this;
 
     this.table = $("#" + this.id).DataTable({
-        ajax: options.update,
+        ajax: function ajaxWrapper(data, callback) {
+            // Handle case where user is on a page that has no records, but records exit.
+            // Occurs after deleting all items on a page.
+            options.update.call(null, data, function (result) {
+                if (result.recordsTotal > 0 && result.data.length === 0) {
+                    // Go back a page.
+                    var current = table.table.page();
+                    if (current > 0) {
+                        table.table.page(current - 1);
+                        // Get new page information.
+                        var info = table.table.page.info();
+                        data.start = info.start;
+                        data.length = info.length;
+                        ajaxWrapper(data, callback);
+                    } else {
+                        callback(result);
+                    }
+                } else {
+                    callback(result);
+                }
+            });
+        },
         serverSide: true,
         columns: options.columns,
         columnDefs: options.columnDefs,
@@ -48,6 +69,10 @@ function Table(options) {
         scrollCollapse: true,
         pagingType: "simple"
     });
+
+    $(this.table.column(0).header())
+        .html(Table.select_all_checkbox)
+        .addClass('cb-cell');
 
     // "Select all" checkbox.
     $("#" + table.id + "_wrapper .select-all").change(function() {
@@ -107,6 +132,7 @@ function Table(options) {
             // Select-all checkbox.
             $("#" + table.id + "_wrapper .select-all").prop("disabled", true);
             $("#" + table.id + "_wrapper .select-all").prop("checked", false);
+            $("#" + table.id + "_wrapper .select-all").closest('tr').removeClass('selected');
 
             // Card header.
             header.find(".actions").addClass("hidden");
@@ -118,8 +144,10 @@ function Table(options) {
             $("#" + table.id + "_wrapper .select-all").prop("disabled", false);
             if (numChecked === rows) {
                 $("#" + table.id + "_wrapper .select-all").prop("checked", true);
+                $("#" + table.id + "_wrapper .select-all").closest('tr').addClass('selected');
             } else {
                 $("#" + table.id + "_wrapper .select-all").prop("checked", false);
+                $("#" + table.id + "_wrapper .select-all").closest('tr').removeClass('selected');
             }
 
             // Card header.
@@ -145,6 +173,16 @@ function Table(options) {
 }
 
 module.exports = Table;
+
+// Material checkbox.
+Table.checkbox = '<label><i class="material-icons checked">check_box</i>' +
+    '<i class="material-icons unchecked">check_box_outline_blank</i>' +
+    '<input type="checkbox" class="selected-checkbox hidden"></label>';
+
+// Select-all checkbox.
+Table.select_all_checkbox = '<label><i class="material-icons checked">check_box</i>' +
+    '<i class="material-icons unchecked">check_box_outline_blank</i>' +
+    '<input type="checkbox" class="select-all hidden"></label>';
 
 /**
  * Get ids of entries selected on current page.
