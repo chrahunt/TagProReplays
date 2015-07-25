@@ -104,29 +104,35 @@ function Table(options) {
     function updateWhenChecked() {
         var rows = $("#" + table.id + " .selected-checkbox").length;
         if (rows === 0) {
+            // Select-all checkbox.
             $("#" + table.id + "_wrapper .select-all").prop("disabled", true);
             $("#" + table.id + "_wrapper .select-all").prop("checked", false);
+
+            // Card header.
+            header.find(".actions").addClass("hidden");
+            header.find(".title").text(options.header.title);
         } else {
-            $("#" + table.id + "_wrapper .select-all").prop("disabled", false);
             var numChecked = $("#" + table.id + " .selected-checkbox:checked").length;
+
+            // Select-all checkbox.
+            $("#" + table.id + "_wrapper .select-all").prop("disabled", false);
             if (numChecked === rows) {
                 $("#" + table.id + "_wrapper .select-all").prop("checked", true);
             } else {
                 $("#" + table.id + "_wrapper .select-all").prop("checked", false);
             }
+
+            // Card header.
             if (numChecked > 0) {
-                header.addClass("actions");
+                header.find(".actions").removeClass("hidden");
                 if (numChecked === 1) {
-                    header.find(".text").text(numChecked + " " + options.header.singular + " selected");
+                    header.find(".title").text(numChecked + " " + options.header.singular + " selected");
                 } else {
-                    header.find(".text").text(numChecked + " " + options.header.plural + " selected");
+                    header.find(".title").text(numChecked + " " + options.header.plural + " selected");
                 }
-                header.find(".controls").css({ display: "inline-block" });
             } else {
-                // Normal header content.
-                header.removeClass("actions");
-                header.find(".text").text(options.header.none);
-                header.find(".controls").css({ display: "none" });
+                header.find(".actions").addClass("hidden");
+                header.find(".title").text(options.header.title);
             }
         }
     }

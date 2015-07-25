@@ -1,0 +1,369 @@
+// Material values.
+@mixin roboto-regular($size) {
+    font: {
+        family: 'Roboto', sans-serif;
+        size: $size;
+        weight: 400;
+    }
+}
+
+@mixin roboto-medium($size) {
+    font: {
+        family: 'Roboto', sans-serif;
+        size: $size;
+        weight: 500;
+    }
+}
+
+%text-light {
+    color: rgba(0, 0, 0, 0.26);
+}
+
+%text-medium {
+    color: rgba(0, 0, 0, 0.54);
+}
+
+%text-dark {
+    color: rgba(0, 0, 0, 0.86);
+}
+
+// Global classes.
+#tpr-container {
+    color: #333;
+
+    .hidden {
+        display: none !important;
+    }
+}
+
+// Settings.
+#settingsContainer {
+    .input-xs {
+        height: 22px;
+        padding: 5px 5px;
+        font-size: 12px;
+        line-height: 1.5;
+        border-radius: 3px;
+    }
+
+    .narrow-input {
+        width: 65px !important;
+    }
+
+    .control-label-sm {
+        padding-top: 0px;
+        margin-bottom: 0px;
+        text-align: right;
+    }
+
+    .focused {
+        border-color: #66afe9;
+        box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+    }
+
+    #record-key-input-container {
+        padding-top: 2px;
+        padding-right: 2px;
+        text-align: left;
+    }
+
+    #record-key-remove {
+        margin-top: 1px;
+        display: none;
+    }
+}
+
+#tpr-container .section-panel table {
+    table-layout: fixed;
+    margin-bottom: 0;
+}
+
+#tpr-container .progressbar {
+    width: 100%;
+}
+
+
+/** Replay/Rendering **/
+#menuContainer .modal-body {
+    padding: 0px;
+}
+
+#tpr-container #rendering {
+    display: none;
+}
+
+/*#tpr-container #alert-message {
+    display: none;
+}*/
+
+/** All tables. **/
+// dataTables overrides.
+.dataTables_wrapper {
+    // Remove default sorting style.
+    th {
+        background-image: none !important;
+    }
+
+    div.dataTables_info {
+        padding-top: 0px;
+    }
+
+    div.dataTables_paginate {
+        padding-top: 0px;
+        a.paginate_button {
+            margin: 0px;
+            border: none;
+            padding: 0px;
+            &:hover {
+                background: none;
+                border: none;
+            }
+        }
+    }
+}
+
+// Bootstrap overrides.
+.bootstrap-container label {
+    margin-bottom: 0px;
+}
+
+// Header sort icon.
+i.sort-icon {
+    // Default properties.
+    @extend %text-dark;
+    font-size: 16px;
+    float: left;
+    margin-left: -24px;
+    transition: transform 0.4s;
+
+    .sorting_asc & {
+        transform: rotate(90deg);
+    }
+
+    .sorting_desc & {
+        transform: rotate(-90deg);
+    }
+
+    .sorting & {
+        display: none;
+    }
+
+    .sorting:hover & {
+        @extend %text-medium;
+        transform: rotate(90deg);
+        display: initial;
+    }
+}
+
+#tpr-container {
+    // Header, containing title and controls for selected rows.
+    .card-header {
+        height: 64px;
+        padding: {
+            left: 24px;
+            right: 14px;
+        }
+
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .actions {
+            div {
+                @extend %text-medium;
+                transition: color 0.15s;
+                display: inline-block;
+                padding: 12px;
+                cursor: pointer;
+
+                &:hover {
+                    @extend %text-dark;
+                }
+
+                &:last-child {
+                    margin-right: -12px;
+                }
+            }
+        }
+
+        .title {
+            @include roboto-regular(20px);
+        }
+    }
+
+    // Header row spacing.
+    .dataTables_scrollHeadInner {
+        width: 100% !important;
+
+        table {
+            width: 100% !important;
+        }
+    }
+
+    /** Table fonts. **/
+    th {
+        @extend %text-medium;
+        @include roboto-medium(12px);
+
+        .sorting_asc, .sorting_desc {
+            @extend %text-dark;
+        }
+    }
+
+    // Don't dim check all header.
+    th.cb-cell {
+        @extend %text-dark;
+    }
+
+    tbody {
+        @include roboto-medium(13px);
+        @extend %text-medium;
+    }
+
+    // Checkbox spacing.
+    .cb-cell {
+        width: 24px;
+
+        padding: {
+            left: 21px;
+            right: 21px;
+        }
+
+        label {
+            display: block;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+        }
+
+        .material-icons {
+            font-size: 18px;
+            vertical-align: middle;
+        }
+    }
+
+    // Content.
+    th, td {
+        vertical-align: middle;
+    }
+
+    // Row values;
+    .table tbody tr {
+        height: 48px;
+
+        &:hover {
+            background-color: #EEEEEE;
+        }
+
+        // Selected row.
+        &.selected {
+            // dt override.
+            background-color: #F5F5F5;
+
+            // Visible checkbox.
+            .checked {
+                display: inline-block;
+            }
+
+            .unchecked {
+                display: none;
+            }
+        }
+
+        .checked {
+            display: none;
+        }
+
+        .unchecked {
+            display: inline-block;
+        }
+    }
+
+    .footer {
+        height: 56px;
+        padding-right: 14px;
+        @include roboto-regular(12px);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+
+        .dataTables_paginate a.paginate_button {
+            &:first-child {
+                padding-right: 14px;
+            }
+
+            .material-icons {
+                color: black;
+                opacity: 0.54;
+            }
+
+            &.disabled .material-icons {
+                opacity: 0.26;
+            }
+        }
+
+        .dataTables_info {
+            padding-right: 32px;
+        }
+
+        .dataTables_length {
+            padding-right: 32px;
+        }
+    }
+}
+
+// Replay table.
+#replays {
+    #replay-table {
+        .row-name {
+            // Greedy column.
+            width: 100% !important;
+
+            // Edit icon.
+            .replay-name-edit {
+                cursor: pointer;
+                padding: 8px;
+                margin: -8px 0px;
+
+                .material-icons {
+                    @extend %text-medium;
+                    font-size: 18px;
+                    // Removes space underneath icon.
+                    display: block;
+                }
+            }
+
+            // Actual input.
+            .replay-edit {
+                display: none;
+            }
+        }
+
+        /* Last cell leaves spacing to action icons. */
+        td:last-child {
+            padding: 0px;
+        }
+    }
+
+    .data-cell {
+        padding-left: 56px;
+        text-align: right;
+    }
+
+    .fixed-cell {
+        padding: {
+            left: 0px;
+            right: 0px;
+        }
+    }
+
+    .cb-cell {
+        width: 18px;
+    }
+
+    // Fixed cell sibling.
+    .fixed-cell + th, .fixed-cell + td {
+        padding-left: 24px;
+    }
+}

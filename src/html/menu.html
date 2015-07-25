@@ -13,7 +13,7 @@
                             <li><a id="open-settings" href="#" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
                             <li>
                                 <a id="replay-import" href="#">Import...</a>
-                                <input type="file" class="hidden-file-input" id="raw-upload">
+                                <input type="file" class="hidden" id="raw-upload">
                             </li>
                         </ul>
                     </li>
@@ -22,16 +22,15 @@
             <div class="modal-body">
                 <div id="alert-messages"></div>
                 <div id="replays" class="section-panel">
-                    <div class="table-header">
-                        <div class="table-header-left">
-                            <span class="text">Replays</span>
+                    <div class="card-header">
+                        <div>
+                            <span class="title"></span>
                         </div>
-                        <div class="controls">
-                            <div class="delete"><span class="glyphicon glyphicon-trash"></span></div>
-                            <div class="render"><span>Render</span></div>
-                            <div class="download-raw"><span>Download JSON</span></div>
+                        <div class="actions hidden">
+                            <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
+                            <div class="render" title="render selected"><i class="material-icons">movie_creation</i></div>
+                            <div class="download-raw" title="download json"><i class="material-icons">file_download</i></div>
                         </div>
-                        <div class="menu"></div>
                     </div>
                     <table id="replay-table" class="table table-condensed">
                         <thead>
@@ -47,14 +46,13 @@
                     </table>
                 </div>
                 <div id="rendering" class="section-panel">
-                    <div class="table-header">
-                        <div class="table-header-left">
-                            <span class="text">Render Tasks</span>
+                    <div class="card-header">
+                        <div>
+                            <span class="title"></span>
                         </div>
-                        <div class="controls">
-                            <div class="cancel"><span>Cancel</span></div>
+                        <div class="actions hidden">
+                            <div class="cancel"><i class="material-icons">cancel</i></div>
                         </div>
-                        <div class="menu"></div>
                     </div>
                     <table id="render-table" class="table table-condensed">
                         <thead>

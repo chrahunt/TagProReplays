@@ -8,11 +8,12 @@ var gulp = require('gulp'),
     source = require('vinyl-source-stream'),
     assign = require('lodash.assign'),
     watch = require('gulp-watch'),
-    plumber = require('gulp-plumber');
+    plumber = require('gulp-plumber'),
+    sass = require('gulp-sass');
 
 var assets = [
     // Asset files in src
-    ['src/**/*', '!src/js/**/*'],
+    ['src/**/*', '!src/js/**/*', '!src/scss/**/*'],
     // Asset files in vendor
     ['vendor/**/*', '!vendor/js/**/*']
 ];
@@ -62,6 +63,16 @@ function watchifyFile(src, out) {
     return bundle();
 }
 
+function buildSass(src, out) {
+    gulp.src(src)
+        .pipe(sass().on('error', sass.logError))
+        .pipe(gulp.dest(out));
+}
+
+gulp.task('sass-dev', function () {
+    buildSass('./src/scss/**/*.scss', './build/dev/css');
+});
+
 gulp.task('watch', function() {
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
@@ -76,6 +87,7 @@ gulp.task('watch', function() {
             .pipe(plumber())
             .pipe(gulp.dest(dirs.dev));
     });
+    gulp.watch('./src/scss/**/*.scss', ['sass-dev']);
     return bundle;
 });
 

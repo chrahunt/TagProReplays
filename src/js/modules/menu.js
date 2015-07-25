@@ -270,10 +270,10 @@ Menu.prototype._initReplayList = function() {
     this.replay_table = new Table({
         id: "replay-table",
         header: {
-            selector: "#replays .table-header",
+            selector: "#replays .card-header",
             singular: "replay",
             plural: "replays",
-            none: "Replays"
+            title: "Replays"
         },
         update: function (data, callback) {
             var args = {
@@ -313,11 +313,13 @@ Menu.prototype._initReplayList = function() {
                     if (data) {
                         return '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>';
                     } else {
-                        return '<input type="checkbox" class="selected-checkbox">';
+                        return '<label><i class="material-icons checked">check_box</i>' +
+                            '<i class="material-icons unchecked">check_box_outline_blank</i>' +
+                            '<input type="checkbox" class="selected-checkbox hidden"></label>';
                     }
                 },
                 orderable: false,
-                width: "18px",
+                width: "24px",
                 className: "cb-cell"
             },
             {
@@ -328,7 +330,7 @@ Menu.prototype._initReplayList = function() {
                     } else {
                         return '<div class="replay-static"><span class="replay-name">' +
                             data + '</span><span class="replay-name-edit pull-right">' +
-                            '<span class="glyphicon glyphicon-pencil"></span></span></div>' +
+                            '<i class="material-icons">edit</i></span></div>' +
                             '<div class="replay-edit">' +
                             '<input type="text" class="replay-name-input" value="' + data + '"></div>';
                     }
@@ -377,9 +379,9 @@ Menu.prototype._initReplayList = function() {
     });
 
     // Buttons that take action on multiple entries.
-    $('#replays .table-header .controls .render').click(this._list_Render.bind(this));
-    $('#replays .table-header .controls .delete').click(this._list_Delete.bind(this));
-    $('#replays .table-header .controls .download-raw').click(this._list_RawDownload.bind(this));
+    $('#replays .card-header .controls .render').click(this._list_Render.bind(this));
+    $('#replays .card-header .controls .delete').click(this._list_Delete.bind(this));
+    $('#replays .card-header .controls .download-raw').click(this._list_RawDownload.bind(this));
 
     // Replay row listeners.
     $("#replay-table tbody").on("click", ".row-preview", function() {
@@ -448,7 +450,6 @@ Menu.prototype._initReplayList = function() {
         input.focus();
     });
 
-    
     // Re-set menu dimensions on window resize.
     $(window).resize(function () {
         menu.replay_table.recalcMaxHeight();
@@ -483,10 +484,10 @@ Menu.prototype._initRenderList = function() {
     this.render_table = new Table({
         id: "render-table",
         header: {
-            selector: "#rendering .table-header",
+            selector: "#rendering .card-header",
             singular: "task",
             plural: "tasks",
-            none: "Render Tasks"
+            title: "Render Tasks"
         },
         update: function (data, callback) {
             var args = {
@@ -522,7 +523,9 @@ Menu.prototype._initRenderList = function() {
         columns: [
             {
                 data: null,
-                defaultContent: '<input type="checkbox" class="selected-checkbox">',
+                defaultContent: '<label><i class="material-icons checked">check_box</i>' +
+                    '<i class="material-icons unchecked">check_box_outline_blank</i>' +
+                    '<input type="checkbox" class="selected-checkbox hidden"></label>',
                 className: 'cb-cell',
                 orderable: false
             },
