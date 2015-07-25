@@ -66,10 +66,10 @@ function Table(options) {
         },
         stateSave: -1,
         scrollY: 'auto',
-        scrollCollapse: true,
         pagingType: "simple"
     });
 
+    // Add select-all checkbox to header.
     $(this.table.column(0).header())
         .html(Table.select_all_checkbox)
         .addClass('cb-cell');
@@ -170,6 +170,24 @@ function Table(options) {
     console.log(orderable_columns);
     orderable_columns.addClass("orderable");
     orderable_columns.append("<i class='material-icons sort-icon'>arrow_back</i>");
+
+    // Resize when first request is complete.
+    this.table.one("draw", function () {
+        table.recalcMaxHeight();
+    });
+
+    // Reset min-height when no records.
+    this.table.on("xhr", function (evt, settings, json) {
+        var scrollBody = $("#" + this.id + "_wrapper .dataTables_scrollBody");
+        var row_height = 48;
+        if (json.data.length === 0) {
+            scrollBody.css("min-height", row_height);
+        } else if (json.data.length < 5) {
+            scrollBody.css("min-height", (row_height * json.data.length) + 'px');
+        } else {
+            scrollBody.css("min-height", (48 * 5) + 'px');
+        }
+    });
 }
 
 module.exports = Table;

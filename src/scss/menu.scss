@@ -1,4 +1,5 @@
 // Material values.
+// Fonts.
 @mixin roboto-regular($size) {
     font: {
         family: 'Roboto', sans-serif;
@@ -15,6 +16,7 @@
     }
 }
 
+// Text color.
 %text-light {
     color: rgba(0, 0, 0, 0.26);
 }
@@ -26,6 +28,9 @@
 %text-dark {
     color: rgba(0, 0, 0, 0.86);
 }
+
+// Height.
+$row-height: 48px;
 
 // Global classes.
 #tpr-container {
@@ -271,7 +276,7 @@ i.sort-icon {
 
     // Table content row style.
     .table tbody tr {
-        height: 48px;
+        height: $row-height;
 
         &:hover {
             background-color: #EEEEEE;
@@ -314,6 +319,11 @@ i.sort-icon {
         .dataTables_length {
             padding-right: 32px;
         }
+    }
+
+    // Scroll body height.
+    .dataTables_scrollBody {
+        min-height: 5px * $row-height;
     }
 }
 
