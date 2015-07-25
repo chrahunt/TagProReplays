@@ -561,7 +561,7 @@ exports.getMovie = function(id) {
     return db.info.get(id).then(function (info) {
         if (!info.rendered)
             throw new Error("Replay is not rendered.");
-        var movieId = info.renderId;
+        var movieId = info.render_id;
         return fs.getFile("savedMovies/" + movieId).then(function (file) {
             return new Promise(function (resolve, reject) {
                 var reader = new FileReader();

@@ -128,8 +128,14 @@ $row-height: 48px;
 }
 
 // Bootstrap overrides.
-.bootstrap-container label {
-    margin-bottom: 0px;
+.bootstrap-container {
+    label {
+        margin-bottom: 0px;
+    }
+
+    div.progress {
+        margin-bottom: 0px;
+    }
 }
 
 // Header sort icon.
@@ -303,12 +309,11 @@ i.sort-icon {
             }
 
             .material-icons {
-                color: black;
-                opacity: 0.54;
+                @extend %text-medium;
             }
 
             &.disabled .material-icons {
-                opacity: 0.26;
+                @extend %text-light;
             }
         }
 
@@ -323,7 +328,51 @@ i.sort-icon {
 
     // Scroll body height.
     .dataTables_scrollBody {
-        min-height: 5px * $row-height;
+        min-height: 5 * $row-height;
+    }
+
+    // Column widths and offset.
+    .data-cell {
+        padding-left: 56px;
+        text-align: right;
+    }
+
+    .fixed-cell {
+        padding: {
+            left: 0px;
+            right: 0px;
+        }
+    }
+
+    .cb-cell {
+        width: 18px;
+    }
+
+    // Fixed cell sibling.
+    .fixed-cell + th, .fixed-cell + td {
+        padding-left: 24px;
+    }
+
+    td .actions {
+        div {
+            @extend %text-medium;
+            display: inline-block;
+            padding: 3px;
+            cursor: pointer;
+            transition: color 0.15s;
+            .material-icons {
+                font-size: 18px;
+                display: block;
+            }
+            &:not(.disabled):hover {
+                @extend %text-dark
+            }
+        }
+
+        div.disabled {
+            @extend %text-light;
+            cursor: not-allowed;
+        }
     }
 }
 
@@ -358,26 +407,10 @@ i.sort-icon {
         td:last-child {
             padding: 0px;
         }
-    }
 
-    .data-cell {
-        padding-left: 56px;
-        text-align: right;
-    }
-
-    .fixed-cell {
-        padding: {
-            left: 0px;
-            right: 0px;
+        td > .material-icons {
+            vertical-align: middle;
+            font-size: 18px;
         }
-    }
-
-    .cb-cell {
-        width: 18px;
-    }
-
-    // Fixed cell sibling.
-    .fixed-cell + th, .fixed-cell + td {
-        padding-left: 24px;
     }
 }

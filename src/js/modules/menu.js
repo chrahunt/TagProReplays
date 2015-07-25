@@ -340,7 +340,7 @@ Menu.prototype._initReplayList = function() {
                 data: "rendered",
                 orderable: false,
                 render: function (data) {
-                    return data ? '&#10003;' : '';
+                    return data ? '<i class="material-icons">done</i>' : '';
                 },
                 width: "65px",
                 className: "data-cell"
@@ -359,12 +359,18 @@ Menu.prototype._initReplayList = function() {
                 }
             },
             {
-                data: null,
+                data: "rendered",
                 render: function (data, type, row, meta) {
-                    return '<div class="controls">' +
-                        '<div class="row-download-movie"><span class="glyphicon glyphicon-save"></span></div>' +
-                        '<div class="row-preview"><span class="glyphicon glyphicon-film"></span></div>' +
+                    var disabled = !data;
+                    var content = '<div class="actions">';
+                    if (disabled) {
+                        content += '<div class="row-download-movie disabled" title="render replay first!"><i class="material-icons">file_download</i></div>';
+                    } else {
+                        content += '<div class="row-download-movie" title="download movie"><i class="material-icons">file_download</i></div>';
+                    }
+                    content += '<div class="row-preview" title="preview"><i class="material-icons">play_arrow</i></div>' +
                         '</div>';
+                    return content;
                 },
                 orderable: false,
                 width: "60px"
@@ -498,9 +504,8 @@ Menu.prototype._initRenderList = function() {
                 var list = response.data.map(function (task) {
                     return {
                         name: task.data.name,
-                        date: moment(task.data.date).format("ddd MMM D, YYYY h:mm A"),
-                        // Task id.
-                        id: task.id,
+                        date: moment(task.data.date),
+                        id: task.replay_id,
                         DT_RowData: {
                             // Replay id.
                             id: task.replay_id
@@ -523,7 +528,8 @@ Menu.prototype._initRenderList = function() {
                 data: null,
                 defaultContent: Table.checkbox,
                 className: 'cb-cell',
-                orderable: false
+                orderable: false,
+                width: "24px"
             },
             {
                 data: "id",
@@ -531,34 +537,47 @@ Menu.prototype._initRenderList = function() {
             },
             {
                 data: "name",
-                orderable: false
+                orderable: false,
+                className: "fixed-cell",
+                width: "100%"
             },
             {
                 data: "date",
-                orderable: false
+                orderable: false,
+                className: "data-cell",
+                width: "180px",
+                render: function (date) {
+                    return date.calendar();
+                }
             },
             {
                 data: null,
                 defaultContent: '<span class="render-status">Queued</span>',
-                orderable: false
+                orderable: false,
+                className: "data-cell",
+                width: "50px"
             },
             { // Progress indicator.
                 data: null,
                 defaultContent: '<div class="render-progress"></div>',
-                orderable: false
+                orderable: false,
+                className: "data-cell",
+                width: "100px"
             },
             {
                 data: null,
-                defaultContent: '<span class="glyphicon glyphicon-trash"></span>',
-                orderable: false
+                defaultContent: '<div class="actions"><div class="cancel-render"><i class="material-icons">cancel</i></div></div>',
+                orderable: false,
+                width: "50px"
             }
         ],
         order: [[1, 'asc']]
     });
 
     // Single cancellation buttons.
-    $("#rendering .section-list tbody").on("click", ".cancel-render-button", function() {
+    $("#render-table tbody").on("click", ".cancel-render", function() {
         var id = $(this).closest('tr').data("id");
+        self.render_table.deselect(id);
         console.log('Requesting render cancellation for replay ' + id + '.');
         Messaging.send("cancelRender", {
             id: id
