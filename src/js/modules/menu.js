@@ -458,28 +458,6 @@ Menu.prototype._initReplayList = function() {
     $(window).resize(function () {
         menu.replay_table.recalcMaxHeight();
     });
-    //$(window).resize(this._setListWidth);
-
-    // Get the order of renders and make render rows.
-    /*Messaging.send("getRenderList", function(response) {
-        $('#rendering .section-loading').hide();
-        var list = response.data;
-        var renders = list.map(function(id) {
-            return rendering[id];
-        }).filter(function(replay) {
-            return !!replay;
-        });
-        renders.forEach(function(replay) {
-            menu.addRenderRow(replay);
-        });
-        menu.listInitialized = true;
-        menu.updateState("loaded", true);
-    });
-
-    // Initially set list UI in case above request doesn't result in
-    // any new rows being added.
-    this._list_Update();
-    */
 };
 
 Menu.prototype._initRenderList = function() {
@@ -764,20 +742,6 @@ Menu.prototype._list_Import = function() {
             fr.readAsText(file);
         });
     };
-};
-
-/**
- * Function called in response to a list update.
- */
-Menu.prototype._list_Update = function() {
-    this._setListWidth();
-};
-
-/**
- * Set replay list width relative to the visible width of the window.
- */
-Menu.prototype._setListWidth = function() {
-    $('#menuContainer .modal-dialog').width(0.70 * $(window).width());
 };
 
 /**

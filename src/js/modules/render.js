@@ -3,6 +3,8 @@
  * the canvas for the in-page preview as well as for replay rendering.
  */
 
+var moment = require('moment');
+
 // Constant tile size.
 var TILE_SIZE = 40;
 
@@ -520,40 +522,42 @@ function drawTagpro(point, tagpro) {
 }
 
 // Uses: $, thisI, context
-function drawClock(positions) {
+function drawClock(replay) {
     // define the end time that applies to the current frame
-    var thisEndTime,
-        curTimeMilli,
-        endTimes = positions.data.endTimes,
-        curTime = '0:00',
-        thisTime = positions.data.time[thisI],
-        ended = false;
-    for(var i = 0; i < endTimes.length; i++) {
-        if(thisTime <= endTimes[i]) {
-          thisEndTime = endTimes[i];
+    var endTimes = replay.data.endTimes.map(function (t) {
+        return moment(t);
+    }),
+        thisTime = moment(replay.data.time[thisI]),
+        endTime, clockTime;
+
+    for (var i = 0; i < endTimes.length; i++) {
+        if (thisTime.isBefore(endTimes[i])) {
+          endTime = endTimes[i];
           break;
         }
-        thisEndTime = endTimes[endTimes.length];
-    }
-    if(positions.data.end && positions.data.end.time <= thisTime) {
-        ended = true;
     }
 
-
-    if (!ended && thisEndTime > thisTime) {
-        curTimeMilli = thisEndTime - thisTime;
-        var minute = ('0' + Math.floor(curTimeMilli / 1000 / 60)).slice(-2);
-        var seconds = ('0' + Math.floor(curTimeMilli / 1000 % 60)).slice(-2);
-        seconds = (seconds == '60' ? '00' : seconds);
-        curTime = minute + ':' + seconds;
+    if (endTime) {
+        if (replay.data.gameEnd) {
+            var gameEnd = moment(replay.data.gameEnd.time);
+            if (gameEnd.isBefore(thisTime)) {
+                clockTime = moment(endTime.diff(gameEnd)).format("mm:ss");
+            }
+        }
+        if (!clockTime) {
+            clockTime = moment(endTime.diff(thisTime)).format("mm:ss");
+        }
+    } else {
+        // After clock has run out.
+        clockTime = "0:00";
     }
     context.fillStyle = "rgba(255, 255, 255, 1)";
     context.strokeStyle = "rgba(0, 0, 0, .75)";
     context.font = "bold 30pt Arial";
     context.textAlign = 'center';
     context.lineWidth = 4;
-    context.strokeText(curTime, context.canvas.width / 2, context.canvas.height - 25);
-    context.fillText(curTime, context.canvas.width / 2, context.canvas.height - 25);
+    context.strokeText(clockTime, context.canvas.width / 2, context.canvas.height - 25);
+    context.fillText(clockTime, context.canvas.width / 2, context.canvas.height - 25);
 }
 
 /**
@@ -1098,13 +1102,14 @@ function drawSpawns(positions, tiles) {
 
 // Scope: file
 // Uses: context, thisI
-function drawEndText(positions) {
-    if (positions.data.end) {
-        var endTime = positions.data.end.time;
-        var thisTime = positions.data.time[thisI];
+function drawEndText(replay) {
+    var gameEnd = replay.data.gameEnd;
+    if (gameEnd) {
+        var endTime = gameEnd.time;
+        var winner = gameEnd.winner;
+        var thisTime = replay.data.time[thisI];
         if (endTime <= thisTime) {
             var endColor, endText;
-            var winner = positions.data.end.winner;
             if (winner === 'red') {
                 endColor = "#ff0000";
                 endText = "Red Wins!";

@@ -278,7 +278,7 @@ function cropReplay(replay, startFrame, endFrame) {
 
     var gameEnd = replay.data.gameEnd;
     if (gameEnd && gameEnd.time <= endTime) {
-        newReplay.gameEnd = clone(gameEnd);
+        newReplay.data.gameEnd = clone(gameEnd);
     }
 
     // Crop player properties.

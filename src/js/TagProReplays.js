@@ -80,23 +80,12 @@ function createReplayPageButton(menu) {
         }
     }
 
-    $(findInsertionPoint()).after('<a class=button id=ReplayMenuButton>Replays');
-    $('#ReplayMenuButton').append('<span>watch yourself');
+    $(findInsertionPoint()).after('<a class="button" id="ReplayMenuButton">Replays</a>');
+    $('#ReplayMenuButton').append('<span>watch yourself</span>');
     $('#ReplayMenuButton').click(function () {
         menu.open();
     });
 }
-
-// set up listener for info from injected script
-// if we receive data, send it along to the background script for storage
-DOMMessaging.listen('saveReplay', function (data) {
-    console.log('Received replay data from injected script, sending to background page.');
-    Messaging.send("saveReplay", {
-        data: data
-    }, function(response) {
-        DOMMessaging.send('replaySaved', response.failed);
-    });
-});
 
 function injectScript(path) {
     var script = document.createElement('script');
@@ -128,4 +117,15 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
 // inject the replayRecording.js script.
 if (document.URL.search(/\.\w+:/) >= 0) {
     injectScript("js/replayRecording.js");
+
+    // set up listener for info from injected script
+    // if we receive data, send it along to the background script for storage
+    DOMMessaging.listen('saveReplay', function (data) {
+        console.log('Received replay data from injected script, sending to background page.');
+        Messaging.send("saveReplay", {
+            data: data
+        }, function(response) {
+            DOMMessaging.send('replaySaved', response.failed);
+        });
+    });
 }
