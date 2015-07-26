@@ -62,11 +62,17 @@ function Table(options) {
             info: "_START_-_END_ of _TOTAL_",
             infoEmpty: "",
             lengthMenu: "Rows per page: _MENU_",
-            emptyTable: "No replays. Go record some!"
+            emptyTable: "No replays. Go record some!",
+            processing: '<div class="material-spinner">' + 
+                '<svg class="spinner" width="35px" height="35px" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">' +
+                    '<circle class="path" fill="none" stroke-width="6" stroke-linecap="round" cx="33" cy="33" r="30"></circle>' +
+                '</svg>' +
+            '</div>'
         },
         stateSave: -1,
         scrollY: 'auto',
-        pagingType: "simple"
+        pagingType: "simple",
+        processing: true
     });
 
     // Add select-all checkbox to header.

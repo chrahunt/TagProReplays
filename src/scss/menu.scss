@@ -374,6 +374,10 @@ i.sort-icon {
             cursor: not-allowed;
         }
     }
+
+    .dataTables_wrapper div.dataTables_processing {
+        top: 50px;
+    }
 }
 
 // Alerts.

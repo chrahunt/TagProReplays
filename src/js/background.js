@@ -289,8 +289,9 @@ function(message, sender, sendResponse) {
         saveAs(content, "replays.zip");
     }
 
+    manager.pause();
     // Validate the number of replays.
-    var ids = message.ids;
+    var ids = message.id ? [message.id] : message.ids;
     if (ids.length === 1) {
         // Single JSON file.
         var id = ids[0];
@@ -302,8 +303,10 @@ function(message, sender, sendResponse) {
                 filename = "replay";
             }
             saveAs(blob, filename + '.json');
+            manager.resume();
         }).catch(function (err) {
             console.error("Error retrieving replay: %o.", err);
+            manager.resume();
         });
     } else  if (ids.length !== 0) {
         Messaging.send("alert", {
@@ -362,12 +365,14 @@ function(message, sender, sendResponse) {
                 hide: true,
                 blocking: true
             });
+            manager.resume();
         }).catch(function (err) {
             Messaging.send("alert", {
                 blocking: true,
                 message: "Error downloading replay files: " + err.message
             });
             console.error("Error compiling raw replays into zip: %o.", err);
+            manager.resume();
         });
     }
 });
