@@ -281,6 +281,14 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen(["downloadReplay", "downloadReplays"],
 function(message, sender, sendResponse) {
+    function saveZip(zip) {
+        var content = zip.generate({
+            type: "blob",
+            compression: "STORE"
+        });
+        saveAs(content, "replays.zip");
+    }
+
     // Validate the number of replays.
     var ids = message.ids;
     if (ids.length === 1) {
@@ -298,26 +306,67 @@ function(message, sender, sendResponse) {
             console.error("Error retrieving replay: %o.", err);
         });
     } else  if (ids.length !== 0) {
+        Messaging.send("alert", {
+            blocking: true,
+            message: "Initializing zip file generation..."
+        });
         // Multiple replay files.
         var zip = new JSZip();
-        var dup = 0;
-        Data.forEachReplay(ids, function(data) {
+        var filenames = {};
+        // Size of strings added to zip.
+        var size = 0;
+        // Stop length of stored data in single zip, ~100MB.
+        var maxSize = 1024 * 1024 * 100;
+        var files = 0;
+        Data.forEachReplay(ids, function (data) {
+            files++;
+            Messaging.send("alert", {
+                blocking: true,
+                message: "Processing file " + files + " of " + ids.length + "..."
+            });
             var name = data.info.name;
             var filename = sanitize(name);
             if (filename === "") {
                 filename = "replay";
-                if (dup++ !== 0) {
-                    filename += " (" + dup + ")";
-                }
             }
-            zip.file(filename + ".json", JSON.stringify(data));
+            // Handle duplicate replay names.
+            if (filenames.hasOwnProperty(filename)) {
+                filename += " (" + (++filenames[filename]) + ")";
+            } else {
+                filenames[filename] = 0;
+            }
+            var content = JSON.stringify(data);
+            var contentSize = content.length;
+            // If this results in a file that is too large, and there
+            // is at least one other file.
+            if (size !== 0 && size + contentSize > maxSize) {
+                // Alert browser that zip is being generated.
+                Messaging.send("alert", {
+                    blocking: true,
+                    message: "Zip file full, generating..."
+                });
+                saveZip(zip);
+                // Save.
+                size = 0;
+                zip = new JSZip();
+            }
+            size += content.length;
+            zip.file(filename + ".json", content);
         }).then(function () {
-            var content = zip.generate({
-                type: "blob",
-                compression: "DEFLATE"
+            Messaging.send("alert", {
+                blocking: true,
+                message: "All replays processed, generating final zip file..."
             });
-            saveAs(content, "replays.zip");
+            saveZip(zip);
+            Messaging.send("alert", {
+                hide: true,
+                blocking: true
+            });
         }).catch(function (err) {
+            Messaging.send("alert", {
+                blocking: true,
+                message: "Error downloading replay files: " + err.message
+            });
             console.error("Error compiling raw replays into zip: %o.", err);
         });
     }

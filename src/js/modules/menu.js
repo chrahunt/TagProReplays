@@ -37,10 +37,6 @@ moment.locale('en', {
  * for some list-specific action that a user my invoke.
  */
 
-// Symbols used for replay table headers.
-var UP_ARROW = "\u25B2";
-var DOWN_ARROW = "\u25BC";
-
 /**
  * Construct the replay menu.
  * @constructor
@@ -56,8 +52,6 @@ var Menu = function() {
     
     // Initialize viewer for replay preview.
     this.viewer = new Viewer();
-
-    this._initState();
 };
 
 // Make menu class accessible.
@@ -116,35 +110,6 @@ Menu.prototype._init = function() {
         });
     });
 
-    // Functions to display alerts to user.
-    this.alert = {
-        show: function(name, msg, type) {
-            var existing = $("#alert-messages ." + name);
-            if (existing.length > 0) {
-                this.hide(name);
-            }
-            $("<div>")
-                .addClass("alert " + type + " " + name)
-                .text(msg)
-                .appendTo($("#alert-messages"));
-        },
-        log: function (name, msg) {
-            this.show(name, msg, "alert-info");
-        },
-        warn: function (name, msg) {
-            this.show(name, msg, "alert-warning");
-        },
-        error: function (name, msg) {
-            this.show(name, msg, "alert-danger");
-        },
-        win: function (name, msg) {
-            this.show(name, msg, "alert-success");
-        },
-        hide: function (name) {
-            $("#alert-messages ." + name).remove();
-        }
-    };
-
     // Menu navigation.
     $(".nav-home").click(function() {
         $(this).addClass("active");
@@ -180,60 +145,6 @@ Menu.prototype._init = function() {
     this._initSettings();
     this._initReplayList();
     this._initRenderList();
-};
-
-/**
- * Initialize the state of the menu.
- */
-Menu.prototype._initState = function() {
-    // Takes a condition set and callback to be called when that is
-    // met.
-    var addStateCallback = function(condition, callback) {
-        this.stateCallbacks.push({
-            condition: condition,
-            callback: callback
-        });
-    }.bind(this);
-
-
-    this.stateCallbacks = [];
-    this.state = {
-        loaded: false,
-        background: null
-    };
-
-    addStateCallback({ background: "rendering", loaded: false }, function() {
-        this.alert.warn("render",
-            "Background page is still rendering, it may take a moment to load your replays.");
-    });
-
-    addStateCallback({ background: "rendering", loaded: true }, function() {
-        this.alert.warn("render",
-            "Background page is rendering, some functions will be slower until it is complete.");
-    });
-
-    addStateCallback({ background: "idle" }, function() {
-        this.alert.hide("render");
-    });
-
-    addStateCallback({ background: "upgrading" }, function() {
-        this.alert.info("upgrade",
-            "The background page is doing an extension update, this may take some time.");
-    });
-
-    // Listen for background status change.
-    Status.onChanged(function(status) {
-        this.updateState("background", status);
-    }.bind(this));
-
-    // Getting initial background page status.
-    Status.get(function (err, status) {
-        if (err) {
-            this.alert.error(err.message);
-        } else {
-            this.updateState("background", status);
-        }
-    }.bind(this));
 };
 
 /**
@@ -659,43 +570,34 @@ Menu.prototype._initListeners = function() {
         this.replay_table.reload();
         this.render_table.reload();
     }.bind(this));
+
+    Messaging.listen("alert",
+    function (message, sender, sendResponse) {
+        this.alert(message);
+    }.bind(this));
 };
 
-/**
- * Change in response to menu and background state.
- * @param {string} name - The name of the state variable to change.
- * @param {*} value - The new value of the state variable.
- */
-Menu.prototype.updateState = function(name, value) {
-    console.log("Updating " + name + " to: " + value + ".");
-    this.stateCallbacks.forEach(function(info) {
-        var condition = info.condition;
-        var fn = info.callback;
-        // Make sure updated value is relevant to state change
-        // function.
-        if (Object.keys(condition).indexOf(name) !== -1) {
-            // Make sure current state and new value match.
-            for (var prop in condition) {
-                var val;
-                if (prop === name) {
-                    val = value;
-                } else {
-                    val = this.state[prop];
-                }
-                if (Array.isArray(condition[prop]) && condition[prop].indexOf(val) === -1) {
-                    // No match for array condition.
-                    return;
-                } else if (val !== condition[prop]) {
-                    // No match, skip this function.
-                    return;
-                }
-            }
-            fn.call(this);
+Menu.prototype.alert = function(opts) {
+    if (!opts.hide) {
+        if (opts.blocking) {
+            $("#replays .card-header").addClass("hidden");
         }
-    }, this);
-    this.state[name] = value;
+        $("#replays .header-alert").removeClass("hidden");
+        var msg = opts.message;
+        if (msg) {
+            $("#replays .header-alert .message").text(msg);
+        }
+    } else {
+        if (opts.blocking) {
+            $("#replays .card-header").removeClass("hidden");
+        }
+        $("#replays .header-alert").addClass("hidden");
+    }
 };
 
+Menu.prototype.method_name = function(first_argument) {
+    // body...
+};
 /**
  * Returns a function to be set as a listener on the replay import
  * button.

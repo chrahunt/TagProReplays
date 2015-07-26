@@ -376,6 +376,17 @@ i.sort-icon {
     }
 }
 
+// Alerts.
+.header-alert {
+    height: 64px;
+    padding: {
+        left: 24px;
+        right: 14px;
+    }
+    display: flex;
+    align-items: center;
+}
+
 // Replay table.
 #replays {
     #replay-table {
