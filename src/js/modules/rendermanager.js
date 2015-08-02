@@ -234,9 +234,7 @@ RenderManager.prototype._loop = function() {
             }).then(function () {
                 return db.renders.where("replay_id").equals(id)
                     .delete().then(function () {
-                    Messaging.send("replayRenderCompleted", {
-                        id: id
-                    });
+                    Messaging.send("renderUpdated");
                     return self._loop();
                 });
             });

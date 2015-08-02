@@ -1,3 +1,5 @@
+var concat = require('concat-stream');
+var DataTable = require('datatables');
 var moment = require('moment');
 var $ = require('jquery');
 require('jquery.actual');
@@ -6,20 +8,16 @@ require('bootstrap');
 //require('material');
 //require('ripples');
 //$.material.init();
-var DataTable = require('datatables');
 
-var Barrier = require('./barrier');
+var AsyncLoop = require('./async-loop');
 var Cookies = require('./cookies');
+var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
+var ReplayImportStream = require('./replay-import-stream');
 var Status = require('./status');
+var Table = require('./table');
 var Textures = require('./textures');
 var Viewer = require('./viewer');
-var Table = require('./table');
-var AsyncLoop = require('./async-loop');
-var FileStream = require('./html5-file-stream');
-var FileListStream = require('./html5-filelist-stream');
-var ReplayImportStream = require('./replay-import-stream');
-var concat = require('concat-stream');
 
 // Moment calendar customization.
 moment.locale('en', {
@@ -59,7 +57,6 @@ var Menu = function() {
     this.viewer = new Viewer();
 };
 
-// Make menu class accessible.
 module.exports = Menu;
 
 /**
@@ -496,50 +493,22 @@ Menu.prototype._initRenderList = function() {
  * to google storage.
  */
 Menu.prototype._initListeners = function() {
-    /**
-     * Listen for new replay to be added to list.
-     */
-    Messaging.listen("replayAdded",
-    function(message, sender, sendResponse) {
-        if (!this.paused) {
-            this.replay_table.reload();
+    var menu = this;
+
+    Messaging.listen(["replayUpdated", "replaysUpdated"],
+    function () {
+        if (!menu.paused) {
+            menu.replay_table.reload();
         }
-    }.bind(this));
+    });
 
-    /**
-     * Listen for replays to have been deleted.
-     */
-    Messaging.listen(["replayDeleted", "replaysDeleted"],
-    function(message, sender, sendResponse) {
-        console.log('Replays have been deleted.');
-        this.replay_table.reload();
-    }.bind(this));
-
-    Messaging.listen("replayRenamed",
-    function(message, sender, sendResponse) {
-        console.log('Received confirmation of replay rename from background script.');
-        this.replay_table.reload();
-    }.bind(this));
-
-    /**
-     * Notification that replays have been set to render.
-     * @param {object} message - with property `ids` which is an array
-     *   of integer ids.
-     */
-    Messaging.listen("replayRenderAdded",
-    function (message, sender, sendResponse) {
-        this.replay_table.reload();
-        this.render_table.reload();
-    }.bind(this));
-
-    /**
-     * Notification that rendering has been cancelled for replays.
-     */
-    Messaging.listen("replayRenderCancelled",
-    function (message, sender, sendResponse) {
-        this.replay_table.reload();
-        this.render_table.reload();
-    }.bind(this));
+    Messaging.listen(["renderUpdated", "rendersUpdated"],
+    function () {
+        if (!menu.paused) {
+            menu.replay_table.reload();
+            menu.render_table.reload();
+        }
+    });
 
     /**
      * Notification that a replay is in the process of being rendered.
@@ -547,7 +516,7 @@ Menu.prototype._initListeners = function() {
      * the specific replay is disabled.
      */
     Messaging.listen("replayRenderProgress",
-    function(message, sender, sendResponse) {
+    function(message, sender) {
         var id = message.id;
         console.log('Received notice that ' + id + ' is being rendered.');
         // Check that render row exists.
@@ -564,23 +533,12 @@ Menu.prototype._initListeners = function() {
             }
             $('#render-' + id + ' .progress-bar').css("width", (message.progress * 100) + "%");
         } // else render table not yet set up.
-    }.bind(this));
-
-    /**
-     * Alerts the menu that a new replay has been rendered. The UI is
-     * updated with the result of the rendering.
-     * message has properties failure and name.
-     */
-    Messaging.listen("replayRenderCompleted",
-    function(message, sender, sendResponse) {
-        this.replay_table.reload();
-        this.render_table.reload();
-    }.bind(this));
+    });
 
     Messaging.listen("alert",
-    function (message, sender, sendResponse) {
-        this.alert(message);
-    }.bind(this));
+    function (message, sender) {
+        menu.alert(message);
+    });
 };
 
 Menu.prototype.alert = function(opts) {
@@ -659,7 +617,6 @@ Menu.prototype._list_Render = function() {
             ids: ids
         }, function(response) {
             // TODO: Handle error adding replays to queue.
-            // TODO: Move replays to rendering list.
         });
     } else {
         alert("You have to select at least 1 replay.");

@@ -99,12 +99,7 @@ function(message, sender, sendResponse) {
             data: replay,
             failed: false
         });
-        Messaging.send("replayDeleted", {
-            id: request.id
-        });
-        Messaging.send("replayAdded", {
-            data: info
-        });
+        Messaging.send("replayUpdated");
     }).catch(function (err) {
         console.error("Error cropping and replacing replay: %o", err);
     });
@@ -136,9 +131,7 @@ function(message, sender, sendResponse) {
             data: replay,
             failed: false
         });
-        Messaging.send("replayAdded", {
-            data: info
-        });
+        Messaging.send("replayUpdated");
     }).catch(function (err) {
         console.error("Error cropping and saving replay: %o", err);
     });
@@ -174,9 +167,7 @@ function(message, sender, sendResponse) {
             failed: false
         });
         // Send new replay notification to any listening pages.
-        Messaging.send("replayAdded", {
-            data: info
-        });
+        Messaging.send("replayUpdated");
     }).catch(function (err) {
         console.error("Error saving replay: %o.", err);
         sendResponse({
@@ -214,10 +205,6 @@ function(message, sender, sendResponse) {
                 var replay = data.data;
                 Data.saveReplay(replay).then(function (info) {
                     resolve({ failed: false });
-                    // Send new replay notification to any tabs that may have menu open.
-                    Messaging.send("replayAdded", {
-                        data: info
-                    });
                 }).catch(function (err) {
                     console.error("Error saving replay: %o.", err);
                     resolve({
@@ -245,6 +232,8 @@ function(message, sender, sendResponse) {
         });
     }).then(function (results) {
         console.log("Finished importing replays.");
+        // Send new replay notification to any tabs that may have menu open.
+        Messaging.send("replaysUpdated");
         console.groupEnd();
         sendResponse(results);
     });
@@ -411,9 +400,7 @@ function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
 
     Data.deleteReplays(ids).then(function () {
-        Messaging.send("replaysDeleted", {
-            ids: ids
-        });
+        Messaging.send("replaysUpdated");
     }).catch(function (err) {
         console.error("Error deleting replays: %o.", err);
     });
@@ -428,10 +415,7 @@ function(message, sender, sendResponse) {
 Messaging.listen("renameReplay",
 function(message, sender, sendResponse) {
     Data.renameReplay(message.id, message.name).then(function () {
-        Messaging.send("replayRenamed", {
-            id: message.id,
-            name: message.name
-        });
+        Messaging.send("replayUpdated");
     }).catch(function (err) {
         console.error("Error renaming replay: %o.", err);
     });
@@ -467,9 +451,7 @@ function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
     console.log('Received request to render replay(s) ' + ids + '.');
     manager.add(ids).then(function () {
-        Messaging.send("replayRenderAdded", {
-            ids: ids
-        });
+        Messaging.send("renderUpdated");
     }).catch(function (err) {
         console.error("Error adding replays to render queue: %o", err);
     });
@@ -499,9 +481,7 @@ Messaging.listen(["cancelRender", "cancelRenders"],
 function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
     manager.cancel(ids).then(function () {
-        Messaging.send("replayRenderCancelled", {
-            ids: ids
-        });
+        Messaging.send("rendersUpdated");
     }).catch(function (err) {
         console.error("Error cancelling renders: %o.", err);
     });
