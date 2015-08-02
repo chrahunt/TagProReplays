@@ -101,6 +101,7 @@ width = #viewer-background.width + 20
     position: absolute;
     bottom: 33px;
     width: 100%;
+    z-index: 2;
 }
 
 #time-slider .ui-slider-range {
@@ -115,19 +116,19 @@ width = #viewer-background.width + 20
     position: absolute;
     bottom: 0px;
     transform-origin: center bottom;
-}
 
-#time-slider .ui-slider-handle {
-    display: none;
-    transition-property: opacity;
-    transition-duration: 1s;
-    border: 4px solid rgb(204, 204, 204);
-    border-radius: 10px;
-}
+    .ui-slider-handle {
+        display: none;
+        transition-property: opacity;
+        transition-duration: 1s;
+        border: 4px solid rgb(204, 204, 204);
+        border-radius: 10px;
+    }
 
-#time-slider .ui-slider-range {
-    border-radius: 0px;
-    border: none;
+    .ui-slider-range {
+        border-radius: 0px;
+        border: none;
+    }
 }
 
 .viewer-buttons {
@@ -136,6 +137,7 @@ width = #viewer-background.width + 20
     position: absolute;
     bottom: 0px;
     background-color: #111;
+    z-index: 1
 }
 
 .tpr-button {
@@ -184,28 +186,28 @@ width = #viewer-background.width + 20
     width: 100%;
     position: absolute;
     bottom: 0px;
-}
 
-#crop-slider .ui-slider-range {
-    border: none !important;
-    background: none !important;
-}
+    .ui-slider-range {
+        border: none !important;
+        background: none !important;
+    }
 
-/* Keep right crop indicator in bar */
-#crop-slider .ui-slider-handle:nth-child(2) {
-    margin-left: -4px !important;
-}
+    // Keep right crop indicator in bar
+    .ui-slider-handle:nth-child(2) {
+        margin-left: -4px !important;
+    }
 
-#crop-slider .ui-slider-handle {
-    width: 4px;
-    height: 10px;
-    position: absolute;
-    bottom: 0px;
-    margin: -5px 0px 0px 0px;
-    transform-origin: bottom center;
-    background-color: white !important;
-    border-radius: 2px 2px 0px 0px;
-    border: 1px solid black  !important;
-    border-bottom-width: 0px !important;
-    display: none; /* initially hidden */
-}
+    .ui-slider-handle {
+        width: 4px;
+        height: 10px;
+        position: absolute;
+        bottom: 0px;
+        margin: -5px 0px 0px 0px;
+        transform-origin: bottom center;
+        background-color: white !important;
+        border-radius: 2px 2px 0px 0px;
+        border: 1px solid black  !important;
+        border-bottom-width: 0px !important;
+        display: none; /* initially hidden */
+    }
+} 

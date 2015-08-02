@@ -173,7 +173,6 @@ function Table(options) {
 
     // Sorting icon.
     var orderable_columns = this.table.columns(":not(.sorting_disabled)").header().to$();
-    console.log(orderable_columns);
     orderable_columns.addClass("orderable");
     orderable_columns.append("<i class='material-icons sort-icon'>arrow_back</i>");
 
@@ -243,7 +242,12 @@ Table.prototype.setHeight = function(val) {
 };
 
 Table.prototype.reload = function() {
-    this.table.ajax.reload(null, false);
+    // TODO: Handle ajax reload error?
+    return new Promise(function (resolve, reject) {
+        this.table.ajax.reload(function () {
+            resolve();
+        }, false);
+    }.bind(this));
 };
 
 // Resize the table height.

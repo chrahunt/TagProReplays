@@ -1,7 +1,11 @@
 /**
- * Methods for setting chrome message listeners. Objects being passed
- * by methods in this library have the corresponding message name
- * stored in the `method` property of the message object.
+ * Messenger interface for Content Script<->Background page
+ * communication. When loaded in a content script, attempts to open a
+ * port to the background page. When used in the background page,
+ * tracks all ports that have connected and allows sending a message
+ * to all of them at once. Also offers callback capability (the same as
+ * sendResponse in chrome.runtime.postMessage) for messages sent from
+ * content scripts to the background page.
  */
 
 /**
@@ -11,15 +15,6 @@
  */
 var listeners = {};
 
-/**
- * Listener for `chrome.runtime.onMessage`.
- */
-function listener(message, sender, sendResponse) {
-    if (message.method && listeners[message.method]) {
-        return listeners[message.method].call(this, message, sender, sendResponse);
-    }
-}
-
 function getId(id, sender) {
     if (sender && sender.tab && sender.tab.id) {
         return id + "-" + sender.tab.id;
@@ -28,6 +23,7 @@ function getId(id, sender) {
     }
 }
 
+// Callback management for content scripts.
 var callbacks = {};
 var callback_i = 1;
 
@@ -51,7 +47,26 @@ function removeCallback(id) {
     delete callbacks[id];
 }
 
-// Message may be anything.
+/**
+ * @typedef {object} Message
+ * @property {string} name - The name of the message.
+ * @property {*} data - The data to be sent. An empty object by
+ *   default.
+ * @property {number} callback - The id of the callback function
+ *   to invoke.
+ */
+/**
+ * @typedef {object} SystemMessage
+ * @property {string} _name
+ * @property {[type]} [propName] [description]
+ */
+/**
+ * Send function used on both content scripts and background page.
+ * @param {string} name - The name of the message to send.
+ * @param {*} [message] - The message to send.
+ * @param {Function} callback - The callback 
+ * @return {[type]} [description]
+ */
 function commonSend(name, message, callback) {
     if (typeof message == "function") {
         callback = message;
@@ -78,25 +93,29 @@ function listenPort(port) {
             if (listeners[method]) {
                 var listener = listeners[method];
                 var data = message.data || {};
-                data.method = method;
+                //data.method = method;
                 var callback_id = message.callback;
                 if (callback_id) {
-                    // Whether sendResponse was called synchronously.
+                    // Handle case where callback was called asynchronously by the .
                     var sync = true;
                     var called = false;
                     var arg;
-                    var result = listener.call(null, data, sender, function (response) {
+                    // Listener function returns true if callback may
+                    // be called, false otherwise.
+                    var mayCall = listener.call(null, data, sender, function (response) {
                         if (sync) {
+                            // Callback was called synchronously.
                             called = true;
                             arg = response;
                         } else {
+                            // Callback was called asynchronously.
                             var message = {
                                 _name: "callback",
                                 _data: {
                                     id: callback_id
                                 }
                             };
-                            if (result) {
+                            if (mayCall) {
                                 message._data.called = true;
                                 message._data.response = response;
                             } else {
@@ -105,7 +124,7 @@ function listenPort(port) {
                             port.postMessage(message);
                         }
                     });
-                    if (result && called) {
+                    if (mayCall && called) {
                         port.postMessage({
                             _name: "callback",
                             _data: {
@@ -114,7 +133,7 @@ function listenPort(port) {
                                 response: arg
                             }
                         });
-                    } else if (!result) {
+                    } else if (!mayCall) {
                         port.postMessage({
                             _name: "callback",
                             _data: {
@@ -135,6 +154,7 @@ function listenPort(port) {
                 if (callback_data.called) {
                     var callback = getCallback(callback_data.id);
                     if (callback) {
+                        //console.log("Calling callback: %d.", callback_data.id);
                         callback.call(null, callback_data.response);
                     } else {
                         console.error("Callback called, but doesn't exist. id: %d", callback_data.id);
@@ -148,10 +168,23 @@ function listenPort(port) {
     });
 }
 
+exports.listen = function (names, callback) {
+    if (typeof names == 'string') names = [names];
+    names.forEach(function(name) {
+        listeners[name] = callback;
+    });
+};
+
+exports.removeListener = function (names) {
+    if (typeof names == 'string') names = [names];
+    names.forEach(function (name) {
+        delete listeners[name];
+    });
+};
+
 if (onBackgroundPage()) {
+    // Background page port management.
     var ports = {};
-    var callbacks = {};
-    var callback_i = 0;
     // Listen for incoming page ports.
     chrome.runtime.onConnect.addListener(function (port) {
         var id = getId(port.id, port.sender);
@@ -163,20 +196,12 @@ if (onBackgroundPage()) {
         });
     });
 
-    module.exports = {
-        // Omitting callback for the moment.
-        send: function (name, message) {
-            message = commonSend(name, message);
-            for (var id in ports) {
-                var port = ports[id];
-                port.postMessage(message);
-            }
-        },
-        listen: function (names, callback) {
-            if (typeof names == 'string') names = [names];
-            names.forEach(function(name) {
-                listeners[name] = callback;
-            });
+    // Omitting callback for the moment.
+    exports.send = function (name, message) {
+        message = commonSend(name, message);
+        for (var id in ports) {
+            var port = ports[id];
+            port.postMessage(message);
         }
     };
 } else {
@@ -184,47 +209,10 @@ if (onBackgroundPage()) {
         name: performance.now().toString()
     });
     listenPort(port);
-    module.exports = {
-        send: function (name, message, callback) {
-            message = commonSend(name, message, callback);
-            port.postMessage(message);
-        },
-        listen: function (names, callback) {
-            if (typeof names == 'string') names = [names];
-            names.forEach(function(name) {
-                listeners[name] = callback;
-            });
-        }
+    exports.send = function (name, message, callback) {
+        message = commonSend(name, message, callback);
+        port.postMessage(message);
     };
-}
-//chrome.runtime.onMessage.addListener(listener);
-
-/**
- * Callback function to send message to multiple tabs.
- * @callback TabCallback
- * @param {integer} id - The id of the matched tab.
- */
-/**
- * Call the callback function for each tab that may have a UI.
- * @param {TabCallback} callback - The function to be called with the
- *   tab information.
- */
-function getTabs(callback) {
-    // Send new replay notification to any tabs that may have menu.
-    chrome.tabs.query({
-        url: [
-            "http://*.koalabeast.com/*",
-            "http://*.newcompte.fr/*",
-            "http://tangent.jukejuice.com/*"
-        ]
-    }, function(tabs) {
-        var ids = tabs.map(function (tab) {
-            return tab.id || null;
-        }).filter(function (id) {
-            return id !== null;
-        });
-        callback(ids);
-    });
 }
 
 /**
@@ -236,62 +224,3 @@ function getTabs(callback) {
 function onBackgroundPage() {
     return location.protocol == "chrome-extension:";
 }
-
-var Messaging = function() {};
-
-/**
- * Register a function as a listener for the specific message. If
- * a callback listening for the specified message is already
- * present then it will be overwritten.
- * @param  {(string|Array.<string>} name - The message type(s) to
- *   listen for. If an array of strings is passed then the callback
- *   will be set for each of the names given in the array.
- * @param  {Function} callback - Function which will be forwarded the
- *   parameters passed from `onMessage`.
- */
-Messaging.prototype.listen = function(names, callback) {
-    if (typeof names == 'string') names = [names];
-    names.forEach(function(name) {
-        listeners[name] = callback;
-    });
-};
-
-/**
- * Sends a message to the background page or content script when
- * called from a content script or the background page,
- * respectively. Can be called with either one or both of message
- * or callback omitted.
- * @param {string} name - The name of the message to send.
- * @param {object} [message] - The information to send along with
- *   the message.
- * @param {Function} [callback] - The callback function to be
- *   associated with the message.
- * @return {Promise?} - If called on the background page, returns
- *   a promise that resolves after the message has been sent.
- */
-Messaging.prototype.send = function(name, message, callback) {
-    if (typeof message == "function") {
-        callback = message;
-        message = {};
-    }
-    message.method = name;
-
-    if (onBackgroundPage()) {
-        return new Promise(function (resolve, reject) {
-            getTabs(function(ids) {
-                ids.forEach(function (id) {
-                    chrome.tabs.sendMessage(id, message);
-                });
-                resolve();
-            });
-        });
-    } else {
-        if (callback) {
-            chrome.runtime.sendMessage(message, callback);
-        } else {
-            chrome.runtime.sendMessage(message);
-        }
-    }
-};
-
-//module.exports = new Messaging();

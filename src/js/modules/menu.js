@@ -15,6 +15,11 @@ var Status = require('./status');
 var Textures = require('./textures');
 var Viewer = require('./viewer');
 var Table = require('./table');
+var AsyncLoop = require('./async-loop');
+var FileStream = require('./html5-file-stream');
+var FileListStream = require('./html5-filelist-stream');
+var ReplayImportStream = require('./replay-import-stream');
+var concat = require('concat-stream');
 
 // Moment calendar customization.
 moment.locale('en', {
@@ -403,7 +408,6 @@ Menu.prototype._initRenderList = function() {
                     };
                 });
                 $(".nav-render .badge").text(response.total);
-                console.log("got render list: " + response.total);
                 callback({
                     data: list,
                     draw: data.draw,
@@ -497,7 +501,9 @@ Menu.prototype._initListeners = function() {
      */
     Messaging.listen("replayAdded",
     function(message, sender, sendResponse) {
-        this.replay_table.reload();
+        if (!this.paused) {
+            this.replay_table.reload();
+        }
     }.bind(this));
 
     /**
@@ -595,9 +601,6 @@ Menu.prototype.alert = function(opts) {
     }
 };
 
-Menu.prototype.method_name = function(first_argument) {
-    // body...
-};
 /**
  * Returns a function to be set as a listener on the replay import
  * button.
@@ -606,42 +609,39 @@ Menu.prototype.method_name = function(first_argument) {
  */
 Menu.prototype._list_Import = function() {
     var menu = this;
-    return function() {
-        var fileData = [];
-        var rawFiles = $(this).prop('files');
-        var files = [];
-        for (var i = 0; i < rawFiles.length; i++) {
-            files.push(rawFiles[i]);
-        }
-        // Ensure all read operations are complete before continuing.
-        var fileReadBarrier = new Barrier();
-        fileReadBarrier.onComplete(function parseRawData() {
-            if (fileData.length === 0) return;
 
-            var info = fileData.pop();
-
-            Messaging.send('importReplay', info, function (response) {
-                // TODO: Handle failed replay adding.
-                if (response.failed) {
-                    console.error("Failed to import replay %s.", info.filename);
-                } else {
-                    // Read next file.
-                    parseRawData();
-                }
+    return function () {
+        var files = $(this).prop('files');
+        if (files.length === 0) return;
+        menu.paused = true;
+        console.group("Importing %d replays.", files.length);
+        console.time("Replay import");
+        var fls = FileListStream(files);
+        var send = ReplayImportStream({
+            highWaterMark: 1024 * 1024 * 25
+        });
+        fls.pipe(send);
+        var errors = [];
+        // TODO: Progress handled by listener.
+        send.on('error', function (err) {
+            errors.push(err);
+            // TODO: Show feedback?
+        });
+        send.on('done', function () {
+            console.timeEnd("Replay import");
+            console.groupEnd();
+            // TODO: Show errors, dismissible alert.
+            menu.replay_table.reload().then(function () {
+                // Hide alert.
+                menu.alert({
+                  blocking: true,
+                  hide: true
+                });
+                menu.paused = false;
             });
         });
-        // Read in each of the files.
-        files.forEach(function(file) {
-            var id = fileReadBarrier.start();
-            var fr = new FileReader();
-            fr.onload = function(e) {
-                fileData.push({
-                    data: e.target.result,
-                    filename: file.name
-                });
-                fileReadBarrier.stop(id);
-            };
-            fr.readAsText(file);
+        fls.on("end", function () {
+            console.log("File list stream ended.");
         });
     };
 };

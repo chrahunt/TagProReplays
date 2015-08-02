@@ -6,6 +6,7 @@ var Data = require('./modules/data');
 var Messaging = require('./modules/messaging');
 var RenderManager = require('./modules/rendermanager');
 var Textures = require('./modules/textures');
+var AsyncLoop = require('./modules/async-loop');
 var validate = require('./modules/validate');
 var convert = require('./modules/convert');
 
@@ -191,42 +192,63 @@ function(message, sender, sendResponse) {
  *   `filename` corresponding to the file data and contents.
  * @param {Function} callback - ??
  */
-Messaging.listen("importReplay",
+Messaging.listen(["importReplay", "importReplays"],
 function(message, sender, sendResponse) {
-    // TODO: Handle validating/converting imported replay.
-    var replay = JSON.parse(message.data);
-    console.log("Validating " + message.filename + ".");
-    // Validate replay.
-    validate(replay).then(function(version) {
-        console.log(message.filename + " is a valid v" + version + " replay.");
-        console.log("Applying necessary conversions...");
-        var data = {
-            data: replay,
-            name: message.filename
-        };
-        convert(data).then(function(data) {
-            // Retrieve converted replay.
-            var replay = data.data;
-            Data.saveReplay(replay).then(function (info) {
-                sendResponse({ failed: false });
-                // Send new replay notification to any tabs that may have menu open.
-                Messaging.send("replayAdded", {
-                    data: info
+    var files = Array.isArray(message) ? message
+                                       : [message];
+    console.groupCollapsed("Received %d replays for import.", files.length);
+    AsyncLoop(files).do(function (file, resolve) {
+        var replay = JSON.parse(file.data);
+        var name = file.filename;
+        console.log("Validating " + name + ".");
+        // Validate replay.
+        validate(replay).then(function(version) {
+            console.log(file.filename + " is a valid v" + version + " replay.");
+            console.log("Applying necessary conversions...");
+            var data = {
+                data: replay,
+                name: name
+            };
+            convert(data).then(function(data) {
+                // Retrieve converted replay.
+                var replay = data.data;
+                Data.saveReplay(replay).then(function (info) {
+                    resolve({ failed: false });
+                    // Send new replay notification to any tabs that may have menu open.
+                    Messaging.send("replayAdded", {
+                        data: info
+                    });
+                }).catch(function (err) {
+                    console.error("Error saving replay: %o.", err);
+                    resolve({
+                        failed: true,
+                        name: name,
+                        reason: "could not be saved"
+                    });
                 });
             }).catch(function (err) {
-                console.error("Error saving replay: %o.", err);
-                sendResponse({ failed: true });
+                console.error(err);
+                resolve({
+                    failed: true,
+                    name: name,
+                    reason: "could not be converted"
+                });
             });
         }).catch(function (err) {
+            console.error(file.filename + " could not be validated!");
             console.error(err);
-            sendResponse({ failed: true });
+            resolve({
+                failed: true,
+                name: name,
+                reason: "could not be validated"
+            });
         });
-    }).catch(function (err) {
-        console.error(message.filename + " could not be validated!");
-        console.error(err);
-        sendResponse({ failed: true });
+    }).then(function (results) {
+        console.log("Finished importing replays.");
+        console.groupEnd();
+        sendResponse(results);
     });
-    
+
     return true;
 });
 
