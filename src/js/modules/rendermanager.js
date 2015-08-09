@@ -2,7 +2,6 @@ var Dexie = require('dexie');
 var Whammy = require('whammy');
 
 var Task = require('./task');
-var Status = require('./status');
 var Messaging = require('./messaging');
 var Data = require('./data');
 var Textures = require('./textures');
@@ -218,12 +217,9 @@ RenderManager.prototype._loop = function() {
     var self = this;
     return this.getNext().then(function (id) {
         if (typeof id == "undefined") {
-            Status.remove("rendering");
             self.rendering = false;
             return;
         }
-        // Set background page status.
-        Status.add("rendering");
         self.rendering = true;
         self.id = id;
         

@@ -80,14 +80,13 @@ db.version(3).stores({
     positions: null,
     savedMovies: null
 }).upgrade(function (trans) {
-    Status.add("upgrading");
+    Status.set("upgrading");
     trans.on('complete', function () {
-        Status.remove("upgrading");
+        Status.reset();
     });
 
     trans.on('abort', function () {
-        Status.add("error");
-        Status.remove("upgrading");
+        Status.set("upgrade_error");
     });
 
     trans.positions.each(function (item, cursor) {

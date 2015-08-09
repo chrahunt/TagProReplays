@@ -2,13 +2,14 @@ var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
 
+var AsyncLoop = require('./modules/async-loop');
+var convert = require('./modules/convert');
 var Data = require('./modules/data');
 var Messaging = require('./modules/messaging');
 var RenderManager = require('./modules/rendermanager');
+var Status = require('./modules/status');
 var Textures = require('./modules/textures');
-var AsyncLoop = require('./modules/async-loop');
 var validate = require('./modules/validate');
-var convert = require('./modules/convert');
 
 /**
  * Acts as the intermediary for content script and background page
@@ -63,6 +64,20 @@ chrome.storage.local.get(["default_textures", "textures"], function(items) {
                 }
             });
         });
+    }
+});
+
+// List of actions to be run for upgrade.
+var upgradeActions = [];
+// Take certain actions when upgrading.
+chrome.runtime.onInstalled.addListener(function (details) {
+    var reason = details.reason;
+    if (reason == "install") {
+        // Install-specific actions.
+        console.log("Initial install.");
+    } else if (reason == "update") {
+        var from = details.previousVersion;
+        console.log("Upgrading from version %s.", from);
     }
 });
 
@@ -160,6 +175,20 @@ function(message, sender, sendResponse) {
             reason: "No replay data captured."
         });
         return true;
+    } else {
+        // Get first player frame.
+        var playerStartFrame = findIndex(replay.data.players[replay.info.player].draw, function (d) {
+            return d !== null;
+        });
+        if (playerStartFrame == -1) {
+            sendResponse({
+                failed: true,
+                reason: "Error saving for specific player."
+            });
+            return true;
+        } else {
+            startFrame = Math.max(startFrame, playerStartFrame);
+        }
     }
     replay = Data.util.cropReplay(replay, startFrame, replay.data.time.length);
     Data.saveReplay(replay).then(function (info) {
@@ -189,8 +218,22 @@ function(message, sender, sendResponse) {
                                        : [message];
     console.groupCollapsed("Received %d replays for import.", files.length);
     AsyncLoop(files).do(function (file, resolve) {
-        var replay = JSON.parse(file.data);
         var name = file.filename;
+        try {
+            var replay = JSON.parse(file.data);
+        } catch (e) {
+            var err = {
+                name: name
+            };
+            if (e instanceof SyntaxError) {
+                err.reason = "could not be parsed: " + e;
+            } else {
+                err.reason = "unknown error: " + e;
+            }
+            Messaging.send("importError", err);
+            resolve();
+            return;
+        }
         console.log("Validating " + name + ".");
         // Validate replay.
         validate(replay).then(function(version) {
@@ -204,38 +247,39 @@ function(message, sender, sendResponse) {
                 // Retrieve converted replay.
                 var replay = data.data;
                 Data.saveReplay(replay).then(function (info) {
-                    resolve({ failed: false });
+                    Messaging.send("importProgress");
+                    resolve();
                 }).catch(function (err) {
                     console.error("Error saving replay: %o.", err);
-                    resolve({
-                        failed: true,
+                    Messaging.send("importError", {
                         name: name,
-                        reason: "could not be saved"
+                        reason: 'could not be saved: ' + err
                     });
+                    resolve();
                 });
             }).catch(function (err) {
                 console.error(err);
-                resolve({
-                    failed: true,
+                Messaging.send("importError", {
                     name: name,
-                    reason: "could not be converted"
+                    reason: "could not be converted: " + err
                 });
+                resolve();
             });
         }).catch(function (err) {
             console.error(file.filename + " could not be validated!");
             console.error(err);
-            resolve({
-                failed: true,
+            Messaging.send("importError", {
                 name: name,
-                reason: "could not be validated"
+                reason: 'could not be validated: ' + err
             });
+            resolve();
         });
     }).then(function (results) {
-        console.log("Finished importing replays.");
+        console.log("Finished importing replay set.");
         // Send new replay notification to any tabs that may have menu open.
-        Messaging.send("replaysUpdated");
+        //Messaging.send("replaysUpdated");
         console.groupEnd();
-        sendResponse(results);
+        sendResponse();
     });
 
     return true;
@@ -320,6 +364,7 @@ function(message, sender, sendResponse) {
             manager.resume();
         });
     } else  if (ids.length !== 0) {
+        Status.set("json_downloading");
         Messaging.send("alert", {
             blocking: true,
             message: "Initializing zip file generation..."
@@ -485,4 +530,38 @@ function(message, sender, sendResponse) {
     }).catch(function (err) {
         console.error("Error cancelling renders: %o.", err);
     });
+});
+
+function resetCallback() {
+    Status.reset();
+}
+
+function stopImport() {
+    Status.reset();
+    manager.resume();
+}
+
+Messaging.listen("startImport",
+function (message, sender, sendResponse) {
+    manager.pause();
+    Status.set("importing", function (err) {
+        if (err) {
+            sendResponse({
+                failed: true
+            });
+        } else {
+            sender.onDisconnect.addListener(stopImport);
+            sendResponse({
+                failed: false
+            });
+        }
+    });
+    return true;
+});
+
+Messaging.listen("stopImport",
+function (message, sender, sendResponse) {
+    stopImport();
+    Status.reset();
+    sender.onDisconnect.removeListener(stopImport);
 });

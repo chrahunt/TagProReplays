@@ -78,6 +78,44 @@ $row-height: 48px;
     }
 }
 
+// Modal alert
+.modal-content {
+    border-radius: 2px;
+}
+
+.modal-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: lightblue;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    .title {
+        width: 100%;
+        text-align: center;
+        margin-top: 20px;
+        font-size: 20px;
+    }
+
+    .message {
+        // koalabeast css overrides.
+        padding: 0px;
+        position: initial;
+        // Actual values.
+        width: 100%;
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .actions {
+        text-align: center;
+        margin-top: 20px;
+    }
+}
+
 #tpr-container .section-panel table {
     table-layout: fixed;
     margin-bottom: 0;

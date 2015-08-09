@@ -10,6 +10,8 @@ var DOMMessaging = require('./modules/messaging.dom');
  * state information.
  */
 
+var data = {};
+
 /**
  * Create an array of size `n` filled with null.
  * @param {integer} n - The size of the array to create.
@@ -69,7 +71,7 @@ function getOptions() {
 var options = getOptions();
 
 // Initialize the replay recording.
-function recordReplayData(data) {
+function recordReplayData() {
     var savingIndex = 0;
     var fps = options.fps;
     var saveDuration = options.duration;
@@ -230,33 +232,43 @@ function recordReplayData(data) {
         });
     };
 
-    thing = setInterval(saveFrame, 1000 / fps);
+    setInterval(saveFrame, 1000 / fps);
 }
 
-// Send replay data to content script.
-function saveReplayData(data) {
-    // Create the info.
-    var info = {
-        mapName: $('#mapInfo').text().replace('Map: ', '').replace(/ by.*/, ''),
-        fps: options.fps,
-        teamNames: {
-            "1": tagpro.teamNames.redTeamName || "Red",
-            "2": tagpro.teamNames.blueTeamName || "Blue"
-        },
-        player: tagpro.playerId,
-        dateRecorded: Date.now(),
-        name: 'replay-' + Date.now()
-    };
-    console.log('Sending replay data from injected script to content script.');
-    var replay = {
-        data: data,
-        info: info,
-        version: "2"
-    };
-    // Convert for performance.
-    //replay = JSON.stringify(replay);
-    DOMMessaging.send('saveReplay', replay);
-}
+var TagProReplays = {
+    capture: function (opts) {
+        console.log("Capturing.");
+        if (typeof opts == "undefined") opts = {};
+        var playerId = tagpro.playerId;
+        if (tagpro.spectator === "watching" && opts.player_id) {
+            playerId = opts.player_id;
+        }
+        // Create the info.
+        var info = {
+            mapName: $('#mapInfo').text().replace('Map: ', '').replace(/ by.*/, ''),
+            fps: options.fps,
+            teamNames: {
+                "1": tagpro.teamNames.redTeamName || "Red",
+                "2": tagpro.teamNames.blueTeamName || "Blue"
+            },
+            player: playerId,
+            dateRecorded: Date.now(),
+            name: 'replay-' + Date.now()
+        };
+        console.log('Sending replay data from injected script to content script.');
+        var replay = {
+            data: data,
+            info: info,
+            version: "2"
+        };
+        // Convert for performance.
+        //replay = JSON.stringify(replay);
+        DOMMessaging.send('saveReplay', replay);
+    }
+};
+
+// Expose to scripts.
+window.TagProReplays = TagProReplays;
 
 // Listen for content script save confirmation/failure.
 DOMMessaging.listen('replaySaved', function(err) {
@@ -280,11 +292,11 @@ DOMMessaging.listen('replaySaved', function(err) {
 });
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
-function recordButton(data) {
+function recordButton() {
     var button = document.createElement("div");
     button.id = 'recordButton';
     button.onclick = function () {
-        saveReplayData(data);
+        TagProReplays.capture();
     };
     $('body').append(button);
 
@@ -296,7 +308,7 @@ function recordButton(data) {
     if (options.record_key_enabled) {
         $(document).on("keypress", function (e) {
             if (e.which == options.record_key) {
-                saveReplayData(data);
+                TagProReplays.capture();
             }
         });
     }
@@ -316,9 +328,8 @@ function onTagProMap(fn) {
 if (options.record) {
     onTagProMap(function() {
         tagpro.ready(function() {
-            var data = {};
-            recordButton(data);
-            recordReplayData(data);
+            recordButton();
+            recordReplayData();
         });
     });
 }

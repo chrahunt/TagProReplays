@@ -102,15 +102,17 @@ function removeScript() {
 // If we're on the main tagpro server screen, create the main menu and
 // the button that opens it.
 if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-    // Make the body scrollable.
-    $('body')[0].style.overflowY = "scroll";
+    $(function () {
+        // Make the body scrollable.
+        $('body')[0].style.overflowY = "scroll";
 
-    // Initialize the menu.
-    var menu = new Menu();
-    menu.addSettingsChangeListener(updateCookies);
-    
-    // Make the menu-opening button.
-    createReplayPageButton(menu);
+        // Initialize the menu.
+        var menu = new Menu();
+        menu.addSettingsChangeListener(updateCookies);
+        
+        // Make the menu-opening button.
+        createReplayPageButton(menu);
+    });
 }
 
 // if we're in a game, as evidenced by there being a port number,

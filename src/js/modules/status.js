@@ -1,29 +1,15 @@
+var DEFAULT = "idle";
+
 var Status = {
     /**
-     * Add a status for the background page.
-     * @param {string} status - The status to add to the list of
-     *   conditions impacting the background page.
+     * Set the status for the background page.
+     * @param {string} status - The status to set for the background page.
      * @param {Function} callback - Callback to receive the status of the
      *   request. Typical err param.
      */
-    add: function(status, callback) {
-        this.get(function (err, statuses) {
-            if (err) {
-                callback(err);
-            } else if (statuses.indexOf(status) === -1) {
-                // Only add if not already present.
-                statuses.push(status);
-                this._set(statuses);
-            }
-        }.bind(this));
-    },
-    /**
-     * Set statuses in chrome storage.
-     * @private
-     */
-    _set: function(statuses, callback) {
+    set: function(status, callback) {
         chrome.storage.local.set({
-            status: statuses
+            status: status
         }, function () {
             if (chrome.runtime.lastError) {
                 console.error("Error saving status: " + chrome.runtime.lastError);
@@ -34,19 +20,6 @@ var Status = {
                     callback(null);
             }
         });
-    },
-    remove: function(status, callback) {
-        this.get(function (err, statuses) {
-            if (err) {
-                callback(err);
-            } else {
-                var index = statuses.indexOf(status);
-                if (index !== -1) {
-                    statuses.splice(index, 1);
-                    this._set(statuses);
-                }
-            }
-        }.bind(this));
     },
     /**
      * Retrieve the extension background page status.
@@ -66,6 +39,13 @@ var Status = {
                 }
             }
         });
+    },
+    /**
+     * Reset the background page status to default.
+     * See `set` description of callback.
+     */
+    reset: function(callback) {
+        this.set(DEFAULT, callback);
     },
     changeListeners: [],
     /**
@@ -89,7 +69,19 @@ chrome.storage.onChanged.addListener(function(changes, areaName) {
     }
 });
 
-// Set initial status.
-chrome.storage.local.set({
-    status: []
-});
+/**
+ * Determine whether the script is running in a background page
+ * context.
+ * @return {boolean} - Whether the script is running on the
+ *   background page.
+ */
+function onBackgroundPage() {
+    return location.protocol == "chrome-extension:";
+}
+
+if (onBackgroundPage()) {
+    // Set initial status.
+    chrome.storage.local.set({
+        status: DEFAULT
+    });
+}

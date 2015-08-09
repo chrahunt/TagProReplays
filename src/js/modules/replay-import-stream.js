@@ -188,13 +188,6 @@ ReplayImportStream.prototype._send = function() {
 
   Messaging.send('importReplay', cache, function (response) {
     console.log("ReplayImportStream:callback: Replay import complete.");
-    // Emit error.
-    response.forEach(function (result) {
-      if (result.failed) {
-        self.emit('error', result);
-        console.error("Failed to import replay %s: %s.", result.name, result.reason);
-      }
-    });
     self._importing = false;
     if (self._pendingCallback) {
       console.log("ReplayImportStream:callback: calling pending callback.");

@@ -31,6 +31,39 @@ moment.locale('en', {
     }
 });
 
+function Overlay() {
+
+}
+
+Overlay.prototype.show = function() {
+    $(".modal-overlay").removeClass("hidden");
+};
+
+Overlay.prototype.hide = function() {
+    $(".modal-overlay").addClass("hidden");
+};
+
+// Progress from 0 to 100
+Overlay.prototype.progress = function(n) {
+    // body...
+};
+
+// Message to display.
+Overlay.prototype.message = function(msg) {
+    $(".modal-overlay .message").html(msg);
+};
+
+Overlay.prototype.title = function(str) {
+    $(".modal-overlay .title").text(str);
+};
+
+Overlay.prototype.actions = function(lst) {
+    $(".modal-overlay .actions").html("");
+    lst.forEach(function (action) {
+        $(".modal-overlay .actions").append(action);
+    });
+};
+
 /**
  * Holds the interface to the main page user interface.
  * Methods prepended with an underscore are used internally by the
@@ -55,6 +88,7 @@ var Menu = function() {
     
     // Initialize viewer for replay preview.
     this.viewer = new Viewer();
+    this.overlay = new Overlay();
 };
 
 module.exports = Menu;
@@ -302,7 +336,6 @@ Menu.prototype._initReplayList = function() {
 
     // Replay row listeners.
     $("#replay-table tbody").on("click", ".row-preview", function() {
-        var id = $(this).closest('tr').data("id");
         $('#menuContainer').hide();
         menu.viewer.preview(id);
     });
@@ -535,9 +568,118 @@ Menu.prototype._initListeners = function() {
         } // else render table not yet set up.
     });
 
+    // Import interface management.
+    menu.importing = {
+        errors: [],
+        finished: 0,
+        total: 0,
+        thisMenu: false,
+        cancelSet: false
+    };
+
+    // Update import progress on overlay.
+    function updateImport() {
+        var text = "Replay " + menu.importing.finished + " of " + menu.importing.total + ".";
+        menu.overlay.message(text);
+        if (menu.importing.errors.length > 0) {
+            // TODO: Reflect import errors information by changing overlay style.
+            console.log("There were some importing errors.");
+        }
+        if (!menu.importing.cancelSet && menu.importing.thisMenu) {
+            menu.importing.cancelSet = true;
+            var cancel = $("<button>cancel</button>");
+            cancel.click(function () {
+                // TODO: Cancel importing?
+            });
+            menu.overlay.actions([cancel]);
+        }
+        
+    }
+    Messaging.listen("importProgress",
+    function () {
+        console.log("Received import progress.");
+        menu.importing.finished++;
+        updateImport();
+    });
+
+    Messaging.listen("importError",
+    function (message) {
+        menu.importing.errors.push(message);
+        menu.importing.finished++;
+        updateImport();
+    });
+
+    function makeTextFile(text) {
+        var b = new Blob([text], { type: "text/plain" });
+        return URL.createObjectURL(b);
+    }
+
     Messaging.listen("alert",
     function (message, sender) {
         menu.alert(message);
+    });
+
+    // Overlay on status change.
+    Status.onChanged(function (current, old) {
+        function resetImport() {
+            menu.importing.finished = 0;
+            menu.importing.errors = [];
+            menu.importing.thisMenu = false;
+            menu.importing.total = 0;
+        }
+        console.log("Status changed from %s to %s.", old, current);
+        if (old == "idle") {
+            if (current == "json_downloading") {
+
+            } else if (current == "importing") {
+                menu.overlay.show();
+                menu.overlay.title("Importing Replays...");
+                updateImport();
+            } else if (current == "upgrading") {
+
+            }
+        } else if (current == "idle") {
+            if (old == "json_downloading") {
+
+            } else if (old == "importing") {
+                console.log("Stopping importing.");
+                if (menu.importing.thisMenu) {
+                    console.log("This was the menu that was importing.");
+                    if (menu.importing.errors.length > 0) {
+                        // TODO: Make text file object blob with errors, if applicable
+                        var text = menu.importing.errors.map(function (err) {
+                            return err.name + " - " + err.reason;
+                        }).reduce(function (text, msg) {
+                            return text + "\n" + msg;
+                        });
+                        var url = makeTextFile(text);
+                        menu.overlay.title("Some Errors!");
+                        menu.overlay.message("Don't worry, we kept track of the replays that failed. You can download them " + 
+                            "<a href=\"" + url + "\" download=\"import-errors.txt\">here</a>. Once downloaded, send them " +
+                            "via the error reporting information you can find in \"Help\" in the menu.");
+                        menu.importing.errors = [];
+                    } else {
+                        // TODO: Display good text
+                        menu.overlay.title("Replays Imported!");
+                    }
+                    var dismiss = $("<button>dismiss</button>");
+                    dismiss.click(function () {
+                        menu.overlay.hide();
+                    });
+                    menu.overlay.actions([dismiss]);
+                    resetImport();
+                } else {
+                    console.log("This was not the importing menu.");
+                    menu.overlay.hide();
+                    resetImport();
+                }
+                // TODO: Reload table.
+            } else if (old == "upgrading") {
+
+            }
+        } else if (current == "upgrade_error") {
+
+        }
     });
 };
 
@@ -571,35 +713,41 @@ Menu.prototype._list_Import = function() {
     return function () {
         var files = $(this).prop('files');
         if (files.length === 0) return;
-        menu.paused = true;
-        console.group("Importing %d replays.", files.length);
-        console.time("Replay import");
-        var fls = FileListStream(files);
-        var send = ReplayImportStream({
-            highWaterMark: 1024 * 1024 * 25
-        });
-        fls.pipe(send);
-        var errors = [];
-        // TODO: Progress handled by listener.
-        send.on('error', function (err) {
-            errors.push(err);
-            // TODO: Show feedback?
-        });
-        send.on('done', function () {
-            console.timeEnd("Replay import");
-            console.groupEnd();
-            // TODO: Show errors, dismissible alert.
-            menu.replay_table.reload().then(function () {
-                // Hide alert.
-                menu.alert({
-                  blocking: true,
-                  hide: true
+        Messaging.send("startImport", function (result) {
+            if (!result.failed) {
+                menu.paused = true;
+                menu.importing.thisMenu = true;
+                menu.importing.total = files.length;
+                console.group("Importing %d replays.", files.length);
+                console.time("Replay import");
+                var fls = FileListStream(files);
+                var send = ReplayImportStream({
+                    highWaterMark: 1024 * 1024 * 25
                 });
-                menu.paused = false;
-            });
-        });
-        fls.on("end", function () {
-            console.log("File list stream ended.");
+                fls.pipe(send);
+                var errors = [];
+                // TODO: Progress handled by listener.
+                send.on('error', function (err) {
+                    errors.push(err);
+                    // TODO: Show feedback?
+                });
+                send.on('done', function () {
+                    console.timeEnd("Replay import");
+                    console.groupEnd();
+                    Messaging.send("stopImport");
+                    menu.replay_table.reload().then(function () {
+                        // Hide alert.
+                        menu.alert({
+                          blocking: true,
+                          hide: true
+                        });
+                        menu.paused = false;
+                    });
+                });
+                fls.on("end", function () {
+                    console.log("File list stream ended.");
+                });
+            }
         });
     };
 };
