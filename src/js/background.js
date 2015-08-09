@@ -206,6 +206,7 @@ function(message, sender, sendResponse) {
     return true;
 });
 
+var importLoop = null;
 /**
  * Handle imported replay. Replay importing is done 
  * @param {object} message - Object with properties `data` and
@@ -217,10 +218,12 @@ function(message, sender, sendResponse) {
     var files = Array.isArray(message) ? message
                                        : [message];
     console.groupCollapsed("Received %d replays for import.", files.length);
-    AsyncLoop(files).do(function (file, resolve) {
+    importLoop = AsyncLoop(files).do(function (file, resolve, reject, cancelled) {
+        if (cancelled()) { resolve(); return; }
         var name = file.filename;
+        var replay;
         try {
-            var replay = JSON.parse(file.data);
+            replay = JSON.parse(file.data);
         } catch (e) {
             var err = {
                 name: name
@@ -237,6 +240,7 @@ function(message, sender, sendResponse) {
         console.log("Validating " + name + ".");
         // Validate replay.
         validate(replay).then(function(version) {
+            if (cancelled()) { resolve(); return; }
             console.log(file.filename + " is a valid v" + version + " replay.");
             console.log("Applying necessary conversions...");
             var data = {
@@ -244,12 +248,15 @@ function(message, sender, sendResponse) {
                 name: name
             };
             convert(data).then(function(data) {
+                if (cancelled()) { resolve(); return; }
                 // Retrieve converted replay.
                 var replay = data.data;
                 Data.saveReplay(replay).then(function (info) {
+                    if (cancelled()) { resolve(); return; }
                     Messaging.send("importProgress");
                     resolve();
                 }).catch(function (err) {
+                    if (cancelled()) { resolve(); return; }
                     console.error("Error saving replay: %o.", err);
                     Messaging.send("importError", {
                         name: name,
@@ -258,6 +265,7 @@ function(message, sender, sendResponse) {
                     resolve();
                 });
             }).catch(function (err) {
+                if (cancelled()) { resolve(); return; }
                 console.error(err);
                 Messaging.send("importError", {
                     name: name,
@@ -266,6 +274,7 @@ function(message, sender, sendResponse) {
                 resolve();
             });
         }).catch(function (err) {
+            if (cancelled()) { resolve(); return; }
             console.error(file.filename + " could not be validated!");
             console.error(err);
             Messaging.send("importError", {
@@ -277,8 +286,9 @@ function(message, sender, sendResponse) {
     }).then(function (results) {
         console.log("Finished importing replay set.");
         // Send new replay notification to any tabs that may have menu open.
-        //Messaging.send("replaysUpdated");
+        Messaging.send("replaysUpdated");
         console.groupEnd();
+        importLoop = null;
         sendResponse();
     });
 
@@ -538,7 +548,11 @@ function resetCallback() {
 
 function stopImport() {
     Status.reset();
+    if (importLoop) {
+        importLoop.reject();
+    }
     manager.resume();
+    Messaging.send("replaysUpdated");
 }
 
 Messaging.listen("startImport",
@@ -559,7 +573,7 @@ function (message, sender, sendResponse) {
     return true;
 });
 
-Messaging.listen("stopImport",
+Messaging.listen(["endImport", "cancelImport"],
 function (message, sender, sendResponse) {
     stopImport();
     Status.reset();

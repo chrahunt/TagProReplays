@@ -8,6 +8,7 @@ function AsyncLoop(arr) {
     return new AsyncLoop(arr);
   } else {
     this.list = arr;
+    this.cancelled = false;
   }
 }
 
@@ -16,10 +17,13 @@ module.exports = AsyncLoop;
 // Start if we have all components.
 AsyncLoop.prototype._start = function() {
   var self = this;
+  function cancelled() {
+    return self.cancelled;
+  }
   if (self._do && self._then) {
     var results = self.list.map(function (elt) {
       return new Promise(function (resolve, reject) {
-        self._do(elt, resolve, reject);
+        self._do(elt, resolve, reject, cancelled);
       });
     });
     Promise.all(results).then(function (results) {
@@ -40,9 +44,17 @@ AsyncLoop.prototype.do = function(fn) {
   return this;
 };
 
+/**
+ * Function to run 
+ * @param {Function} fn [description]
+ * @return {[type]} [description]
+ */
 AsyncLoop.prototype.then = function(fn) {
   this._then = fn;
   this._start();
   return this;
 };
 
+AsyncLoop.prototype.reject = function() {
+  this.cancelled = true;
+};

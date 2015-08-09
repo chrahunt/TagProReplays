@@ -85,7 +85,9 @@ module.exports = ReplayImportStream;
 /**
  * Stream for importing replays. Pipe a fileliststream into me.
  * Works best with a quick source and a slower insertion (which is
- * currently the case with IndexedDB and reading the files).
+ * currently the case with IndexedDB and reading the files). Pipe streams
+ * into this stream with `{end: false}` so the stream has a change to clear
+ * out the buffer, and so the `finish` event actually indicates end of writing.
  */
 function ReplayImportStream(options) {
   if (!(this instanceof ReplayImportStream))
@@ -102,19 +104,40 @@ function ReplayImportStream(options) {
     highWaterMark: this._highWaterMark
   });
 
+  this.ended = false;
+  var stdEnd = this.end;
+  this.end = function() {
+    stdEnd.apply(self, arguments);
+    self._end.apply(self, arguments);
+  };
   var self = this;
-  this.on('finish', function () {
-    console.log("ReplayImportStream: finish callback.");
-    this._done = true;
-    if (!self._importing && !self._moreBuffered()) {
-      this.emit('done');
-    }
-  });
+
+  function setEmpty() {
+    self._srcEmpty = true;
+  }
 
   this.on('pipe', function (src) {
-    self.src = src;
+    console.log("ReplayImportStream: piped to.");
+    src.on('end', setEmpty);
+  });
+
+  this.on('unpipe', function (src) {
+    console.log("ReplayImportStream: unpiped.");
+    src.removeListener('end', setEmpty);
+  });
+
+  this.on('finish', function () {
+    console.log("ReplayImportStream: finish callback.");
+    if (self._importing) {
+      self._pendingCallback = null;
+    }
   });
 }
+
+// Alternate end to stop buffered data.
+ReplayImportStream.prototype._end = function() {
+  this.ended = true;
+};
 
 /**
  * Override for ObjectStream.
@@ -126,13 +149,15 @@ function ReplayImportStream(options) {
  */
 ReplayImportStream.prototype.__write = function(value, encoding, done) {
   console.log("ReplayImportStream#__write: Writing chunk.");
+  // Disregard data if already ended.
+  if (this.ended) { done(); return; }
   this._lastValue = value;
   var self = this;
   function pending(err) {
     // Done being written to, and no more values buffered.
-    if (self._done && !self._moreBuffered()) {
-      self.emit('done');
+    if (self._srcEmpty && !self._moreBuffered()) {
       done(err);
+      self.end();
     } else {
       // More values or not done.
       done(err);

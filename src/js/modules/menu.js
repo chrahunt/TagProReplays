@@ -574,7 +574,9 @@ Menu.prototype._initListeners = function() {
         finished: 0,
         total: 0,
         thisMenu: false,
-        cancelSet: false
+        cancelButtonSet: false,
+        cancel: null,
+        cancelled: false
     };
 
     // Update import progress on overlay.
@@ -583,13 +585,15 @@ Menu.prototype._initListeners = function() {
         menu.overlay.message(text);
         if (menu.importing.errors.length > 0) {
             // TODO: Reflect import errors information by changing overlay style.
-            console.log("There were some importing errors.");
+            //console.log("There were some importing errors.");
         }
-        if (!menu.importing.cancelSet && menu.importing.thisMenu) {
-            menu.importing.cancelSet = true;
+        if (!menu.importing.cancelButtonSet && menu.importing.thisMenu) {
+            menu.importing.cancelButtonSet = true;
             var cancel = $("<button>cancel</button>");
             cancel.click(function () {
-                // TODO: Cancel importing?
+                if (menu.importing.cancel) {
+                    menu.importing.cancel();
+                }
             });
             menu.overlay.actions([cancel]);
         }
@@ -597,6 +601,7 @@ Menu.prototype._initListeners = function() {
     }
     Messaging.listen("importProgress",
     function () {
+        if (menu.importing.cancelled) return;
         console.log("Received import progress.");
         menu.importing.finished++;
         updateImport();
@@ -604,6 +609,7 @@ Menu.prototype._initListeners = function() {
 
     Messaging.listen("importError",
     function (message) {
+        if (menu.importing.cancelled) return;
         menu.importing.errors.push(message);
         menu.importing.finished++;
         updateImport();
@@ -626,12 +632,16 @@ Menu.prototype._initListeners = function() {
             menu.importing.errors = [];
             menu.importing.thisMenu = false;
             menu.importing.total = 0;
+            menu.importing.cancel = null;
+            menu.importing.cancelButtonSet = false;
+            menu.importing.cancelled = false;
         }
-        console.log("Status changed from %s to %s.", old, current);
+        console.log("Extension status change: %s to %s.", old, current);
         if (old == "idle") {
             if (current == "json_downloading") {
 
             } else if (current == "importing") {
+                menu.paused = true;
                 menu.overlay.show();
                 menu.overlay.title("Importing Replays...");
                 updateImport();
@@ -642,25 +652,33 @@ Menu.prototype._initListeners = function() {
             if (old == "json_downloading") {
 
             } else if (old == "importing") {
-                console.log("Stopping importing.");
+                menu.paused = false;
                 if (menu.importing.thisMenu) {
-                    console.log("This was the menu that was importing.");
+                    if (menu.importing.cancelled) {
+                        menu.overlay.title("Import cancelled");
+                    } else {
+                        menu.overlay.title("Replays Imported!");
+                    }
                     if (menu.importing.errors.length > 0) {
-                        // TODO: Make text file object blob with errors, if applicable
+                        // Gather errors into text file.
                         var text = menu.importing.errors.map(function (err) {
                             return err.name + " - " + err.reason;
                         }).reduce(function (text, msg) {
                             return text + "\n" + msg;
                         });
                         var url = makeTextFile(text);
-                        menu.overlay.title("Some Errors!");
-                        menu.overlay.message("Don't worry, we kept track of the replays that failed. You can download them " + 
+                        menu.overlay.message("There were some errors. You can download them " + 
                             "<a href=\"" + url + "\" download=\"import-errors.txt\">here</a>. Once downloaded, send them " +
                             "via the error reporting information you can find in \"Help\" in the menu.");
                         menu.importing.errors = [];
                     } else {
-                        // TODO: Display good text
-                        menu.overlay.title("Replays Imported!");
+                        if (menu.importing.cancelled) {
+                            menu.overlay.message("Replay import cancelled. Only " +
+                                menu.importing.finished + " of " + menu.importing.total +
+                                " replays processed.");
+                        } else {
+                            menu.overlay.message("All replays imported successfully.");
+                        }
                     }
                     var dismiss = $("<button>dismiss</button>");
                     dismiss.click(function () {
@@ -673,7 +691,7 @@ Menu.prototype._initListeners = function() {
                     menu.overlay.hide();
                     resetImport();
                 }
-                // TODO: Reload table.
+                menu.replay_table.reload();
             } else if (old == "upgrading") {
 
             }
@@ -713,36 +731,32 @@ Menu.prototype._list_Import = function() {
     return function () {
         var files = $(this).prop('files');
         if (files.length === 0) return;
+        menu.importing.thisMenu = true;
+        menu.importing.total = files.length;
         Messaging.send("startImport", function (result) {
             if (!result.failed) {
                 menu.paused = true;
-                menu.importing.thisMenu = true;
-                menu.importing.total = files.length;
                 console.group("Importing %d replays.", files.length);
                 console.time("Replay import");
                 var fls = FileListStream(files);
                 var send = ReplayImportStream({
                     highWaterMark: 1024 * 1024 * 25
                 });
+                //fls.pipe(send, { end: false });
                 fls.pipe(send);
-                var errors = [];
-                // TODO: Progress handled by listener.
-                send.on('error', function (err) {
-                    errors.push(err);
-                    // TODO: Show feedback?
-                });
-                send.on('done', function () {
+                // For cancelling import streams.
+                menu.importing.cancel = function () {
+                    fls.unpipe();
+                    send.end();
+                    menu.importing.cancelled = true;
+                    Messaging.send("cancelImport");
+                };
+                send.on('finish', function () {
                     console.timeEnd("Replay import");
                     console.groupEnd();
-                    Messaging.send("stopImport");
-                    menu.replay_table.reload().then(function () {
-                        // Hide alert.
-                        menu.alert({
-                          blocking: true,
-                          hide: true
-                        });
-                        menu.paused = false;
-                    });
+                    if (!menu.importing.cancelled) {
+                        Messaging.send("endImport");
+                    }
                 });
                 fls.on("end", function () {
                     console.log("File list stream ended.");
