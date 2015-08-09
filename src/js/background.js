@@ -6,6 +6,7 @@ var AsyncLoop = require('./modules/async-loop');
 var convert = require('./modules/convert');
 var Data = require('./modules/data');
 var Messaging = require('./modules/messaging');
+var Mutex = require('./modules/mutex');
 var RenderManager = require('./modules/rendermanager');
 var Status = require('./modules/status');
 var Textures = require('./modules/textures');
@@ -20,6 +21,8 @@ var validate = require('./modules/validate');
  */
 
 var manager = new RenderManager();
+// Ensure zipping and importing can't occur simultaneously.
+var lock = new Mutex();
 
 /**
  * Return the index of the first value in the array that satisfies the given
@@ -354,93 +357,117 @@ function(message, sender, sendResponse) {
         saveAs(content, "replays.zip");
     }
 
-    manager.pause();
-    // Validate the number of replays.
-    var ids = message.id ? [message.id] : message.ids;
-    if (ids.length === 1) {
-        // Single JSON file.
-        var id = ids[0];
-        Data.getReplay(id).then(function (data) {
-            var blob = new Blob([JSON.stringify(data)],
-                { type: 'application/json' });
-            var filename = sanitize(data.info.name);
-            if (filename === "") {
-                filename = "replay";
-            }
-            saveAs(blob, filename + '.json');
-            manager.resume();
-        }).catch(function (err) {
-            console.error("Error retrieving replay: %o.", err);
-            manager.resume();
-        });
-    } else  if (ids.length !== 0) {
-        Status.set("json_downloading");
-        Messaging.send("alert", {
-            blocking: true,
-            message: "Initializing zip file generation..."
-        });
-        // Multiple replay files.
-        var zip = new JSZip();
-        var filenames = {};
-        // Size of strings added to zip.
-        var size = 0;
-        // Stop length of stored data in single zip, ~100MB.
-        var maxSize = 1024 * 1024 * 100;
-        var files = 0;
-        Data.forEachReplay(ids, function (data) {
-            files++;
+    function resetDownload(err) {
+        manager.resume();
+        Status.reset();
+        lock.release("replay_download");
+        if (err) {
+            sendResponse({
+                failed: true,
+                reason: err
+            });
+        } else {
+            sendResponse({
+                failed: false
+            });
+        }
+    }
+
+    lock.get("replay_download").then(function () {
+        manager.pause();
+        // Validate the number of replays.
+        var ids = message.id ? [message.id] : message.ids;
+        if (ids.length === 1) {
+            // Single JSON file.
+            var id = ids[0];
+            Data.getReplay(id).then(function (data) {
+                var blob = new Blob([JSON.stringify(data)],
+                    { type: 'application/json' });
+                var filename = sanitize(data.info.name);
+                if (filename === "") {
+                    filename = "replay";
+                }
+                saveAs(blob, filename + '.json');
+                resetDownload();
+            }).catch(function (err) {
+                console.error("Error retrieving replay: %o.", err);
+                resetDownload(err);
+            });
+        } else  if (ids.length !== 0) {
+            Status.set("json_downloading");
             Messaging.send("alert", {
                 blocking: true,
-                message: "Processing file " + files + " of " + ids.length + "..."
+                message: "Initializing zip file generation..."
             });
-            var name = data.info.name;
-            var filename = sanitize(name);
-            if (filename === "") {
-                filename = "replay";
-            }
-            // Handle duplicate replay names.
-            if (filenames.hasOwnProperty(filename)) {
-                filename += " (" + (++filenames[filename]) + ")";
-            } else {
-                filenames[filename] = 0;
-            }
-            var content = JSON.stringify(data);
-            var contentSize = content.length;
-            // If this results in a file that is too large, and there
-            // is at least one other file.
-            if (size !== 0 && size + contentSize > maxSize) {
-                // Alert browser that zip is being generated.
+            // Multiple replay files.
+            var zip = new JSZip();
+            var filenames = {};
+            // Size of strings added to zip.
+            var size = 0;
+            // Stop length of stored data in single zip, ~100MB.
+            var maxSize = 1024 * 1024 * 100;
+            var files = 0;
+            Data.forEachReplay(ids, function (data) {
+                files++;
                 Messaging.send("alert", {
                     blocking: true,
-                    message: "Zip file full, generating..."
+                    message: "Processing file " + files + " of " + ids.length + "..."
+                });
+                var name = data.info.name;
+                var filename = sanitize(name);
+                if (filename === "") {
+                    filename = "replay";
+                }
+                // Handle duplicate replay names.
+                if (filenames.hasOwnProperty(filename)) {
+                    filename += " (" + (++filenames[filename]) + ")";
+                } else {
+                    filenames[filename] = 0;
+                }
+                var content = JSON.stringify(data);
+                var contentSize = content.length;
+                // If this results in a file that is too large, and there
+                // is at least one other file.
+                if (size !== 0 && size + contentSize > maxSize) {
+                    // Alert browser that zip is being generated.
+                    Messaging.send("alert", {
+                        blocking: true,
+                        message: "Zip file full, generating..."
+                    });
+                    saveZip(zip);
+                    // Save.
+                    size = 0;
+                    zip = new JSZip();
+                }
+                size += content.length;
+                zip.file(filename + ".json", content);
+            }).then(function () {
+                Messaging.send("alert", {
+                    blocking: true,
+                    message: "All replays processed, generating final zip file..."
                 });
                 saveZip(zip);
-                // Save.
-                size = 0;
-                zip = new JSZip();
-            }
-            size += content.length;
-            zip.file(filename + ".json", content);
-        }).then(function () {
-            Messaging.send("alert", {
-                blocking: true,
-                message: "All replays processed, generating final zip file..."
+                Messaging.send("alert", {
+                    hide: true,
+                    blocking: true
+                });
+                resetDownload();
+            }).catch(function (err) {
+                Messaging.send("alert", {
+                    blocking: true,
+                    message: "Error downloading replay files: " + err.message
+                });
+                console.error("Error compiling raw replays into zip: %o.", err);
+                resetDownload(err);
             });
-            saveZip(zip);
-            Messaging.send("alert", {
-                hide: true,
-                blocking: true
-            });
-            manager.resume();
-        }).catch(function (err) {
-            Messaging.send("alert", {
-                blocking: true,
-                message: "Error downloading replay files: " + err.message
-            });
-            console.error("Error compiling raw replays into zip: %o.", err);
-            manager.resume();
+        }
+    }).catch(function () {
+        sendResponse({
+            failed: true,
+            reason: "Background page busy."
         });
-    }
+    });
+    return true;
 });
 
 /**
@@ -482,7 +509,7 @@ function(message, sender, sendResponse) {
  *   to download.
  */
 Messaging.listen("downloadMovie",
-function(message, sender, sendResponse) {
+function(message) {
     var id = message.id;
     Data.getMovie(id).then(function (file) {
         var movie = new Blob([file.data], { type: 'video/webm' });
@@ -502,7 +529,7 @@ function(message, sender, sendResponse) {
  *   is an integer id of the replay to render.
  */
 Messaging.listen(["renderReplay", "renderReplays"],
-function(message, sender, sendResponse) {
+function(message) {
     var ids = message.id ? [message.id] : message.ids;
     console.log('Received request to render replay(s) ' + ids + '.');
     manager.add(ids).then(function () {
@@ -533,7 +560,7 @@ function(message, sender, sendResponse) {
  * Cancel the rendering of one or more replays.
  */
 Messaging.listen(["cancelRender", "cancelRenders"],
-function(message, sender, sendResponse) {
+function(message) {
     var ids = message.id ? [message.id] : message.ids;
     manager.cancel(ids).then(function () {
         Messaging.send("rendersUpdated");
@@ -542,11 +569,8 @@ function(message, sender, sendResponse) {
     });
 });
 
-function resetCallback() {
-    Status.reset();
-}
-
 function stopImport() {
+    lock.release("import");
     Status.reset();
     if (importLoop) {
         importLoop.reject();
@@ -557,18 +581,24 @@ function stopImport() {
 
 Messaging.listen("startImport",
 function (message, sender, sendResponse) {
-    manager.pause();
-    Status.set("importing", function (err) {
-        if (err) {
-            sendResponse({
-                failed: true
-            });
-        } else {
-            sender.onDisconnect.addListener(stopImport);
-            sendResponse({
-                failed: false
-            });
-        }
+    lock.get("import").then(function () {
+        manager.pause();
+        Status.set("importing", function (err) {
+            if (err) {
+                sendResponse({
+                    failed: true
+                });
+            } else {
+                sender.onDisconnect.addListener(stopImport);
+                sendResponse({
+                    failed: false
+                });
+            }
+        });
+    }).catch(function () {
+        sendResponse({
+            failed: true
+        });
     });
     return true;
 });
@@ -576,6 +606,5 @@ function (message, sender, sendResponse) {
 Messaging.listen(["endImport", "cancelImport"],
 function (message, sender, sendResponse) {
     stopImport();
-    Status.reset();
     sender.onDisconnect.removeListener(stopImport);
 });
