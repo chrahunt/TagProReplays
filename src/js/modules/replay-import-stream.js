@@ -105,11 +105,6 @@ function ReplayImportStream(options) {
   });
 
   this.ended = false;
-  var stdEnd = this.end;
-  this.end = function() {
-    stdEnd.apply(self, arguments);
-    self._end.apply(self, arguments);
-  };
   var self = this;
 
   function setEmpty() {
@@ -125,17 +120,9 @@ function ReplayImportStream(options) {
     console.log("ReplayImportStream: unpiped.");
     src.removeListener('end', setEmpty);
   });
-
-  this.on('finish', function () {
-    console.log("ReplayImportStream: finish callback.");
-    if (self._importing) {
-      self._pendingCallback = null;
-    }
-  });
 }
 
-// Alternate end to stop buffered data.
-ReplayImportStream.prototype._end = function() {
+ReplayImportStream.prototype.stop = function() {
   this.ended = true;
 };
 

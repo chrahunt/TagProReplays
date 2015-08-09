@@ -731,6 +731,20 @@ Menu.prototype._list_Import = function() {
     return function () {
         var files = $(this).prop('files');
         if (files.length === 0) return;
+        var mb = 25;
+        var sizeLimit = 1024 * 1024 * mb;
+        /*files = files.filter(function (file) {
+            if (file.size > sizeLimit) {
+                menu.importing.errors.push({
+                    name: file.name,
+                    reason: "file too big, max file size is " + mb + "MB."
+                });
+                menu.importing.finished++;
+                return false;
+            } else {
+                return true;
+            }
+        });*/
         menu.importing.thisMenu = true;
         menu.importing.total = files.length;
         Messaging.send("startImport", function (result) {
@@ -740,14 +754,13 @@ Menu.prototype._list_Import = function() {
                 console.time("Replay import");
                 var fls = FileListStream(files);
                 var send = ReplayImportStream({
-                    highWaterMark: 1024 * 1024 * 25
+                    highWaterMark: sizeLimit
                 });
-                //fls.pipe(send, { end: false });
                 fls.pipe(send);
                 // For cancelling import streams.
                 menu.importing.cancel = function () {
                     fls.unpipe();
-                    send.end();
+                    send.stop();
                     menu.importing.cancelled = true;
                     Messaging.send("cancelImport");
                 };
