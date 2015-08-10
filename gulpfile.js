@@ -24,7 +24,7 @@ var dirs = {
     release: './build/release'
 };
 
-gulp.task('build', function() {
+gulp.task('build', ['sass-dev'], function() {
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
             return browserify({
