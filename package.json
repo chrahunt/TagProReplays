@@ -30,6 +30,7 @@
     "browserify-shim": "^3.8.7",
     "event-stream": "^3.3.1",
     "expect.js": "^0.3.1",
+    "glob": "^5.0.14",
     "gulp": "^3.8.11",
     "gulp-inject": "^1.2.0",
     "gulp-mocha-phantomjs": "^0.5.3",
