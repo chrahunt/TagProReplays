@@ -236,6 +236,10 @@ function recordReplayData() {
 }
 
 var TagProReplays = {
+    /**
+     * Capture a replay.
+     * @param {CaptureOptions} opts
+     */
     capture: function (opts) {
         console.log("Capturing.");
         if (typeof opts == "undefined") opts = {};
@@ -243,6 +247,7 @@ var TagProReplays = {
         if (tagpro.spectator === "watching" && opts.player_id) {
             playerId = opts.player_id;
         }
+        var name = opts.name || ('replay-' + Date.now());
         // Create the info.
         var info = {
             mapName: $('#mapInfo').text().replace('Map: ', '').replace(/ by.*/, ''),
@@ -253,7 +258,7 @@ var TagProReplays = {
             },
             player: playerId,
             dateRecorded: Date.now(),
-            name: 'replay-' + Date.now()
+            name: name
         };
         console.log('Sending replay data from injected script to content script.');
         var replay = {
