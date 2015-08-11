@@ -336,6 +336,7 @@ Menu.prototype._initReplayList = function() {
 
     // Replay row listeners.
     $("#replay-table tbody").on("click", ".row-preview", function() {
+        var id = $(this).closest('tr').data("id");
         $('#menuContainer').hide();
         menu.viewer.preview(id);
     });
