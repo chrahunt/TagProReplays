@@ -19,31 +19,47 @@ var assets = [
 ];
 
 var sources = 'src/js/*.js';
+var sass_sources = './src/scss/**/*.scss';
 var dirs = {
     dev: './build/dev',
-    release: './build/release'
+    release: './build/release',
+    beta: './build/beta'
 };
 
-gulp.task('build', ['sass-dev'], function() {
+// Browserify js, move files.
+function build(dest, opts) {
+    if (typeof opts == "undefined") opts = {};
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
-            return browserify({
-                    entries: entry,
-                    debug: true
-                })
+            var b_opts = {
+                entries: entry
+            };
+            if (opts.browserify) {
+                for (var i in opts.browserify) {
+                    b_opts[i] = opts.browserify[i];
+                }
+            }
+            return browserify(b_opts)
                 .bundle()
                 .pipe(source(entry.replace(/^src\//, '')))
-                .pipe(gulp.dest(dirs.dev));
+                .pipe(gulp.dest(dest));
         });
         return es.merge(streams);
     });
     
     assets.forEach(function(asset) {
         gulp.src(asset)
-            .pipe(gulp.dest(dirs.dev));
+            .pipe(gulp.dest(dest));
     });
+    compileSass(dest + '/css');
     return bundle;
-});
+}
+
+function compileSass(out) {
+    gulp.src(sass_sources)
+        .pipe(sass().on('error', sass.logError))
+        .pipe(gulp.dest(out));
+}
 
 // Compile and watchify sourced file.
 function watchifyFile(src, out) {
@@ -63,14 +79,25 @@ function watchifyFile(src, out) {
     return bundle();
 }
 
-function buildSass(src, out) {
-    gulp.src(src)
-        .pipe(sass().on('error', sass.logError))
-        .pipe(gulp.dest(out));
-}
+// dev build
+gulp.task('build', function() {
+    return build(dirs.dev, {
+        browserify: {
+            debug: true
+        }
+    });
+});
+
+gulp.task('build-prod', function() {
+    return build(dirs.release);
+});
+
+gulp.task('build-beta', function() {
+    return build(dirs.beta);
+});
 
 gulp.task('sass-dev', function () {
-    buildSass('./src/scss/**/*.scss', './build/dev/css');
+    compileSass(dirs.dev + '/css');
 });
 
 gulp.task('watch', function() {
@@ -87,25 +114,6 @@ gulp.task('watch', function() {
             .pipe(plumber())
             .pipe(gulp.dest(dirs.dev));
     });
-    gulp.watch('./src/scss/**/*.scss', ['sass-dev']);
-    return bundle;
-});
-
-gulp.task('build-prod', function() {
-    var bundle = glob(sources, function (err, files) {
-        var streams = files.map(function (entry) {
-            return browserify({
-                    entries: entry
-                })
-                .bundle()
-                .pipe(source(entry.replace(/^src\//, '')))
-                .pipe(gulp.dest(dirs.release));
-        });
-        return es.merge(streams);
-    });
-    assets.forEach(function(asset) {
-        gulp.src(asset)
-            .pipe(gulp.dest(dirs.release));
-    });
+    gulp.watch(sass_sources, ['sass-dev']);
     return bundle;
 });

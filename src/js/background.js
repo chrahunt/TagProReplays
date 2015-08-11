@@ -177,7 +177,6 @@ function(message, sender, sendResponse) {
             failed: true,
             reason: "No replay data captured."
         });
-        return true;
     } else {
         // Get first player frame.
         var playerStartFrame = findIndex(replay.data.players[replay.info.player].draw, function (d) {
@@ -188,24 +187,23 @@ function(message, sender, sendResponse) {
                 failed: true,
                 reason: "Error saving for specific player."
             });
-            return true;
         } else {
             startFrame = Math.max(startFrame, playerStartFrame);
+            replay = Data.util.cropReplay(replay, startFrame, replay.data.time.length);
+            Data.saveReplay(replay).then(function (info) {
+                sendResponse({
+                    failed: false
+                });
+                // Send new replay notification to any listening pages.
+                Messaging.send("replayUpdated");
+            }).catch(function (err) {
+                console.error("Error saving replay: %o.", err);
+                sendResponse({
+                    failed: true
+                });
+            });
         }
     }
-    replay = Data.util.cropReplay(replay, startFrame, replay.data.time.length);
-    Data.saveReplay(replay).then(function (info) {
-        sendResponse({
-            failed: false
-        });
-        // Send new replay notification to any listening pages.
-        Messaging.send("replayUpdated");
-    }).catch(function (err) {
-        console.error("Error saving replay: %o.", err);
-        sendResponse({
-            failed: true
-        });
-    });
     return true;
 });
 
