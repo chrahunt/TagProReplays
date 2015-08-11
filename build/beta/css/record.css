@@ -1,0 +1,19 @@
+#recordButton {
+  background: no-repeat url("chrome-extension://__MSG_@@extension_id__/images/ui/record.png");
+  position: absolute;
+  margin: auto;
+  right: 30px;
+  top: 65px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  background-size: contain; }
+
+#savedFeedback {
+  right: 20px;
+  top: 100px;
+  position: absolute;
+  color: #00CC00;
+  font-size: 20px;
+  font-weight: bold;
+  display: none; }

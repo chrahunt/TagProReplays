@@ -1,0 +1,232 @@
+<!-- Main Menu -->
+<div class="modal fade" id="menuContainer">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-overlay hidden">
+                <div class="title"></div>
+                <div class="loader"></div>
+                <div class="message"></div>
+                <div class="actions"></div>
+            </div>
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <ul class="nav nav-pills">
+                    <li class="active nav-home"><a href="#">Replays <span class="badge">0</span></a></li>
+                    <li class="nav-render"><a href="#">Rendering <span class="badge">0</span></a></li>
+                    <li class="dropdown pull-right">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Menu <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a id="open-settings" href="#" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
+                            <li>
+                                <a id="replay-import" href="#">Import...</a>
+                                <input type="file" class="hidden" id="raw-upload">
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-body">
+                <div id="replays" class="section-panel">
+                    <div class="header-alert hidden">
+                        <span class="message">default alert content</span>
+                    </div>
+                    <div class="card-header">
+                        <div>
+                            <span class="title"></span>
+                        </div>
+                        <div class="actions hidden">
+                            <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
+                            <div class="render" title="render selected"><i class="material-icons">movie_creation</i></div>
+                            <div class="download-raw" title="download json"><i class="material-icons">file_download</i></div>
+                        </div>
+                    </div>
+                    <table id="replay-table" class="table table-condensed">
+                        <thead>
+                        <tr>
+                            <th><!-- Select-all checkbox --></th>
+                            <th>Name</th>
+                            <th>Rendered</th>
+                            <th>Duration</th>
+                            <th>Date</th>
+                            <th><!-- Controls --></th>
+                        </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div id="rendering" class="section-panel">
+                    <div class="card-header">
+                        <div>
+                            <span class="title"></span>
+                        </div>
+                        <div class="actions hidden">
+                            <div class="cancel" title="cancel selected"><i class="material-icons">cancel</i></div>
+                        </div>
+                    </div>
+                    <table id="render-table" class="table table-condensed">
+                        <thead>
+                        <tr>
+                            <th><!-- Select-all checkbox --></th>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th><!-- Controls --></th>
+                        </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Settings -->
+<div class="modal fade" id="settingsContainer">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" id="settings-title">TagPro Replays</h4>
+            </div>
+            <div class="modal-body">
+                <h3>Settings</h3>
+
+                <div class="row form-horizontal" id="settings-form">
+                    <div class="col-sm-12 text-center">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="recordCheckbox"> Extension Enabled
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 text-center">
+                        <h4>Recording</h4>
+
+                        <div class="form-group">
+                            <label for="fpsInput" class="control-label-sm col-sm-6">FPS:</label>
+
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control input-xs narrow-input" id="fpsInput">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="durationInput" class="control-label-sm col-sm-6">Duration:</label>
+
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control input-xs narrow-input" id="durationInput">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="recordKeyChooserInput" class="control-label-sm col-sm-6">Record Key:</label>
+
+                            <div class="col-sm-4">
+                <span class="form-control input-xs narrow-input" id="record-key-input-container">
+                  <span id="recordKeyChooserInput"></span>
+                  <span class="glyphicon glyphicon-remove pull-right" id="record-key-remove"></span>
+                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 text-center">
+                        <h4>Rendering</h4>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="useSpinCheckbox"> Show Spin
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="useSplatsCheckbox"> Show Splats
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="useClockAndScoreCheckbox"> Show Clock and Score
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="useChatCheckbox"> Show Chat
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-12">
+                                <input type="checkbox" id="useTextureCheckbox"> Use Custom Textures
+                            </label>
+                            <button data-toggle="modal" data-target="#textureContainer">Load Textures</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="canvasWidthInput" class="control-label-sm col-sm-6">Canvas Width:</label>
+
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control input-xs narrow-input" id="canvasWidthInput">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="canvasHeightInput" class="control-label-sm col-sm-6">Canvas Height:</label>
+
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control input-xs narrow-input" id="canvasHeightInput">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveSettingsButton">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Texture Picker -->
+<div class="modal fade" id="textureContainer">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">TagPro Replays</h4>
+            </div>
+            <div class="modal-body">
+                <h3>Select Texture Files</h3>
+
+                <div class="form" id="texture-form">
+                    <div class="form-group">
+                        <label for="tilesInput" class="control-label">Tiles File</label>
+                        <input type="file" id="tilesInput">
+                    </div>
+                    <div class="form-group">
+                        <label for="portalInput" class="control-label">Portal File</label>
+                        <input type="file" id="portalInput">
+                    </div>
+                    <div class="form-group">
+                        <label for="speedpadInput" class="control-label">Speedpad File</label>
+                        <input type="file" id="speedpadInput">
+                    </div>
+                    <div class="form-group">
+                        <label for="speedpadredInput" class="control-label">Red Speedpad File</label>
+                        <input type="file" id="speedpadredInput">
+                    </div>
+                    <div class="form-group">
+                        <label for="speedpadblueInput" class="control-label">Blue Speedpad File</label>
+                        <input type="file" id="speedpadblueInput">
+                    </div>
+                    <div class="form-group">
+                        <label for="splatsInput" class="control-label">Splats File</label>
+                        <input type="file" id="splatsInput">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="textureSaveButton">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.css">
+<!-- Material design icons -->
+<link href="//fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link href='//fonts.googleapis.com/css?family=Roboto:400,500' rel='stylesheet' type='text/css'>

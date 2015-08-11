@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Replay Data.",
+  "description": "Holds the data necessary for recreating game events.",
+  "definitions": {
+    "bombInstance": {
+      "type": "object",
+      "description": "Instance of an explosion.",
+      "properties": {
+        "time": { "$ref": "definitions.json#/time" },
+        "type": {
+          "type": "integer",
+          "enum": [1, 2, 3]
+        },
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "required": [
+        "time",
+        "type",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "chatInstance": {
+      "type": "object",
+      "title": "Chat Message.",
+      "description": "Information about a message sent to the player via chat.",
+      "properties": {
+        "from": {
+          "type": ["string", "integer", "null"]
+        },
+        "time": { "$ref": "definitions.json#/time" },
+        "to": {
+          "id": "to",
+          "type": "string",
+          "enum": ["all", "team"]
+        },
+        "message": { "type": "string" },
+        "color": {
+          "description": "Forced color of text, as sent by game. Has a format like '#FF0000'.",
+          "type": "string"
+        },
+        "mod": {
+          "description": "Whether the chat message came from a mod. Omitted if not true.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "from",
+        "time",
+        "to",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "spawn": {
+      "type": "object",
+      "title": "Spawn Event.",
+      "description": "Information about a player spawning.",
+      "properties": {
+        "team": { "$ref": "definitions.json#/team" },
+        "wait": {
+          "title": "Wait Time.",
+          "description": "Time before player spawns after spawn position appears.",
+          "type": "integer"
+        },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "time": { "$ref": "definitions.json#/time" }
+      },
+      "required": [
+        "team",
+        "wait",
+        "x",
+        "y",
+        "time"
+      ],
+      "additionalProperties": false
+    },
+    "score": {
+      "title": "Score Object.",
+      "description": "Represents the score at a point in time.",
+      "type": "object",
+      "properties": {
+        "b": { "type": "integer" },
+        "r": { "type": "integer" }
+      },
+      "required": [
+        "b",
+        "r"
+      ],
+      "additionalProperties": false
+    },
+    "splat": {
+      "title": "Splat.",
+      "description": "Information about a splat that has occurred.",
+      "type": "object",
+      "properties": {
+        "team": { "$ref": "definitions.json#/team" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "time": { "$ref": "definitions.json#/time" },
+        "temp": { "type": "boolean" }
+      },
+      "required": [
+        "team",
+        "x",
+        "y",
+        "time"
+      ],
+      "additionalProperties": false
+    },
+    "dynamicTile": {
+      "title": "Dynamic Floor Tile.",
+      "description": "Object holding the information about the state of a tile throughout the replay.",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "type": ["number", "string"]
+          }
+        },
+        "x": {
+          "description": "The X position of the tile in the map array.",
+          "type": "integer"
+          },
+        "y": {
+          "description": "The Y position of the tile in the map array.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "value",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "bombs": {
+      "id": "bombs",
+      "type": "array",
+      "items": { "$ref": "#/definitions/bombInstance" }
+    },
+    "chat": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/chatInstance" }
+    },
+    "endTimes": {
+      "type": "array",
+      "title": "End Times.",
+      "description": "Holds the times that the clock may be counting down to at any point. This includes the initial waiting period as well as the end of game time.",
+      "items": { "type": "integer" }
+    },
+    "gameEnd": {
+      "type": "object",
+      "title": "Game End Info.",
+      "description": "Holds information about the end of the game, if it occurred in the replay.",
+      "properties": {
+        "time": { "$ref": "definitions.json#/time" },
+        "winner": {
+          "description": "The text to be put in the winner message.",
+          "type": "string"
+        }
+      }
+    },
+    "dynamicTiles": {
+      "title": "Dynamic Tiles.",
+      "description": "Track information about the state of dynamic tiles on the map.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/dynamicTile" }
+    },
+    "map": {
+      "description": "The 2d map array copied from tagpro.map.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": ["number", "string"] }
+      }
+    },
+    "players": {
+      "type": "object",
+      "patternProperties": {
+        "^[0-9]+$": { "$ref": "player.json#" }
+      },
+      "additionalProperties": false
+    },
+    "score": {
+      "title": "Scores.",
+      "description": "Holds the scores for each team at each frame of the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/score" }
+    },
+    "spawns": {
+      "title": "Spawns.",
+      "description": "Information about the spawns that occurred over the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/spawn" }
+    },
+    "splats": {
+      "title": "Splats.",
+      "description": "Information about the splats that have occurred over the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/splat" }
+    },
+    "time": {
+      "id": "time",
+      "type": "array",
+      "title": "Frame Times",
+      "description": "Holds the times corresponding to each frame of the replay.",
+      "items": { "$ref": "definitions.json#/time" }
+    },
+    "wallMap": {
+      "description": "As copied from tagpro.wallMap.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": { "type": ["number", "string"] },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    }
+  },
+  "required": [
+    "bombs",
+    "chat",
+    "endTimes",
+    "dynamicTiles",
+    "map",
+    "players",
+    "score",
+    "spawns",
+    "splats",
+    "time",
+    "wallMap"
+  ],
+  "additionalProperties": false
+}

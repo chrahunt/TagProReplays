@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Replay Info in Database.",
+  "description": "Information corresponding to a replay as saved in the local database.",
+  "definitions": {
+    "playerInfo": {
+      "type": "object",
+      "properties": {
+        "team": {
+          "description": "The team the given player started on in the replay.",
+          "$ref": "definitions.json#/team"
+        },
+        "name": {
+          "type": "string"
+        },
+        "degree": {
+          "type": "integer"
+        },
+        "id": {
+          "description": "The id of the player.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "team",
+        "name",
+        "degree",
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    { "$ref": "info.json#" },
+    {
+      "properties": {
+        "rendered": {
+          "title": "Replay Rendered.",
+          "description": "Whether the replay has been rendered.",
+          "type": "boolean"
+        },
+        "renderId": {
+          "title": "Render ID.",
+          "description": "The id of the rendered replay that corresponds to this replay data, or null if not rendered.",
+          "type": ["string", "null"]
+        },
+        "duration": {
+          "title": "Replay Duration.",
+          "description": "The duration of the replay, in ms.",
+          "type": "integer"
+        },
+        "players": {
+          "type": "object",
+          "patternProperties": {
+            "^[0-9]+$": { "$ref": "#/definitions/playerInfo" }
+          }
+        }
+      },
+      "required": [
+        "rendered",
+        "renderId",
+        "duration",
+        "players"
+      ]
+    }
+  ]
+}
