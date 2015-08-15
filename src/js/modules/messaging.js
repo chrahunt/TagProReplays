@@ -168,6 +168,25 @@ function listenPort(port) {
     });
 }
 
+/**
+ * Callback that is called with the message sent from either the 
+ * @callback BackgroundMessageCallback
+ */
+/**
+ * Callback called when a message is sent from the background page to
+ * a content script.
+ * @callback ContentScriptCallback
+ * @param {*} [message] - Object passed from background page in call
+ *   to send.
+ */
+/**
+ * [listen description]
+ * @param {(string|Array<string>)} names - The name of the messages to
+ *   listen for.
+ * @param {MessageCallback} callback - The callback function called
+ *   with the message.
+ * @return {[type]} [description]
+ */
 exports.listen = function (names, callback) {
     if (typeof names == 'string') names = [names];
     names.forEach(function(name) {
