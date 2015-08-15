@@ -1,3 +1,4 @@
+var cmp = require('semver-compare');
 var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
@@ -51,24 +52,31 @@ function find(array, fn) {
   }
 }
 
+// Clone given object.
+function clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
+function setDefaultTextures() {
+    Textures.getDefault(function(textures) {
+        // Use clone for same object, otherwise default_textures is
+        // null.
+        chrome.storage.local.set({
+            textures: textures,
+            default_textures: clone(textures)
+        }, function() {
+            if (chrome.runtime.lastError) {
+                console.log("Error initializing textures " +
+                    chrome.runtime.lastError);
+            }
+        });
+    });
+}
+
 // Ensure textures are set.
 chrome.storage.local.get(["default_textures", "textures"], function(items) {
     if (!items.textures || !items.default_textures) {
-        Textures.getDefault(function(textures) {
-            var default_textures = {};
-            for (var t in textures) {
-                default_textures[t] = textures[t];
-            }
-            chrome.storage.local.set({
-                textures: textures,
-                default_textures: default_textures
-            }, function() {
-                if (chrome.runtime.lastError) {
-                    console.log("Error initializing textures " +
-                        chrome.runtime.lastError);
-                }
-            });
-        });
+        setDefaultTextures();
     }
 });
 
@@ -81,6 +89,9 @@ chrome.runtime.onInstalled.addListener(function (details) {
     } else if (reason == "update") {
         var from = details.previousVersion;
         console.log("Upgrading from version %s.", from);
+        if (cmp(from, '2.0.0') == -1) {
+            setDefaultTextures();
+        }
     }
 });
 

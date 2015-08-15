@@ -1,47 +1,8 @@
-$ = require('jquery');
+var $ = require('jquery');
+var AsyncLoop = require('./async-loop');
 
+// Save image from texture dialog.
 exports.saveSettings = function() {
-    // Holds loaded status for images.
-    var imagesLoaded = {};
-    
-    // Set image as loaded and call callback if all images have been
-    // loaded.
-    function ifImagesLoaded(image, callback) {
-        var images = ["tiles", "portal", "speedpad", "speedpadred",
-          "speedpadblue", "splats"];
-        imagesLoaded[image] = true;
-        var missing = images.some(function(img) {
-            return !imagesLoaded.hasOwnProperty(img);
-        });
-        if (!missing) {
-            callback();
-        }
-    }
-
-    /**
-     * Function executed once all images are loaded.
-     */
-    function onLoad() {
-        console.log(imageData);
-
-        // Save values to chrome storage.
-        chrome.storage.local.get("textures", function(items) {
-            if (!items.textures) {
-
-            } else {
-                var textures = items.textures;
-                Object.keys(imageData).forEach(function(key){
-                    if(typeof imageData[key] !== 'undefined') {
-                        textures[key] = imageData[key];
-                    }
-                });
-                chrome.storage.local.set({
-                    textures: textures
-                });
-            }
-        });
-    }
-
     // Mapping from file input ids to texture object properties.
     var imageSources = {
         tilesInput: "tiles",
@@ -51,25 +12,45 @@ exports.saveSettings = function() {
         speedpadblueInput: "speedpadblue",
         splatsInput: "splats"
     };
-
-    // read files values
-    var imageData = {};
-    for (var id in imageSources) {
-        var prop = imageSources[id];
+    AsyncLoop(Object.keys(imageSources)).do(function (id, resolve) {
         var file = $('#' + id)[0].files[0];
-        if (typeof file !== 'undefined') {
+        if (file) {
             var reader = new FileReader();
-            // The `prop` argument is passed using `bind` at the end
-            // of the function.
-            reader.onload = function(prop, e) {
-                imageData[prop] = e.target.result;
-                ifImagesLoaded(prop, onLoad);
-            }.bind(null, prop);
+            reader.onload = function(e) {
+                resolve({
+                    id: id,
+                    data: e.target.result
+                });
+            };
             reader.readAsDataURL(file);
         } else {
-            ifImagesLoaded(prop, onLoad);
+            resolve({
+                id: id,
+                data: null
+            });
         }
-    }
+    }).then(function (images) {
+        var imageData = {};
+        images.forEach(function (image) {
+            if (image.data !== null) {
+                imageData[imageSources[image.id]] = image.data;
+            }
+        });
+
+        // Save values to chrome storage.
+        chrome.storage.local.get("textures", function(items) {
+            if (items.textures) {
+                var textures = items.textures;
+                for (var key in imageData) {
+                    textures[key] = imageData[key];
+                }
+                chrome.storage.local.set({
+                    textures: textures
+                });
+            }
+            // TODO: Handle case where textures not found?
+        });
+    });
 };
 
 /**
@@ -179,7 +160,8 @@ function getImageDataURL(url, callback) {
 
 // Get initial texture information from extension.
 // callback is passed the new textures object.
-// Should only be called from background page.
+// Should only be called from background page to prevent cross-origin
+// canvas contamination.
 exports.getDefault = function(callback) {
     var defaultTextures = {
         tiles: 'images/textures/tiles.png',

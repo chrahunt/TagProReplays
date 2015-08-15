@@ -23,7 +23,7 @@ AsyncLoop.prototype._start = function() {
   if (self._do && self._then) {
     var results = self.list.map(function (elt) {
       return new Promise(function (resolve, reject) {
-        self._do(elt, resolve, reject, cancelled);
+        return self._do(elt, resolve, reject, cancelled);
       });
     });
     Promise.all(results).then(function (results) {
@@ -55,6 +55,7 @@ AsyncLoop.prototype.then = function(fn) {
   return this;
 };
 
+// Cancel loop.
 AsyncLoop.prototype.reject = function() {
   this.cancelled = true;
 };
