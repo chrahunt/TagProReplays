@@ -1,11 +1,11 @@
 var Dexie = require('dexie');
 var Whammy = require('whammy');
 
-var Task = require('./task');
-var Messaging = require('./messaging');
 var Data = require('./data');
+var Messaging = require('./messaging');
+var Renderer = require('./renderer');
+var Task = require('./task');
 var Textures = require('./textures');
-var Render = require('./render');
 
 // Setup task database.
 var db = new Dexie("TaskDatabase");
@@ -163,21 +163,17 @@ RenderManager.prototype._render = function(id) {
             self.task = new Task({
                 context: context,
                 init: function init(ready) {
-                    // Construct canvas and set dimensions.
-                    var canvas = document.createElement('canvas');
-                    canvas.width = options.canvas_width;
-                    canvas.height = options.canvas_height;
+                    this.renderer = new Renderer(this.replay, {
+                        textures: this.textures,
+                        options: this.options
+                    });
 
                     var fps = replay.info.fps;
                     this.encoder = new Whammy.Video(fps);
-                    this.context = canvas.getContext('2d');
+                    this.context = this.renderer.getContext();
 
                     this.frames = replay.data.time.length;
-
-                    var mapImgData = Render.drawMap(replay, textures.tiles);
-                    this.mapImg = new Image();
-                    this.mapImg.src = mapImgData;
-                    this.mapImg.onload = ready;
+                    ready();
                     return true;
                 },
                 loop: function loop(frame) {
@@ -188,8 +184,7 @@ RenderManager.prototype._render = function(id) {
                             progress: progress
                         });
                     }
-                    Render.drawFrame(frame, this.replay, this.mapImg,
-                        this.options, this.textures, this.context);
+                    this.renderer.drawFrame(frame);
                     this.encoder.add(this.context);
                 },
                 options: {

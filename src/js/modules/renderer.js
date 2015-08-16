@@ -2,18 +2,12 @@
  * This file contains the functions used to draw the replay data onto
  * the canvas for the in-page preview as well as for replay rendering.
  */
-
+var $ = require('jquery');
 var moment = require('moment');
 
 // Constant tile size.
 var TILE_SIZE = 40;
-
-// Draw-function global. Set in drawReplay and animateReplay.
-var thisI = 0;
-var context;
-
-// Draw-function globals.
-var posx, posy;
+var SPLAT_SIZE = 120;
 
 // Tile information.
 var tiles = {
@@ -309,6 +303,142 @@ var tiles = {
   '1.200d': { x: 5.5, y: 10, size: 20 }
 };
 
+var flagTiles = {
+    1: 'redflag',
+    2: 'blueflag',
+    3: 'yellowflag'
+};
+
+function Renderer(replay, opts) {
+    this.options = opts.options;
+    this.textures = opts.textures;
+    this.replay = replay;
+    if (opts.canvas) {
+        this.canvas = opts.canvas;
+    } else {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = this.options.canvas_width;
+        this.canvas.height = this.options.canvas_height;
+    }
+    this.context = this.canvas.getContext('2d');
+    this.frame = 0;
+    this.state = {
+        players: {},
+        splats: {},
+        bombs: {}
+    };
+    this.camera = {
+        x: 0,
+        y: 0
+    };
+    // Initialize state for each player.
+    for (var id in this.replay.data.players) {
+        this.state.players[id] = {
+            pops: [],
+            bombs: []
+        };
+    }
+    var mapImg = this.makeBackgroundTexture();
+    // draw background
+    this.background = new Image();
+    // TODO: fire ready.
+    this.background.onload = function() {
+
+    };
+    this.background.src = mapImg;
+}
+
+module.exports = Renderer;
+
+Renderer.prototype.onReady = function(fn) {
+    if (this.ready) {
+        fn();
+    } else {
+        this._onReady = fn;
+    }
+};
+
+Renderer.prototype.setFrame = function(i) {
+    this.frame = i;
+};
+
+Renderer.prototype.getCamera = function() {
+    var player = this.getPlayer();
+    return {
+        x: player.x[this.frame] + TILE_SIZE / 2,
+        y: player.y[this.frame] + TILE_SIZE / 2
+    };
+};
+
+Renderer.prototype.toScreen = function(loc) {
+    return {
+        x: loc.x - this.camera.x + this.center.x,
+        y: loc.y - this.camera.y + this.center.y
+    };
+};
+
+/**
+ * Draw frame of replay.
+ * @param {integer} i - The frame to draw.
+ */
+Renderer.prototype.drawFrame = function(i) {
+    var ctx = this.context;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    this.setFrame(i);
+    this.camera = this.getCamera();
+    this.screen = {
+        x: ctx.canvas.width,
+        y: ctx.canvas.height
+    };
+    this.center = {
+        x: this.screen.x / 2,
+        y: this.screen.y / 2
+    };
+
+    this.drawBackground();
+    if (this.options.splats) {
+        this.drawSplats();
+    }
+    this.drawFloorTiles();
+    this.drawSpawns();
+    this.drawPlayers();
+    if (this.options.ui) {
+        this.drawUI();
+    }
+    if (this.options.chat) {
+        this.drawChats();
+    }
+    this.drawExplosions();
+    this.drawEndText();
+};
+
+Renderer.prototype.drawUI = function() {
+    this.drawClock();
+    this.drawScore(this.replay.data.score[this.frame]);
+    this.drawScoreFlag();
+};
+
+Renderer.prototype.drawBackground = function() {
+    var offset = this.toScreen({
+        x: 0,
+        y: 0
+    });
+    this.context.drawImage(this.background,
+        0,
+        0,
+        this.background.width,
+        this.background.height,
+        offset.x,
+        offset.y,
+        this.background.width,
+        this.background.height);
+};
+
+Renderer.prototype.getContext = function() {
+    return this.context;
+};
+
 /**
  * Get the player object that corresponds to the recording player
  * from position data. If the player is not found then null is
@@ -317,10 +447,11 @@ var tiles = {
  *   from.
  * @return {?Player} - The player object.
  */
-function getPlayer(data) {
-    var playerId = data.info.player;
-    return data.data.players[playerId];
-}
+// done
+Renderer.prototype.getPlayer = function() {
+    var playerId = this.replay.info.player;
+    return this.replay.data.players[playerId];
+};
 
 /**
  * Get the player objects from the data. If no players are found then
@@ -328,13 +459,14 @@ function getPlayer(data) {
  * @param {Replay} replay - The replay.
  * @return {Array.<Player>} - The players.
  */
-function getPlayers(replay) {
+// done
+Renderer.prototype.getPlayers = function() {
     var players = [];
-    for (var i in replay.data.players) {
-        players.push(replay.data.players[i]);
+    for (var i in this.replay.data.players) {
+        players.push(this.replay.data.players[i]);
     }
     return players;
-}
+};
 
 /**
  * @typedef PlayerInfo
@@ -345,81 +477,77 @@ function getPlayers(replay) {
  * @property {?auth} auth - Whether or not the player was
  *   authenticated, or null if not available.
  */
-// Uses: context
 /**
  * Draw the text around the player.
  * @param {Point} position - The draw position for the player.
  * @param {PlayerInfo} info - The information to draw.
  */
-function drawText(position, info) {
+Renderer.prototype.drawText = function(position, info) {
+    var ctx = this.context;
     // Move from player position to text drawing position.
     position = {
         x: position.x + 30,
         y: position.y - 5
     };
-    context.textAlign = 'left';
-    context.fillStyle = info.auth ? "#BFFF00" : "#ffffff";
-    context.strokeStyle = "#000000";
-    context.shadowColor = "#000000";
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-    context.lineWidth = 2;
-    context.font = "bold 8pt Arial";
-    context.shadowBlur = 10;
-    context.strokeText(info.name, position.x + 3, position.y);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = info.auth ? "#BFFF00" : "#ffffff";
+    ctx.strokeStyle = "#000000";
+    ctx.shadowColor = "#000000";
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.lineWidth = 2;
+    ctx.font = "bold 8pt Arial";
+    ctx.shadowBlur = 10;
+    ctx.strokeText(info.name, position.x + 3, position.y);
     if (info.degree && info.degree !== 0) {
-        context.strokeText(info.degree + "°", position.x + 10, position.y + 12);
+        ctx.strokeText(info.degree + "°", position.x + 10, position.y + 12);
     }
-    context.shadowBlur = 0;
-    context.fillText(info.name, position.x + 3, position.y);
+    ctx.shadowBlur = 0;
+    ctx.fillText(info.name, position.x + 3, position.y);
     if (info.degree && info.degree !== 0) {
-        context.fillStyle = "#ffffff";
-        context.fillText(info.degree + "°", position.x + 10, position.y + 12);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(info.degree + "°", position.x + 10, position.y + 12);
     }
-}
+};
 
-// Uses: context
 /**
- * [drawFlair description]
- * @param  {Point} ballFlair - Location of flair on sprite.
- * @param  {Point} pos - Location to draw flair on canvas.
- * @param  {Image} flair - Image representing the flair textures.
+ * @param {Point} pos - Location to draw flair on canvas.
+ * @param {Point} ballFlair - Location of flair on sprite.
  */
-function drawFlair(ballFlair, pos, flair) {
-    if (ballFlair !== null) {
-        context.drawImage(flair,
-            ballFlair.x * 16,
-            ballFlair.y * 16,
-            16,
-            16,
-            pos.x,
-            pos.y,
-            16,
-            16);
-    }
-}
+Renderer.prototype.drawFlair = function(pos, flair) {
+    this.context.drawImage(this.textures.flair,
+        flair.x * 16,
+        flair.y * 16,
+        16,
+        16,
+        pos.x,
+        pos.y,
+        16,
+        16);
+};
 
-// Uses: context
-function prettyText(text, textx, texty, color) {
-    context.textAlign = 'left';
-    context.fillStyle = color;
-    context.strokeStyle = "#000000";
-    context.shadowColor = "#000000";
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-    context.lineWidth = 2;
-    context.font = "bold 8pt Arial";
-    context.shadowBlur = 10;
-    context.strokeText(text, textx, texty);
-    context.shadowBlur = 0;
-    context.fillText(text, textx, texty);
-    return context.measureText(text).width;
-}
+Renderer.prototype.prettyText = function(text, textx, texty, color) {
+    var ctx = this.context;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#000000";
+    ctx.shadowColor = "#000000";
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.lineWidth = 2;
+    ctx.font = "bold 8pt Arial";
+    ctx.shadowBlur = 10;
+    ctx.strokeText(text, textx, texty);
+    ctx.shadowBlur = 0;
+    ctx.fillText(text, textx, texty);
+    return ctx.measureText(text).width;
+};
 
-// Uses: thisI (var), prettyText (fn) - by extension context
-function drawChats(replay) {
-    var chats = replay.data.chat.slice().reverse();
-    var time = replay.data.time[thisI];
+Renderer.prototype.drawChats = function() {
+    var chats = this.replay.data.chat.slice().reverse();
+    var frame = this.frame;
+    var self = this;
+    var time = this.replay.data.time[frame];
     var currentChats = [];
     for (var i = chats.length - 1; i >= 0; i--) {
         var chat = chats[i];
@@ -428,24 +556,24 @@ function drawChats(replay) {
         }
         if (currentChats.length > 10) break;
     }
-
-    var players = replay.data.players;
+    var ctx = this.context;
+    var players = this.replay.data.players;
     currentChats.forEach(function(chat, i) {
         var left = 10;
-        var top = context.canvas.height - 175 + i * 12;
+        var top = ctx.canvas.height - 175 + i * 12;
         if (typeof chat.from == 'number') {
-            if (players[chat.from].auth[thisI]) {
-                left += prettyText("✓ ", left, top, "#BFFF00");
+            if (players[chat.from].auth[frame]) {
+                left += self.prettyText("✓ ", left, top, "#BFFF00");
             }
-            var chatName = players[chat.from].name[thisI];
-            left += prettyText(chatName + ': ',
+            var chatName = players[chat.from].name[frame];
+            left += self.prettyText(chatName + ': ',
                 left,
                 top,
-                players[chat.from].team[thisI] === 1 ? "#FFB5BD" : "#CFCFFF");
+                players[chat.from].team[frame] === 1 ? "#FFB5BD" : "#CFCFFF");
         }
         var color;
         if (chat.to == 'team') {
-            color = players[chat.from].team[thisI] === 1 ? "#FFB5BD" : "#CFCFFF";
+            color = players[chat.from].team[frame] === 1 ? "#FFB5BD" : "#CFCFFF";
         } else if (chat.to == 'group') {
             color = "#E7E700";
         } else if (chat.color) {
@@ -453,20 +581,19 @@ function drawChats(replay) {
         } else {
             color = 'white';
         }
-        prettyText(chat.message, left, top, color);
+        self.prettyText(chat.message, left, top, color);
     });
-}
+};
 
-// Uses: context
 /**
  * Draw the juke juice image at the position specified, which should be
  * the player draw position.
  * @param  {Point} point - The location to draw the powerup over the
  *   player.
- * @param {Image} tiles - The image representing the tiles textures.
  */
-function drawGrip(point, tiles) {
-    context.drawImage(tiles,
+// done
+Renderer.prototype.drawGrip = function(point) {
+    this.context.drawImage(this.textures.tiles,
         12 * TILE_SIZE,
         4 * TILE_SIZE,
         TILE_SIZE,
@@ -475,21 +602,19 @@ function drawGrip(point, tiles) {
         point.y + 20,
         TILE_SIZE / 2,
         TILE_SIZE / 2);
-}
+};
 
-// Uses: context
 /**
  * Draw the rolling bomb powerup image at the position specified, which
  * should be the player draw position.
  * @param  {Point} point - The location to draw the powerup over the
  *   player.
- * @param {Image} rollingbomb - The texture representing the rolling
- *   bomb overlay.
  */
-function drawBomb(point, rollingbomb) {
+// done
+Renderer.prototype.drawBomb = function(point) {
     // Draw 25% of the time.
     if (Math.round(Math.random() * 4) == 1) {
-        context.drawImage(rollingbomb,
+        this.context.drawImage(this.textures.rollingbomb,
             0,
             0,
             TILE_SIZE,
@@ -499,18 +624,17 @@ function drawBomb(point, rollingbomb) {
             TILE_SIZE,
             TILE_SIZE);
     }
-}
+};
 
-// Uses: context
 /**
  * Draw the tagpro powerup image at the position specified, which
  * should be the player draw position.
  * @param  {Point} point - The location to draw the powerup over the
  *   player.
- * @param {Image} tagpro - The image representing the tagpro overlay.
  */
-function drawTagpro(point, tagpro) {
-    context.drawImage(tagpro,
+// done
+Renderer.prototype.drawTagpro = function(point) {
+    this.context.drawImage(this.textures.tagpro,
         0,
         0,
         TILE_SIZE,
@@ -519,46 +643,46 @@ function drawTagpro(point, tagpro) {
         point.y,
         TILE_SIZE,
         TILE_SIZE);
-}
+};
 
-// Uses: $, thisI, context
-function drawClock(replay) {
+Renderer.prototype.drawClock = function() {
     // define the end time that applies to the current frame
-    var endTimes = replay.data.endTimes.map(function (t) {
-        return moment(t);
-    }),
-        thisTime = moment(replay.data.time[thisI]),
+    var endTimes = this.replay.data.endTimes.map(function (t) {
+            return moment(t);
+        }),
+        time = moment(this.replay.data.time[this.frame]),
         endTime, clockTime;
 
     for (var i = 0; i < endTimes.length; i++) {
-        if (thisTime.isBefore(endTimes[i])) {
+        if (time.isBefore(endTimes[i])) {
           endTime = endTimes[i];
           break;
         }
     }
 
     if (endTime) {
-        if (replay.data.gameEnd) {
-            var gameEnd = moment(replay.data.gameEnd.time);
-            if (gameEnd.isBefore(thisTime)) {
+        if (this.replay.data.gameEnd) {
+            var gameEnd = moment(this.replay.data.gameEnd.time);
+            if (gameEnd.isBefore(time)) {
                 clockTime = moment(endTime.diff(gameEnd)).format("mm:ss");
             }
         }
         if (!clockTime) {
-            clockTime = moment(endTime.diff(thisTime)).format("mm:ss");
+            clockTime = moment(endTime.diff(time)).format("mm:ss");
         }
     } else {
         // After clock has run out.
         clockTime = "0:00";
     }
-    context.fillStyle = "rgba(255, 255, 255, 1)";
-    context.strokeStyle = "rgba(0, 0, 0, .75)";
-    context.font = "bold 30pt Arial";
-    context.textAlign = 'center';
-    context.lineWidth = 4;
-    context.strokeText(clockTime, context.canvas.width / 2, context.canvas.height - 25);
-    context.fillText(clockTime, context.canvas.width / 2, context.canvas.height - 25);
-}
+    var ctx = this.context;
+    ctx.fillStyle = "rgba(255, 255, 255, 1)";
+    ctx.strokeStyle = "rgba(0, 0, 0, .75)";
+    ctx.font = "bold 30pt Arial";
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeText(clockTime, ctx.canvas.width / 2, ctx.canvas.height - 25);
+    ctx.fillText(clockTime, ctx.canvas.width / 2, ctx.canvas.height - 25);
+};
 
 /**
  * An object that holds the current score for a game.
@@ -567,91 +691,75 @@ function drawClock(replay) {
  * @property {integer} r - The score for the red team.
  * @property {integer} b - The score for the blue team.
  */
-// Uses: context
 /**
- * Takes a score object and 
+ * Draws score.
  * @param  {ScoreObj} score - The score object for the current frame.
  */
-function drawScore(score) {
-    context.textAlign = "center";
-    context.fillStyle = "rgba(255, 0, 0, .5)";
-    context.font = "bold 40pt Arial";
-    context.fillText(score.r, context.canvas.width / 2 - 120, context.canvas.height - 50);
-    context.fillStyle = "rgba(0, 0, 255, .5)";
-    context.fillText(score.b, context.canvas.width / 2 + 120, context.canvas.height - 50);
-}
+// done
+Renderer.prototype.drawScore = function(score) {
+    var ctx = this.context;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(255, 0, 0, .5)";
+    ctx.font = "bold 40pt Arial";
+    ctx.fillText(score.r, ctx.canvas.width / 2 - 120, ctx.canvas.height - 50);
+    ctx.fillStyle = "rgba(0, 0, 255, .5)";
+    ctx.fillText(score.b, ctx.canvas.width / 2 + 120, ctx.canvas.height - 50);
+};
 
-// Uses: thisI, context, img
 /**
  * Draw flags at bottom of UI  indicating which flags are held.
- * @param {PositionData} positions
- * @param {Image} tiles
  */
-function drawScoreFlag(positions, tiles) {
-    var players = getPlayers(positions);
+Renderer.prototype.drawScoreFlag = function() {
+    var ctx = this.context;
+    var players = this.getPlayers();
+    var frame = this.frame;
+    var self = this;
     players.forEach(function(player) {
         // Flag status for this player for this frame.
-        var flagStatus = player.flag[thisI];
+        var flagStatus = player.flag[frame];
         // Check if they had the flag this frame.
-        if (flagStatus !== null) {
-            var flagCoords;
-            if (flagStatus == '3') {
-                flagCoords = {x: 13, y: 1};
-            } else if (flagStatus == '1') {
-                flagCoords = {x: 14, y: 1};
-            } else if (flagStatus == '2') {
-                flagCoords = {x: 15, y: 1};
-            }
-            if (typeof flagCoords !== 'undefined') {
-                // Get team of player with flag.
-                var flagTeam = player.team[thisI];
-                var flagPos = {
-                    x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
-                    y: context.canvas.height - 50
-                };
-                context.globalAlpha = 0.5;
-                context.drawImage(tiles,
-                    flagCoords.x * TILE_SIZE,
-                    1 * TILE_SIZE,
-                    TILE_SIZE,
-                    TILE_SIZE,
-                    flagPos.x,
-                    flagPos.y,
-                    TILE_SIZE * 0.8,
-                    TILE_SIZE * 0.8);
-                context.globalAlpha = 1;
-            }
+        if (flagStatus) {
+            var flagCoords = tiles[flagTiles[flagStatus]];
+            // Get team of player with flag.
+            var flagTeam = player.team[frame];
+            var flagPos = {
+                x: ctx.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
+                y: ctx.canvas.height - 50
+            };
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(self.textures.tiles,
+                flagCoords.x * TILE_SIZE,
+                flagCoords.y * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE,
+                flagPos.x,
+                flagPos.y,
+                TILE_SIZE * 0.8,
+                TILE_SIZE * 0.8);
+            ctx.globalAlpha = 1;
         }
     });
-}
+};
 
-// Uses: thisI, context
 /**
  * Draw flag being carried by player.
  * @param  {Player} player  - The player to draw the flag for.
  * @param  {Point} point - The point to draw the flag.
  * @param {Image} tiles - The image representing the tiles texture.
  */
-function drawFlag(player, point, tiles) {
-    // Flag image locations on source image.
-    var flagCodes = {
-        1: {x: 14, y: 1},
-        2: {x: 15, y: 1},
-        3: {x: 13, y: 1}
-    };
-    if (player.flag[thisI] !== null) {
-        var flagCoords = flagCodes[player.flag[thisI]];
-        context.drawImage(tiles,
-            flagCoords.x * TILE_SIZE,
-            flagCoords.y * TILE_SIZE,
-            TILE_SIZE,
-            TILE_SIZE,
-            point.x + 10,
-            point.y - 30,
-            TILE_SIZE,
-            TILE_SIZE);
-    }
-}
+// done
+Renderer.prototype.drawFlag = function(point, flag) {
+    var flagCoords = tiles[flagTiles[flag]];
+    this.context.drawImage(this.textures.tiles,
+        flagCoords.x * TILE_SIZE,
+        flagCoords.y * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE,
+        point.x + 10,
+        point.y - 30,
+        TILE_SIZE,
+        TILE_SIZE);
+};
 
 /**
  * Given the map for the replay, generate the floorMap, specifying the
@@ -661,7 +769,7 @@ function drawFlag(player, point, tiles) {
  * @return {Array.<Array.<number>>} - Specifies the floor tiles to be
  *   drawn, or -1 if not needed at a location.
  */
-function makeFloorMap(map) {
+Renderer.prototype.makeFloorMap = function(map) {
     // Directions to check for neighboring special tiles.
     var defaultOffsets = [
         { x: -1, y: 0 },
@@ -770,7 +878,7 @@ function makeFloorMap(map) {
         });
     });
     return floorMap;
-}
+};
 
 /**
  * Takes in the replay data and returns a DataURL (png) representing the map background.
@@ -778,32 +886,30 @@ function makeFloorMap(map) {
  * @param {Image} tiles - The image representing the tiles texture.
  * @return {string} - DataURL representing the map.
  */
-exports.drawMap = function(replay, tilesTexture) {
-    var posx = 0;
-    var posy = 0;
-    var newcan = document.createElement('canvas');
-    newcan.id = 'newCanvas';
-    newcan.style.display = 'none';
-    document.body.appendChild(newcan);
-    newcan = document.getElementById('newCanvas');
-    newcan.width = replay.data.map.length * TILE_SIZE;
-    newcan.height = replay.data.map[0].length * TILE_SIZE;
-    newcan.style.zIndex = 200;
-    newcan.style.position = 'absolute';
-    newcan.style.top = 0;
-    newcan.style.left = 0;
-    var newcontext = newcan.getContext('2d');
+Renderer.prototype.makeBackgroundTexture = function() {
+    var canvas = document.createElement('canvas');
+    canvas.id = 'newCanvas';
+    canvas.style.display = 'none';
+    document.body.appendChild(canvas);
+    canvas = document.getElementById('newCanvas');
+    canvas.width = this.replay.data.map.length * TILE_SIZE;
+    canvas.height = this.replay.data.map[0].length * TILE_SIZE;
+    canvas.style.zIndex = 200;
+    canvas.style.position = 'absolute';
+    canvas.style.top = 0;
+    canvas.style.left = 0;
+    var ctx = canvas.getContext('2d');
 
-    var floorMap = makeFloorMap(replay.data.map);
-    var wallMap = replay.data.wallMap;
+    var floorMap = this.makeFloorMap(this.replay.data.map);
+    var wallMap = this.replay.data.wallMap;
     var wallOffsets = [
         { x: 0, y: 0},
         { x: 20, y: 0 },
         { x: 20, y: 20 },
         { x: 0, y: 20 }
     ];
-
-    replay.data.map.forEach(function(row, x) {
+    var self = this;
+    this.replay.data.map.forEach(function(row, x) {
         row.forEach(function(tileId, y) {
             var tile = tiles[tileId];
             var tileSize = tile.size || TILE_SIZE;
@@ -812,13 +918,13 @@ exports.drawMap = function(replay, tilesTexture) {
             // Draw floor underneath tiles where relevant.
             if (tile.drawFloor) {
                 var floorTile = tiles[floorMap[loc.x][loc.y]];
-                newcontext.drawImage(tilesTexture,
+                ctx.drawImage(self.textures.tiles,
                     floorTile.x * TILE_SIZE,
                     floorTile.y * TILE_SIZE,
                     TILE_SIZE,
                     TILE_SIZE,
-                    loc.x * TILE_SIZE + posx,
-                    loc.y * TILE_SIZE + posy,
+                    loc.x * TILE_SIZE,
+                    loc.y * TILE_SIZE,
                     TILE_SIZE,
                     TILE_SIZE);
             }
@@ -832,51 +938,49 @@ exports.drawMap = function(replay, tilesTexture) {
                     var offset = wallOffsets[i];
                     var quadrantTile = tiles[quadrant];
                     var quadrantSize = quadrantTile.size;
-                    newcontext.drawImage(tilesTexture,
+                    ctx.drawImage(self.textures.tiles,
                         quadrantTile.x * tileSize,
                         quadrantTile.y * tileSize,
                         quadrantSize,
                         quadrantSize,
-                        loc.x * tileSize + offset.x + posx,
-                        loc.y * tileSize + offset.y + posy,
+                        loc.x * tileSize + offset.x,
+                        loc.y * tileSize + offset.y,
                         quadrantSize,
                         quadrantSize);
                 });
             } else {
                 // Draw tile.
-                newcontext.drawImage(tilesTexture,
+                ctx.drawImage(self.textures.tiles,
                     tile.x * tileSize,
                     tile.y * tileSize,
                     tileSize,
                     tileSize,
-                    loc.x * tileSize + posx,
-                    loc.y * tileSize + posy,
+                    loc.x * tileSize,
+                    loc.y * tileSize,
                     tileSize,
                     tileSize);
             }
         });
     });
-    return newcontext.canvas.toDataURL();
+    return ctx.canvas.toDataURL();
 };
 
 /**
  * Draw the dynamic floor tiles.
- * @param  {Replay} replay - The replay data.
- * @return {TextureImages} textures
  */
-function drawFloorTiles(replay, textures) {
-    var player = getPlayer(replay);
-    var fps = replay.info.fps;
-    var mod = thisI % (fps * 2 / 3);
+// done
+Renderer.prototype.drawFloorTiles = function() {
+    var fps = this.replay.info.fps;
+    var mod = this.frame % (fps * 2 / 3);
     var fourth = (fps * 2 / 3) / 4;
     var animationTile = Math.floor(mod / fourth);
-
-    replay.data.dynamicTiles.forEach(function(dynamicTile) {
-        var loc = {
-          x: dynamicTile.x,
-          y: dynamicTile.y
-        };
-        var tileId = dynamicTile.value[thisI];
+    var self = this;
+    this.replay.data.dynamicTiles.forEach(function(dynamicTile) {
+        var loc = self.toScreen({
+          x: dynamicTile.x * TILE_SIZE,
+          y: dynamicTile.y * TILE_SIZE
+        });
+        var tileId = dynamicTile.value[self.frame];
         var tile = tiles[tileId];
         var size = tile.size || TILE_SIZE;
         var textureName = tile.img || "tiles";
@@ -892,50 +996,74 @@ function drawFloorTiles(replay, textures) {
               y: tile.y
             };
         }
-        context.drawImage(textures[textureName],
+        self.context.drawImage(self.textures[textureName],
             spriteLoc.x * TILE_SIZE,
             spriteLoc.y * TILE_SIZE,
             size,
             size,
-            loc.x * TILE_SIZE + posx,
-            loc.y * TILE_SIZE + posy,
+            loc.x,
+            loc.y,
             size,
             size);
     });
-}
+};
 
-function bombPop(replay) {
-    replay.data.bombs.forEach(function (bmb) {
-        var bTime = bmb.time;
-        var cTime = replay.data.time[thisI];
-        if(bTime <= cTime && cTime - bTime <= 200 && bmb.type === 2) {
-            if(typeof bmb.bombAnimation === 'undefined') {
-                bmb.bombAnimation = {
-                    length: Math.round(replay.info.fps / 10),
-                    frame: 0
-                };
-            }
-            
-            if(bmb.bombAnimation.frame < bmb.bombAnimation.length) {
-                bmb.bombAnimation.frame++;
-                bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length));
-                bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length;
-                context.fillStyle = "#FF8000";
-                context.globalAlpha = bombOpacity;
-                context.beginPath();
-                bombX = bmb.x + posx + TILE_SIZE / 2;
-                bombY = bmb.y + posy + TILE_SIZE / 2;
-                context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, true);
-                context.closePath();
-                context.fill();
-                context.globalAlpha = 1;
-                context.fillStyle = "#ffffff";
-            } 
-        } else {
-            delete bmb.bombAnimation;
+/**
+ * Draws exploding bombs. Animation.
+ */
+Renderer.prototype.drawExplosions = function() {
+    var bombs = this.replay.data.bombs;
+    // Current animations.
+    var states = this.state.bombs;
+    var fps = this.replay.info.fps;
+    var frame = this.frame;
+    var time = this.replay.data.time[this.frame];
+
+    // Create animations.
+    for (var i = 0; i < bombs.length; i++) {
+        var bomb = bombs[i];
+        // This and all following are in the future.
+        if (bomb.time > time) break;
+        // Too far in the past.
+        if (bomb.time + 100 < time) continue;
+        // Only bomb tile explosions.
+        if (bomb.type !== 2) continue;
+        // Don't create duplicates.
+        if (states.hasOwnProperty(i)) continue;
+        states[i] = {
+            length: Math.round(fps / 10),
+            start: frame - Math.floor((time - bomb.time) / fps),
+            frame: 0,
+            loc: this.toScreen({
+                x: bomb.x + TILE_SIZE / 2,
+                y: bomb.y + TILE_SIZE / 2
+            })
+        };
+    }
+
+    var ctx = this.context;
+    // Draw animations.
+    for (var j in states) {
+        var animation = states[j];
+        // Prune animations.
+        if (animation.frame >= animation.length || animation.start > frame) {
+            delete states[j];
+            continue;
         }
-    });
-}
+        animation.frame = frame - animation.start;
+
+        var bombSize = 40 + (280 * (animation.frame / animation.length));
+        var bombOpacity = 1 - animation.frame / animation.length;
+        ctx.fillStyle = "#FF8000";
+        ctx.globalAlpha = bombOpacity;
+        ctx.beginPath();
+        ctx.arc(animation.loc.x, animation.loc.y, Math.round(bombSize), 0, 2 * Math.PI, true);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#ffffff";
+    }
+};
 
 /**
  * Check if the given player collided with any other players at this
@@ -944,170 +1072,221 @@ function bombPop(replay) {
  * @param  {PositionData} data - The replay data.
  * @return {boolean} - Whether or not there was a recent collision.
  */
-function ballCollision(player, data) {
-    var prevX = player.x[thisI - 1];
-    var prevY = player.y[thisI - 1];
-    var thisX = player.x[thisI];
-    var thisY = player.y[thisI];
-    for (var j in data.data.players) {
-        var otherPlayer = data.data.players[j];
-        // Skip checking current player.
-        if (otherPlayer === player) continue;
-        var prevOtherX = otherPlayer.x[thisI - 1];
-        var prevOtherY = otherPlayer.y[thisI - 1];
-        var thisOtherX = otherPlayer.x[thisI];
-        var thisOtherY = otherPlayer.y[thisI];
+Renderer.prototype.collided = function(player) {
+    var frame = this.frame;
+    var prevX = player.x[frame - 1];
+    var prevY = player.y[frame - 1];
+    var thisX = player.x[frame];
+    var thisY = player.y[frame];
+    for (var id in this.replay.data.players) {
+        if (id === player.id) continue;
+        var otherPlayer = this.replay.data.players[id];
+        var prevOtherX = otherPlayer.x[frame - 1];
+        var prevOtherY = otherPlayer.y[frame - 1];
+        var thisOtherX = otherPlayer.x[frame];
+        var thisOtherY = otherPlayer.y[frame];
         if ((Math.abs(prevOtherX - prevX) < 45 && Math.abs(prevOtherY - prevY) < 45) ||
             (Math.abs(thisOtherX - thisX) < 45 && Math.abs(thisOtherY - thisY) < 45)) {
             return true;
         }
     }
     return false;
-}
+};
 
-// Uses: thisI
 /**
- * Initiate or continue a rolling bomb explosion animation for the
- * given player.
+ * Handle rolling bomb detonation animation.
  * @param  {Player} player - The player to do the animation update for.
- * @param  {PositionData} data - The replay data.
  */
-function rollingBombPop(player, data) {
-    var recordingPlayer = getPlayer(data);
-    // determine if we need to start a rolling bomb animation: ball has no bomb now, but had bomb one frame ago
-    if (!player.bomb[thisI] & player.bomb[thisI - 1] & ballCollision(player, data)) {
-        player.rollingBombAnimation = {
-            length: Math.round(data.info.fps / 10),
+// done
+Renderer.prototype.rollingBombPop = function(player) {
+    var state = this.state.players[player.id].bombs;
+    var frame = this.frame;
+    // Determine if a rolling bomb went off.
+    if (!player.bomb[frame] & player.bomb[frame - 1] & this.collided(player)) {
+        state.push({
+            length: Math.round(this.replay.info.fps / 10),
             frame: 0
-        };
+        });
     }
-    // if an animation should be in progress, draw it
-    if (typeof player.rollingBombAnimation !== 'undefined') {
-        player.rollingBombAnimation.frame++;
-        rollingBombSize = 40 + (200 * (player.rollingBombAnimation.frame / player.rollingBombAnimation.length));
-        rollingBombOpacity = 1 - player.rollingBombAnimation.frame / player.rollingBombAnimation.length;
+    var ctx = this.context;
+    for (var i = state.length - 1; i >= 0; i--) {
+        var bombAnimation = state[i];
+        bombAnimation.frame++;
 
-        context.fillStyle = "#FFFF00";
-        context.globalAlpha = rollingBombOpacity;
-        context.beginPath();
-        rollingBombX = player.x[thisI] - recordingPlayer.x[thisI] + context.canvas.width / 2;
-        rollingBombY = player.y[thisI] - recordingPlayer.y[thisI] + context.canvas.height / 2;
-        context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0);
-        context.closePath();
-        context.fill();
-        context.globalAlpha = 1;
-        context.fillStyle = "#ffffff";
-        if (player.rollingBombAnimation.frame >= player.rollingBombAnimation.length) {
-            delete(player.rollingBombAnimation);
+        var rollingBombSize = 40 + (200 * (bombAnimation.frame / bombAnimation.length));
+        var rollingBombOpacity = 1 - bombAnimation.frame / bombAnimation.length;
+
+        ctx.fillStyle = "#FFFF00";
+        ctx.globalAlpha = rollingBombOpacity;
+        ctx.beginPath();
+        var rollingBombX = player.x[frame] - this.camera.x + ctx.canvas.width / 2;
+        var rollingBombY = player.y[frame] - this.camera.y + ctx.canvas.height / 2;
+        ctx.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, true);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#ffffff";
+        // Remove from list if over.
+        if (bombAnimation.frame >= bombAnimation.length) {
+            state.splice(i, 1);
         }
     }
-}
+};
 
-// Uses: thisI, context
 /**
- * Initiate or continue a ball pop animation for the given player.
+ * Initiate or continue a ball pop animation for the given player. Animation.
  * @param {Player} player - The player to update the ball pop 
  *   animation for.
  * @param {PositionData} data - The replay data.
  * @param {Image} tiles - The image representing the tiles textures.
  */
-function ballPop(player, data, tiles) {
-    // Get the recording player so we can put the view relative to them.
-    var recordingPlayer = getPlayer(data);
-    // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
-    if (player.dead[thisI] && !player.dead[thisI - 1] && player.draw[thisI - 1]) {
-        player.popAnimation = {
-            length: Math.round(data.info.fps / 10),
-            frame: 0
-        };
-    }
-    // if an animation should be in progress, draw it
-    if (typeof player.popAnimation !== 'undefined') {
-        player.popAnimation.frame++;
-        popSize = 40 + (80 * (player.popAnimation.frame / player.popAnimation.length));
-        popOpacity = 1 - player.popAnimation.frame / player.popAnimation.length;
+Renderer.prototype.ballPop = function(player, data, tiles) {
+    var state = this.state.players[player.id].pops;
+    var frame = this.frame;
 
-        context.globalAlpha = popOpacity;
-        context.drawImage(tiles,
-            (player.team[thisI] == 1 ? 14 : 15) * TILE_SIZE,
+    // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
+    if (player.dead[frame] && !player.dead[frame - 1] && player.draw[frame - 1]) {
+        state.push({
+            start: frame,
+            frame: 0,
+            length: Math.round(this.replay.info.fps / 10),
+            loc: this.toScreen({
+              x: player.x[frame] + TILE_SIZE / 2,
+              y: player.y[frame] + TILE_SIZE / 2
+            })
+        });
+    }
+    var ctx = this.context;
+    for (var i = state.length - 1; i >= 0; i--) {
+        var popAnimation = state[i];
+        if (popAnimation.start > frame || popAnimation.frame >= popAnimation.length) {
+            state.splice(i, 1);
+            continue;
+        }
+        popAnimation.frame = frame - popAnimation.start;
+        var popSize = 40 + (80 * (popAnimation.frame / popAnimation.length));
+        var popOpacity = 1 - popAnimation.frame / popAnimation.length;
+        ctx.globalAlpha = popOpacity;
+        ctx.drawImage(this.textures.tiles,
+            (player.team[frame] == 1 ? 14 : 15) * TILE_SIZE,
             0,
             TILE_SIZE,
             TILE_SIZE,
-            player.x[thisI] - recordingPlayer.x[thisI] + context.canvas.width / 2 - popSize / 2,
-            player.y[thisI] - recordingPlayer.y[thisI] + context.canvas.height / 2 - popSize / 2,
+            popAnimation.loc.x - popSize / 2,
+            popAnimation.loc.y - popSize / 2,
             popSize,
             popSize);
-        context.globalAlpha = 1;
-        if (player.popAnimation.frame >= player.popAnimation.length) {
-            delete(player.popAnimation);
+        ctx.globalAlpha = 1;
+    }
+};
+
+/**
+ * Draw a single splat.
+ * @param {[type]} loc [description]
+ * @param {[type]} team [description]
+ * @param {[type]} img [description]
+ * @return {[type]} [description]
+ */
+Renderer.prototype.drawSplat = function(loc, team, img) {
+    this.context.drawImage(this.textures.splats,
+        img * SPLAT_SIZE,
+        (team - 1) * SPLAT_SIZE,
+        SPLAT_SIZE,
+        SPLAT_SIZE,
+        loc.x,
+        loc.y,
+        SPLAT_SIZE,
+        SPLAT_SIZE);
+};
+
+/**
+ * Draw splats. Animation.
+ */
+Renderer.prototype.drawSplats = function() {
+    // Draw the splats that occurred up to this point in time.
+    var splats = this.replay.data.splats;
+    var states = this.state.splats;
+    var frameTime = this.replay.data.time[this.frame];
+    var ctx = this.context;
+    for (var i = 0; i < splats.length; i++) {
+        var splat = splats[i];
+        if (splat.time > frameTime) break;
+        var state;
+        if (!states.hasOwnProperty(i)) {
+            state = {
+                img: Math.floor(Math.random() * (this.textures.splats.width / 120))
+            };
+            if (splat.temp) {
+                state.fade = true;
+                state.fadeStart = splat.time;
+                state.fadeUntil = state.fadeStart + 5000;
+            }
+            states[i] = state;
+        } else {
+            state = states[i];
+        }
+        // Ignore faded splats.
+        if (!state) continue;
+        // Location of top-left of splat.
+        var loc = this.toScreen({
+            x: splat.x - SPLAT_SIZE / 2 + TILE_SIZE / 2,
+            y: splat.y - SPLAT_SIZE / 2 + TILE_SIZE / 2
+        });
+        if (state.fade) {
+            // Remove completely faded splats.
+            if (state.fadeUntil < frameTime) {
+                states[i] = false;
+            } else {
+                var alpha = 1 - ((frameTime - state.fadeStart) / (state.fadeUntil - state.fadeStart));
+                ctx.globalAlpha = alpha;
+                this.drawSplat(loc, splat.team, state.img);
+                ctx.globalAlpha = 1;
+            }
+        } else {
+            this.drawSplat(loc, splat.team, state.img);
         }
     }
-}
+};
 
-// Uses: thisI, context, posx, poxy
-/**
- * Draw splats.
- * @param  {PositionData} positions
- * @param  {Image} img - The splats image to use.
- */
-function drawSplats(positions, img) {
-    // Draw the splats that occurred up to this point in time.
-    var splats = positions.data.splats;
-    splats.forEach(function(splat) {
-        // Cache the number corresponding to the splat image used.
-        if (!splat.img) {
-            splat.img = Math.floor(Math.random() * 7);
-        }
-        var thisTime = positions.data.time[thisI];
-        if (splat.time <= thisTime) {
-            context.drawImage(img,
-                splat.img * 120,
-                (splat.team - 1) * 120,
-                120,
-                120,
-                splat.x + posx - 60 + 20,
-                splat.y + posy - 60 + 20,
-                120,
-                120);
-        }
-    });
-}
-
-// Uses: context, thisI
 /**
  * Draw spawning players.
- * @param  {PositioinData} positions
- * @param  {Image} tiles - The tiles texture image.
  */
-function drawSpawns(positions, tiles) {
-    context.globalAlpha = 0.25;
-    var spawns = positions.data.spawns;
-    spawns.forEach(function(spawn) {
-        var thisTime = positions.data.time[thisI];
-        var timeDiff = thisTime - spawn.time; // positive if spawn has already happened
-        if (timeDiff >= 0 & timeDiff <= spawn.wait) {
-            context.drawImage(tiles,
-                (spawn.team == 1 ? 14 : 15) * TILE_SIZE,
-                0,
-                40,
-                40,
-                spawn.x + posx,
-                spawn.y + posy,
-                40,
-                40);
+Renderer.prototype.drawSpawns = function() {
+    this.context.globalAlpha = 0.25;
+    var spawns = this.replay.data.spawns;
+    var time = this.replay.data.time[this.frame];
+    for (var i = 0; i < spawns.length; i++) {
+        var spawn = spawns[i];
+        if (spawn.time < time) {
+            if (spawn.time + spawn.wait < time) {
+                break;
+            } else {
+                var pos = this.toScreen(spawn);
+                this.context.drawImage(this.textures.tiles,
+                    (spawn.team == 1 ? 14 : 15) * TILE_SIZE,
+                    0,
+                    40,
+                    40,
+                    pos.x,
+                    pos.y,
+                    40,
+                    40);
+            }
         }
-    });
-    context.globalAlpha = 1;
-}
+    }
+    this.context.globalAlpha = 1;
+};
 
-// Scope: file
-// Uses: context, thisI
-function drawEndText(replay) {
-    var gameEnd = replay.data.gameEnd;
+/**
+ * Draw game result at end.
+ */
+Renderer.prototype.drawEndText = function() {
+    var gameEnd = this.replay.data.gameEnd;
     if (gameEnd) {
+        var ctx = this.context;
         var endTime = gameEnd.time;
         var winner = gameEnd.winner;
-        var thisTime = replay.data.time[thisI];
+        var thisTime = this.replay.data.time[this.frame];
         if (endTime <= thisTime) {
             var endColor, endText;
             if (winner === 'red') {
@@ -1123,294 +1302,123 @@ function drawEndText(replay) {
                 endColor = "#ffffff";
                 endText = winner;
             }
-            context.save();
-            context.textAlign = "center";
-            context.font = "bold 48pt Arial";
-            context.fillStyle = endColor;
-            context.strokeStyle = "#000000";
-            context.strokeText(endText, context.canvas.width / 2, 100);
-            context.fillText(endText, context.canvas.width / 2, 100);
-            context.restore();
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.font = "bold 48pt Arial";
+            ctx.fillStyle = endColor;
+            ctx.strokeStyle = "#000000";
+            ctx.strokeText(endText, ctx.canvas.width / 2, 100);
+            ctx.fillText(endText, ctx.canvas.width / 2, 100);
+            ctx.restore();
         }
     }
-}
+};
 
-// scope: file
-// uses: context, img, thisI
-/**
- * Draw players.
- * @param  {PositionData} positions
- * @param {TextureImages} textures
- * @param  {boolean} spin
- */
-function drawBalls(positions, textures, spin) {
-    // Get the team for a player object.
-    function getTeam(player, frame) {
-        return player.team[frame];
-    }
+Renderer.prototype.drawBall = function() {
+    
+};
 
-    // Get the name for a player object.
-    function getName(player, frame) {
-        return player.name[frame];
-    }
-
-    function getDead(player, frame) {
-        return player.dead[frame];
-    }
-
-    function getDraw(player, frame) {
-        return player.draw[frame];
-    }
-
-    /**
-     * Get position for the player, in global coordinates. Position in
-     * game data corresponds to the top-left corner of player sprite.
-     * The center of the player is an additional 20 units more in the
-     * x and y directions from the value returned here.
-     * @param  {Player} player - The player to get the position for.
-     * @param  {integer} frame - The grame to get the position for.
-     * @return {Point} - The position of the player.
-     */
-    function getPos(player, frame) {
-        return {
-            x: player.x[frame],
-            y: player.y[frame]
-        };
-    }
-
-    /**
-     * Get the angle for the player. If no angle is found, returns null.
-     * @param  {Player} player - The player to get the angle for.
-     * @param  {integer} frame - The frame to get the angle for.
-     * @return {?number} - The angle of the player.
-     */
-    function getAngle(player, frame) {
-        if (player.angle) {
-            return player.angle[frame];
-        } else {
-            return null;
-        }
-    }
-
-    function getDegree(player, frame) {
-        if (typeof player.degree !== 'undefined') {
-            return player.degree[frame];
-        } else {
-            return null;
-        }
-    }
-
-    function getAuth(player, frame) {
-        if (typeof player.auth !== 'undefined') {
-            return player.auth[frame];
-        } else {
-            return null;
-        }
-    }
-
-    function getGrip(player, frame) {
-        return player.grip[thisI];
-    }
-
-    function getBomb(player, frame) {
-        return player.bomb[thisI];
-    }
-
-    function getTagpro(player, frame) {
-        return player.tagpro[thisI];
-    }
-
-    // Get the screen coordinates for the top-left of the player
-    // sprite.
-    function getDrawPosition(center, position) {
-        return {
-            x: position.x + center.x,
-            y: position.y + center.y
-        };
-    }
-
-    var screenCenter = {
-        x: posx,
-        y: posy
+Renderer.prototype.drawPlayer = function(player) {
+    var frame = this.frame;
+    var fps = this.replay.info.fps;
+    var position = {
+        x: player.x[frame],
+        y: player.y[frame]
     };
-    var players = getPlayers(positions);
-    players.forEach(function(player) {
-        var position = getPos(player, thisI);
-        var drawPos = getDrawPosition(screenCenter, position);
-        var team = getTeam(player, thisI);
-        var name = getName(player, thisI);
-        var dead = getDead(player, thisI);
-        var angle = getAngle(player, thisI);
-        var draw = getDraw(player, thisI);
-        var auth = getAuth(player, thisI);
-        var degree = getDegree(player, thisI);
-        var grip = getGrip(player, thisI);
-        var bomb = getBomb(player, thisI);
-        var tagpro = getTagpro(player, thisI);
+    var drawPos = this.toScreen(position);
+    var team = player.team[frame];
+    var name = player.name[frame];
+    var dead = player.dead[frame];
+    var angle = player.angle && player.angle[frame];
+    var draw = player.draw[frame];
+    var auth = player.auth[frame];
+    var degree = player.degree[frame];
+    var grip = player.grip[frame];
+    var bomb = player.bomb[frame];
+    var tagpro = player.tagpro[frame];
+    var flair = player.flair[frame];
+    var flag = player.flag[frame];
+    var spin = this.options.spin;
 
-        if (!dead && draw) {
-            // If at the start of the replay or the player was drawn last frame.
-            if (thisI === 0 || getDraw(player, thisI - 1)) {
-                if ((getDead(player, thisI - 1) &&
-                     position.x !== getPos(player, thisI - player.fps)) ||
-                    !getDead(player, thisI - 1)) {
-                    
-                    // draw with or without spin
-                    if(!spin || !angle) {
-                        context.drawImage(textures.tiles,
-                            (team == 1 ? 14 : 15) * TILE_SIZE,
-                            0,
-                            TILE_SIZE,
-                            TILE_SIZE,
-                            drawPos.x,
-                            drawPos.y,
-                            TILE_SIZE,
-                            TILE_SIZE);
-                    } else {
-                        // Add half a tile width so this is truly in
-                        // the center of the player, so rotation
-                        // doesn't change location.
-                        var playerCenter = {
-                            x: drawPos.x + TILE_SIZE / 2,
-                            y: drawPos.y + TILE_SIZE / 2
-                        };
-                        context.translate(playerCenter.x,
-                            playerCenter.y);
-                        context.rotate(angle);
-                        context.drawImage(textures.tiles,
-                            (team == 1 ? 14 : 15) * TILE_SIZE,    
-                            0,
-                            TILE_SIZE,
-                            TILE_SIZE,
-                            -TILE_SIZE / 2,
-                            -TILE_SIZE / 2,
-                            TILE_SIZE,
-                            TILE_SIZE);
-                        context.rotate(-angle);
-                        context.translate(-playerCenter.x,
-                            -playerCenter.y);
-                    }
+    if (!dead && draw) {
+        // If at the start of the replay or the player was drawn last frame.
+        if (frame === 0 || player.draw[frame - 1]) {
+            // TODO: Figure out what case the first part of this is handling
+            if ((player.dead[frame - 1] && position.x !== player.x[frame - fps]) ||
+                !player.dead[frame - 1]) {
+                
+                // draw with or without spin
+                if(!spin || !angle) {
+                    this.context.drawImage(this.textures.tiles,
+                        (team == 1 ? 14 : 15) * TILE_SIZE,
+                        0,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        drawPos.x,
+                        drawPos.y,
+                        TILE_SIZE,
+                        TILE_SIZE);
+                } else {
+                    // Add half a tile width so this is truly in
+                    // the center of the player, so rotation
+                    // doesn't change location.
+                    var playerCenter = {
+                        x: drawPos.x + TILE_SIZE / 2,
+                        y: drawPos.y + TILE_SIZE / 2
+                    };
+                    this.context.translate(playerCenter.x,
+                        playerCenter.y);
+                    this.context.rotate(angle);
+                    this.context.drawImage(this.textures.tiles,
+                        (team == 1 ? 14 : 15) * TILE_SIZE,    
+                        0,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        -TILE_SIZE / 2,
+                        -TILE_SIZE / 2,
+                        TILE_SIZE,
+                        TILE_SIZE);
+                    this.context.rotate(-angle);
+                    this.context.translate(-playerCenter.x,
+                        -playerCenter.y);
+                }
 
-                    if (grip) {
-                        drawGrip(drawPos, textures.tiles);
-                    }
-                    if (tagpro) {
-                        drawTagpro(drawPos, textures.tagpro);
-                    }
-                    if (bomb) {
-                        drawBomb(drawPos, textures.rollingbomb);
-                    }
+                if (grip) {
+                   this.drawGrip(drawPos);
+                }
+                if (tagpro) {
+                    this.drawTagpro(drawPos);
+                }
+                if (bomb) {
+                    this.drawBomb(drawPos);
+                }
+                if (flag) {
+                    this.drawFlag(drawPos, flag);
+                }
 
-                    drawFlag(player, drawPos, textures.tiles);
-                    drawText(drawPos, {
-                        name: name,
-                        degree: degree,
-                        auth: auth
-                    });
-
-                    drawFlair(player.flair[thisI], {
+                this.drawText(drawPos, {
+                    name: name,
+                    degree: degree,
+                    auth: auth
+                });
+                if (flair) {
+                    this.drawFlair({
                         x: drawPos.x + 12,
                         y: drawPos.y - 20
-                    }, textures.flair);
+                    }, flair);
                 }
             }
         }
-        rollingBombPop(player, positions);
-        ballPop(player, positions, textures.tiles);
-    });
-}
-
-// Scope: background, in-page-preview
-// uses: context
-/**
- * Edit canvas to reflect the replay at the given frame.
- * @param  {integer} frame - The frame of the replay to render.
- * @param  {PositionData} positions - The replay data.
- * @param  {?} mapImg
- * @param {Options} [options] - Options for the rendering.
- * @param {Textures} textures - the textures to use.
- * @param {CanvasRenderingContext2D} ctx - The context to draw on.
- */
-exports.drawFrame = function(frame, positions, mapImg, options, textures, ctx) {
-    if (typeof options == 'undefined') options = {};
-    // Update drawing function global with frame number.
-    thisI = frame;
-    context = ctx;
-
-    var player = getPlayer(positions);
-    // Clear canvas.
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-    // Coordinates for center of canvas.
-    posx = -(player.x[thisI] - context.canvas.width / 2 + TILE_SIZE / 2);
-    posy = -(player.y[thisI] - context.canvas.height / 2 + TILE_SIZE / 2);
-    context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
-        posx,
-        posy,
-        mapImg.width, mapImg.height);
-    if (options.splats) {
-        drawSplats(positions, textures.splats);
     }
-    drawFloorTiles(positions, textures);
-    drawSpawns(positions, textures.tiles);
-    drawBalls(positions, textures, options.spin);
-    if (options.ui) {
-        drawClock(positions);
-        drawScore(positions.data.score[thisI]);
-        drawScoreFlag(positions, textures.tiles);
-    }
-    if (options.chat) {
-        drawChats(positions);
-    }
-    bombPop(positions);
-    drawEndText(positions);
+    // animations
+    this.rollingBombPop(player);
+    this.ballPop(player);
 };
 
-// function that takes positions file and draws the frame 75% of the way through the 
-// replay at full size. then redraws that at reduced size.
-// returns a dataURL of the resulting image
-// used by: menu
-exports.drawPreview = function(positions, options, textures) {
-    console.log("Drawing preview.");
-
-    // create two canvases - one to draw full size preview, one to draw the half size one.
-    var fullPreviewCanvas = document.createElement('canvas');
-    fullPreviewCanvas.width = 1280;
-    fullPreviewCanvas.height = 800;
-    fullPreviewContext = fullPreviewCanvas.getContext('2d');
-
-    var smallPreviewCanvas = document.createElement('canvas');
-    smallPreviewCanvas.width = fullPreviewCanvas.width / 2;
-    smallPreviewCanvas.height = fullPreviewCanvas.height / 2;
-    smallPreviewContext = smallPreviewCanvas.getContext('2d');
-    var thisI = 0;
-
-    smallPreviewContext.rect(0, 0, smallPreviewCanvas.width, smallPreviewCanvas.height);
-    smallPreviewContext.fillStyle = 'black';
-    smallPreviewContext.fill();
-    
-    var replayLength = positions.data.time.length;
-    thisI = Math.round(replayLength * 0.75);
-    
-    var previewMapData = drawMap(positions, textures.tiles);
-    var previewMap = document.createElement('img');
-    previewMap.src = previewMapData;
-
-    animateReplay(thisI, positions, previewMap, options, textures, fullPreviewContext);
-    var fullImageData = fullPreviewCanvas.toDataURL();
-
-    var fullSizeImg = document.createElement('img');
-    fullSizeImg.src = fullImageData;
-    smallPreviewContext.drawImage(fullSizeImg,
-                                  0, 
-                                  0,
-                                  fullPreviewCanvas.width,
-                                  fullPreviewCanvas.height,
-                                  0,
-                                  0,
-                                  smallPreviewCanvas.width,
-                                  smallPreviewCanvas.height);
-    var result = smallPreviewCanvas.toDataURL();
-    previewMap.remove();
-    fullSizeImg.remove();
-    return result;
+Renderer.prototype.drawPlayers = function() {
+    var players = this.getPlayers();
+    var self = this;
+    players.forEach(function(player) {
+        self.drawPlayer(player);
+    });
 };

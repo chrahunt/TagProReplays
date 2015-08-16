@@ -3,8 +3,8 @@ require('jquery-ui');
 require('bootstrap');
 
 var Messaging = require('./messaging');
+var Renderer = require('./renderer');
 var Textures = require('./textures');
-var Render = require('./render');
 
 /**
  * Code to support the in-page replay viewer. This file is included as
@@ -26,8 +26,7 @@ module.exports = Viewer;
 
 // Initialize the viewer.
 Viewer.prototype.init = function() {
-    this.canvas = document.getElementById('viewer-canvas');
-    this.context = this.canvas.getContext('2d');
+    this.canvas = $("#viewer-canvas")[0];
     this.frame = 0;
     this.frames = 0;
     this.playing = false;
@@ -275,7 +274,7 @@ Viewer.prototype.replayInit = function() {
     var viewer = this;
     this.canvas.title = "Replay: " + this.replay.info.name;
     this.frames = this.replay.data.time.length - 1;
-    
+
     $("#time-slider").slider("option", "max", this.frames);
     $("#crop-slider").slider("option", "max", this.frames);
     $("#crop-slider").slider("values", [0, this.frames]);
@@ -363,13 +362,12 @@ Viewer.prototype.hideSeek = function(instant) {
 
 // Initialize replay after everything has been loaded.
 Viewer.prototype.initReplay = function() {
-    // TODO: Replace loading spinner.
-    var mapImgData = Render.drawMap(this.replay, this.textures.tiles);
-    this.background = new Image();
-    this.background.onload = function () {
-        this.drawFrame();
-    }.bind(this);
-    this.background.src = mapImgData;
+    this.renderer = new Renderer(this.replay, {
+        options: this.options,
+        textures: this.textures,
+        canvas: this.canvas
+    });
+    this.drawFrame();
 };
 
 /**
@@ -382,7 +380,7 @@ Viewer.prototype.setFrame = function(frame) {
 
 // Draws the current frame.
 Viewer.prototype.drawFrame = function() {
-    Render.drawFrame(this.frame, this.replay, this.background, this.options, this.textures, this.context);
+    this.renderer.drawFrame(this.frame);
 };
 
 /**
