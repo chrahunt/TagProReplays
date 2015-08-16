@@ -10,21 +10,22 @@ var Textures = require('./textures');
  * Code to support the in-page replay viewer. This file is included as
  * a content script.
  */
+module.exports = Viewer;
 
 // Handle the interaction with the viewer for a replay.
-var Viewer = function() {
+function Viewer() {
     $('article').append(
         '<div id="tpr-viewer-container" class="bootstrap-container jquery-ui-container">');
     var url = chrome.extension.getURL("html/viewer.html");
     $("#tpr-viewer-container").load(url, function() {
-        $("#tpr-viewer-container").hide();
         this.init();
     }.bind(this));
-};
+}
 
-module.exports = Viewer;
-
-// Initialize the viewer.
+/**
+ * Initialize the viewer.
+ * @private
+ */
 Viewer.prototype.init = function() {
     this.canvas = $("#viewer-canvas")[0];
     this.frame = 0;
@@ -34,7 +35,7 @@ Viewer.prototype.init = function() {
     this.cropping = false;
     this.timeActive = false;
 
-    var viewer = this;
+    var self = this;
 
     // Opt-in to bootstrap tooltips.
     $("#tpr-viewer-container [data-toggle='tooltip']").tooltip();
@@ -47,41 +48,43 @@ Viewer.prototype.init = function() {
         range: "min",
         slide: function(event, ui) {
             var value = ui.value;
-            if (!viewer.playing) {
-                viewer.frame = value;
-                viewer.drawFrame();
+            if (!self.playing) {
+                self.frame = value;
+                self.drawFrame();
+                self.updateUI();
             } else {
-                clearInterval(viewer.playInterval);
-                if (value >= viewer.lastFrame) {
-                    viewer.play(value, viewer.frames);
+                clearInterval(self.playInterval);
+                if (value >= self.lastFrame) {
+                    self.play(value, self.frames);
                 } else {
-                    viewer.play(value, viewer.lastFrame);
+                    self.play(value, self.lastFrame);
                 }
             }
         },
         change: function(event) {
             // Ensure this was a user-initiated event.
             if (event.originalEvent) {
-                viewer.frame = $("#time-slider").slider("value");
-                viewer.drawFrame();
+                self.frame = $("#time-slider").slider("value");
+                self.drawFrame();
+                self.updateUI();
             }
         }
     });
 
     $(".time-slider-container").mouseenter(function() {
-        if (!viewer.timeActive) {
-            viewer.timeActive = true;
-            viewer.showSeek();
+        if (!self.timeActive) {
+            self.timeActive = true;
+            self.showSeek();
         }
     });
 
     $(".time-slider-container").mouseleave(function() {
-        if (viewer.timeActive && viewer.playing) {
-            viewer.timeActive = false;
+        if (self.timeActive && self.playing) {
+            self.timeActive = false;
             setTimeout(function() {
                 // Don't hide if active again.
-                if (viewer.timeActive || !viewer.playing) return;
-                viewer.hideSeek();
+                if (self.timeActive || !self.playing) return;
+                self.hideSeek();
             }, 500);
         }
     });
@@ -95,20 +98,20 @@ Viewer.prototype.init = function() {
     });
 
     $("#viewer-controls").on("click", ".tpr-button-stop", function() {
-        viewer.close();
+        self.close();
     });
 
     $("#viewer-controls").on("click", ".tpr-button-reset", function() {
-        viewer.reset();
-        viewer.drawFrame();
+        self.reset();
+        self.drawFrame();
     });
 
     $("#viewer-controls").on("click", ".tpr-button-play", function() {
-        viewer.play(viewer.frame, viewer.frames);
+        self.play(self.frame, self.frames);
     });
 
     $("#viewer-controls").on("click", ".tpr-button-pause", function() {
-        viewer.pause();
+        self.pause();
     });
 
     $("#viewer-controls").on("click", ".tpr-button-crop-start", function() {
@@ -116,14 +119,14 @@ Viewer.prototype.init = function() {
         var newStart = $("#time-slider").slider("value");
         var newRange = [newStart];
         if (newStart >= cropRange[1]) {
-            newRange.push(viewer.frames);
+            newRange.push(self.frames);
         } else {
             newRange.push(cropRange[1]);
         }
         $("#crop-slider").slider('values', newRange);
-        if (!viewer.cropping) {
-            viewer.cropping = true;
-            viewer.showCrop();
+        if (!self.cropping) {
+            self.cropping = true;
+            self.showCrop();
         }
     });
 
@@ -137,20 +140,20 @@ Viewer.prototype.init = function() {
             newRange.unshift(cropRange[0]);
         }
         $("#crop-slider").slider('values', newRange);
-        if (!viewer.cropping) {
-            viewer.cropping = true;
-            viewer.showCrop();
+        if (!self.cropping) {
+            self.cropping = true;
+            self.showCrop();
         }
     });
 
     $("#viewer-controls").on("click", ".tpr-button-crop-play", function() {
         var range = $("#crop-slider").slider("values");
-        viewer.play(range[0], range[1]);
+        self.play(range[0], range[1]);
     });
 
     // Crop replay data and save as a new replay.
     $("#viewer-controls").on("click", ".tpr-button-crop", function() {
-        viewer.pause();
+        self.pause();
         var newName = prompt('If you would also like to name the new' +
             ' cropped replay, type the new name here. Leave it blank ' +
             'to make a generic name.');
@@ -158,7 +161,7 @@ Viewer.prototype.init = function() {
         if (newName === null) return;
         var range = $("#crop-slider").slider("values");
         var msg = {
-            id: viewer.id,
+            id: self.id,
             start: range[0],
             end: range[1]
         };
@@ -169,13 +172,13 @@ Viewer.prototype.init = function() {
         // previewer with cropped replay.
         Messaging.send("cropReplay", msg, function (response) {
             if (!response.failed) {
-                viewer._viewReplay(response.id, response.data);
+                self._viewReplay(response.id, response.data);
             }
         });
     });
 
     $("#viewer-controls").on("click", ".tpr-button-crop-replace", function() {
-        viewer.pause();
+        self.pause();
         var newName = prompt('If you would also like to rename this ' +
             'replay, type the new name here. Leave it blank to use ' +
             'the old name.');
@@ -183,49 +186,47 @@ Viewer.prototype.init = function() {
         if (newName === null) return;
         var range = $("#crop-slider").slider("values");
         var msg = {
-            id: viewer.id,
+            id: self.id,
             start: range[0],
             end: range[1]
         };
         if (newName !== '') {
             msg.name = newName;
         }
-        // TODO: Handle error with replay cropping, or refresh
-        // previewer with cropped replay.
+        // Update previewer with cropped replay.
         Messaging.send("cropAndReplaceReplay", msg, function (response) {
             if (!response.failed) {
-                viewer._viewReplay(response.id, response.data);
+                self._viewReplay(response.id, response.data);
             }
         });
     });
 
     $("#viewer-controls").on("click", ".tpr-button-delete", function() {
         if (confirm('Are you sure you want to delete this replay?')) {
-            viewer.close();
-            console.log('Requesting deletion of replay ' + viewer.id + '.');
+            self.close();
+            console.log('Requesting deletion of replay ' + self.id + '.');
             Messaging.send("deleteReplay", {
-                id: viewer.id
+                id: self.id
             });
         }
     });
 
     $("#viewer-controls").on("click", ".tpr-button-render", function() {
         if (confirm('Are you sure you want to render this replay?')) {
-            viewer.close();
-            console.log('Requesting render of replay ' + viewer.id + '.');
+            self.close();
+            console.log('Requesting render of replay ' + self.id + '.');
             Messaging.send("renderReplay", {
-                id: viewer.id
+                id: self.id
             });
         }
     });
 
     $("#viewer-controls").on("click", ".tpr-button-rename", function() {
-        // TODO: Handle blank rename value.
-        var newName = prompt('How would you like to rename ' + viewer.replay.info.name + '?');
+        var newName = prompt('How would you like to rename ' + self.replay.info.name + '?');
         if (newName !== null && newName !== "") {
-            console.log('Requesting rename from ' + viewer.replay.info.name + ' to ' + newName + '.');
+            console.log('Requesting rename from ' + self.replay.info.name + ' to ' + newName + '.');
             Messaging.send("renameReplay", {
-                id: viewer.id,
+                id: self.id,
                 name: newName
             });
         }
@@ -236,19 +237,20 @@ Viewer.prototype.init = function() {
 Viewer.prototype.preview = function(id) {
     // Show viewer.
     this.show();
-    // TODO: Show loading spinner.
+    var self = this;
     // Get replay data.
     console.log('Requesting data for replay ' + id + ".");
     Messaging.send("getReplay", {
         id: id
     }, function(response) {
         console.log('Data received for replay ' + id + ".");
-        this._viewReplay(id, response.data);
-    }.bind(this));
+        self._viewReplay(id, response.data);
+    });
 };
 
 /**
  * Internal method for initializing the viewer for a replay.
+ * @private
  * @param {integer} id - The id of the replay.
  * @param {Replay} replay - The replay data.
  */
@@ -260,7 +262,7 @@ Viewer.prototype._viewReplay = function(id, replay) {
 
 // Display the viewer.
 Viewer.prototype.show = function() {
-    $("#tpr-viewer-container").fadeIn(500);
+    $("#tpr-viewer-container").fadeIn(300);
 };
 
 // Hide the viewer.
@@ -271,7 +273,7 @@ Viewer.prototype.hide = function() {
 
 // Initialize the viewer after retrieving the replay data.
 Viewer.prototype.replayInit = function() {
-    var viewer = this;
+    var self = this;
     this.canvas.title = "Replay: " + this.replay.info.name;
     this.frames = this.replay.data.time.length - 1;
 
@@ -289,20 +291,20 @@ Viewer.prototype.replayInit = function() {
 
     // Reset to beginning.
     this.reset();
-    // TODO: Show previewer with loading spinner?
+
     // Get options and textures.
     chrome.storage.local.get(["options", "textures", "default_textures"], function(items) {
-        function onTextureLoad(textureImages) {
-            viewer.textures = textureImages;
-            viewer.initReplay();
-        }
-
-        viewer.options = items.options;
-        if (!viewer.options.custom_textures) {
-            Textures.getImages(items.default_textures, onTextureLoad);
-        } else {
-            Textures.getImages(items.textures, onTextureLoad);
-        }
+        var opts = items.options;
+        var textures = opts.custom_textures ? items.textures
+                                            : items.default_textures;
+        Textures.getImages(textures, function (textureImages) {
+            self.renderer = new Renderer(self.replay, {
+                options: opts,
+                textures: textureImages,
+                canvas: self.canvas
+            });
+            self.drawFrame();
+        });
     });
 };
 
@@ -322,10 +324,8 @@ Viewer.prototype.hideCrop = function() {
 
 /**
  * Show the seek bar and handle.
- * @param {boolean} [instant=false] - Whether the bar should display
- *   instantly.
  */
-Viewer.prototype.showSeek = function(instant) {
+Viewer.prototype.showSeek = function() {
     var transform = {
         transform: 'scaleY(1)',
         transition: 'transform .1s ease-out'
@@ -360,16 +360,6 @@ Viewer.prototype.hideSeek = function(instant) {
     $("#time-slider .ui-slider-handle")[0].addEventListener("transitionend", remove);
 };
 
-// Initialize replay after everything has been loaded.
-Viewer.prototype.initReplay = function() {
-    this.renderer = new Renderer(this.replay, {
-        options: this.options,
-        textures: this.textures,
-        canvas: this.canvas
-    });
-    this.drawFrame();
-};
-
 /**
  * Set frame to value.
  */
@@ -393,7 +383,7 @@ Viewer.prototype.close = function() {
 
 /**
  * Stop the replay.
- * @return {[type]} [description]
+ * @private
  */
 Viewer.prototype.pause = function() {
     if (this.playing) {
@@ -401,13 +391,28 @@ Viewer.prototype.pause = function() {
         this.playInterval = null;
         this.lastFrame = null;
         this.playing = false;
-        $('.tpr-button-pause').css("display", "none");
-        if (this.frame >= this.frames) {
-            $('.tpr-button-reset').css("display", "inline-flex");
-        } else {
-            $('.tpr-button-play').css("display", "inline-flex");
-        }
+        this.updateUI();
         this.showSeek();
+    }
+};
+
+/**
+ * Update user interface
+ * @private
+ */
+Viewer.prototype.updateUI = function() {
+    if (this.playing) {
+        $(".tpr-button-play").addClass("hidden");
+        $(".tpr-button-pause").removeClass("hidden");
+    } else {
+        $(".tpr-button-pause").addClass("hidden");
+        if (this.frame >= this.frames) {
+            $(".tpr-button-reset").removeClass("hidden");
+            $(".tpr-button-play").addClass("hidden");
+        } else {
+            $(".tpr-button-reset").addClass("hidden");
+            $(".tpr-button-play").removeClass("hidden");
+        }
     }
 };
 
@@ -415,9 +420,9 @@ Viewer.prototype.pause = function() {
  * Reset the replay to the beginning.
  */
 Viewer.prototype.reset = function() {
+    this.pause();
     this.setFrame(0);
-    $('.tpr-button-reset').css("display", "none");
-    $('.tpr-button-play').css("display", "inline-flex");
+    this.updateUI();
 };
 
 // Play preview starting at the given frame and ending at the other
@@ -427,8 +432,7 @@ Viewer.prototype.play = function(start, end) {
     this.reset();
     this.playing = true;
     this.hideSeek();
-    $('.tpr-button-play').css("display", "none");
-    $('.tpr-button-pause').css("display", "inline-flex");
+    this.updateUI();
 
     var time = Date.now();
     var startTime = time;
