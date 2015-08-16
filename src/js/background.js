@@ -115,7 +115,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
  */
 Messaging.listen("saveReplay",
 function(message, sender, sendResponse) {
-    var replay = message.data;
+    var replay = JSON.parse(message.data);
     // TODO: Validate replay. If invalid, save to other object store.
     var startFrame = findIndex(replay.data.time, function(t) {
         return t !== null;

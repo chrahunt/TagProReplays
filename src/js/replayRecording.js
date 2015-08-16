@@ -267,7 +267,7 @@ var TagProReplays = {
             version: "2"
         };
         // Convert for performance.
-        //replay = JSON.stringify(replay);
+        replay = JSON.stringify(replay);
         DOMMessaging.send('saveReplay', replay);
     }
 };
