@@ -97,7 +97,6 @@ window.saveTextureSettings = function() {
  * @property {string} splats - Data URL for splats image.
  * @property {string} flair - Data URL for flair image.
  * @property {string} tagpro - Data URL for tagpro image.
- * @property {string} rollingbomb - Data URL for rollingbomb image.
  */
 /**
  * Object which contains textures saved as images appropriate for use
@@ -112,7 +111,6 @@ window.saveTextureSettings = function() {
  * @property {Image} splats - Image for the splats texture.
  * @property {Image} flair - Image for the flair texture.
  * @property {Image} tagpro - Image for the tagpro texture.
- * @property {Image} rollingbomb - Image for the rollingbomb texture.
  */
 /**
  * Callback function that receives the retrieved texture images.
@@ -202,8 +200,6 @@ window.getDefaultTextures = function(callback) {
         speedpadblue: 'img/speedpadblue.png',
         splats: 'img/splats.png',
         flair: 'img/flair.png',
-        rollingbomb: 'img/rollingbomb.png',
-        tagpro: 'img/tagpro.png'
     };
 
     var textureData = {};

@@ -203,22 +203,13 @@ function drawGrip(point, tiles) {
  * should be the player draw position.
  * @param  {Point} point - The location to draw the powerup over the
  *   player.
- * @param {Image} rollingbomb - The texture representing the rolling
- *   bomb overlay.
+ * @param  {integer} fps - Framerate of the recording.
  */
-function drawBomb(point, rollingbomb) {
-    // Draw 25% of the time.
-    if (Math.round(Math.random() * 4) == 1) {
-        context.drawImage(rollingbomb,
-            0,
-            0,
-            TILE_SIZE,
-            TILE_SIZE,
-            point.x,
-            point.y,
-            TILE_SIZE,
-            TILE_SIZE)
-    }
+function drawBomb(point, fps) {
+    var path = new Path2D();
+    path.arc(point.x + TILE_SIZE / 2, point.y + TILE_SIZE / 2, TILE_SIZE / 2, 0, Math.PI * 2);
+    context.fillStyle = 'rgba(255,255,0,' + Math.abs(.75 * Math.cos(thisI * 20 / (3 * fps))) + ')';
+    context.fill(path);
 }
 
 // Uses: context
@@ -227,18 +218,15 @@ function drawBomb(point, rollingbomb) {
  * should be the player draw position.
  * @param  {Point} point - The location to draw the powerup over the
  *   player.
- * @param {Image} tagpro - The image representing the tagpro overlay.
  */
-function drawTagpro(point, tagpro) {
-    context.drawImage(tagpro,
-        0,
-        0,
-        TILE_SIZE,
-        TILE_SIZE,
-        point.x,
-        point.y,
-        TILE_SIZE,
-        TILE_SIZE);
+function drawTagpro(point) {
+    var path = new Path2D();
+    path.arc(point.x + TILE_SIZE / 2, point.y + TILE_SIZE / 2, TILE_SIZE / 2, 0, Math.PI * 2);
+    context.fillStyle = 'rgba(0,255,0,.25)';
+    context.fill(path);
+    context.lineWidth = 3;
+    context.strokeStyle = 'rgb(0,255,0)';
+    context.stroke(path);
 }
 
 // Uses: $, thisI, context
@@ -889,6 +877,7 @@ function drawEndText(positions) {
             context.font = "bold 48pt Arial"
             context.fillStyle = endColor
             context.strokeStyle = "#000000"
+            context.lineWidth = 2
             context.strokeText(endText, context.canvas.width / 2, 100)
             context.fillText(endText, context.canvas.width / 2, 100)
             context.restore()
@@ -1065,10 +1054,10 @@ function drawBalls(positions, textures, spin) {
                         drawGrip(drawPos, textures.tiles);
                     }
                     if (tagpro) {
-                        drawTagpro(drawPos, textures.tagpro);
+                        drawTagpro(drawPos);
                     }
                     if (bomb) {
-                        drawBomb(drawPos, textures.rollingbomb);
+                        drawBomb(drawPos, player.fps);
                     }
 
                     drawFlag(player, drawPos, textures.tiles);
