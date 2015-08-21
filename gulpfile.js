@@ -9,17 +9,22 @@ var gulp = require('gulp'),
     assign = require('lodash.assign'),
     watch = require('gulp-watch'),
     plumber = require('gulp-plumber'),
-    sass = require('gulp-sass');
+    sass = require('gulp-sass'),
+    jeditor = require('gulp-json-editor'),
+    jsonfile = require('jsonfile');
 
 var assets = [
     // Asset files in src
-    ['src/**/*', '!src/js/**/*', '!src/scss/**/*'],
+    ['src/**/*', '!src/js/**/*', '!src/scss/**/*', '!src/manifest.json'],
     // Asset files in vendor
     ['vendor/**/*', '!vendor/js/**/*']
 ];
 
 var sources = 'src/js/*.js';
 var sass_sources = './src/scss/**/*.scss';
+var manifest = './src/manifest.json';
+var pkg = './package.json';
+
 var dirs = {
     dev: './build/dev',
     release: './build/release',
@@ -29,6 +34,7 @@ var dirs = {
 // Browserify js, move files.
 function build(dest, opts) {
     if (typeof opts == "undefined") opts = {};
+    // Browserify.
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
             var b_opts = {
@@ -46,18 +52,32 @@ function build(dest, opts) {
         });
         return es.merge(streams);
     });
-    
+    // Assets.
     assets.forEach(function(asset) {
         gulp.src(asset)
             .pipe(gulp.dest(dest));
     });
+    // Sass.
     compileSass(dest + '/css');
+    // Extension Manifest.
+    makeManifest(dest, opts.manifest);
     return bundle;
 }
 
 function compileSass(out) {
     gulp.src(sass_sources)
         .pipe(sass().on('error', sass.logError))
+        .pipe(gulp.dest(out));
+}
+
+// Update version and any additional properties.
+function makeManifest(out, props) {
+    var manifestProps = {};
+    if (props)
+        assign(manifestProps, props);
+
+    gulp.src(manifest)
+        .pipe(jeditor(manifestProps))
         .pipe(gulp.dest(out));
 }
 
@@ -81,26 +101,49 @@ function watchifyFile(src, out) {
 
 // dev build
 gulp.task('build', function() {
+    var p = jsonfile.readFileSync(pkg);
     return build(dirs.dev, {
         browserify: {
             debug: true
+        },
+        manifest: {
+            version: p.version
         }
     });
 });
 
 gulp.task('build-prod', function() {
-    return build(dirs.release);
+    var p = jsonfile.readFileSync(pkg);
+    return build(dirs.release, {
+        manifest: {
+            version: p.version
+        }
+    });
 });
 
 gulp.task('build-beta', function() {
-    return build(dirs.beta);
+    var p = jsonfile.readFileSync(pkg);
+    return build(dirs.beta, {
+        manifest: {
+            version: p.version,
+            version_name: p.version + "-beta"
+        }
+    });
 });
 
 gulp.task('sass-dev', function () {
     compileSass(dirs.dev + '/css');
 });
 
-gulp.task('watch', function() {
+gulp.task('manifest-dev', function () {
+    jsonfile.readFile(pkg, function (err, data) {
+        makeManifest(dirs.dev, {
+            version: data.version
+        });
+    });
+});
+
+gulp.task('watch', ['sass-dev', 'manifest-dev'], function() {
     var bundle = glob(sources, function (err, files) {
         var streams = files.map(function (entry) {
             return watchifyFile(entry, dirs.dev);
@@ -115,5 +158,6 @@ gulp.task('watch', function() {
             .pipe(gulp.dest(dirs.dev));
     });
     gulp.watch(sass_sources, ['sass-dev']);
+    gulp.watch([pkg, manifest], ['manifest-dev']);
     return bundle;
 });
