@@ -200,7 +200,6 @@ window.getDefaultTextures = function(callback) {
         speedpadblue: 'img/speedpadblue.png',
         splats: 'img/splats.png',
         flair: 'img/flair.png',
-        tagpro: 'img/tagpro.png'
     };
 
     var textureData = {};
