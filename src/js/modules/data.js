@@ -3,6 +3,7 @@ var Dexie = require('dexie');
 
 var convert = require('./convert');
 var fs = require('./filesystem');
+var Messaging = require('./messaging');
 var Status = require('./status');
 
 /**
@@ -86,62 +87,89 @@ db.version(3).stores({
     });
 
     trans.on('abort', function () {
+        console.warn("inside transaction abort handler");
         Status.set("upgrade_error");
     });
+    trans.on('error', function () {
+        console.warn("Inside transaction error handler.");
+        Status.set("upgrade_error");
+    });
+    //trans.abort();
+    trans.positions.count().then(function (total) {
+        var done = 0;
+        trans.positions.each(function (item, cursor) {
+            // Skip null values.
+            if (item === null) return;
 
-    trans.positions.each(function (item, cursor) {
-        // Skip null values.
-        // TODO: Progress update.
-        if (item === null) return;
-
-        convert({
-            name: cursor.key,
-            data: JSON.parse(item)
-        }).then(function (data) {
-            var replay = data.data;
-            var info = generateReplayInfo(replay);
-            return trans.info.add(info).then(function (info_id) {
-                replay.info_id = info_id;
-                return trans.replay.add(replay).then(function (replay_id) {
-                    info.replay_id = replay_id;
-                    trans.info.update(info_id, { replay_id: replay_id });
-                }).then(function () {
-                    // Console alert that replay was saved, progress update.
-                });
-            });
-        }).catch(function (reason) {
-            console.warn("Couldn't convert %s due to: %o.", cursor.key, reason);
-            console.log("Saving %s to failed replay database.", cursor.key);
-            var failedInfo = {
+            convert({
                 name: cursor.key,
-                failure_type: "upgrade_error",
-                message: reason
-            };
-            trans.failed_info.add(failedInfo).then(function (info_id) {
-                var failedReplay = {
-                    info_id: info_id,
-                    data: item
-                };
-                return trans.failed_replays.add(failedReplay).then(function (replay_id) {
-                    trans.failed_info.update(info_id, { replay_id: replay_id });
+                data: JSON.parse(item)
+            }).then(function (data) {
+                // Save converted replay.
+                var replay = data.data;
+                var info = generateReplayInfo(replay);
+                return trans.info.add(info).then(function (info_id) {
+                    replay.info_id = info_id;
+                    return trans.replay.add(replay).then(function (replay_id) {
+                        info.replay_id = replay_id;
+                        return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
+                            // Console alert that replay was saved, progress update.
+                            Messaging.send("upgradeProgress", {
+                                total: total,
+                                progress: ++done
+                            });
+                            console.log("Finished replay: %d.", done);
+                        });
+                    });
                 });
-            }).catch(function (err) {
-                // Database error, abort transaction.
-                console.error("Aborting upgrade due to database error: %o.", err);
-                trans.abort();
+            }).catch(function (reason) {
+                // Catch replay conversion or save error.
+                console.warn("Couldn't convert %s due to: %o.", cursor.key, reason);
+                console.log("Saving %s to failed replay database.", cursor.key);
+                var failedInfo = {
+                    name: cursor.key,
+                    failure_type: "upgrade_error",
+                    timestamp: Date.now(),
+                    message: reason
+                };
+                trans.failed_info.add(failedInfo).then(function (info_id) {
+                    var failedReplay = {
+                        info_id: info_id,
+                        data: item
+                    };
+                    return trans.failed_replays.add(failedReplay).then(function (replay_id) {
+                        return trans.failed_info.update(info_id, { replay_id: replay_id }).then(function () {
+                            Messaging.send("upgradeProgress", {
+                                total: total,
+                                progress: ++done
+                            });
+                            console.log("Saved failed replay: %d.", done);
+                        });
+                    });
+                }).catch(function (err) {
+                    // Save error, abort transaction.
+                    console.error("Aborting upgrade due to database error: %o.", err);
+                    trans.abort();
+                });
             });
         });
     });
 });
 
-// Wait for conversion function to be ready before opening database.
-convert.ready().then(function () {
-    db.open().catch(function (err) {
-        console.error("Error opening database: %o.", err);
+/**
+ * Call to initialize database.
+ */
+exports.init = function() {
+    // Wait for conversion function to be ready before opening database.
+    convert.ready().then(function () {
+        db.open().catch(function (err) {
+            console.error("Error opening database: %o.", err);
+            Status.set("db_error");
+        });
+    }).catch(function (err) {
+        console.error("Error loading conversion function: %o.", err);
     });
-}).catch(function (err) {
-    console.error("Error loading conversion function: %o.", err);
-});
+};
 
 /**
  * Generates the replay metadata that is stored in a separate object

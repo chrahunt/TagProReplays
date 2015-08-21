@@ -10,6 +10,7 @@ var Messaging = require('./modules/messaging');
 var Mutex = require('./modules/mutex');
 var RenderManager = require('./modules/rendermanager');
 var Status = require('./modules/status');
+var Storage = require('./modules/storage');
 var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
 
@@ -26,6 +27,11 @@ var manager = new RenderManager();
 
 // Ensure zipping and importing can't occur simultaneously.
 var lock = new Mutex();
+
+// Set initial status and initialize db.
+Status.reset().then(function () {
+    Data.init();
+});
 
 /**
  * Return the index of the first value in the array that satisfies the given
@@ -58,26 +64,26 @@ function clone(obj) {
 }
 
 function setDefaultTextures() {
-    Textures.getDefault(function(textures) {
-        // Use clone for same object, otherwise default_textures is
-        // null.
-        chrome.storage.local.set({
-            textures: textures,
-            default_textures: clone(textures)
-        }, function() {
-            if (chrome.runtime.lastError) {
-                console.log("Error initializing textures " +
-                    chrome.runtime.lastError);
-            }
+    return new Promise(function (resolve, reject) {
+        Textures.getDefault(function(textures) {
+            // Use clone for same object, otherwise default_textures is
+            // null.
+            var result = Storage.set({
+                textures: textures,
+                default_textures: clone(textures)
+            });
+            resolve(result);
         });
     });
 }
 
 // Ensure textures are set.
-chrome.storage.local.get(["default_textures", "textures"], function(items) {
+Storage.get(["default_textures", "textures"]).then(function(items) {
     if (!items.textures || !items.default_textures) {
         setDefaultTextures();
     }
+}).catch(function (err) {
+    console.warn("Error retrieving textures: %o.", err);
 });
 
 // Take certain actions when upgrading extension.
@@ -88,9 +94,24 @@ chrome.runtime.onInstalled.addListener(function (details) {
         console.log("Initial install.");
     } else if (reason == "update") {
         var from = details.previousVersion;
+        var current = chrome.runtime.getManifest().version;
         console.log("Upgrading from version %s.", from);
-        if (cmp(from, '2.0.0') == -1) {
-            setDefaultTextures();
+        if (cmp(from, current) === 0) {
+            // Same, fired when reloading in development.
+            console.log("Extension reloaded in dev.");
+        } else if (cmp(from, '2.0.0') == -1) {
+            localStorage.clear();
+            Storage.clear().then(function () {
+                // Force texture update.
+                setDefaultTextures().then(function () {
+                    // Reload so chrome storage is set again.
+                    chrome.runtime.reload();
+                }).catch(function (err) {
+                    console.warn("Error Initializing textures: %o.", err);
+                });
+            }).catch(function (err) {
+                console.warn("Error clearing storage: %o.", err);
+            });
         }
     }
 });
@@ -317,18 +338,21 @@ function(message, sender, sendResponse) {
 
     function resetDownload(err) {
         manager.resume();
-        Status.reset();
-        lock.release("replay_download");
-        if (err) {
-            sendResponse({
-                failed: true,
-                reason: err
-            });
-        } else {
-            sendResponse({
-                failed: false
-            });
-        }
+        Status.reset().then(function () {
+            lock.release("replay_download");
+            if (err) {
+                sendResponse({
+                    failed: true,
+                    reason: err
+                });
+            } else {
+                sendResponse({
+                    failed: false
+                });
+            }
+        }).catch(function (err) {
+            console.error("Error resetting status: %o.", err);
+        });
     }
 
     lock.get("replay_download").then(function () {
@@ -351,72 +375,73 @@ function(message, sender, sendResponse) {
                 console.error("Error retrieving replay: %o.", err);
                 resetDownload(err);
             });
-        } else  if (ids.length !== 0) {
-            Status.set("json_downloading");
-            Messaging.send("alert", {
-                blocking: true,
-                message: "Initializing zip file generation..."
-            });
+        } else if (ids.length !== 0) {
             // Multiple replay files.
-            var zip = new JSZip();
-            var filenames = {};
-            // Size of strings added to zip.
-            var size = 0;
-            // Stop length of stored data in single zip, ~100MB.
-            var maxSize = 1024 * 1024 * 100;
-            var files = 0;
-            Data.forEachReplay(ids, function (data) {
-                files++;
+            Status.set("json_downloading").then(function () {
                 Messaging.send("alert", {
                     blocking: true,
-                    message: "Processing file " + files + " of " + ids.length + "..."
+                    message: "Initializing zip file generation..."
                 });
-                var name = data.info.name;
-                var filename = sanitize(name);
-                if (filename === "") {
-                    filename = "replay";
-                }
-                // Handle duplicate replay names.
-                if (filenames.hasOwnProperty(filename)) {
-                    filename += " (" + (++filenames[filename]) + ")";
-                } else {
-                    filenames[filename] = 0;
-                }
-                var content = JSON.stringify(data);
-                var contentSize = content.length;
-                // If this results in a file that is too large, and there
-                // is at least one other file.
-                if (size !== 0 && size + contentSize > maxSize) {
-                    // Alert browser that zip is being generated.
+                var zip = new JSZip();
+                var filenames = {};
+                // Size of strings added to zip.
+                var size = 0;
+                // Stop length of stored data in single zip, ~100MB.
+                var maxSize = 1024 * 1024 * 100;
+                var files = 0;
+                Data.forEachReplay(ids, function (data) {
+                    files++;
                     Messaging.send("alert", {
                         blocking: true,
-                        message: "Zip file full, generating..."
+                        message: "Processing file " + files + " of " + ids.length + "..."
+                    });
+                    var name = data.info.name;
+                    var filename = sanitize(name);
+                    if (filename === "") {
+                        filename = "replay";
+                    }
+                    // Handle duplicate replay names.
+                    if (filenames.hasOwnProperty(filename)) {
+                        filename += " (" + (++filenames[filename]) + ")";
+                    } else {
+                        filenames[filename] = 0;
+                    }
+                    var content = JSON.stringify(data);
+                    var contentSize = content.length;
+                    // If this results in a file that is too large, and there
+                    // is at least one other file.
+                    if (size !== 0 && size + contentSize > maxSize) {
+                        // Alert browser that zip is being generated.
+                        Messaging.send("alert", {
+                            blocking: true,
+                            message: "Zip file full, generating..."
+                        });
+                        saveZip(zip);
+                        // Save.
+                        size = 0;
+                        zip = new JSZip();
+                    }
+                    size += content.length;
+                    zip.file(filename + ".json", content);
+                }).then(function () {
+                    Messaging.send("alert", {
+                        blocking: true,
+                        message: "All replays processed, generating final zip file..."
                     });
                     saveZip(zip);
-                    // Save.
-                    size = 0;
-                    zip = new JSZip();
-                }
-                size += content.length;
-                zip.file(filename + ".json", content);
-            }).then(function () {
-                Messaging.send("alert", {
-                    blocking: true,
-                    message: "All replays processed, generating final zip file..."
+                    Messaging.send("alert", {
+                        hide: true,
+                        blocking: true
+                    });
+                    resetDownload();
+                }).catch(function (err) {
+                    Messaging.send("alert", {
+                        blocking: true,
+                        message: "Error downloading replay files: " + err.message
+                    });
+                    console.error("Error compiling raw replays into zip: %o.", err);
+                    resetDownload(err);
                 });
-                saveZip(zip);
-                Messaging.send("alert", {
-                    hide: true,
-                    blocking: true
-                });
-                resetDownload();
-            }).catch(function (err) {
-                Messaging.send("alert", {
-                    blocking: true,
-                    message: "Error downloading replay files: " + err.message
-                });
-                console.error("Error compiling raw replays into zip: %o.", err);
-                resetDownload(err);
             });
         }
     }).catch(function () {
@@ -593,34 +618,35 @@ function(message, sender, sendResponse) {
 
 function stopImport() {
     lock.release("import");
-    Status.reset();
-    if (importLoop) {
-        importLoop.reject();
-    }
-    manager.resume();
-    Messaging.send("replaysUpdated");
+    Status.reset().then(function () {
+        if (importLoop) {
+            importLoop.reject();
+        }
+        manager.resume();
+        Messaging.send("replaysUpdated");
+    });
 }
 
 Messaging.listen("startImport",
 function (message, sender, sendResponse) {
     lock.get("import").then(function () {
         manager.pause();
-        Status.set("importing", function (err) {
-            if (err) {
-                sendResponse({
-                    failed: true
-                });
-            } else {
-                // Stop import if tab closes.
-                sender.onDisconnect.addListener(stopImport);
-                sendResponse({
-                    failed: false
-                });
-            }
+        Status.set("importing").then(function () {
+            // Stop import if tab closes.
+            sender.onDisconnect.addListener(stopImport);
+            sendResponse({
+                failed: false
+            });
+        }).catch(function (err) {
+            sendResponse({
+                failed: true,
+                reason: "Status error: " + err
+            });
         });
     }).catch(function () {
         sendResponse({
-            failed: true
+            failed: true,
+            reason: "busy"
         });
     });
     return true;

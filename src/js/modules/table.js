@@ -72,7 +72,8 @@ function Table(options) {
         stateSave: -1,
         scrollY: 'auto',
         pagingType: "simple",
-        processing: true
+        processing: true,
+        deferLoading: 0
     });
 
     // Add select-all checkbox to header.
@@ -130,9 +131,9 @@ function Table(options) {
         updateWhenChecked();
     });
 
-    var header = $(options.header.selector);
     // Update table when entry is checked.
     function updateWhenChecked() {
+        var header = $(options.header.selector);
         var rows = $("#" + table.id + " .selected-checkbox").length;
         if (rows === 0) {
             // Select-all checkbox.
