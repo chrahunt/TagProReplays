@@ -100,6 +100,18 @@ $row-height: 48px;
         font-size: 20px;
     }
 
+    .description {
+        width: 100%;
+        text-align: center;
+        margin-top: 10px;
+    }
+    
+    .material-progress {
+        width: 90%;
+        margin: 10px auto;
+        height: 5px;
+    }
+
     .message {
         // koalabeast css overrides.
         padding: 0px;
@@ -131,8 +143,11 @@ $row-height: 48px;
     padding: 0px;
 }
 
-#tpr-container #rendering {
-    display: none;
+// Initial state of other panels.
+#tpr-container {
+    #rendering, #failed-replays {
+        display: none;
+    }
 }
 
 /*#tpr-container #alert-message {

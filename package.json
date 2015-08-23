@@ -94,7 +94,8 @@
       "depends": [
         "jquery:jQuery"
       ]
-    }
+    },
+    "mprogress": "mprogress"
   },
   "browser": {
     "bootstrap": "./vendor/js/bootstrap.min.js",
@@ -102,6 +103,7 @@
     "jquery.actual": "./vendor/js/jquery.actual.min.js",
     "jquery-ui": "./vendor/js/jquery-ui.min.js",
     "material": "./vendor/js/material.min.js",
+    "mprogress": "./vendor/js/mprogress.min.js",
     "ripples": "./vendor/js/ripples.min.js",
     "whammy": "./vendor/js/whammy.js"
   }

@@ -100,9 +100,10 @@ db.version(3).stores({
         trans.positions.each(function (item, cursor) {
             // Skip null values.
             if (item === null) return;
+            var name = cursor.key;
 
             convert({
-                name: cursor.key,
+                name: name,
                 data: JSON.parse(item)
             }).then(function (data) {
                 // Save converted replay.
@@ -124,10 +125,10 @@ db.version(3).stores({
                 });
             }).catch(function (reason) {
                 // Catch replay conversion or save error.
-                console.warn("Couldn't convert %s due to: %o.", cursor.key, reason);
-                console.log("Saving %s to failed replay database.", cursor.key);
+                console.warn("Couldn't convert %s due to: %o.", name, reason);
+                console.log("Saving %s to failed replay database.", name);
                 var failedInfo = {
-                    name: cursor.key,
+                    name: name,
                     failure_type: "upgrade_error",
                     timestamp: Date.now(),
                     message: reason
@@ -135,6 +136,7 @@ db.version(3).stores({
                 trans.failed_info.add(failedInfo).then(function (info_id) {
                     var failedReplay = {
                         info_id: info_id,
+                        name: name,
                         data: item
                     };
                     return trans.failed_replays.add(failedReplay).then(function (replay_id) {
@@ -448,7 +450,7 @@ exports.getAllReplayInfo = function() {
  * @return {Promise} - Promise that resolves to an array with the number
  *   of total replays and the replays that were retrieved.
  */
-exports.getReplayInfo = function(data) {
+exports.getReplayInfoList = function(data) {
     var mapped = {
         "name": "name",
         "date": "dateRecorded",
@@ -644,3 +646,64 @@ function deleteMovie(id) {
         });
     });
 }
+
+exports.failedReplaysExist = function() {
+    return db.failed_info.count().then(function (n) {
+        return n > 0;
+    });
+};
+
+exports.getFailedReplayInfoList = function(data) {
+    var collection = db.failed_info.orderBy(":id");
+    return collection.count().then(function (n) {
+        return collection.offset(data.start).limit(data.length).toArray().then(function (results) {
+            return [n, results];
+        });
+    });
+};
+
+/**
+ * Delete replay data, includes the info and raw replay as well as the
+ * rendered video, if present.
+ * @param {Array.<integer>} ids - The ids of the replays to delete
+ * @return {Promise} - Promise that resolves when all ids have been
+ *   deleted properly, or rejects on error.
+ */
+exports.deleteFailedReplays = function(ids) {
+    return db.transaction("rw", db.info, db.replay, function() {
+        return Promise.all(ids.map(function (id) {
+            return db.info.get(id).then(function (info) {
+                db.info.delete(id);
+                db.replay.delete(info.replay_id);
+                if (info.rendered) {
+                    var movieId = info.renderId || info.render_id;
+                    return deleteMovie(movieId);
+                }
+            });
+        }));
+    });
+};
+
+/**
+ * Retrieve the data corresponding to the given replay.
+ * @param {integer} id - The info id of the replay to retrieve.
+ * @return {Promise} - Promise that resolves to the replay data, or
+ *   rejects if the replay is not present or another error occurs.
+ */
+exports.getFailedReplay = function(id) {
+    return db.failed_replays.where("info_id").equals(id).first().then(function (replay) {
+        if (replay)
+            return cleanReplay(replay);
+
+        throw new Error("No replay found.");
+    });
+};
+
+exports.getFailedReplayInfo = function(id) {
+    return db.failed_info.get(id).then(function (info) {
+        if (info)
+            return info;
+
+        throw new Error("No info found.");
+    });
+};

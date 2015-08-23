@@ -4,7 +4,8 @@
         <div class="modal-content">
             <div class="modal-overlay hidden">
                 <div class="title"></div>
-                <div class="loader"></div>
+                <div class="description"></div>
+                <div class="material-progress"></div>
                 <div class="message"></div>
                 <div class="actions"></div>
             </div>
@@ -84,15 +85,16 @@
                         </div>
                         <div class="actions hidden">
                             <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
-                            <div class="download-raw" title="download json"><i class="material-icons">file_download</i></div>
+                            <div class="download" title="download json"><i class="material-icons">file_download</i></div>
                         </div>
                     </div>
                     <table id="failed-replay-table" class="table table-condensed">
                         <thead>
                         <tr>
                             <th><!-- Select-all checkbox --></th>
+                            <th>ID</th>
                             <th>Name</th>
-                            <th>Date</th>
+                            <!--<th>Date</th>-->
                         </tr>
                         </thead>
                     </table>

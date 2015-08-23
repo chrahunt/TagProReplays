@@ -1,6 +1,7 @@
 var concat = require('concat-stream');
 var DataTable = require('datatables');
 var moment = require('moment');
+var Mprogress = require('mprogress');
 var $ = require('jquery');
 require('jquery.actual');
 require('jquery-ui');
@@ -31,36 +32,131 @@ moment.locale('en', {
     }
 });
 
-function Overlay() {
-
+function Overlay(selector) {
+    this.$this = $(selector);
+    this.selector = selector;
+    this.state = {
+        progress: null
+    };
+    this.progress = null;
 }
 
 Overlay.prototype.show = function() {
-    $(".modal-overlay").removeClass("hidden");
+    this.$this.removeClass("hidden");
 };
 
 Overlay.prototype.hide = function() {
-    $(".modal-overlay").addClass("hidden");
+    this.$this.addClass("hidden");
 };
 
-// Progress from 0 to 100
-Overlay.prototype.progress = function(n) {
-    // body...
+Overlay.prototype.set = function(info) {
+    // text
+    if (info.hasOwnProperty("title")) {
+        this._title(info.title);
+    }
+    // html
+    if (info.hasOwnProperty("message")) {
+        this._message(info.message);
+    }
+    // html
+    if (info.hasOwnProperty("description")) {
+        this._description(info.description);
+    }
+    // bool, int
+    if (info.hasOwnProperty("progress")) {
+        this._initProgress(info.progress);
+    }
+    // array<obj> with text (html), action (fn) invoked on click.
+    if (info.hasOwnProperty("actions")) {
+        this._actions(info.actions);
+    }
+};
+
+Overlay.prototype.update = function(info) {
+    if (info.hasOwnProperty("title")) {
+        this._title(info.title);
+    }
+    if (info.hasOwnProperty("message")) {
+        this._message(info.message);
+    }
+    if (info.hasOwnProperty("description")) {
+        this._description(info.description);
+    }
+    if (info.hasOwnProperty("progress")) {
+        this._progress(info.progress);
+    }
+    if (info.hasOwnProperty("actions")) {
+        this._actions(info.actions);
+    }
+};
+
+Overlay.prototype._title = function(str) {
+    this.$this.find(".title").text(str);
+};
+
+Overlay.prototype._description = function(html) {
+    this.$this.find(".description").html(html);
 };
 
 // Message to display.
-Overlay.prototype.message = function(msg) {
-    $(".modal-overlay .message").html(msg);
+Overlay.prototype._message = function(html) {
+    this.$this.find(".message").html(html);
 };
 
-Overlay.prototype.title = function(str) {
-    $(".modal-overlay .title").text(str);
+Overlay.prototype._initProgress = function(val) {
+    var progressClass = "material-progress";
+    if (val) {
+        this.$this.find("."+progressClass).removeClass("hidden");
+        if (typeof val == "number") {
+            // Determinite, set total.
+            this.state.progress = val;
+            this.progress = new Mprogress({
+                parent: this.selector + " ." + progressClass
+            });
+        } else {
+            // Indeterminite.
+            this.state.progress = true;
+            this.progress = new Mprogress({
+                parent: this.selector + " ." + progressClass,
+                template: 3,
+                start: true
+            });
+        }        
+    } else {
+        // Hide progress.
+        this.$this.find("."+progressClass).addClass("hidden");
+    }
 };
 
-Overlay.prototype.actions = function(lst) {
-    $(".modal-overlay .actions").html("");
-    lst.forEach(function (action) {
-        $(".modal-overlay .actions").append(action);
+Overlay.prototype._progress = function(val) {
+    if (val) {
+        //this.$this.find(".progress").removeClass("hidden");
+        if (typeof val == "number") {
+            // Only update determinite value if total has been set.
+            if (typeof this.state.progress == "number") {
+                // Update determinite value.
+                this.progress.set(val / this.state.progress);
+            }
+        } else {
+            // Indeterminite.
+        }
+    } else {
+        if (this.progress) {
+            this.progress.end();
+        }
+        // Hide progress.
+        //this.$this.find(".progress").addClass("hidden");
+    }
+};
+
+Overlay.prototype._actions = function(actions) {
+    var $actions = this.$this.find('.actions');
+    $actions.html("");
+    actions.forEach(function (action) {
+        var $action = $("<button>");
+        $action.text(action.text);
+        $action.click(action.action);
+        $actions.append($action);
     });
 };
 
@@ -88,7 +184,6 @@ var Menu = function() {
     
     // Initialize viewer for replay preview.
     this.viewer = new Viewer();
-    this.overlay = new Overlay();
 };
 
 module.exports = Menu;
@@ -151,16 +246,27 @@ Menu.prototype.init = function() {
     $(".nav-home").click(function() {
         $(this).addClass("active");
         $(".nav-render").removeClass("active");
+        $(".nav-failed").removeClass("active");
         $("#replays").show();
         $("#rendering").hide();
-        $("#render-footer").hide();
+        $("#failed-replays").hide();
     });
 
     $(".nav-render").click(function() {
         $(this).addClass("active");
         $(".nav-home").removeClass("active");
+        $(".nav-failed").removeClass("active");
         $("#rendering").show();
-        $("#render-footer").show();
+        $("#replays").hide();
+        $("#failed-replays").hide();
+    });
+
+    $(".nav-failed").click(function() {
+        $(this).addClass("active");
+        $(".nav-home").removeClass("active");
+        $(".nav-render").removeClass("active");
+        $("#failed-replays").show();
+        $("#rendering").hide();
         $("#replays").hide();
     });
 
@@ -177,11 +283,30 @@ Menu.prototype.init = function() {
     $('#raw-upload').prop('multiple', true);
     $('#raw-upload').change(this._list_Import());
 
+    this.overlay = new Overlay("#menuContainer .modal-overlay");
+
+    var self = this;
     // Run initialization for other parts of the menu.
-    this._initListeners();
-    this._initSettings();
-    this._initReplayList();
-    this._initRenderList();
+    Messaging.send("failedReplaysExist", function (response) {
+        self._initListeners();
+        self._initSettings();
+        self._initReplayList();
+        self._initRenderList();
+
+        if (response) {
+            self._initFailedReplayList();
+        } else {
+            self._hideFailedReplayList();
+        }
+        // TODO: Status setup.
+    });
+};
+
+/**
+ * Initialize necessary import functionality.
+ */
+Menu.prototype._initImport = function() {
+    // body...
 };
 
 /**
@@ -408,6 +533,101 @@ Menu.prototype._initReplayList = function() {
     });
 };
 
+// TODO
+Menu.prototype._initFailedReplayList = function() {
+    console.log("Failed replay list present.");
+    var self = this;
+    // Init table.
+    this.failed_replay_table = new Table({
+        id: "failed-replay-table",
+        header: {
+            selector: "#failed-replays .card-header",
+            singular: "failed replay",
+            plural: "failed replays",
+            title: "Failed Replays"
+        },
+        update: function (data, callback) {
+            var args = {
+                length: data.length,
+                start: data.start
+            };
+            Messaging.send("getFailedReplayList", args, function (response) {
+                var list = response.data.map(function (info) {
+                    return {
+                        id: info.id,
+                        name: info.name,
+                        //date: moment(replay.dateRecorded),
+                        DT_RowData: {
+                            id: info.id
+                        }
+                    };
+                });
+                $(".nav-failed .badge").text(response.total);
+                callback({
+                    data: list,
+                    draw: data.draw,
+                    recordsTotal: response.total,
+                    recordsFiltered: response.filtered
+                });
+            });
+        },
+        columns: [
+            {
+                data: null,
+                defaultContent: Table.checkbox,
+                className: 'cb-cell',
+                orderable: false,
+                width: "24px"
+            },
+            {
+                data: "id",
+                visible: false
+            },
+            {
+                data: "name",
+                orderable: false,
+                className: "fixed-cell",
+                width: "100%"
+            }/*,
+            {
+                data: null,
+                render: function (data, type, row, meta) {
+                    var disabled = !data;
+                    var content = '<div class="actions">';
+                    if (disabled) {
+                        content += '<div class="row-download-movie disabled" title="render replay first!"><i class="material-icons">file_download</i></div>';
+                    } else {
+                        content += '<div class="row-download-movie" title="download movie"><i class="material-icons">file_download</i></div>';
+                    }
+                    content += '<div class="row-preview" title="preview"><i class="material-icons">play_arrow</i></div>' +
+                        '</div>';
+                    return content;
+                },
+                orderable: false,
+                width: "60px"
+            }*/
+        ],
+        order: [[1, 'asc']]
+    });
+
+    $('#failed-replays .card-header .actions .download').click(function () {
+        var ids = self.failed_replay_table.selected();
+        if (ids.length > 0) {
+            console.log('Requesting raw json download for ' + ids + '.');
+            Messaging.send("downloadFailedReplays", {
+                ids: ids
+            });
+        }
+    });
+};
+
+// TODO
+Menu.prototype._hideFailedReplayList = function() {
+    console.log("No failed replays.");
+    $('#nav-failed').hide();
+    this.failed_replay_table = null;
+};
+
 Menu.prototype._initRenderList = function() {
     var self = this;
 
@@ -576,29 +796,25 @@ Menu.prototype._initListeners = function() {
         finished: 0,
         total: 0,
         thisMenu: false,
-        cancelButtonSet: false,
         cancel: null,
         cancelled: false
     };
 
     // Update import progress on overlay.
     function updateImport() {
-        var text = "Replay " + self.importing.finished + " of " + self.importing.total + ".";
-        self.overlay.message(text);
+        var update = {};
+        if (self.importing.thisMenu) {
+            update.message = "On replay " + self.importing.finished + " of " + self.importing.total + ".";
+            update.progress = self.importing.finished;
+        } else {
+            update.message = "Replay " + self.importing.finished + " imported.";
+        }
+        
+        // TODO: Reflect import errors information by changing overlay style/message
         if (self.importing.errors.length > 0) {
-            // TODO: Reflect import errors information by changing overlay style.
             //console.log("There were some importing errors.");
         }
-        if (!self.importing.cancelButtonSet && self.importing.thisMenu) {
-            self.importing.cancelButtonSet = true;
-            var cancel = $("<button>cancel</button>");
-            cancel.click(function () {
-                if (self.importing.cancel) {
-                    self.importing.cancel();
-                }
-            });
-            self.overlay.actions([cancel]);
-        }
+        self.overlay.update(update);
     }
 
     Messaging.listen("importProgress",
@@ -625,8 +841,25 @@ Menu.prototype._initListeners = function() {
     // Initialize import overlay.
     Status.on("importing", function (old) {
         self.paused = true;
+        var options = {
+            title: "Replay Import",
+            progress: self.importing.thisMenu ? self.importing.total : true,
+            actions: [{
+                text: "cancel",
+                action: function() {
+                    if (self.importing.cancel) {
+                        self.importing.cancel();
+                    }
+                }
+            }]
+        };
+        if (self.importing.thisMenu) {
+            options.description = "Importing your replays, don't navigate away from this page until the process is complete!";
+        } else {
+            options.description = "Importing your replays in another tab.";
+        }
+        self.overlay.set(options);
         self.overlay.show();
-        self.overlay.title("Importing Replays...");
         updateImport();
     });
     function resetImport() {
@@ -635,7 +868,6 @@ Menu.prototype._initListeners = function() {
         self.importing.thisMenu = false;
         self.importing.total = 0;
         self.importing.cancel = null;
-        self.importing.cancelButtonSet = false;
         self.importing.cancelled = false;
     }
 
@@ -643,10 +875,13 @@ Menu.prototype._initListeners = function() {
     Status.on("importing->idle", function () {
         self.paused = false;
         if (self.importing.thisMenu) {
+            var update = {
+                progress: false
+            };
             if (self.importing.cancelled) {
-                self.overlay.title("Import cancelled");
+                update.description = "Import cancelled";
             } else {
-                self.overlay.title("Replays Imported!");
+                update.description = "Replays Imported!";
             }
             if (self.importing.errors.length > 0) {
                 // Gather errors into text file.
@@ -656,24 +891,25 @@ Menu.prototype._initListeners = function() {
                     return text + "\n" + msg;
                 });
                 var url = makeTextFile(text);
-                self.overlay.message("There were some errors. You can download them " + 
+                update.message = "There were some errors. You can download them " + 
                     "<a href=\"" + url + "\" download=\"import-errors.txt\">here</a>. Once downloaded, send them " +
-                    "via the error reporting information you can find in \"Help\" in the menu.");
-                self.importing.errors = [];
+                    "via the error reporting information you can find in \"Help\" in the menu.";
             } else {
                 if (self.importing.cancelled) {
-                    self.overlay.message("Replay import cancelled. Only " +
+                    update.message = "Replay import cancelled. Only " +
                         self.importing.finished + " of " + self.importing.total +
-                        " replays processed.");
+                        " replays processed.";
                 } else {
-                    self.overlay.message("All replays imported successfully.");
+                    update.message = "All replays imported successfully.";
                 }
             }
-            var dismiss = $("<button>dismiss</button>");
-            dismiss.click(function () {
-                self.overlay.hide();
-            });
-            self.overlay.actions([dismiss]);
+            update.actions = [{
+                text: "dismiss",
+                action: function() {
+                    self.overlay.hide();
+                }
+            }];
+            self.overlay.update(update);
             resetImport();
         } else {
             console.log("This was not the importing menu.");
@@ -689,6 +925,10 @@ Menu.prototype._initListeners = function() {
 
     Status.on("idle", function () {
         self.replay_table.reload();
+        self.render_table.reload();
+        if (self.failed_replay_table) {
+            self.failed_replay_table.reload();
+        }
     });
 
     // Display json downloading message.
@@ -712,16 +952,6 @@ Menu.prototype._initListeners = function() {
         if (self.importing.errors.length > 0) {
             // TODO: Reflect import errors information by changing overlay style.
             //console.log("There were some importing errors.");
-        }
-        if (!self.importing.cancelButtonSet && self.importing.thisMenu) {
-            self.importing.cancelButtonSet = true;
-            var cancel = $("<button>cancel</button>");
-            cancel.click(function () {
-                if (self.importing.cancel) {
-                    self.importing.cancel();
-                }
-            });
-            self.overlay.actions([cancel]);
         }
     }
 
@@ -782,7 +1012,7 @@ Menu.prototype.alert = function(opts) {
  *   replay import button.
  */
 Menu.prototype._list_Import = function() {
-    var menu = this;
+    var self = this;
 
     return function () {
         var files = $(this).prop('files');
@@ -791,21 +1021,21 @@ Menu.prototype._list_Import = function() {
         var sizeLimit = 1024 * 1024 * mb;
         /*files = files.filter(function (file) {
             if (file.size > sizeLimit) {
-                menu.importing.errors.push({
+                self.importing.errors.push({
                     name: file.name,
                     reason: "file too big, max file size is " + mb + "MB."
                 });
-                menu.importing.finished++;
+                self.importing.finished++;
                 return false;
             } else {
                 return true;
             }
         });*/
-        menu.importing.thisMenu = true;
-        menu.importing.total = files.length;
+        self.importing.thisMenu = true;
+        self.importing.total = files.length;
         Messaging.send("startImport", function (result) {
             if (!result.failed) {
-                menu.paused = true;
+                self.paused = true;
                 console.group("Importing %d replays.", files.length);
                 console.time("Replay import");
                 var fls = FileListStream(files);
@@ -814,16 +1044,16 @@ Menu.prototype._list_Import = function() {
                 });
                 fls.pipe(send);
                 // For cancelling import streams.
-                menu.importing.cancel = function () {
+                self.importing.cancel = function () {
                     fls.unpipe();
                     send.stop();
-                    menu.importing.cancelled = true;
+                    self.importing.cancelled = true;
                     Messaging.send("cancelImport");
                 };
                 send.on('finish', function () {
                     console.timeEnd("Replay import");
                     console.groupEnd();
-                    if (!menu.importing.cancelled) {
+                    if (!self.importing.cancelled) {
                         Messaging.send("endImport");
                     }
                 });
@@ -840,8 +1070,6 @@ Menu.prototype._list_Import = function() {
  * @private
  */
 Menu.prototype._list_Render = function() {
-    var menu = this;
-
     var ids = this.replay_table.selected();
     this.replay_table.deselect(ids);
     if (ids.length > 0) {

@@ -191,7 +191,7 @@ function(message, sender, sendResponse) {
     manager.pause();
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
-    Data.getReplayInfo(message).then(function (data) {
+    Data.getReplayInfoList(message).then(function (data) {
         manager.resume();
         sendResponse({
             data: data[1],
@@ -471,6 +471,68 @@ function(message) {
     }).catch(function (err) {
         console.error("Error retrieving movie for download: %o.", err);
     });
+});
+
+////////////////////
+// Failed replays //
+////////////////////
+
+Messaging.listen("failedReplaysExist",
+function(message, sender, sendResponse) {
+    Data.failedReplaysExist().then(function (b) {
+        sendResponse(b);
+    }).catch(function (err) {
+        console.warn("Error retrieving failed replays: %o.", err);
+    });
+    return true;
+});
+
+Messaging.listen("getFailedReplayList",
+function(message, sender, sendResponse) {
+    Data.getFailedReplayInfoList(message).then(function (data) {
+        sendResponse({
+            data: data[1],
+            total: data[0],
+            filtered: data[0]
+        });
+    }).catch(function (err) {
+        console.error("Error getting failed replay list: %o.", err);
+    });
+    return true;
+});
+
+Messaging.listen(["deleteFailedReplay", "deleteFailedReplays"],
+function(message, sender, sendResponse) {
+    // Check if single or multiple replays and normalize.
+    var ids = message.id ? [message.id] : message.ids;
+
+    Data.deleteFailedReplays(ids).then(function () {
+        Messaging.send("failedReplaysUpdated");
+    }).catch(function (err) {
+        console.error("Error deleting failed replays: %o.", err);
+    });
+});
+
+Messaging.listen(["downloadFailedReplay", "downloadFailedReplays"],
+function(message, sender, sendResponse) {
+    console.log("Attempted download of failed replays.");
+    // Validate the number of replays.
+    var ids = message.id ? [message.id] : message.ids;
+    if (ids.length === 1) {
+        // Single JSON file.
+        var id = ids[0];
+        Data.getFailedReplay(id).then(function (data) {
+            var blob = new Blob([data.data],
+                { type: 'application/json' });
+            var filename = sanitize(data.name);
+            if (filename === "") {
+                filename = "replay";
+            }
+            saveAs(blob, filename + '.json');
+        }).catch(function (err) {
+            console.error("Error retrieving replay: %o.", err);
+        });
+    }
 });
 
 //////////////////////
