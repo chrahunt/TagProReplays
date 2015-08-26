@@ -328,6 +328,7 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen(["downloadReplay", "downloadReplays"],
 function(message, sender, sendResponse) {
+    // Synchronously create zip file and save.
     function saveZip(zip) {
         var content = zip.generate({
             type: "blob",
@@ -336,47 +337,34 @@ function(message, sender, sendResponse) {
         saveAs(content, "replays.zip");
     }
 
-    function resetDownload(err) {
+    // Reset multi-download.
+    function resetDownload() {
         manager.resume();
         Status.reset().then(function () {
             lock.release("replay_download");
-            if (err) {
-                sendResponse({
-                    failed: true,
-                    reason: err
-                });
-            } else {
-                sendResponse({
-                    failed: false
-                });
-            }
         }).catch(function (err) {
             console.error("Error resetting status: %o.", err);
         });
     }
 
-    lock.get("replay_download").then(function () {
-        manager.pause();
-        // Validate the number of replays.
-        var ids = message.id ? [message.id] : message.ids;
-        if (ids.length === 1) {
-            // Single JSON file.
-            var id = ids[0];
-            Data.getReplay(id).then(function (data) {
-                var blob = new Blob([JSON.stringify(data)],
-                    { type: 'application/json' });
-                var filename = sanitize(data.info.name);
-                if (filename === "") {
-                    filename = "replay";
-                }
-                saveAs(blob, filename + '.json');
-                resetDownload();
-            }).catch(function (err) {
-                console.error("Error retrieving replay: %o.", err);
-                resetDownload(err);
-            });
-        } else if (ids.length !== 0) {
-            // Multiple replay files.
+    var ids = message.id ? [message.id] : message.ids;
+    if (ids.length === 1) {
+        // Single JSON file.
+        var id = ids[0];
+        Data.getReplay(id).then(function (data) {
+            var blob = new Blob([JSON.stringify(data)],
+                { type: 'application/json' });
+            var filename = sanitize(data.info.name);
+            if (filename === "") {
+                filename = "replay";
+            }
+            saveAs(blob, filename + '.json');
+        }).catch(function (err) {
+            console.error("Error retrieving replay: %o.", err);
+        });
+    } else {
+        lock.get("replay_download").then(function () {
+            manager.pause();
             Status.set("json_downloading").then(function () {
                 Messaging.send("alert", {
                     blocking: true,
@@ -443,13 +431,13 @@ function(message, sender, sendResponse) {
                     resetDownload(err);
                 });
             });
-        }
-    }).catch(function () {
-        sendResponse({
-            failed: true,
-            reason: "Background page busy."
+        }).catch(function () {
+            sendResponse({
+                failed: true,
+                reason: "Background page busy."
+            });
         });
-    });
+    }
     return true;
 });
 
