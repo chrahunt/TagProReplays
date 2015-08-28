@@ -94,8 +94,7 @@
       "depends": [
         "jquery:jQuery"
       ]
-    },
-    "mprogress": "mprogress"
+    }
   },
   "browser": {
     "bootstrap": "./vendor/js/bootstrap.min.js",

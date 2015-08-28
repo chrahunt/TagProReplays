@@ -665,7 +665,7 @@ Menu.prototype._initReplayList = function() {
 
     // Downloading raw replays.
     $('#replays .card-header .actions .download-raw').click(function () {
-        var ids = this.replay_table.selected();
+        var ids = self.replay_table.selected();
         if (ids.length > 0) {
             console.log('Requesting raw replay download for ' + ids + '.');
             Messaging.send("downloadReplays", { ids: ids }, function (response) {
@@ -765,14 +765,33 @@ Menu.prototype._initReplayList = function() {
         }
     });
 
+    var progressSet = false;
     Messaging.listen("zipProgress",
     function (message) {
-
+        if (!progressSet) {
+            self.overlay.set({
+                progress: message.total
+            });
+            progressSet = true;
+        }
+        self.overlay.update({
+            progress: message.current,
+            message: "Adding replay " + message.current + " of " + message.total + "."
+        });
     });
 
     Messaging.listen("intermediateZipDownload",
     function () {
+        self.overlay.update({
+            message: "Zip file reached capacity, downloading..."
+        });
+    });
 
+    Messaging.listen("finalZipDownload",
+    function () {
+        self.overlay.update({
+            message: "Downloading final zip file..."
+        });
     });
 
     var downloadError = false;
@@ -789,6 +808,7 @@ Menu.prototype._initReplayList = function() {
             message: 'Initializing zip file generation...',
             progress: true
         });
+        self.overlay.show();
     });
 
     // Display finish message.
@@ -797,11 +817,17 @@ Menu.prototype._initReplayList = function() {
             var reason = download.error;
             // Change overlay to display error.
             // add dismiss
-            
-        } else {
             self.overlay.set({
-                title: ''
+                description: "There was an error downloading your replays: " + download.error + ".",
+                actions: [{
+                    text: "dismiss",
+                    action: function () {
+                        self.overlay.hide();
+                    }
+                }]
             });
+        } else {
+            self.overlay.hide();
         }
     });
 };

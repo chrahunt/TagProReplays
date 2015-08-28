@@ -3,6 +3,7 @@ var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
 
+
 var AsyncLoop = require('./modules/async-loop');
 var convert = require('./modules/convert');
 var Data = require('./modules/data');
@@ -13,7 +14,7 @@ var Status = require('./modules/status');
 var Storage = require('./modules/storage');
 var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
-
+var ZipFiles = require('./modules/zip-files');
 /**
  * Acts as the intermediary for content script and background page
  * storage holding replay data and rendered webm movies. Also listens
@@ -328,25 +329,6 @@ function(message, sender, sendResponse) {
  */
 Messaging.listen(["downloadReplay", "downloadReplays"],
 function(message, sender, sendResponse) {
-    // Synchronously create zip file and save.
-    function saveZip(zip) {
-        var content = zip.generate({
-            type: "blob",
-            compression: "STORE"
-        });
-        saveAs(content, "replays.zip");
-    }
-
-    // Reset multi-download.
-    function resetDownload() {
-        manager.resume();
-        Status.reset().then(function () {
-            lock.release("replay_download");
-        }).catch(function (err) {
-            console.error("Error resetting status: %o.", err);
-        });
-    }
-
     var ids = message.id ? [message.id] : message.ids;
     if (ids.length === 1) {
         // Single JSON file.
@@ -366,69 +348,48 @@ function(message, sender, sendResponse) {
         lock.get("replay_download").then(function () {
             manager.pause();
             Status.set("json_downloading").then(function () {
-                Messaging.send("alert", {
-                    blocking: true,
-                    message: "Initializing zip file generation..."
+                var zipfiles = new ZipFiles({
+                    default_name: "replay",
+                    zip_name: "replays"
                 });
-                var zip = new JSZip();
-                var filenames = {};
-                // Size of strings added to zip.
-                var size = 0;
-                // Stop length of stored data in single zip, ~100MB.
-                var maxSize = 1024 * 1024 * 100;
+                zipfiles.on("generating_int_zip", function () {
+                    Messaging.send("intermediateZipDownload");                    
+                });
+                zipfiles.on("generating_final_zip", function () {
+                    Messaging.send("finalZipDownload");
+                });
                 var files = 0;
-                Data.forEachReplay(ids, function (data) {
+                zipfiles.on("file", function () {
                     files++;
-                    Messaging.send("alert", {
-                        blocking: true,
-                        message: "Processing file " + files + " of " + ids.length + "..."
+                    Messaging.send("zipProgress", {
+                        total: ids.length,
+                        current: files
                     });
-                    var name = data.info.name;
-                    var filename = sanitize(name);
-                    if (filename === "") {
-                        filename = "replay";
-                    }
-                    // Handle duplicate replay names.
-                    if (filenames.hasOwnProperty(filename)) {
-                        filename += " (" + (++filenames[filename]) + ")";
-                    } else {
-                        filenames[filename] = 0;
-                    }
-                    var content = JSON.stringify(data);
-                    var contentSize = content.length;
-                    // If this results in a file that is too large, and there
-                    // is at least one other file.
-                    if (size !== 0 && size + contentSize > maxSize) {
-                        // Alert browser that zip is being generated.
-                        Messaging.send("alert", {
-                            blocking: true,
-                            message: "Zip file full, generating..."
-                        });
-                        saveZip(zip);
-                        // Save.
-                        size = 0;
-                        zip = new JSZip();
-                    }
-                    size += content.length;
-                    zip.file(filename + ".json", content);
+                    // TODO: Alert about file processing.
+                });
+                // Reset download state.
+                zipfiles.on("end", function () {
+                    manager.resume();
+                    Status.reset().then(function () {
+                        lock.release("replay_download");
+                    }).catch(function (err) {
+                        console.error("Error resetting status: %o.", err);
+                    });
+                });
+                Data.forEachReplay(ids, function (data) {
+                    zipfiles.addFile({
+                        filename: data.info.name,
+                        ext: "json",
+                        contents: JSON.stringify(data)
+                    });
                 }).then(function () {
-                    Messaging.send("alert", {
-                        blocking: true,
-                        message: "All replays processed, generating final zip file..."
-                    });
-                    saveZip(zip);
-                    Messaging.send("alert", {
-                        hide: true,
-                        blocking: true
-                    });
-                    resetDownload();
+                    zipfiles.done();
                 }).catch(function (err) {
-                    Messaging.send("alert", {
-                        blocking: true,
-                        message: "Error downloading replay files: " + err.message
-                    });
+                    // TODO: Send message about failure.
+                    Messaging.send("downloadError", err);
+                    // err.message
                     console.error("Error compiling raw replays into zip: %o.", err);
-                    resetDownload(err);
+                    zipfiles.done(true);
                 });
             });
         }).catch(function () {
@@ -520,6 +481,7 @@ function(message, sender, sendResponse) {
         }).catch(function (err) {
             console.error("Error retrieving replay: %o.", err);
         });
+    } else {
     }
 });
 

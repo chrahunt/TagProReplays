@@ -12,7 +12,7 @@ var gulp = require('gulp'),
     sass = require('gulp-sass'),
     jeditor = require('gulp-json-editor'),
     jsonfile = require('jsonfile');
-
+process.env.BROWSERIFYSHIM_DIAGNOSTICS=1;
 var assets = [
     // Asset files in src
     ['src/**/*', '!src/js/**/*', '!src/scss/**/*', '!src/manifest.json'],
