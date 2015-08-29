@@ -109,17 +109,25 @@ Overlay.prototype._initProgress = function(val) {
     var progressClass = "material-progress";
     if (val) {
         this.$this.find("."+progressClass).removeClass("hidden");
+        // Reset if needed.
+        if (this.progress) {
+            this.progress._remove();
+            this.progress = null;
+            this.state.progress = null;
+        }
+        var selector = this.selector + " ." + progressClass;
         if (typeof val == "number") {
             // Determinite, set total.
             this.state.progress = val;
             this.progress = new Mprogress({
-                parent: this.selector + " ." + progressClass
+                parent: selector
             });
+            console.log(this.progress);
         } else {
             // Indeterminite.
             this.state.progress = true;
             this.progress = new Mprogress({
-                parent: this.selector + " ." + progressClass,
+                parent: selector,
                 template: 3,
                 start: true
             });
@@ -131,23 +139,21 @@ Overlay.prototype._initProgress = function(val) {
 };
 
 Overlay.prototype._progress = function(val) {
-    if (val) {
-        //this.$this.find(".progress").removeClass("hidden");
+    console.log("received progress: " + val);
+    if (val || typeof val == "number") {
         if (typeof val == "number") {
             // Only update determinite value if total has been set.
             if (typeof this.state.progress == "number") {
                 // Update determinite value.
                 this.progress.set(val / this.state.progress);
             }
-        } else {
-            // Indeterminite.
-        }
+        } // else indeterminite.
     } else {
         if (this.progress) {
             this.progress.end();
+            this.progress = null;
+            this.state.progress = null;
         }
-        // Hide progress.
-        //this.$this.find(".progress").addClass("hidden");
     }
 };
 
@@ -752,11 +758,6 @@ Menu.prototype._initReplayList = function() {
         self.replay_table.reload();
     });
 
-    var download = {
-        total: null,
-        progress: null,
-        error: null
-    };
 
     Messaging.listen(["replayUpdated", "replaysUpdated"],
     function () {
@@ -764,6 +765,12 @@ Menu.prototype._initReplayList = function() {
             self.replay_table.reload();
         }
     });
+
+    var download = {
+        total: null,
+        progress: null,
+        error: null
+    };
 
     var progressSet = false;
     Messaging.listen("zipProgress",
@@ -813,6 +820,7 @@ Menu.prototype._initReplayList = function() {
 
     // Display finish message.
     Status.on("json_downloading->idle", function () {
+        progressSet = false;
         if (downloadError) {
             var reason = download.error;
             // Change overlay to display error.
@@ -1093,11 +1101,6 @@ Menu.prototype._initListeners = function() {
         }
     });
 
-    Messaging.listen("alert",
-    function (message, sender) {
-        self.alert(message);
-    });
-
     ///////////////
     // Upgrading //
     ///////////////
@@ -1140,24 +1143,6 @@ Menu.prototype._initListeners = function() {
     Status.on("db_error", function () {
 
     });
-};
-
-Menu.prototype.alert = function(opts) {
-    if (!opts.hide) {
-        if (opts.blocking) {
-            $("#replays .card-header").addClass("hidden");
-        }
-        $("#replays .header-alert").removeClass("hidden");
-        var msg = opts.message;
-        if (msg) {
-            $("#replays .header-alert .message").text(msg);
-        }
-    } else {
-        if (opts.blocking) {
-            $("#replays .card-header").removeClass("hidden");
-        }
-        $("#replays .header-alert").addClass("hidden");
-    }
 };
 
 /**
