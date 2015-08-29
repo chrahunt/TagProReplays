@@ -670,15 +670,13 @@ exports.getFailedReplayInfoList = function(data) {
  *   deleted properly, or rejects on error.
  */
 exports.deleteFailedReplays = function(ids) {
-    return db.transaction("rw", db.info, db.replay, function() {
+    return db.transaction("rw", db.failed_info, db.failed_replays, function() {
         return Promise.all(ids.map(function (id) {
-            return db.info.get(id).then(function (info) {
-                db.info.delete(id);
-                db.replay.delete(info.replay_id);
-                if (info.rendered) {
-                    var movieId = info.renderId || info.render_id;
-                    return deleteMovie(movieId);
-                }
+            return db.failed_info.get(id).then(function (info) {
+                return Promise.all([
+                    db.failed_info.delete(id),
+                    db.failed_replays.delete(info.replay_id)
+                ]);
             });
         }));
     });

@@ -282,21 +282,13 @@ Menu.prototype.init = function() {
 
     var self = this;
     // Run initialization for other parts of the menu.
-    Messaging.send("failedReplaysExist", function (response) {
-        self._initListeners();
-        self._initSettings();
-        self._initReplayList();
-        self._initRenderList();
-        self._initImport();
-
-        if (response) {
-            self._initFailedReplayList();
-        } else {
-            self._hideFailedReplayList();
-        }
-        // TODO: Status setup.
-        Status.force();
-    });
+    self._initListeners();
+    self._initSettings();
+    self._initReplayList();
+    self._initRenderList();
+    self._initImport();
+    self._initFailedReplayList();
+    Status.force();
 };
 
 /**
@@ -842,8 +834,8 @@ Menu.prototype._initReplayList = function() {
 
 // TODO
 Menu.prototype._initFailedReplayList = function() {
-    console.log("Failed replay list present.");
     var self = this;
+
     // Init table.
     this.failed_replay_table = new Table({
         id: "failed-replay-table",
@@ -917,29 +909,55 @@ Menu.prototype._initFailedReplayList = function() {
         order: [[1, 'asc']]
     });
 
+    // Download listener.
     $('#failed-replays .card-header .actions .download').click(function () {
         var ids = self.failed_replay_table.selected();
         if (ids.length > 0) {
             console.log('Requesting raw json download for ' + ids + '.');
             Messaging.send("downloadFailedReplays", {
                 ids: ids
+            }, function (response) {
+                if (response.failed) {
+                    alert("Failed replay download failed: " + response.reason);
+                }
             });
         }
     });
 
-    Status.on("idle", function () {
-        self.failed_replay_table.reload();
+    $('#failed-replays .card-header .actions .delete').click(function () {
+        var ids = self.failed_replay_table.selected();
+        self.failed_replay_table.deselect(ids);
+
+        if (ids.length > 0) {
+            if (confirm('Are you sure you want to delete these failed replays? This cannot be undone.')) {
+                console.log('Requesting deletion of ' + ids);
+                Messaging.send("deleteFailedReplays", {
+                    ids: ids
+                });
+            }
+        }
     });
 
-    // TODO: Remove table and tab if no more failed replays after an update.
-    // TODO: Remove listener to update replay table if no more failed replays.
-};
+    function update() {
+        self.failed_replay_table.reload();
+    }
+    Status.on("idle", update);
+    this.failed_replay_table.table.on("xhr", function (e, settings, json) {
+        if (json.recordsTotal === 0) {
+            Status.removeListener("idle", update);
+            if ($(".nav-failed").hasClass("active")) {
+                $(".nav-home").click();
+            }
+            $(".nav-failed").remove();
+            self.failed_replay_table.table.destroy(true);
+            // TODO: Remove table and tab.
+            // get selected tab, change to something else, delete DOM for this one and the nav option.
+        }
+    });
 
-// TODO
-Menu.prototype._hideFailedReplayList = function() {
-    console.log("No failed replays.");
-    $('#nav-failed').hide();
-    this.failed_replay_table = null;
+    Messaging.listen("failedReplaysUpdated", function () {
+        self.failed_replay_table.reload();
+    });
 };
 
 Menu.prototype._initRenderList = function() {
