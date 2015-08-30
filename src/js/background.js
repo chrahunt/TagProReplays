@@ -578,6 +578,7 @@ function(message) {
     console.log('Received request to render replay(s) ' + ids + '.');
     manager.add(ids).then(function () {
         Messaging.send("renderUpdated");
+        Messaging.send("replayUpdated");
     }).catch(function (err) {
         console.error("Error adding replays to render queue: %o", err);
     });
@@ -591,6 +592,7 @@ function(message) {
     var ids = message.id ? [message.id] : message.ids;
     manager.cancel(ids).then(function () {
         Messaging.send("rendersUpdated");
+        Messaging.send("replaysUpdated");
     }).catch(function (err) {
         console.error("Error cancelling renders: %o.", err);
     });

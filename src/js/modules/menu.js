@@ -10,8 +10,6 @@ require('bootstrap');
 //require('ripples');
 //$.material.init();
 
-var AsyncLoop = require('./async-loop');
-var Cookies = require('./cookies');
 var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
 var ReplayImportStream = require('./replay-import-stream');
@@ -20,7 +18,7 @@ var Table = require('./table');
 var Textures = require('./textures');
 var Viewer = require('./viewer');
 
-// Moment calendar customization.
+// Moment calendar customization for date display.
 moment.locale('en', {
     calendar: {
         lastDay: '[Yesterday at] LT',
@@ -31,142 +29,6 @@ moment.locale('en', {
         sameElse: 'lll'
     }
 });
-
-function Overlay(selector) {
-    this.$this = $(selector);
-    this.selector = selector;
-    this.state = {
-        progress: null
-    };
-    this.progress = null;
-}
-
-Overlay.prototype.show = function() {
-    this.$this.removeClass("hidden");
-};
-
-Overlay.prototype.hide = function() {
-    this.$this.addClass("hidden");
-};
-
-// Set overlay state.
-Overlay.prototype.set = function(info) {
-    // text
-    if (info.hasOwnProperty("title")) {
-        this._title(info.title);
-    }
-    // html
-    if (info.hasOwnProperty("message")) {
-        this._message(info.message);
-    }
-    // html
-    if (info.hasOwnProperty("description")) {
-        this._description(info.description);
-    }
-    // bool, int
-    if (info.hasOwnProperty("progress")) {
-        this._initProgress(info.progress);
-    }
-    // array<obj> with text (html), action (fn) invoked on click.
-    if (info.hasOwnProperty("actions")) {
-        this._actions(info.actions);
-    }
-};
-
-// Update overlay state.
-Overlay.prototype.update = function(info) {
-    if (info.hasOwnProperty("title")) {
-        this._title(info.title);
-    }
-    if (info.hasOwnProperty("message")) {
-        this._message(info.message);
-    }
-    if (info.hasOwnProperty("description")) {
-        this._description(info.description);
-    }
-    if (info.hasOwnProperty("progress")) {
-        this._progress(info.progress);
-    }
-    if (info.hasOwnProperty("actions")) {
-        this._actions(info.actions);
-    }
-};
-
-Overlay.prototype._title = function(str) {
-    this.$this.find(".title").text(str);
-};
-
-Overlay.prototype._description = function(html) {
-    this.$this.find(".description").html(html);
-};
-
-// Message to display.
-Overlay.prototype._message = function(html) {
-    this.$this.find(".message").html(html);
-};
-
-Overlay.prototype._initProgress = function(val) {
-    var progressClass = "material-progress";
-    if (val) {
-        this.$this.find("."+progressClass).removeClass("hidden");
-        // Reset if needed.
-        if (this.progress) {
-            this.progress._remove();
-            this.progress = null;
-            this.state.progress = null;
-        }
-        var selector = this.selector + " ." + progressClass;
-        if (typeof val == "number") {
-            // Determinite, set total.
-            this.state.progress = val;
-            this.progress = new Mprogress({
-                parent: selector
-            });
-            console.log(this.progress);
-        } else {
-            // Indeterminite.
-            this.state.progress = true;
-            this.progress = new Mprogress({
-                parent: selector,
-                template: 3,
-                start: true
-            });
-        }        
-    } else {
-        // Hide progress.
-        this.$this.find("."+progressClass).addClass("hidden");
-    }
-};
-
-Overlay.prototype._progress = function(val) {
-    console.log("received progress: " + val);
-    if (val || typeof val == "number") {
-        if (typeof val == "number") {
-            // Only update determinite value if total has been set.
-            if (typeof this.state.progress == "number") {
-                // Update determinite value.
-                this.progress.set(val / this.state.progress);
-            }
-        } // else indeterminite.
-    } else {
-        if (this.progress) {
-            this.progress.end();
-            this.progress = null;
-            this.state.progress = null;
-        }
-    }
-};
-
-Overlay.prototype._actions = function(actions) {
-    var $actions = this.$this.find('.actions');
-    $actions.html("");
-    actions.forEach(function (action) {
-        var $action = $("<button>");
-        $action.text(action.text);
-        $action.click(action.action);
-        $actions.append($action);
-    });
-};
 
 /**
  * Holds the interface to the main page user interface.
@@ -250,44 +112,35 @@ Menu.prototype.init = function() {
         });
     });
 
+    // Takes selector for nav item and panel.
+    function togglePanel(nav, panel) {
+        $(".nav-item:not(" + nav + ")").removeClass("active");
+        $(nav).addClass("active");
+        $(panel).show();
+        $(".section-panel:not(" + panel + ")").hide();
+    }
     // Menu navigation.
     $(".nav-home").click(function() {
-        $(this).addClass("active");
-        $(".nav-render").removeClass("active");
-        $(".nav-failed").removeClass("active");
-        $("#replays").show();
-        $("#rendering").hide();
-        $("#failed-replays").hide();
+        togglePanel(".nav-home", "#replays");
     });
 
     $(".nav-render").click(function() {
-        $(this).addClass("active");
-        $(".nav-home").removeClass("active");
-        $(".nav-failed").removeClass("active");
-        $("#rendering").show();
-        $("#replays").hide();
-        $("#failed-replays").hide();
+        togglePanel(".nav-render", "#rendering");
     });
 
     $(".nav-failed").click(function() {
-        $(this).addClass("active");
-        $(".nav-home").removeClass("active");
-        $(".nav-render").removeClass("active");
-        $("#failed-replays").show();
-        $("#rendering").hide();
-        $("#replays").hide();
+        togglePanel(".nav-failed", "#failed-replays");
     });
 
     this.overlay = new Overlay("#menuContainer .modal-overlay");
 
-    var self = this;
     // Run initialization for other parts of the menu.
-    self._initListeners();
-    self._initSettings();
-    self._initReplayList();
-    self._initRenderList();
-    self._initImport();
-    self._initFailedReplayList();
+    this._initListeners();
+    this._initSettings();
+    this._initReplayList();
+    this._initRenderList();
+    this._initImport();
+    this._initFailedReplayList();
     Status.force();
 };
 
@@ -485,35 +338,11 @@ Menu.prototype._initImport = function() {
 };
 
 /**
- * Initialize state and functionality related to the replay list.
+ * Sets up panel and table for replays.
+ * @private
  */
 Menu.prototype._initReplayList = function() {
     var self = this;
-
-    // Given replay info, generate title text for rows.
-    function getTitleText(replay) {
-        var title = '';
-        title += "Map: " + replay.mapName + "\n";
-        title += "FPS: " + replay.fps + "\n";
-        var red = [];
-        var blue = [];
-        $.each(replay.players, function(id, player) {
-            var name;
-            if (id == replay.player) {
-                name = player.name + " (*)";
-            } else {
-                name = player.name;
-            }
-            if (player.team === 1) {
-                red.push(name);
-            } else {
-                blue.push(name);
-            }
-        });
-        title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
-        title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
-        return title;
-    }
 
     this.replay_table = new Table({
         id: "replay-table",
@@ -555,20 +384,18 @@ Menu.prototype._initReplayList = function() {
             });
         },
         columns: [
-            {
+            { // Checkbox.
+                className: "cb-cell",
                 data: "rendering",
-                render: function (data, type, row, meta) {
-                    if (data) {
-                        return '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>';
-                    } else {
-                        return Table.checkbox;
-                    }
-                },
                 orderable: false,
-                width: "24px",
-                className: "cb-cell"
+                render: function (data, type, row, meta) {
+                    return data ? '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>'
+                                : Table.checkbox;
+                },
+                width: "24px"
             },
-            {
+            { // Name.
+                className: "row-name fixed-cell",
                 data: "name",
                 render: function (data, type, row, meta) {
                     if (row.rendering) {
@@ -580,57 +407,74 @@ Menu.prototype._initReplayList = function() {
                             '<div class="replay-edit">' +
                             '<input type="text" class="replay-name-input" value="' + data + '"></div>';
                     }
-                },
-                className: "row-name fixed-cell"
-                // width set via css.
+                }
+                // 'width' set via css.
             },
-            {
+            { // Rendered.
+                className: "data-cell",
                 data: "rendered",
                 orderable: false,
                 render: function (data) {
-                    return data ? '<i class="material-icons">done</i>' : '';
+                    return data ? '<i class="material-icons">done</i>'
+                                : '';
                 },
                 width: "65px",
-                className: "data-cell"
             },
-            {
-                data: "duration",
-                width: "60px",
-                className: "data-cell"
-            },
-            {
-                data: "date",
-                width: "180px",
+            { // Duration.
                 className: "data-cell",
+                data: "duration",
+                width: "60px"
+            },
+            { // Date recorded.
+                className: "data-cell",
+                data: "date",
                 render: function (date) {
                     return date.calendar();
-                }
+                },
+                width: "180px"
             },
-            {
+            { // Controls.
                 data: "rendered",
+                orderable: false,
                 render: function (data, type, row, meta) {
                     var disabled = !data;
                     var content = '<div class="actions">';
-                    if (disabled) {
-                        content += '<div class="row-download-movie disabled" title="render replay first!"><i class="material-icons">file_download</i></div>';
-                    } else {
-                        content += '<div class="row-download-movie" title="download movie"><i class="material-icons">file_download</i></div>';
-                    }
-                    content += '<div class="row-preview" title="preview"><i class="material-icons">play_arrow</i></div>' +
-                        '</div>';
+                    // download
+                    content += disabled ? '<div class="row-download-movie disabled" title="render replay first!">'
+                                        : '<div class="row-download-movie" title="download movie">';
+                    content += '<i class="material-icons">file_download</i></div>';
+                    // preview
+                    content += '<div class="row-preview" title="preview"><i class="material-icons">play_arrow</i></div>';
+                    content += '</div>';
                     return content;
                 },
-                orderable: false,
                 width: "60px"
             }
         ],
         order: [[1, 'asc']],
+        // Set title text on row with additional replay information.
         rowCallback: function (row, data) {
-            row.title = getTitleText(data.replay);
+            var title = '';
+            title += "Map: " + replay.mapName + "\n";
+            title += "FPS: " + replay.fps + "\n";
+            var red = [];
+            var blue = [];
+            $.each(replay.players, function(id, player) {
+                var name = id === replay.player ? player.name + " (*)"
+                                                : player.name;
+                if (player.team === 1) {
+                    red.push(name);
+                } else {
+                    blue.push(name);
+                }
+            });
+            title += replay.teamNames[1] + ":\n\t" + red.join('\n\t') + "\n";
+            title += replay.teamNames[2] + ":\n\t" + blue.join('\n\t') + "\n";
+            row.title = title;
         }
     });
 
-    // Buttons that take action on multiple entries.
+    // Table header controls.
     // Rendering replays.
     $('#replays .card-header .actions .render').click(function () {
         var ids = self.replay_table.selected();
@@ -699,10 +543,6 @@ Menu.prototype._initReplayList = function() {
         input_container.show();
         var input = input_container.find(".replay-name-input");
 
-        function isValid(text) {
-            return text !== "";
-        }
-
         function save(id, text) {
             console.log("Renaming replay %d to %s.", id, text);
             Messaging.send("renameReplay", {
@@ -715,7 +555,7 @@ Menu.prototype._initReplayList = function() {
             // Enter key.
             if (evt.which === 13) {
                 var text = $(this).val();
-                if (isValid(text)) {
+                if (text !== "") {
                     var id = $(this).closest("tr").data("id");
                     save(id, text);
                     // TODO: Saving feedback?
@@ -732,6 +572,8 @@ Menu.prototype._initReplayList = function() {
             input.off("keypress", enter);
             input.off("blur", dismiss);
         }
+
+        // Listen for enter key to
         input.keypress(enter);
         input.blur(dismiss);
         input.focus(function () {
@@ -750,14 +592,15 @@ Menu.prototype._initReplayList = function() {
         self.replay_table.reload();
     });
 
-
-    Messaging.listen(["replayUpdated", "replaysUpdated"],
+    // Listen for updates.
+    Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
     function () {
         if (!self.paused) {
             self.replay_table.reload();
         }
     });
 
+    // Download information.
     var download = {
         total: null,
         progress: null,
@@ -832,7 +675,11 @@ Menu.prototype._initReplayList = function() {
     });
 };
 
-// TODO
+/**
+ * Sets up panel and table for failed replays, ones that were unable to
+ * be upgraded. Removes nav item and panel if none exist.
+ * @private
+ */
 Menu.prototype._initFailedReplayList = function() {
     var self = this;
 
@@ -855,57 +702,45 @@ Menu.prototype._initFailedReplayList = function() {
                     return {
                         id: info.id,
                         name: info.name,
-                        //date: moment(replay.dateRecorded),
                         DT_RowData: {
                             id: info.id
                         }
                     };
                 });
-                $(".nav-failed .badge").text(response.total);
-                callback({
-                    data: list,
-                    draw: data.draw,
-                    recordsTotal: response.total,
-                    recordsFiltered: response.filtered
-                });
+                if (response.total === 0) {
+                    // Remove table.
+                    self.failed_replay_table.table.destroy(true);
+                } else {
+                    $(".nav-failed .badge").text(response.total);
+                    callback({
+                        data: list,
+                        draw: data.draw,
+                        recordsTotal: response.total,
+                        recordsFiltered: response.filtered
+                    });
+                }
             });
         },
         columns: [
-            {
+            { // checkbox
+                className: 'cb-cell',
                 data: null,
                 defaultContent: Table.checkbox,
-                className: 'cb-cell',
                 orderable: false,
                 width: "24px"
             },
-            {
+            { // id, hidden
                 data: "id",
                 visible: false
             },
-            {
+            { // name
+                className: "fixed-cell",
                 data: "name",
                 orderable: false,
-                className: "fixed-cell",
                 width: "100%"
-            }/*,
-            {
-                data: null,
-                render: function (data, type, row, meta) {
-                    var disabled = !data;
-                    var content = '<div class="actions">';
-                    if (disabled) {
-                        content += '<div class="row-download-movie disabled" title="render replay first!"><i class="material-icons">file_download</i></div>';
-                    } else {
-                        content += '<div class="row-download-movie" title="download movie"><i class="material-icons">file_download</i></div>';
-                    }
-                    content += '<div class="row-preview" title="preview"><i class="material-icons">play_arrow</i></div>' +
-                        '</div>';
-                    return content;
-                },
-                orderable: false,
-                width: "60px"
-            }*/
+            }
         ],
+        // Order by id.
         order: [[1, 'asc']]
     });
 
@@ -942,23 +777,22 @@ Menu.prototype._initFailedReplayList = function() {
         self.failed_replay_table.reload();
     }
     Status.on("idle", update);
-    this.failed_replay_table.table.on("xhr", function (e, settings, json) {
-        if (json.recordsTotal === 0) {
-            Status.removeListener("idle", update);
-            if ($(".nav-failed").hasClass("active")) {
-                $(".nav-home").click();
-            }
-            $(".nav-failed").remove();
-            self.failed_replay_table.table.destroy(true);
-            // TODO: Remove table and tab.
-            // get selected tab, change to something else, delete DOM for this one and the nav option.
+
+    // Clean up after table gets destroyed.
+    this.failed_replay_table.table.on("destroy", function () {
+        Status.removeListener("idle", update);
+        if ($(".nav-failed").hasClass("active")) {
+            $(".nav-home").click();
         }
+        // Remove nav.
+        $(".nav-failed").remove();
     });
 
     Messaging.listen("failedReplaysUpdated", function () {
         self.failed_replay_table.reload();
     });
 
+    // Download-relevant listeners.
     var download = {
         total: null,
         progress: null,
@@ -1046,6 +880,10 @@ Menu.prototype._initFailedReplayList = function() {
     });
 };
 
+/**
+ * Sets up panel and table for rendering list.
+ * @private
+ */
 Menu.prototype._initRenderList = function() {
     var self = this;
 
@@ -1071,7 +909,6 @@ Menu.prototype._initRenderList = function() {
                         date: moment(task.data.date),
                         id: task.replay_id,
                         DT_RowData: {
-                            // Replay id.
                             id: task.replay_id
                         },
                         DT_RowId: "render-" + task.replay_id
@@ -1087,47 +924,45 @@ Menu.prototype._initRenderList = function() {
             });
         },
         columns: [
-            {
+            { // Checkbox.
+                className: "cb-cell",
                 data: null,
                 defaultContent: Table.checkbox,
-                className: 'cb-cell',
                 orderable: false,
                 width: "24px"
             },
-            {
+            { // id, hidden
                 data: "id",
                 visible: false
             },
-            {
+            { // name
+                className: "fixed-cell",
                 data: "name",
                 orderable: false,
-                className: "fixed-cell",
                 width: "100%"
             },
-            {
+            { // date recorded
+                className: "data-cell",
                 data: "date",
                 orderable: false,
-                className: "data-cell",
-                width: "180px",
-                render: function (date) {
-                    return date.calendar();
-                }
+                render: function (date) { return date.calendar(); },
+                width: "180px"
             },
-            {
+            { // status
+                className: "data-cell",
                 data: null,
                 defaultContent: '<span class="render-status">Queued</span>',
                 orderable: false,
-                className: "data-cell",
                 width: "50px"
             },
             { // Progress indicator.
+                className: "data-cell",
                 data: null,
                 defaultContent: '<div class="render-progress"></div>',
                 orderable: false,
-                className: "data-cell",
                 width: "100px"
             },
-            {
+            { // Action buttons.
                 data: null,
                 defaultContent: '<div class="actions"><div class="cancel-render"><i class="material-icons">cancel</i></div></div>',
                 orderable: false,
@@ -1188,6 +1023,11 @@ Menu.prototype._initRenderList = function() {
             $('#render-' + id + ' .progress-bar').css("width", (message.progress * 100) + "%");
         } // else render table not yet set up.
     });
+
+    Messaging.listen(["renderUpdated", "rendersUpdated"],
+    function () {
+        self.render_table.reload();
+    });
 };
 
 /**
@@ -1196,14 +1036,6 @@ Menu.prototype._initRenderList = function() {
  */
 Menu.prototype._initListeners = function() {
     var self = this;
-
-    Messaging.listen(["renderUpdated", "rendersUpdated"],
-    function () {
-        if (!self.paused) {
-            self.replay_table.reload();
-            self.render_table.reload();
-        }
-    });
 
     ///////////////
     // Upgrading //
@@ -1250,26 +1082,147 @@ Menu.prototype._initListeners = function() {
 };
 
 /**
- * Initialize state related to the settings panel.
+ * Initialize state related to the settings panel and texture selector.
  */
 Menu.prototype._initSettings = function() {
+    var self = this;
+    // Set header.
     $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
-    this._setSettingsFormTitles();
-    $('#saveSettingsButton').click(this._settings_Save());
+
+    // Set form titles.
+    var titles = [{ // fps
+        elts: ["#fpsTxt", "#fpsInput"],
+        text: 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
+    'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
+    'or if your replays are sped up, try reducing this value.'
+    }, { // duration
+        elts: ["#durationText", "#durationInput"],
+        text: 'Use this to set how long the replay will be in seconds. Values greater than 60 ' +
+    'seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
+    'replays that have already been recorded'
+    }, { // record
+        elts: ["#recordTxt", "#recordCheckbox"],
+        text: 'This controls whether the extension is capable of recording replays during a tagpro game.\n\n' +
+    'Uncheck to disable the extension.'
+    }, { // custom textures
+        elts: ["#useTextureTxt", "#useTextureCheckbox"],
+        text: 'This controls whether custom texture files will be used in rendered movies.\n\n' +
+    'Check to use textures, uncheck to use vanilla.\n\nThis only applies to rendered movies.'
+    }, { // record hotkey
+        elts: ["#recordKeyTxt", "#recordKeyCheckbox"],
+        text: 'This allows you to designate a key that acts exactly like clicking ' +
+    'the record button with the mouse.\n\nDon\'t use keys that have other uses in the ' +
+    'game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all, ' +
+    'because the extension will listen for that key even if you are typing in chat.'
+    }, { // splats
+        elts: ["#useSplatsTxt", "#useSplatsCheckbox"],
+        text: 'This toggles whether to show splats or not.\n\nCheck the box if you ' +
+    'want to show splats in the replay'
+    }, { // canvas size
+        elts: ["#canvasWidthInput", "#canvasHeightInput"],
+        text: 'Set the width and height of the .webm movie file. The default is 1280 by 800, ' +
+    'but set it to 1280 by 720 for true 720p resolution'
+    }];
+
+    titles.forEach(function (title) {
+        title.elts.forEach(function (elt) {
+            $(elt).prop("title", title.text);
+        });
+    });
+
+    // Saving settings.
+    $('#saveSettingsButton').click(function () {
+        chrome.storage.local.get("options", function(items) {
+            var options;
+            if (items.options) {
+                options = items.options;
+            } else {
+                options = getDefaultOptions();
+            }
+            var inputs = {
+                fps: $('#fpsInput')[0].value,
+                duration: $('#durationInput')[0].value,
+                record: $('#recordCheckbox')[0].checked,
+                custom_textures: $('#useTextureCheckbox')[0].checked,
+                shortcut_key_enabled: $('#recordKeyChooserInput').data('record'),
+                shortcut_key: $('#recordKeyChooserInput').text(),
+                splats: $('#useSplatsCheckbox')[0].checked,
+                spin: $('#useSpinCheckbox')[0].checked,
+                ui: $('#useClockAndScoreCheckbox')[0].checked,
+                chat: $('#useChatCheckbox')[0].checked,
+                canvas_width: Number($('#canvasWidthInput').val()),
+                canvas_height: Number($('#canvasHeightInput').val())
+            };
+
+            if (!isNaN(inputs.fps) && inputs.fps !== "") {
+                options.fps = +inputs.fps;
+            }
+            if (!isNaN(inputs.duration) && inputs.duration !== "") {
+                options.duration = +inputs.duration;
+            }
+            options.record = inputs.record;
+            options.custom_textures = inputs.custom_textures;
+            options.shortcut_key_enabled = inputs.shortcut_key_enabled;
+            if (inputs.shortcut_key !== 'None') {
+                options.shortcut_key = inputs.shortcut_key.charCodeAt(0);
+            }
+            options.splats = inputs.splats;
+            options.spin = inputs.spin;
+            options.ui = inputs.ui;
+            options.chat = inputs.chat;
+            if (!isNaN(inputs.canvas_width) && inputs.canvas_width !== "") {
+                options.canvas_width = inputs.canvas_width;
+            }
+            if (!isNaN(inputs.canvas_height) && inputs.canvas_height !== "") {
+                options.canvas_height = inputs.canvas_height;
+            }
+
+            chrome.storage.local.set({
+                options: options
+            }, function() {
+                $('#settingsContainer').modal('hide');
+            });
+        });
+    });
+
+    // Update settings.
+    function setSettings(options) {
+        $('#fpsInput')[0].value = options.fps;
+        $('#durationInput')[0].value = options.duration;
+        if (options.shortcut_key_enabled) {
+            $('#recordKeyChooserInput').text(
+                String.fromCharCode(options.shortcut_key));
+            $('#recordKeyChooserInput').data('record', true);
+            $('#record-key-remove').show();
+        } else {
+            $('#recordKeyChooserInput').text('None');
+            $('#recordKeyChooserInput').data('record', false);
+            $('#record-key-remove').hide();
+        }
+        $('#useTextureCheckbox')[0].checked = options.custom_textures;
+        $('#useSplatsCheckbox')[0].checked = options.splats;
+        $('#recordCheckbox')[0].checked = options.record;
+        $('#useSpinCheckbox')[0].checked = options.spin;
+        $('#useClockAndScoreCheckbox')[0].checked = options.ui;
+        $('#useChatCheckbox')[0].checked = options.chat;
+        $('#canvasWidthInput').val(options.canvas_width);
+        $('#canvasHeightInput').val(options.canvas_height);
+    }
 
     // Set initial settings values.
     chrome.storage.local.get("options", function(items) {
         if (items.options) {
-            this._settingsSet(items.options);
+            setSettings(items.options);
         }
-    }.bind(this));
+    });
 
     // Update options fields if options are updated.
     chrome.storage.onChanged.addListener(function(changes, areaName) {
         if (changes.options && changes.options.newValue) {
-            this._settingsSet(changes.options.newValue);
+            setSettings(changes.options.newValue);
         }
-    }.bind(this));
+    });
+
     $('#textureSaveButton').click(function () {
         Textures.saveSettings();
         $('#textureContainer').modal('hide');
@@ -1309,153 +1262,147 @@ Menu.prototype._initSettings = function() {
     });
 };
 
-/**
- * Set value of form fields in settings panel.
- * @param  {[type]} options [description]
- */
-Menu.prototype._settingsSet = function(options) {
-    $('#fpsInput')[0].value = options.fps;
-    $('#durationInput')[0].value = options.duration;
-    if (options.shortcut_key_enabled) {
-        $('#recordKeyChooserInput').text(
-            String.fromCharCode(options.shortcut_key));
-        $('#recordKeyChooserInput').data('record', true);
-        $('#record-key-remove').show();
-    } else {
-        $('#recordKeyChooserInput').text('None');
-        $('#recordKeyChooserInput').data('record', false);
-        $('#record-key-remove').hide();
-    }
-    $('#useTextureCheckbox')[0].checked = options.custom_textures;
-    $('#useSplatsCheckbox')[0].checked = options.splats;
-    $('#recordCheckbox')[0].checked = options.record;
-    $('#useSpinCheckbox')[0].checked = options.spin;
-    $('#useClockAndScoreCheckbox')[0].checked = options.ui;
-    $('#useChatCheckbox')[0].checked = options.chat;
-    $('#canvasWidthInput').val(options.canvas_width);
-    $('#canvasHeightInput').val(options.canvas_height);
-};
-
-/**
- * Callback for the save settings button.
- */
-Menu.prototype._settings_Save = function() {
-    var menu = this;
-    return function() {
-        chrome.storage.local.get("options", function(items) {
-            var options;
-            if (items.options) {
-                options = items.options;
-            } else {
-                options = getDefaultOptions();
-            }
-            var inputs = {
-                fps: $('#fpsInput')[0].value,
-                duration: $('#durationInput')[0].value,
-                record: $('#recordCheckbox')[0].checked,
-                custom_textures: $('#useTextureCheckbox')[0].checked,
-                shortcut_key_enabled: $('#recordKeyChooserInput').data('record'),
-                shortcut_key: $('#recordKeyChooserInput').text(),
-                splats: $('#useSplatsCheckbox')[0].checked,
-                spin: $('#useSpinCheckbox')[0].checked,
-                ui: $('#useClockAndScoreCheckbox')[0].checked,
-                chat: $('#useChatCheckbox')[0].checked,
-                canvas_width: Number($('#canvasWidthInput').val()),
-                canvas_height: Number($('#canvasHeightInput').val())
-            };
-
-            if (!isNaN(inputs.fps) && inputs.fps != "") {
-                options.fps = +inputs.fps;
-            }
-            if (!isNaN(inputs.duration) && inputs.duration != "") {
-                options.duration = +inputs.duration;
-            }
-            options.record = inputs.record;
-            options.custom_textures = inputs.custom_textures;
-            options.shortcut_key_enabled = inputs.shortcut_key_enabled;
-            if (inputs.shortcut_key !== 'None') {
-                options.shortcut_key = inputs.shortcut_key.charCodeAt(0);
-            }
-            options.splats = inputs.splats;
-            options.spin = inputs.spin;
-            options.ui = inputs.ui;
-            options.chat = inputs.chat;
-            if (!isNaN(inputs.canvas_width) && inputs.canvas_width !== "") {
-                options.canvas_width = inputs.canvas_width;
-            }
-            if (!isNaN(inputs.canvas_height) && inputs.canvas_height !== "") {
-                options.canvas_height = inputs.canvas_height;
-            }
-
-            chrome.storage.local.set({
-                options: options
-            }, function() {
-                Messaging.send("cleanRenderedReplays");
-                if (this.settingsListener) {
-                    this.settingsListener(options);
-                }
-                $('#settingsContainer').modal('hide');
-            }.bind(this));
-        });
+// Overlay on menu for blocking operations.
+// Takes selector for overlay element.
+function Overlay(selector) {
+    this.$this = $(selector);
+    this.selector = selector;
+    this.state = {
+        progress: null
     };
+    this.progress = null;
+}
+
+Overlay.prototype.show = function() {
+    this.$this.removeClass("hidden");
 };
 
-/**
- * Set form titles for input controls on settings window.
- */
-Menu.prototype._setSettingsFormTitles = function() {
-    fpsTitle = 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
-    'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
-    'or if your replays are sped up, try reducing this value.';
-    $('#fpsTxt').prop('title', fpsTitle);
-    $('#fpsInput').prop('title', fpsTitle);
-
-    durationTitle = 'Use this to set how long the replay will be in seconds. Values greater than 60 ' +
-    'seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
-    'replays that have already been recorded';
-    $('#durationText').prop('title', durationTitle);
-    $('#durationInput').prop('title', durationTitle);
-
-    recordTitle = 'This controls whether the extension is capable of recording replays during a tagpro game.\n\n' +
-    'Uncheck to disable the extension.';
-    $('#recordTxt').prop('title', recordTitle);
-    $('#recordCheckbox').prop('title', recordTitle);
-
-    useTextureTitle = 'This controls whether custom texture files will be used in rendered movies.\n\n' +
-    'Check to use textures, uncheck to use vanilla.\n\nThis only applies to rendered movies.';
-    $('#useTextureTxt').prop('title', useTextureTitle);
-    $('#useTextureCheckbox').prop('title', useTextureTitle);
-
-    textureMenuButtonTitle = 'This button allows you to upload your custom texture files';
-    $('#textureMenuButton').prop('title', textureMenuButtonTitle);
-
-    recordKeyTitle = 'This allows you to designate a key that acts exactly like clicking ' +
-    'the record button with the mouse.\n\nDon\'t use keys that have other uses in the ' +
-    'game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all, ' +
-    'because the extension will listen for that key even if you are typing in chat.';
-    $('#recordKeyTxt').prop('title', recordKeyTitle);
-    $('#recordKeyCheckbox').prop('title', recordKeyTitle);
-
-    useSplatsTitle = 'This toggles whether to show splats or not.\n\nCheck the box if you ' +
-    'want to show splats in the replay';
-    $('#useSplatsTxt').prop('title', useSplatsTitle);
-    $('#useSplatsCheckbox').prop('title', useSplatsTitle);
-    
-    canvasWidthAndHeightTitle = 'Set the width and height of the .webm movie file. The default is 1280 by 800, ' +
-    'but set it to 1280 by 720 for true 720p resolution';
-    $('#canvasWidthInput').prop('title', canvasWidthAndHeightTitle);
-    $('#canvasHeightInput').prop('title', canvasWidthAndHeightTitle);
+Overlay.prototype.hide = function() {
+    this.$this.addClass("hidden");
 };
 
-/**
- * @callback SettingsCallback
- * @param {Options} options - The updated options.
- */
-/**
- * Add a function to be called when the serrings are updated.
- * @param {Function} fn - The function to be called when the settings
- *   are changed via the menu.
- */
-Menu.prototype.addSettingsChangeListener = function(fn) {
-    this.settingsListener = fn;
+// Set overlay state.
+// info can have title (str), message (html), description (html),
+// progress (bool|number), actions (array.<obj>) where obj has text (str) and action (fn)
+Overlay.prototype.set = function(info) {
+    // text
+    if (info.hasOwnProperty("title")) {
+        this._title(info.title);
+    }
+    // html
+    if (info.hasOwnProperty("message")) {
+        this._message(info.message);
+    }
+    // html
+    if (info.hasOwnProperty("description")) {
+        this._description(info.description);
+    }
+    // bool, int
+    if (info.hasOwnProperty("progress")) {
+        this._initProgress(info.progress);
+    }
+    // array<obj> with text (html), action (fn) invoked on click.
+    if (info.hasOwnProperty("actions")) {
+        this._actions(info.actions);
+    }
+};
+
+// Update overlay state.
+Overlay.prototype.update = function(info) {
+    if (info.hasOwnProperty("title")) {
+        this._title(info.title);
+    }
+    if (info.hasOwnProperty("message")) {
+        this._message(info.message);
+    }
+    if (info.hasOwnProperty("description")) {
+        this._description(info.description);
+    }
+    if (info.hasOwnProperty("progress")) {
+        this._progress(info.progress);
+    }
+    if (info.hasOwnProperty("actions")) {
+        this._actions(info.actions);
+    }
+};
+
+// @private
+Overlay.prototype._title = function(str) {
+    this.$this.find(".title").text(str);
+};
+
+// @private
+Overlay.prototype._description = function(html) {
+    this.$this.find(".description").html(html);
+};
+
+// @private
+Overlay.prototype._message = function(html) {
+    this.$this.find(".message").html(html);
+};
+
+// @private
+Overlay.prototype._initProgress = function(val) {
+    var progressClass = "material-progress";
+    if (val) {
+        this.$this.find("."+progressClass).removeClass("hidden");
+        // Reset if needed.
+        if (this.progress) {
+            this.progress._remove();
+            this.progress = null;
+            this.state.progress = null;
+        }
+        var selector = this.selector + " ." + progressClass;
+        if (typeof val == "number") {
+            // Determinite, set total.
+            this.state.progress = val;
+            this.progress = new Mprogress({
+                parent: selector
+            });
+            console.log(this.progress);
+        } else {
+            // Indeterminite.
+            this.state.progress = true;
+            this.progress = new Mprogress({
+                parent: selector,
+                template: 3,
+                start: true
+            });
+        }        
+    } else {
+        // Hide progress.
+        this.$this.find("."+progressClass).addClass("hidden");
+    }
+};
+
+// @private
+Overlay.prototype._progress = function(val) {
+    console.log("received progress: " + val);
+    if (val || typeof val == "number") {
+        if (typeof val == "number") {
+            // Only update determinite value if total has been set.
+            if (typeof this.state.progress == "number") {
+                // Update determinite value.
+                this.progress.set(val / this.state.progress);
+            }
+        } // else indeterminite.
+    } else {
+        if (this.progress) {
+            this.progress.end();
+            this.progress = null;
+            this.state.progress = null;
+        }
+    }
+};
+
+// @private
+Overlay.prototype._actions = function(actions) {
+    var $actions = this.$this.find('.actions');
+    $actions.html("");
+    actions.forEach(function (action) {
+        var $action = $("<button>");
+        $action.text(action.text);
+        $action.click(action.action);
+        $actions.append($action);
+    });
 };
