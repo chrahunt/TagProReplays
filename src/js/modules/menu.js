@@ -958,6 +958,92 @@ Menu.prototype._initFailedReplayList = function() {
     Messaging.listen("failedReplaysUpdated", function () {
         self.failed_replay_table.reload();
     });
+
+    var download = {
+        total: null,
+        progress: null,
+        error: null
+    };
+
+    var progressSet = false;
+    Messaging.listen("failed.zipProgress",
+    function (message) {
+        if (!progressSet) {
+            download.total = message.total;
+            self.overlay.set({
+                progress: message.total
+            });
+            progressSet = true;
+        }
+        self.overlay.update({
+            progress: message.current,
+            message: "Adding failed replay " + message.current + " of " + message.total + "."
+        });
+    });
+
+    Messaging.listen("failed.intermediateZipDownload",
+    function () {
+        self.overlay.update({
+            message: "Zip file reached capacity, downloading..."
+        });
+    });
+
+    Messaging.listen("failed.finalZipDownload",
+    function () {
+        self.overlay.update({
+            message: "Downloading final zip file..."
+        });
+    });
+
+    var downloadError = false;
+    Messaging.listen("failed.downloadError",
+    function (message) {
+        download.error = message.reason;
+    });
+
+    // Display json downloading message.
+    Status.on("failed.json_downloading", function () {
+        self.overlay.set({
+            title: 'Downloading Raw Data',
+            description: 'Zip files are being generated containing the data from your failed replays.',
+            message: 'Initializing zip file generation...',
+            progress: true
+        });
+        self.overlay.show();
+    });
+
+    // Display finish message.
+    Status.on("failed.json_downloading->idle", function () {
+        progressSet = false;
+        if (downloadError) {
+            var reason = download.error;
+            // Change overlay to display error.
+            // add dismiss
+            self.overlay.set({
+                description: "There was an error downloading your replays: " + download.error + ".",
+                message: "",
+                actions: [{
+                    text: "dismiss",
+                    action: function () {
+                        self.overlay.hide();
+                    }
+                }]
+            });
+        } else {
+            self.overlay.set({
+                description: "Your failed replays will be downloading shortly (depending on file size). " +
+                    "There is either an error with the replay itself or something unexpected was encountered. " +
+                    "If you send me a message through one of the options on the Help menu, we can get it figured out!",
+                message: "",
+                actions: [{
+                    text: "dismiss",
+                    action: function () {
+                        self.overlay.hide();
+                    }
+                }]
+            });
+        }
+    });
 };
 
 Menu.prototype._initRenderList = function() {

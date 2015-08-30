@@ -662,6 +662,17 @@ exports.getFailedReplayInfoList = function(data) {
     });
 };
 
+// Returns promise that resolves to object with info id key and failed replay
+// info value.
+exports.getFailedReplayInfoById = function(ids) {
+    return db.failed_info.where(":id").anyOf(ids).toArray(function (info) {
+        return info.reduce(function (obj, data) {
+            obj[data.id] = data;
+            return obj;
+        }, {});
+    });
+};
+
 /**
  * Delete replay data, includes the info and raw replay as well as the
  * rendered video, if present.
@@ -703,5 +714,21 @@ exports.getFailedReplayInfo = function(id) {
             return info;
 
         throw new Error("No info found.");
+    });
+};
+
+/**
+ * Iterate over each replay.
+ * @param {Arrray.<integer>} ids - Array of ids for the replays to
+ *   iterate over.
+ * @param {Function} callback - Callback function that receives the replay data and id
+ *   for each failed replay.
+ * @return {Promise} - Promise that resolves when the iteration is
+ *   complete.
+ */
+exports.forEachFailedReplay = function(ids, callback) {
+    return db.failed_replays.where("info_id").anyOf(ids).each(function (replay) {
+        var info_id = replay.info_id;
+        callback(cleanReplay(replay), info_id);
     });
 };

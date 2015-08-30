@@ -467,22 +467,83 @@ function(message, sender, sendResponse) {
     console.log("Attempted download of failed replays.");
     // Validate the number of replays.
     var ids = message.id ? [message.id] : message.ids;
-    if (ids.length === 1) {
-        // Single JSON file.
-        var id = ids[0];
-        Data.getFailedReplay(id).then(function (data) {
-            var blob = new Blob([data.data],
-                { type: 'application/json' });
-            var filename = sanitize(data.name);
-            if (filename === "") {
-                filename = "replay";
+    lock.get("failed.replay_download").then(function () {
+        manager.pause();
+        Status.set("failed.json_downloading").then(function () {
+            var zipfiles = new ZipFiles({
+                default_name: "failed_replay",
+                zip_name: "failed_replays"
+            });
+            
+            // Total file download counter.
+            var files = 0;
+            zipfiles.on("file", function () {
+                files++;
+                Messaging.send("failed.zipProgress", {
+                    total: ids.length,
+                    current: files
+                });
+                // TODO: Alert about file processing.
+            });
+            // Reset download state.
+            zipfiles.on("end", function () {
+                manager.resume();
+                Status.reset().then(function () {
+                    lock.release("failed.replay_download");
+                }).catch(function (err) {
+                    console.error("Error resetting status: %o.", err);
+                });
+            });
+
+            // Hold array of reasons for set of files.
+            var reasons = [];
+            function addReasons() {
+                var text = reasons.reduce(function (s, info) {
+                    return s + "\n" + info.name + " (" + info.failure_type + ") [" + info.timestamp + "]: " + info.message;
+                }, "");
+                zipfiles.addFile({
+                    filename: "failure_info",
+                    ext: "txt",
+                    contents: text
+                });
+                reasons = [];
             }
-            saveAs(blob, filename + '.json');
-        }).catch(function (err) {
-            console.error("Error retrieving replay: %o.", err);
+            zipfiles.on("generating_int_zip", function () {
+                Messaging.send("failed.intermediateZipDownload");
+                // Add text file with reasons to zip file.
+                addReasons();
+            });
+            zipfiles.on("generating_final_zip", function () {
+                Messaging.send("failed.finalZipDownload");
+                addReasons();
+            });
+            // Get information for each failed replay downloading.
+            return Data.getFailedReplayInfoById(ids).then(function (info) {
+                return Data.forEachFailedReplay(ids, function (data, id) {
+                    reasons.push(info[id]);
+                    zipfiles.addFile({
+                        filename: data.name,
+                        ext: "json",
+                        contents: data.data
+                    });
+                });
+            }).then(function () {
+                zipfiles.done();
+            }).catch(function (err) {
+                // TODO: Send message about failure.
+                Messaging.send("failed.downloadError", err);
+                // err.message
+                console.error("Error compiling raw replays into zip: %o.", err);
+                zipfiles.done(true);
+            });
         });
-    } else {
-    }
+    }).catch(function () {
+        sendResponse({
+            failed: true,
+            reason: "Background page busy."
+        });
+    });
+    return true;
 });
 
 //////////////////////
