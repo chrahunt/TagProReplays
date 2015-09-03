@@ -83,6 +83,7 @@ db.version(3).stores({
 }).upgrade(function (trans) {
     Status.set("upgrading");
     trans.on('complete', function () {
+        console.log("Transaction completed.");
         Status.reset();
     });
 
@@ -94,18 +95,19 @@ db.version(3).stores({
         console.warn("Inside transaction error handler.");
         Status.set("upgrade_error");
     });
-    //trans.abort();
+
     trans.positions.count().then(function (total) {
         var done = 0;
-        trans.positions.each(function (item, cursor) {
+        return trans.positions.each(function (item, cursor) {
             // Skip null values.
             if (item === null) return;
             var name = cursor.key;
 
-            convert({
-                name: name,
-                data: JSON.parse(item)
-            }).then(function (data) {
+            try {
+                var data = convert({
+                    name: name,
+                    data: JSON.parse(item)
+                });
                 // Save converted replay.
                 var replay = data.data;
                 var info = generateReplayInfo(replay);
@@ -114,6 +116,7 @@ db.version(3).stores({
                     return trans.replay.add(replay).then(function (replay_id) {
                         info.replay_id = replay_id;
                         return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
+                            // debugging
                             // Console alert that replay was saved, progress update.
                             Messaging.send("upgradeProgress", {
                                 total: total,
@@ -123,17 +126,17 @@ db.version(3).stores({
                         });
                     });
                 });
-            }).catch(function (reason) {
+            } catch(e) {
                 // Catch replay conversion or save error.
-                console.warn("Couldn't convert %s due to: %o.", name, reason);
+                console.warn("Couldn't convert %s due to: %o.", name, e);
                 console.log("Saving %s to failed replay database.", name);
                 var failedInfo = {
                     name: name,
                     failure_type: "upgrade_error",
                     timestamp: Date.now(),
-                    message: reason
+                    message: e.message
                 };
-                trans.failed_info.add(failedInfo).then(function (info_id) {
+                return trans.failed_info.add(failedInfo).then(function (info_id) {
                     var failedReplay = {
                         info_id: info_id,
                         name: name,
@@ -153,7 +156,7 @@ db.version(3).stores({
                     console.error("Aborting upgrade due to database error: %o.", err);
                     trans.abort();
                 });
-            });
+            }
         });
     });
 });
@@ -164,9 +167,18 @@ db.version(3).stores({
 exports.init = function() {
     // Wait for conversion function to be ready before opening database.
     convert.ready().then(function () {
-        db.open().catch(function (err) {
+        return db.open().then(function () {
+            // Reset status after applying any upgrades.
+            Status.reset();
+        }).catch(function (err) {
             console.error("Error opening database: %o.", err);
-            Status.set("db_error");
+            // Don't override upgrade error.
+            Status.get().then(function (status) {
+                console.log("Status: %s.", status);
+                if (status !== "upgrade_error" && status !== "upgrading") {
+                    Status.set("db_error");
+                }
+            });
         });
     }).catch(function (err) {
         console.error("Error loading conversion function: %o.", err);

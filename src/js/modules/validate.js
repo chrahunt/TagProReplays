@@ -71,34 +71,37 @@ ReplayValidator.prototype.getVersion = function(data) {
  * Validate data.
  * @param {*} data - The data to validate, typically going to be the
  *   replay object in question.
- * @return {Promise} - Resolves to the replay version if valid,
- *   or rejects on error.
+ * @return {object}
  */
 ReplayValidator.prototype.validate = function(data) {
   var self = this;
-  return new Promise(function (resolve, reject) {
-    var version = self.getVersion(data);
-    if (!self.loaded) {
-      reject("Validator not ready.");
-    } else if (!self.validators.hasOwnProperty(version)) {
-      reject("Invalid version, or no validator with that version exists.");
+  if (!this.loaded) throw Error("Validator not loaded.");
+  var version = self.getVersion(data);
+  if (!self.validators.hasOwnProperty(version))
+    throw Error("Invalid version, or no validator with that version exists.");
+  var validator = self.validators[version];
+  // Schema validation.
+  var valid = validator.checkSchema(data, self.logger);
+  if (!valid) {
+    return {
+      valid: false,
+      reason: "Couldn't validate against schema."
+    };
+  } else {
+    // Requirements validation.
+    valid = validator.checkContent(data, self.logger);
+    if (!valid) {
+      return {
+        valid: false,
+        reason: "Couldn't validate against requirements."
+      };
     } else {
-      var validator = self.validators[version];
-      // Schema validation.
-      var valid = validator.checkSchema(data, self.logger);
-      if (!valid) {
-        reject("Couldn't validate against schema.");
-      } else {
-        // Requirements validation.
-        valid = validator.checkContent(data, self.logger);
-        if (!valid) {
-          reject("Couldn't validate against requirements.");
-        } else {
-          resolve(version);
-        }
-      }
+      return {
+        valid: true,
+        version: version
+      };
     }
-  });
+  }
 };
 
 // TODO: Specify validator object format.

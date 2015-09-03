@@ -30,6 +30,10 @@ moment.locale('en', {
     }
 });
 
+function clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
 /**
  * Holds the interface to the main page user interface.
  * Methods prepended with an underscore are used internally by the
@@ -135,7 +139,7 @@ Menu.prototype.init = function() {
     this.overlay = new Overlay("#menuContainer .modal-overlay");
 
     // Run initialization for other parts of the menu.
-    this._initListeners();
+    this._initUpgrade();
     this._initSettings();
     this._initReplayList();
     this._initRenderList();
@@ -149,9 +153,7 @@ Menu.prototype.init = function() {
  */
 Menu.prototype._initImport = function() {
     var self = this;
-    function clone(obj) {
-        return JSON.parse(JSON.stringify(obj));
-    }
+
     // Importing state.
     var initialState = {
         errors: [],
@@ -230,7 +232,7 @@ Menu.prototype._initImport = function() {
         var update = {};
         if (state.thisMenu) {
             update.message = "On replay " + state.finished + " of " + state.total + ".";
-            update.progress = state.finished;
+            update.progress = state.finished / state.total;
         } else {
             update.message = "Replay " + state.finished + " imported.";
         }
@@ -263,7 +265,7 @@ Menu.prototype._initImport = function() {
         self.paused = true;
         var options = {
             title: "Replay Import",
-            progress: state.thisMenu ? state.total : true,
+            progress: true,
             actions: [{
                 text: "cancel",
                 action: function() {
@@ -296,11 +298,8 @@ Menu.prototype._initImport = function() {
             var update = {
                 progress: false
             };
-            if (state.cancelled) {
-                update.description = "Import cancelled";
-            } else {
-                update.description = "Replays Imported!";
-            }
+            update.description = state.cancelled ? "Import cancelled"
+                                                 : "Replays Imported!";
             if (state.errors.length > 0) {
                 // Gather errors into text file.
                 var text = state.errors.map(function (err) {
@@ -334,6 +333,78 @@ Menu.prototype._initImport = function() {
             self.overlay.hide();
             state = clone(initialState);
         }
+    });
+};
+
+/**
+ * Initialize upgrade-handling behavior and database error display.
+ */
+Menu.prototype._initUpgrade = function() {
+    var self = this;
+
+    // Display upgrading page with progress.
+    Status.on("upgrading", function () {
+        self.overlay.set({
+            title: "Upgrading Database",
+            description: "The database is being upgraded, please do not close Chrome while this is being carried out.",
+            progress: true,
+            message: "Initializing..."
+        });
+        self.overlay.show();
+    });
+
+    // Display upgrading result page.
+    Status.on("upgrading->idle", function () {
+        self.overlay.update({
+            description: "The database has been upgraded!",
+            actions: [{
+                text: "dismiss",
+                action: function () {
+                    self.overlay.hide();
+                }
+            }]
+        });
+    });
+
+    function getContact(error, subject) {
+        var man = chrome.runtime.getManifest();
+        var ver = man.hasOwnProperty("version_name") ? man.version_name
+                                                     : man.version;
+        var github = "<a href=\"https://github.com/chrahunt/TagProReplays/issues\">here</a>";
+        var reddit = "<a href=\"https://www.reddit.com/message/compose?to=snaps_&subject=" +
+            encodeURIComponent(subject + " (" + ver + ")") + "\">here</a>";
+        var contact = error + ", please report the error " + github + " and include the version number " + ver + " or send a message " +
+            reddit + " with any details and for further instruction.";
+        return contact;
+    }
+    // Display error overlay.
+    Status.on("upgrade_error", function () {
+        self.overlay.set({
+            title: "Database Upgrade Error",
+            progress: false,
+            message: getContact("Error upgrading database", "TPR Upgrade Error")
+        });
+        // In case it isn't showing already.
+        self.overlay.show();
+    });
+
+    Messaging.listen("upgradeProgress",
+    function (message) {
+        self.overlay.update({
+            progress: message.progress / message.total,
+            message: "Converted replay " + message.progress + " of " + message.total
+        });
+    });
+
+    // Display error overlay.
+    Status.on("db_error", function () {
+        self.overlay.set({
+            title: "Database Error",
+            description: getContact("A database error was encountered, please try to enable/disable the extension and see if the issue persists. If it continues", "TPR Database Error"),
+            progress: false
+        });
+        // In case it isn't showing already.
+        self.overlay.show();
     });
 };
 
@@ -454,6 +525,7 @@ Menu.prototype._initReplayList = function() {
         order: [[1, 'asc']],
         // Set title text on row with additional replay information.
         rowCallback: function (row, data) {
+            var replay = data.replay;
             var title = '';
             title += "Map: " + replay.mapName + "\n";
             title += "FPS: " + replay.fps + "\n";
@@ -602,22 +674,13 @@ Menu.prototype._initReplayList = function() {
 
     // Download information.
     var download = {
-        total: null,
-        progress: null,
         error: null
     };
 
-    var progressSet = false;
     Messaging.listen("zipProgress",
     function (message) {
-        if (!progressSet) {
-            self.overlay.set({
-                progress: message.total
-            });
-            progressSet = true;
-        }
         self.overlay.update({
-            progress: message.current,
+            progress: message.current / message.total,
             message: "Adding replay " + message.current + " of " + message.total + "."
         });
     });
@@ -636,7 +699,6 @@ Menu.prototype._initReplayList = function() {
         });
     });
 
-    var downloadError = false;
     Messaging.listen("downloadError",
     function (message) {
         download.error = message.reason;
@@ -655,13 +717,14 @@ Menu.prototype._initReplayList = function() {
 
     // Display finish message.
     Status.on("json_downloading->idle", function () {
-        progressSet = false;
-        if (downloadError) {
-            var reason = download.error;
+        var error = download.error;
+        download.error = null;
+        if (error) {
+            var reason = error;
             // Change overlay to display error.
             // add dismiss
             self.overlay.set({
-                description: "There was an error downloading your replays: " + download.error + ".",
+                description: "There was an error downloading your replays: " + error + ".",
                 actions: [{
                     text: "dismiss",
                     action: function () {
@@ -794,23 +857,13 @@ Menu.prototype._initFailedReplayList = function() {
 
     // Download-relevant listeners.
     var download = {
-        total: null,
-        progress: null,
         error: null
     };
 
-    var progressSet = false;
     Messaging.listen("failed.zipProgress",
     function (message) {
-        if (!progressSet) {
-            download.total = message.total;
-            self.overlay.set({
-                progress: message.total
-            });
-            progressSet = true;
-        }
         self.overlay.update({
-            progress: message.current,
+            progress: message.current / message.total,
             message: "Adding failed replay " + message.current + " of " + message.total + "."
         });
     });
@@ -848,13 +901,14 @@ Menu.prototype._initFailedReplayList = function() {
 
     // Display finish message.
     Status.on("failed.json_downloading->idle", function () {
-        progressSet = false;
-        if (downloadError) {
-            var reason = download.error;
+        var error = download.error;
+        download.error = null;
+        if (error) {
+            var reason = error;
             // Change overlay to display error.
             // add dismiss
             self.overlay.set({
-                description: "There was an error downloading your replays: " + download.error + ".",
+                description: "There was an error downloading your replays: " + error + ".",
                 message: "",
                 actions: [{
                     text: "dismiss",
@@ -1027,57 +1081,6 @@ Menu.prototype._initRenderList = function() {
     Messaging.listen(["renderUpdated", "rendersUpdated"],
     function () {
         self.render_table.reload();
-    });
-};
-
-/**
- * Initialize listeners for events from background page and changes
- * to google storage.
- */
-Menu.prototype._initListeners = function() {
-    var self = this;
-
-    ///////////////
-    // Upgrading //
-    ///////////////
-
-    // Update import progress on overlay.
-    function updateUpgrade() {
-        var text = "Replay " + state.finished + " of " + state.total + ".";
-        self.overlay.message(text);
-        if (state.errors.length > 0) {
-            // TODO: Reflect import errors information by changing overlay style.
-            //console.log("There were some importing errors.");
-        }
-    }
-
-    // Display upgrading page with progress.
-    Status.on("upgrading", function () {
-
-    });
-
-    // Display upgrading result page.
-    Status.on("upgrading->idle", function () {
-
-    });
-
-    // Display error overlay.
-    Status.on("upgrade_error", function () {
-        self.overlay.title("Upgrade error");
-        self.overlay.message("error upgrading database, pls report.");
-        self.overlay.show();
-    });
-
-    Messaging.listen("upgradeProgress",
-    function (message) {
-        var progress = message.progress;
-        var total = message.total;
-
-    });
-
-    // Display error overlay.
-    Status.on("db_error", function () {
-
     });
 };
 
@@ -1347,22 +1350,20 @@ Overlay.prototype._initProgress = function(val) {
     if (val) {
         this.$this.find("."+progressClass).removeClass("hidden");
         // Reset if needed.
-        if (this.progress) {
-            this.progress._remove();
-            this.progress = null;
-            this.state.progress = null;
-        }
+        if (this.progress)
+            this._resetProgress();
         var selector = this.selector + " ." + progressClass;
+        // Initialize with determinite value.
         if (typeof val == "number") {
             // Determinite, set total.
-            this.state.progress = val;
+            this.state.progress = "determinite";
             this.progress = new Mprogress({
                 parent: selector
             });
-            console.log(this.progress);
+            this.progress.set(val);
         } else {
             // Indeterminite.
-            this.state.progress = true;
+            this.state.progress = "indeterminite";
             this.progress = new Mprogress({
                 parent: selector,
                 template: 3,
@@ -1375,18 +1376,29 @@ Overlay.prototype._initProgress = function(val) {
     }
 };
 
+Overlay.prototype._resetProgress = function() {
+    this.progress._remove();
+    this.progress = null;
+    this.state.progress = null;
+};
+
 // @private
 Overlay.prototype._progress = function(val) {
-    console.log("received progress: " + val);
     if (val || typeof val == "number") {
         if (typeof val == "number") {
-            // Only update determinite value if total has been set.
-            if (typeof this.state.progress == "number") {
+            if (this.state.progress == "determinite") {
                 // Update determinite value.
-                this.progress.set(val / this.state.progress);
+                this.progress.set(val);
+            } else {
+                // Reset and initialize to determinite value.
+                this._initProgress(val);
             }
-        } // else indeterminite.
+        } else if (this.state.progress == "determinite") {
+            // Reset and initialize to indeterminite.
+            this._initProgress(true);
+        }
     } else {
+        // End progress gracefully.
         if (this.progress) {
             this.progress.end();
             this.progress = null;

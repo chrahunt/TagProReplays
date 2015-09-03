@@ -237,7 +237,10 @@ conversion.add("1", "2", function(data, callback) {
   }
 
   // Validate replay before applying conversion.
-  validate(data.data).then(function (version) {
+  var result = validate(data.data);
+  if (result.valid) {
+    var version = result.version;
+
     if (version === "1") {
       var parsed_info = get_info(data.name, data.data);
       // Convert replay data.
@@ -252,11 +255,11 @@ conversion.add("1", "2", function(data, callback) {
       // Ran successfully.
       callback(null);
     } else {
-      callback(new Error("Version should be 1 to convert to 2."));
+      callback("Version should be 1 to convert to 2.");
     }
-  }).catch(function (err) {
-    callback(err);
-  });
+  } else {
+    callback(result.reason);
+  }
 });
 
 // Current replay version.
@@ -287,38 +290,39 @@ module.exports = function convert(data) {
     name: data.name,
     data: data.data
   };
-  return new Promise(function (resolve, reject) {
-    validate(newData.data).then(function (version) {
-      if (version === CURRENT_VERSION) {
-        resolve(newData);
-      } else {
-        // Get function to upgrade.
-        var fn = conversion.getPatchFunction(version, CURRENT_VERSION);
-        if (fn) {
-          // Upgrade data.
-          fn(newData, function(err) {
-            if (err) {
-              reject(err);
+  var result = validate(newData.data);
+  if (!result.valid) {
+    throw Error("Could not convert: " + result.reason);
+  } else {
+    var version = result.version;
+    if (version === CURRENT_VERSION) {
+      return newData;
+    } else {
+      // Get function to upgrade.
+      var fn = conversion.getPatchFunction(version, CURRENT_VERSION);
+      if (fn) {
+        // Upgrade data.
+        fn(newData, function(err) {
+          if (err) {
+            throw Error("Final converted replay not valid: " + err);
+          } else {
+            var result = validate(newData.data);
+            if (!result.valid) {
+              throw Error("Final converted replay not valid: " + err);
             } else {
-              validate(newData.data).then(function (version) {
-                if (version === CURRENT_VERSION) {
-                  resolve(newData);
-                } else {
-                  reject("Replay not fully transformed.");
-                }
-              }).catch(function (err) {
-                reject("Final convertedreplay not valid: %o.", err);
-              });
+              var version = result.version;
+              if (version !== CURRENT_VERSION) {
+                throw Error("Replay not fully transformed.");
+              } // else good!
             }
-          });
-        } else {
-          return Promise.reject("Conversion function not found!");
-        }
+          }
+        });
+        return newData;
+      } else {
+        throw Error("Conversion function not found!");
       }
-    }).catch(function (err) {
-      reject(err);
-    });
-  });
+    }
+  }
 };
 
 // Expose validation ready function.
