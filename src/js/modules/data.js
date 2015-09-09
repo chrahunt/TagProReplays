@@ -91,18 +91,103 @@ db.version(3).stores({
         console.warn("inside transaction abort handler");
         Status.set("upgrade_error");
     });
+
     trans.on('error', function () {
         console.warn("Inside transaction error handler.");
         Status.set("upgrade_error");
     });
+    // Num done.
+    var numberDone = 0;
+    // Item #.
+    var n = 0;
+    var numitemsatonce = 50;
+    var total;
+    // loopfn takes item, cursor, done
+    // loopfn shouldn't call anything async if it expects trans to be around.
+    // Returns a promise that resolves when complete.
+    function fn(table, itemsperloop, loopfn) {
+        var total;
+        function inner_loop(start) {
+            var n = Math.min(itemsperloop, total - start);
+            var last = start + itemsperloop >= total;
+            var dones = 0;
+            var looped = false;
+            var donecallfn;
+            // Used in case weird synchronous completion case.
+            var done = false;
+            var err = null;
+            var donePromise = new Dexie.Promise(function (resolve, reject) {
+                if (!done) {
+                    donecallfn = function (err, val) {
+                        if (err) {
+                            reject(err);
+                        } else if (val) {
+                            resolve(val);
+                        } else {
+                            resolve();
+                        }
+                    };
+                } else if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+            // TODO: Change to using then on promise.
+            function checkDone(err) {
+                if (dones === n && looped) {
+                    if (donecallfn) {
+                        if (last) {
+                            donecallfn(err);
+                        } else {
+                            donecallfn(err, inner_loop(start + n));
+                        }
+                    } else {
+                        // Shouldn't happen because idb requests are async and there should
+                        // be enough time for donecallfn to be set. May cause transaction
+                        // lifecycle instability.
+                        console.error("Function not set.");
+                        done = true;
+                    }
+                }
+            }
+            table.offset(start).limit(n).each(function (item, cursor) {
+                loopfn(item, cursor, function (err) {
+                    dones++;
+                    checkDone(err);
+                });
+            }).then(function () {
+                looped = true;
+                checkDone();
+            });
+            return donePromise;
+        }
 
-    trans.positions.count().then(function (total) {
-        var done = 0;
-        return trans.positions.each(function (item, cursor) {
+        return table.count().then(function (t) {
+            if (!t) {
+                return Dexie.Promise.resolve();
+            } else {
+                total = t;
+                return inner_loop(0);
+            }
+        });
+    }
+
+
+    trans.positions.count().then(function (t) {
+        total = t;
+        // done err propogates back up.
+        fn(trans.positions, 50, function (item, cursor, done) {
             // Skip null values.
-            if (item === null) return;
-            var name = cursor.key;
+            if (item === null) {
+                done();
+                return;
+            }
 
+            var name = cursor.key;
+            var i = n++;
+
+            console.log("Iterating item: %d.", i); // DEBUG
             try {
                 var data = convert({
                     name: name,
@@ -112,24 +197,28 @@ db.version(3).stores({
                 var replay = data.data;
                 var info = generateReplayInfo(replay);
                 return trans.info.add(info).then(function (info_id) {
+                    console.log("Added info: %d.", i); // DEBUG
                     replay.info_id = info_id;
                     return trans.replay.add(replay).then(function (replay_id) {
+                        console.log("Added replay: %d.", i); // DEBUG
                         info.replay_id = replay_id;
                         return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
                             // debugging
                             // Console alert that replay was saved, progress update.
                             Messaging.send("upgradeProgress", {
                                 total: total,
-                                progress: ++done
+                                progress: ++numberDone
                             });
-                            console.log("Finished replay: %d.", done);
+                            console.log("Finished replay: %d (%d).", i, numberDone); // DEBUG
+                            done();
                         });
                     });
                 });
             } catch(e) {
+                console.log("Failed replay: %d.", i); // DEBUG
                 // Catch replay conversion or save error.
-                console.warn("Couldn't convert %s due to: %o.", name, e);
-                console.log("Saving %s to failed replay database.", name);
+                //console.warn("Couldn't convert %s due to: %o.", name, e); // DEBUG
+                //console.log("Saving %s to failed replay database.", name); // DEBUG
                 var failedInfo = {
                     name: name,
                     failure_type: "upgrade_error",
@@ -137,24 +226,30 @@ db.version(3).stores({
                     message: e.message
                 };
                 return trans.failed_info.add(failedInfo).then(function (info_id) {
+                    console.log("Added failed info: %d.", i); // DEBUG
                     var failedReplay = {
                         info_id: info_id,
                         name: name,
                         data: item
                     };
                     return trans.failed_replays.add(failedReplay).then(function (replay_id) {
+                        console.log("Added failed replay: %d.", i); // DEBUG
                         return trans.failed_info.update(info_id, { replay_id: replay_id }).then(function () {
+
                             Messaging.send("upgradeProgress", {
                                 total: total,
-                                progress: ++done
+                                progress: ++numberDone
                             });
-                            console.log("Saved failed replay: %d.", done);
+                            console.log("Saved failed replay: %d (%d).", i, numberDone); // DEBUG
+                            done();
                         });
                     });
                 }).catch(function (err) {
+                    // TODO: Necessary?
                     // Save error, abort transaction.
                     console.error("Aborting upgrade due to database error: %o.", err);
                     trans.abort();
+                    done(Error("error: " + err));
                 });
             }
         });
