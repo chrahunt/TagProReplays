@@ -7,14 +7,21 @@ inherits(FileListStream, Readable);
 module.exports = FileListStream;
 
 /**
- * @typedef {object} Options
+ * @typedef {object} FLSOptions
  */
 /**
- * Takes a filelist and streams file information.
+ * @typedef {object} FLSFile
+ * @property {number} size - the size of the file, in bytes.
+ * @property {string} name - the name of the file.
+ * @property {*} data - the file data.
+ */
+/**
+ * Takes a filelist and streams file information. File information is
+ * output in FLSFile format.
  * @param {FileList} filelist - FileList as retrieved from a file
  *   input.
- * @param {Options} options - Options defining the behavior of the
- *   stream.
+ * @param {FLSOptions} options - Options defining the behavior
+ * of the stream.
  */
 function FileListStream(filelist, options) {
   if (!(this instanceof FileListStream))
@@ -30,6 +37,7 @@ function FileListStream(filelist, options) {
 
 /**
  * Get next file.
+ * @private
  * @return {File} - Next file, or null if no next file.
  */
 FileListStream.prototype._next = function() {
@@ -54,6 +62,7 @@ FileListStream.prototype._read = function() {
       encoding: 'utf8'
     });
     var self = this;
+    // Merge all read data together.
     fs.pipe(concat(function (data) {
       self._reading = false;
       var info = {

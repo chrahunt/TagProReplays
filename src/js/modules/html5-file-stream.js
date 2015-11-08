@@ -5,17 +5,23 @@ inherits(FileStream, Readable);
 module.exports = FileStream;
 
 /**
- * @typedef {object} Options
- * @property {number} [size] - The size, in bytes, of each chunk to
- *   read. Default is 1024 * 512 (512kb).
- * @property {string} [format] - The format to return chunks in. Can
+ * Options cover the behavior of the Reader and are also passed to the
+ * Readable stream FileStream inherits from.
+ * @typedef {object} FileStreamOptions
+ * @property {integer} [size=5mb] - The size, in bytes, of each chunk to
+ *   read.
+ * @property {string} [format="text"] - The format to return chunks in. Can
  *   be one of `arraybuffer`, `binarystring`, `dataurl`, or `text`.
+ * @property {string} [encoding="UTF-8"] - The encoding to use for reading
+ *   the file. Only relevant if format is "text".
+ * todo: add info about issue when encoding is not included to be passed to underliying
+ * readable stream.
  */
 /**
  * FileStream is a readable stream that can read a file in chunks.
  * Chunk size and format can be specified in options.
  * @param {File} file - The File object.
- * @param {Options} options - Options.
+ * @param {FileStreamOptions} [options] - Options.
  */
 function FileStream(file, options) {
   if (!(this instanceof FileStream))
@@ -26,8 +32,9 @@ function FileStream(file, options) {
 
   this._file = file;
   this._offset = 0;
-  this._size = options.size || 1024 * 512; // 512 kb
+  this._size = options.size || 1024 * 1024 * 5; // 5 mb
   this._format = options.format || "text";
+  this._encoding = options.encoding || "UTF-8";
   this.reading = false;
 
   this._reader = new FileReader();
@@ -44,6 +51,9 @@ function FileStream(file, options) {
   };
 }
 
+/**
+ * @private
+ */
 FileStream.prototype.__read = function() {
   if (this.reading) {
     return;
@@ -70,7 +80,7 @@ FileStream.prototype.__read = function() {
     } else if (format === "dataurl") {
       this._reader.readAsDataURL(chunk);
     } else if (format === "text") {
-      this._reader.readAsText(chunk);
+      this._reader.readAsText(chunk, this._encoding);
     }
     this._offset = end;
   }

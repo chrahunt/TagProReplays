@@ -601,12 +601,25 @@ function(message) {
 ///////////////////
 // Replay import //
 ///////////////////
+/*
+ * Replay importing is orchestrated by the initiating tab. The tab calls
+ * `startImport` which tries to lock the background page and also sets
+ * the extension status so the menu on all tabs will reflect import progress.
+ * Importing is then carried out by calling `importReplay`/`importReplays` with
+ * one or multiple replay files, which are just objects containing filename and
+ * data attributes.
+ */
+
+/**
+ * @typedef {object} ReplayData
+ * @property {string} filename - The name of the file being imported.
+ * @property {string} data - The text of the file.
+ */
 
 var importLoop = null;
 /**
- * Handle imported replay. Replay importing is done 
- * @param {object} message - Object with properties `data` and
- *   `filename` corresponding to the file data and contents.
+ * Actually import replay(s) in a loop. Send progress updates to any listening tabs.
+ * @param {(ReplayData|Array<ReplayData>} message - the replays to import.
  * @param {Function} callback - ??
  */
 Messaging.listen(["importReplay", "importReplays"],
@@ -635,19 +648,19 @@ function(message, sender, sendResponse) {
         }
         console.log("Validating " + name + ".");
         // Validate replay.
-        validate(replay).then(function(version) {
-            if (cancelled()) { resolve(); return; }
-            console.log(file.filename + " is a valid v" + version + " replay.");
-            console.log("Applying necessary conversions...");
+        var result = validate(replay);
+        if (result.valid) {
+            var version = result.version;
+            console.log(file.filename + " is a valid v" + version + " replay."); // DEBUG
+            console.log("Applying necessary conversions..."); // DEBUG
             var data = {
                 data: replay,
                 name: name
             };
-            convert(data).then(function(data) {
-                if (cancelled()) { resolve(); return; }
-                // Retrieve converted replay.
-                var replay = data.data;
-                Data.saveReplay(replay).then(function (info) {
+            try {
+                var converted = convert(data);
+                var converted_replay_data = converted.data;
+                Data.saveReplay(converted_replay_data).then(function (info) {
                     if (cancelled()) { resolve(); return; }
                     Messaging.send("importProgress");
                     resolve();
@@ -660,17 +673,15 @@ function(message, sender, sendResponse) {
                     });
                     resolve();
                 });
-            }).catch(function (err) {
-                if (cancelled()) { resolve(); return; }
-                console.error(err);
+            } catch (e) {
+                console.error(e);
                 Messaging.send("importError", {
                     name: name,
-                    reason: "could not be converted: " + err
+                    reason: "could not be converted: " + e.message
                 });
                 resolve();
-            });
-        }).catch(function (err) {
-            if (cancelled()) { resolve(); return; }
+            }
+        } else {
             console.error(file.filename + " could not be validated!");
             console.error(err);
             Messaging.send("importError", {
@@ -678,7 +689,7 @@ function(message, sender, sendResponse) {
                 reason: 'could not be validated: ' + err
             });
             resolve();
-        });
+        }
     }).then(function (results) {
         console.log("Finished importing replay set.");
         // Send new replay notification to any tabs that may have menu open.

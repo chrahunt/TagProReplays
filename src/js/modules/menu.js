@@ -149,7 +149,8 @@ Menu.prototype.init = function() {
 };
 
 /**
- * Initialize replay import functionality.
+ * Initialize UI listeners and background page message handlers for
+ * replay file import.
  */
 Menu.prototype._initImport = function() {
     var self = this;

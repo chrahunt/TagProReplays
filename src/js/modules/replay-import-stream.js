@@ -1,19 +1,27 @@
 var inherits = require('util').inherits;
 var Writable = require('readable-stream').Writable;
 
-var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
-
-inherits(ObjectStream, Writable);
 
 function setImmediate(fn) {
   return setTimeout(fn, 0);
 }
 
+inherits(ObjectStream, Writable);
+
 /**
- * Object stream overrides Writable stream to allow object size to be
- * defined differently than just number of objects for backpressure.
- * @param {[type]} options [description]
+ * @typedef {object} ObjectStreamOptions
+ * @property {number} [highWaterMark]
+ */
+/**
+ * Object stream represents a flexible object-mode Writable stream. The
+ * flexibility is in allowing extending classes to set their own definition
+ * of an object's `size` in the context of determining when it is appropriate
+ * to apply backpressute to sending streams. Contrast this with the typical
+ * object-mode Writable stream where the number of objects is the only limit.
+ * Extending classes should override `__write` (same interface as `_write`) and
+ * `_size`.
+ * @param {ObjectStreamOptions} [options]
  */
 function ObjectStream(options) {
   if (!(this instanceof ObjectStream))
@@ -31,7 +39,7 @@ function ObjectStream(options) {
 }
 
 /**
- * Override to get buffered data length.
+ * Override to get buffered data length before calling original `write`.
  * @override
  */
 ObjectStream.prototype.write = function(chunk, encoding, cb) {
@@ -61,12 +69,18 @@ ObjectStream.prototype._write = function(chunk, encoding, cb) {
   this.__write(chunk, encoding, cb);
 };
 
-// Subclasses may override. Same signature as _write.
+/**
+ * Subclasses may override. Same signature as _write.
+ */
 ObjectStream.prototype.__write = function(chunk, encoding, cb) {
   console.log("ObjectStream#__write not overriden.");
 };
 
-// Subclasses must override. Takes obj and returns integer size.
+/**
+ * Subclasses must override. Takes obj and returns integer size.
+ * @param {object} obj - an object in the stream.
+ * @return {number} - "Size" of the object.
+ */
 ObjectStream.prototype._size = function(obj) {
   console.warn("ObjectStream#_size not overriden!");
 };
@@ -86,7 +100,7 @@ module.exports = ReplayImportStream;
  * Stream for importing replays. Pipe a fileliststream into me.
  * Works best with a quick source and a slower insertion (which is
  * currently the case with IndexedDB and reading the files). Pipe streams
- * into this stream with `{end: false}` so the stream has a change to clear
+ * into this stream with `{end: false}` so the stream has a chance to clear
  * out the buffer, and so the `finish` event actually indicates end of writing.
  */
 function ReplayImportStream(options) {
@@ -136,7 +150,7 @@ ReplayImportStream.prototype.stop = function() {
  */
 ReplayImportStream.prototype.__write = function(value, encoding, done) {
   console.log("ReplayImportStream#__write: Writing chunk.");
-  // Disregard data if already ended.
+  // Disregard data if stream has already been ended.
   if (this.ended) { done(); return; }
   this._lastValue = value;
   var self = this;
@@ -189,6 +203,10 @@ ReplayImportStream.prototype._moreBuffered = function() {
       this._writableState.lastBufferedRequest.chunk !== this._lastValue;
 };
 
+/**
+ * Send files to background page.
+ * @return {[type]} [description]
+ */
 ReplayImportStream.prototype._send = function() {
   var self = this;
   this._importing = true;
