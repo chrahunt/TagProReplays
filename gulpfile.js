@@ -11,7 +11,9 @@ var gulp = require('gulp'),
     plumber = require('gulp-plumber'),
     sass = require('gulp-sass'),
     jeditor = require('gulp-json-editor'),
-    jsonfile = require('jsonfile');
+    jsonfile = require('jsonfile'),
+    notify = require('gulp-notify');
+
 // shim debug
 //process.env.BROWSERIFYSHIM_DIAGNOSTICS=1;
 var assets = [
@@ -91,9 +93,13 @@ function watchifyFile(src, out) {
     var b = watchify(browserify(opts));
     function bundle() {
         return b.bundle()
-            .on('error', gutil.log.bind(gutil, "Browserify Error"))
+            .on('error', notify.onError(function (err) {
+                gutil.log("Browserify Error: " + err.message);
+                return "Build Failed";
+            }))
             .pipe(source(src.replace(/^src\//, '')))
-            .pipe(gulp.dest(out));
+            .pipe(gulp.dest(out))
+            .pipe(notify("Build Succeeded"));
     }
     b.on('update', bundle);
     b.on('log', gutil.log);

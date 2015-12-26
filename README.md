@@ -23,7 +23,7 @@ Yes and no. It is only designed to work with Chrome, but it will very likely als
 Because the project uses browserify, the individual JavaScript files can't be used directly, and compilation with browserify is needed before release and during development. The utility [`gulp`](http://gulpjs.com/) makes this easier to deal with. After reading about and installing the utility, you can execute one of the tasks below by running `gulp [task name]` (without brackets) in a command window pointing to the root directory of the project
 
 * `build`: Browserifies the top-level JS source files in `src/js` (including source maps) and moves them along with all assets folders from `src` and `vendor` to `build/dev`. This directory isn't tracked, so when making non-release commits or debugging, this is the command to use.
-* `build-prod`: Same as `build-dev` except without source maps and the files end up in `build/release`.
+* `build-prod`: Same as `build` except without source maps and the files end up in `build/release`.
 * `watch`: This is `build`+. It builds as above, but watches for changes to source and asset files, rebrowserifying and moving when any changes are made. After the initial build rebuilds are very quick, so there is little impact to development.
 
 References to assets using `chrome.extension.getURL` can assume the same relative location as in the `src` directory.
