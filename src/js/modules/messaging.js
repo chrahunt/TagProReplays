@@ -1,16 +1,42 @@
 /**
  * Messenger interface for Content Script<->Background page
- * communication. When loaded in a content script, attempts to open a
+ * communication.
+ * 
+ * Functions:
+ * * listen
+ *   @param {(string|Array.<string>} names - name or names of messages
+ *     to listen for.
+ *   @param {ListenCallback} callback - the function to call if a message is
+ *   received
+ * * send (content script) - send a message to the background page
+ *   @param {string} name - the name of the message
+ *   @param {*} [message] - message to send; if provided, must be possible
+ *     to create a structured clone.
+ *   @param {Function} [callback] - the callback function that will be called
+ *     if the listener calls `sendResponse`.
+ * * send (background page) - broadcast message to all connected tabs
+ *   @param {string} name - the name of the message
+ *   @param {*} [message] - the message to send
+ * * removeListener
+ * 
+ * When loaded in a content script, attempts to open a
  * port to the background page. When used in the background page,
  * tracks all ports that have connected and allows sending a message
  * to all of them at once. Also offers callback capability (the same as
  * sendResponse in chrome.runtime.postMessage) for messages sent from
  * content scripts to the background page.
  */
-
 /**
- * Holds listener functions with keys corresponding to the message
- * id.
+ * Has similar interface as `chrome.runtime.onMessage.addListener` callback.
+ * @typedef {Function} ListenCallback
+ * @param {*} message - the passed message, if any.
+ * @param {Sender} sender - same as callback
+ * @param {Function} sendResponse - callback function; if going to call, then
+ *   the ListenCallback must return true.
+ */
+/**
+ * Holds arrays of listener functions with keys corresponding to the message
+ * name.
  * @type {Object}
  */
 var listeners = {};
@@ -49,6 +75,7 @@ function removeCallback(id) {
 
 /**
  * @typedef {object} Message
+ * @property {string} type - "system" or "main"
  * @property {string} name - The name of the message.
  * @property {*} data - The data to be sent. An empty object by
  *   default.
@@ -56,12 +83,8 @@ function removeCallback(id) {
  *   to invoke.
  */
 /**
- * @typedef {object} SystemMessage
- * @property {string} _name
- * @property {[type]} [propName] [description]
- */
-/**
- * Send function used on both content scripts and background page.
+ * Send function used for normal messages in both content scripts and
+ * the background page.
  * @param {string} name - The name of the message to send.
  * @param {*} [message] - The message to send.
  * @param {Function} callback - The callback 
@@ -74,83 +97,92 @@ function commonSend(name, message, callback) {
     }
 
     var data = {
+        type: "main",
         name: name,
         data: message
     };
 
     if (callback) {
-        data.callback = setCallback(callback);
+        data.callback_id = setCallback(callback);
     }
     return data;
 }
 
-// Set listener on port.
+// Set listener for both sides of port.
 function listenPort(port) {
+    // Send callback message.
+    function sendCallback(data) {
+        port.postMessage({
+            type: "system",
+            name: "callback",
+            data: data
+        });
+    }
+
     // Listen for messages over port.
     port.onMessage.addListener(function (message, sender) {
-        var method = message.name;
-        if (method) {
-            if (listeners[method]) {
-                var listener = listeners[method];
-                var data = message.data || {};
-                //data.method = method;
-                var callback_id = message.callback;
-                if (callback_id) {
-                    // Handle case where callback was called asynchronously by the .
-                    var sync = true;
-                    var called = false;
-                    var arg;
-                    // Listener function returns true if callback may
-                    // be called, false otherwise.
-                    var mayCall = listener.call(null, data, sender, function (response) {
-                        if (sync) {
-                            // Callback was called synchronously.
-                            called = true;
-                            arg = response;
-                        } else {
-                            // Callback was called asynchronously.
-                            var message = {
-                                _name: "callback",
-                                _data: {
-                                    id: callback_id
+        if (message.type == "main") {
+            var method = message.name;
+            var data = message.data || {};
+            if (listeners.hasOwnProperty(method)) {
+                listeners[method].forEach(function (listener) {
+                    if (onBackgroundPage()) {
+                        var callback_id = message.callback_id;
+                        if (callback_id) {
+                            var sync = true;
+                            // Whether function was called.
+                            var called = false;
+                            var arg;
+                            // Listener function returns true if callback may
+                            // be called, false otherwise.
+                            var mayCall = listener.call(null, data, sender, function (response) {
+                                if (sync) {
+                                    // Callback was called synchronously.
+                                    called = true;
+                                    arg = response;
+                                } else {
+                                    // Callback was called asynchronously.
+                                    if (mayCall) {
+                                        sendCallback({
+                                            id: callback_id,
+                                            called: true,
+                                            response: response
+                                        });
+                                    } else {
+                                        // Error, calling callback without returning true.
+                                        console.error("Calling callback without " +
+                                            "returning `true`: %s", method);
+                                    }
                                 }
-                            };
-                            if (mayCall) {
-                                message._data.called = true;
-                                message._data.response = response;
-                            } else {
-                                message._data.called = false;
+                            });
+                            if (mayCall && called) {
+                                sendCallback({
+                                    id: callback_id,
+                                    called: true,
+                                    response: arg
+                                });
+                            } else if (!mayCall) {
+                                sendCallback({
+                                    id: callback_id,
+                                    called: false
+                                });
                             }
-                            port.postMessage(message);
+                            sync = false;
+                        } else {
+                            listener.call(null, data, sender, function () {
+                                console.error("Listener called callback, " +
+                                    "but none was defined with message: %s",
+                                    method);
+                            });
                         }
-                    });
-                    if (mayCall && called) {
-                        port.postMessage({
-                            _name: "callback",
-                            _data: {
-                                id: callback_id,
-                                called: true,
-                                response: arg
-                            }
-                        });
-                    } else if (!mayCall) {
-                        port.postMessage({
-                            _name: "callback",
-                            _data: {
-                                id: callback_id,
-                                called: false
-                            }
-                        });
+                    } else {
+                        listener.call(null, data, sender);
                     }
-                    sync = false;
-                } else {
-                    listener.call(null, data, sender);
-                }
+                });
             }
-        } else if (message._name) {
-            // System messages.
-            if (message._name === "callback") {
-                var callback_data = message._data;
+        } else if (message.type == "system") {
+            if (message.name == "callback") {
+                var callback_data = message.data;
                 if (callback_data.called) {
                     var callback = getCallback(callback_data.id);
                     if (callback) {
@@ -190,17 +222,24 @@ function listenPort(port) {
 exports.listen = function (names, callback) {
     if (typeof names == 'string') names = [names];
     names.forEach(function(name) {
-        listeners[name] = callback;
+        if (!listeners.hasOwnProperty(name)) {
+            listeners[name] = [];
+        }
+        listeners[name].push(callback);
     });
 };
 
-exports.removeListener = function (names) {
-    if (typeof names == 'string') names = [names];
-    names.forEach(function (name) {
-        delete listeners[name];
-    });
+// Remove a listener.
+exports.removeListener = function (name, callback) {
+    if (listeners.hasOwnProperty(name)) {
+        var i = listeners[name].indexOf(callback);
+        if (i !== -1) {
+            listeners[name].splice(i, 1);
+        }
+    }
 };
 
+// Sets `send` function.
 if (onBackgroundPage()) {
     // Background page port management.
     var ports = {};
@@ -215,7 +254,7 @@ if (onBackgroundPage()) {
         });
     });
 
-    // Omitting callback for the moment.
+    // No callback on background page.
     exports.send = function (name, message) {
         message = commonSend(name, message);
         for (var id in ports) {
@@ -224,6 +263,7 @@ if (onBackgroundPage()) {
         }
     };
 } else {
+    // Content script, single port.
     var port = chrome.runtime.connect({
         name: performance.now().toString()
     });

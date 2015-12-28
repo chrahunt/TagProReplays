@@ -172,17 +172,20 @@ Menu.prototype._initImport = function() {
         total: 0,
         thisMenu: false,
         cancel: null,
-        cancelled: false
+        cancelled: false,
+        disabled: false
     };
 
     var state = clone(initialState);
 
     // Visible link invokes the actual file input.
     $('#replay-import').click(function (e) {
-        // Empty file input so change listener is invoked even if same
-        // file is selected.
-        $('#raw-upload').val('');
-        $('#raw-upload').click();
+        if (!state.disabled) {
+            // Empty file input so change listener is invoked even if same
+            // file is selected.
+            $('#raw-upload').val('');
+            $('#raw-upload').click();
+        }
         e.preventDefault();
     });
     $('#raw-upload').attr('accept', '.txt,.json');
@@ -241,6 +244,8 @@ Menu.prototype._initImport = function() {
                 fls.on("end", function () {
                     console.log("File list stream ended.");
                 });
+            } else {
+                // Handle error, if replays exceeded.
             }
         });
     });
@@ -352,6 +357,44 @@ Menu.prototype._initImport = function() {
             state = clone(initialState);
         }
     });
+
+    // This section changes import UI to reflect capability based on
+    // number of replays in database.
+
+    function enableImport() {
+        state.disabled = false;
+        $("#replay-import").css({
+            color: "",
+            cursor: ""
+        });
+        $("#replay-import").attr("title", "");
+    }
+
+    function disableImport() {
+        state.disabled = true;
+        $("#replay-import").css({
+            color: "#aaa",
+            cursor: "default"
+        });
+        $("#replay-import").attr("title", "delete some replays first");
+    }
+
+    function updateStatus() {
+        Messaging.send("getNumReplays", function (info) {
+            if (info.replays >= Constraints.max_replays_in_database) {
+                disableImport();
+            } else {
+                enableImport();
+            }
+        });
+    }
+
+    Messaging.listen(["replayUpdated", "replaysUpdated"], function () {
+        updateStatus();
+    });
+
+    // Set initially.
+    updateStatus();
 };
 
 /**
