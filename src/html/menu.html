@@ -23,6 +23,7 @@
                                 <a id="replay-import" href="#">Import...</a>
                                 <input type="file" class="hidden" id="raw-upload">
                             </li>
+                            <li><a id="open-help" href="#" data-toggle="modal" data-target="#helpContainer">Help</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -242,6 +243,26 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" id="textureSaveButton">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Help -->
+<div class="modal fade" id="helpContainer">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Help</h4>
+            </div>
+            <div class="modal-body">
+                <h3>Help</h3>
+                <div id="help-content">
+                    See the <a href="https://github.com/chrahunt/TagProReplays/wiki/Help">wiki</a> for help content!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

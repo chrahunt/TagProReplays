@@ -12,7 +12,8 @@
   },
   "permissions": [
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "https://github.com/chrahunt/TagProReplays/*"
   ],
   "content_scripts": [
     {

@@ -124,6 +124,8 @@ Menu.prototype.init = function() {
         });
     });
 
+    // Load help content from wiki.
+    $("#help-content").load("https://github.com/chrahunt/TagProReplays/wiki/Help #wiki-body .markdown-body");
     // Takes selector for nav item and panel.
     function togglePanel(nav, panel) {
         $(".nav-item:not(" + nav + ")").removeClass("active");
