@@ -5,6 +5,7 @@ var convert = require('./convert');
 var fs = require('./filesystem');
 var Messaging = require('./messaging');
 var Status = require('./status');
+var Constraints = require('./constraints');
 
 /**
  * This script has utilities for working with the data, and is provided
@@ -449,6 +450,20 @@ function cleanReplay(replay) {
     return replay;
 }
 
+function getReplayDatabaseInfo() {
+    return db.info.count().then(function (n) {
+        return new Promise(function (resolve, reject) {
+            navigator.webkitTemporaryStorage.queryUsageAndQuota(function (used) {
+                resolve({
+                    replays: n,
+                    size: used
+                });
+            });
+        });
+    });
+}
+exports.getDatabaseInfo = getReplayDatabaseInfo;
+
 /**
  * @typedef CropRequest
  * @typedef {object}
@@ -481,7 +496,6 @@ function cropAndSaveReplayAs(request) {
         return [data[0], cleanReplay(data[1])];
     });
 }
-
 exports.cropAndSaveReplayAs = cropAndSaveReplayAs;
 
 /**
@@ -640,10 +654,6 @@ function saveReplay(info, replay) {
         });
     });
 }
-
-/**
- * See saveReplay.
- */
 exports.saveReplay = saveReplay;
 
 /**

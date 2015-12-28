@@ -17,6 +17,7 @@ var Status = require('./status');
 var Table = require('./table');
 var Textures = require('./textures');
 var Viewer = require('./viewer');
+var Constraints = require('./constraints');
 
 // Moment calendar customization for date display.
 moment.locale('en', {
@@ -58,6 +59,13 @@ var Menu = function() {
     
     // Initialize viewer for replay preview.
     this.viewer = new Viewer();
+
+    // debug
+    Status.on("idle", function () {
+        Messaging.send("getNumReplays", function (result) {
+            console.log("Result: %o", result);
+        });
+    });
 };
 
 module.exports = Menu;
@@ -180,6 +188,13 @@ Menu.prototype._initImport = function() {
     $('#raw-upload').change(function () {
         var files = $(this).prop('files');
         if (files.length === 0) return;
+        var file_summary = {
+            number: files.length,
+            size: 0
+        };
+        for (var i = 0; i < files.length; i++) {
+            file_summary.size += files[i].size;
+        }
         var mb = 25;
         var sizeLimit = 1024 * 1024 * mb;
         // File size filter.

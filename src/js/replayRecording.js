@@ -1,5 +1,6 @@
 var Cookies = require('./modules/cookies');
 var DOMMessaging = require('./modules/messaging.dom');
+// $ = jQuery implied because this will be available on page.
 
 /**
  * Record and save the state of the game, emitting an event to the

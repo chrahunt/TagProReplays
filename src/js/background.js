@@ -3,7 +3,6 @@ var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
 
-
 var AsyncLoop = require('./modules/async-loop');
 var convert = require('./modules/convert');
 var Data = require('./modules/data');
@@ -15,6 +14,7 @@ var Storage = require('./modules/storage');
 var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
 var ZipFiles = require('./modules/zip-files');
+
 /**
  * Acts as the intermediary for content script and background page
  * storage holding replay data and rendered webm movies. Also listens
@@ -78,7 +78,7 @@ function setDefaultTextures() {
     });
 }
 
-// Ensure textures are set.
+// Ensure default textures are set.
 Storage.get(["default_textures", "textures"]).then(function(items) {
     if (!items.textures || !items.default_textures) {
         setDefaultTextures();
@@ -87,7 +87,7 @@ Storage.get(["default_textures", "textures"]).then(function(items) {
     console.warn("Error retrieving textures: %o.", err);
 });
 
-// Take certain actions when upgrading extension.
+// Listen for extension upgrade.
 chrome.runtime.onInstalled.addListener(function (details) {
     var reason = details.reason;
     if (reason == "install") {
@@ -422,6 +422,19 @@ function(message) {
     });
 });
 
+/**
+ * Get the number of replays currently saved.
+ */
+Messaging.listen("getNumReplays",
+function(message, sender, sendResponse) {
+    Data.getDatabaseInfo().then(function (info) {
+        sendResponse(info);
+    }).catch(function (err) {
+        console.error("Error retrieving movie for download: %o.", err);
+    });
+    return true;
+});
+
 ////////////////////
 // Failed replays //
 ////////////////////
@@ -713,6 +726,11 @@ function stopImport() {
     });
 }
 
+/**
+ * Used by tab to initiate importing.
+ * @param {object} message - object with properties `number` and `size`
+ *   with values indicating the total of each for this batch of files.
+ */
 Messaging.listen("startImport",
 function (message, sender, sendResponse) {
     lock.get("import").then(function () {
