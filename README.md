@@ -32,6 +32,8 @@ Dependencies are resolved by browserify at compile-time, but the assets that may
 
 `require` resolution for internal modules is done by specifying the relative location, but third-party dependencies (both in `vendor` and those installed as node modules) can be accessed using aliases defined in `package.json` under the `browser` key. See [browserify-shim](https://github.com/thlorenz/browserify-shim) for more information on this.
 
+The manifest has some substitutions/insertions completed during the build process, such as the `version` field being set with the version specified in `package.json`.
+
 ### More Information
 
 **Customized Dependencies**

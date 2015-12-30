@@ -39,9 +39,9 @@ function clone(obj) {
  * Holds the interface to the main page user interface.
  * Methods prepended with an underscore are used internally by the
  * Menu.
- * There are two areas of concern in the user interface, settings
- * and the replay list. A method that begins _list_ is a callback
- * for some list-specific action that a user my invoke.
+ * There are two areas of concern in the UI:
+ * * Replay tables (recorded, rendering, failed)
+ * * Settings
  */
 
 /**
@@ -75,7 +75,6 @@ module.exports = Menu;
  */
 Menu.prototype.open = function() {
     if ($('#menuContainer').length) {
-        //this._list_Update();
         $('#menuContainer').modal('show');
         this.replay_table.table.columns.adjust();
         this.render_table.table.columns.adjust();
@@ -155,6 +154,7 @@ Menu.prototype.init = function() {
     this._initRenderList();
     this._initImport();
     this._initFailedReplayList();
+    // Force status to call listeners set in other functions.
     Status.force();
 };
 
@@ -393,8 +393,10 @@ Menu.prototype._initImport = function() {
         updateStatus();
     });
 
-    // Set initially.
-    updateStatus();
+    // Initially set upgrade status when idle.
+    Status.once("idle", function () {
+        updateStatus();
+    });
 };
 
 /**
@@ -439,7 +441,7 @@ Menu.prototype._initUpgrade = function() {
         return contact;
     }
     // Display error overlay.
-    Status.on("upgrade_error", function () {
+    Status.on("error.upgrade", function () {
         self.overlay.set({
             title: "Database Upgrade Error",
             progress: false,
@@ -458,7 +460,7 @@ Menu.prototype._initUpgrade = function() {
     });
 
     // Display error overlay.
-    Status.on("db_error", function () {
+    Status.on("error.db", function () {
         self.overlay.set({
             title: "Database Error",
             description: getContact("A database error was encountered, please try to enable/disable the extension and see if the issue persists. If it continues", "TPR Database Error"),
@@ -607,7 +609,9 @@ Menu.prototype._initReplayList = function() {
         }
     });
 
-    // Table header controls.
+    ////////////////////////////
+    // Table header controls. //
+    ////////////////////////////
     // Rendering replays.
     $('#replays .card-header .actions .render').click(function () {
         var ids = self.replay_table.selected();
@@ -651,7 +655,10 @@ Menu.prototype._initReplayList = function() {
         }
     });
 
-    // Replay row listeners.
+    /////////////////////////
+    // Table row controls. //
+    /////////////////////////
+    // Preview replay in-browser.
     $("#replay-table tbody").on("click", ".row-preview", function() {
         var id = $(this).closest('tr').data("id");
         $('#menuContainer').hide();
@@ -716,24 +723,9 @@ Menu.prototype._initReplayList = function() {
         input.focus();
     });
 
-    // Re-set menu dimensions on window resize.
-    $(window).resize(function () {
-        self.replay_table.recalcMaxHeight();
-    });
-
-    Status.on("idle", function () {
-        self.replay_table.reload();
-    });
-
-    // Listen for updates.
-    Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
-    function () {
-        if (!self.paused) {
-            self.replay_table.reload();
-        }
-    });
-
-    // Download information.
+    /////////////////////////////
+    // Downloading raw replays //
+    /////////////////////////////
     var download = {
         error: null
     };
@@ -795,6 +787,33 @@ Menu.prototype._initReplayList = function() {
             });
         } else {
             self.overlay.hide();
+        }
+    });
+
+    //////////////////////////////////////
+    // Dynamic CSS and content updates. //
+    //////////////////////////////////////
+    // Re-set menu dimensions on window resize.
+    $(window).resize(function () {
+        self.replay_table.recalcMaxHeight();
+    });
+
+    var replay_notification_list = new NotificationList("#replays .header");
+    replay_notification_list.addListener(function () {
+        self.replay_table.recalcMaxHeight();
+    });
+    // Reload replay table if changes occur.
+    Status.on("idle", function () {
+        self.replay_table.reload();
+        // debug
+        replay_notification_list.add("This is a test.", "warning", true);
+    });
+
+    // Listen for updates.
+    Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
+    function () {
+        if (!self.paused) {
+            self.replay_table.reload();
         }
     });
 };
@@ -1478,4 +1497,67 @@ Overlay.prototype._actions = function(actions) {
         $action.click(action.action);
         $actions.append($action);
     });
+};
+
+/**
+ * Allows setting/removing notifications from a container element.
+ * container must be selector string.
+ */
+function NotificationList(container) {
+    this.$container = $(container);
+    this.notifications = {};
+    this.count = 0;
+    this.listeners = [];
+}
+
+// Add element.
+NotificationList.prototype.add = function(content, type, dismissible) {
+    var elt = this._getElt(content, type, dismissible);
+    this.listeners.forEach(function (fn) {
+        fn();
+    });
+};
+
+// Remove element.
+NotificationList.prototype.remove = function(id) {
+    this.notifications[id].remove();
+    delete this.notifications[id];
+    this.listeners.forEach(function (fn) {
+        fn();
+    });
+};
+
+// Add listener to be called on element addition/removal.
+NotificationList.prototype.addListener = function(fn) {
+    this.listeners.push(fn);
+};
+
+// Remove listener.
+NotificationList.prototype.removeListener = function(fn) {
+    var i = this.listeners.indexOf(fn);
+    if (i !== -1) {
+        this.listeners.splice(i, 1);
+    }
+};
+
+// types: primary, success, info, warning, danger
+NotificationList.prototype._getElt = function(content, type, dismissible) {
+    var id = this.count++;
+    var html = "<div class=\"notification bg-" + type + "\">";
+    html += "<span>" + content + "</span>";
+    if (dismissible) {
+        html += "<button type=\"button\" class=\"close\"><span>&times;</span></button>";
+
+    }
+    html += "</div>";
+    var $elt = $(html);
+    if (dismissible) {
+        var self = this;
+        $elt.find("button").click(function () {
+            self.remove(id);
+        });
+    }
+    this.notifications[id] = $elt;
+    this.$container.append($elt);
+    return id;
 };

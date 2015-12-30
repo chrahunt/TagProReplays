@@ -90,12 +90,12 @@ db.version(3).stores({
 
     trans.on('abort', function () {
         console.warn("inside transaction abort handler");
-        Status.set("upgrade_error");
+        Status.set("error.upgrade");
     });
 
     trans.on('error', function () {
         console.warn("Inside transaction error handler.");
-        Status.set("upgrade_error");
+        Status.set("error.upgrade");
     });
     // Num done.
     var numberDone = 0;
@@ -272,7 +272,7 @@ exports.init = function() {
             Status.get().then(function (status) {
                 console.log("Status: %s.", status);
                 if (status !== "upgrade_error" && status !== "upgrading") {
-                    Status.set("db_error");
+                    Status.set("error.db");
                 }
             });
         });

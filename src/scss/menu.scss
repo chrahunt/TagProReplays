@@ -221,8 +221,8 @@ i.sort-icon {
 }
 
 #tpr-container {
-    // Header, containing title and controls for selected rows.
-    .card-header {
+    // Header controls and notifications.
+    .header > * {
         height: 64px;
         padding: {
             left: 24px;
@@ -232,7 +232,9 @@ i.sort-icon {
         display: flex;
         align-items: center;
         justify-content: space-between;
-
+    }
+    // Card header, containing title and controls for selected rows.
+    .card-header {
         .actions {
             div {
                 @extend %text-medium;
@@ -254,6 +256,10 @@ i.sort-icon {
         .title {
             @include roboto-regular(20px);
         }
+    }
+
+    .notification {
+        @include roboto-regular(16px);
     }
 
     // Header row spacing.
