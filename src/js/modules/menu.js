@@ -217,7 +217,7 @@ Menu.prototype._initImport = function() {
         });*/
         state.thisMenu = true;
         state.total = files.length;
-        Messaging.send("startImport", function (result) {
+        Messaging.send("startImport", { total: files.length }, function (result) {
             if (!result.failed) {
                 self.paused = true;
                 console.group("Importing %d replays.", files.length);
@@ -245,7 +245,18 @@ Menu.prototype._initImport = function() {
                     console.log("File list stream ended.");
                 });
             } else {
-                // Handle error, if replays exceeded.
+                // Failures.
+                // TODO: Move to dialog.
+                if (result.type == "db_full") {
+                    alert("Importing that number of replays would fill " +
+                        "up the database. Try selecting fewer replays, " +
+                        "or download and remove replays to free up space.");
+                } else if (result.type == "busy") {
+                    alert("The background page is busy, try again later.");
+                } else if (result.type == "internal") {
+                    // TODO: Add link.
+                    alert("Internal error, see information here for reporting.");
+                }
             }
         });
     });
@@ -360,7 +371,6 @@ Menu.prototype._initImport = function() {
 
     // This section changes import UI to reflect capability based on
     // number of replays in database.
-
     function enableImport() {
         state.disabled = false;
         $("#replay-import").css({
@@ -802,19 +812,69 @@ Menu.prototype._initReplayList = function() {
     replay_notification_list.addListener(function () {
         self.replay_table.recalcMaxHeight();
     });
+
     // Reload replay table if changes occur.
     Status.on("idle", function () {
         self.replay_table.reload();
-        // debug
-        replay_notification_list.add("This is a test.", "warning", true);
+    });
+
+    Messaging.send("getNumReplays", function (info) {
+        if (info.replays >= Constraints.max_replays_in_database) {
+            // Whatever happens here.
+        }
     });
 
     // Listen for updates.
     Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
     function () {
+        // Don't update if importing.
         if (!self.paused) {
             self.replay_table.reload();
+            updateFullNotifications();
         }
+    });
+
+    var notifications = {
+        full: null,
+        warning: null
+    };
+
+    function removeNotification(name) {
+        var id = notifications[name];
+        if (id && replay_notification_list.exists(id)) {
+            replay_notification_list.remove(id);
+        }
+    }
+
+    function updateFullNotifications() {
+        Messaging.send("getNumReplays", function (info) {
+            if (info.replays >= Constraints.max_replays_in_database) {
+                if (!replay_notification_list.exists(notifications.full)) {
+                    notifications.full = replay_notification_list.add("The replay database is full " +
+                        "and some actions are disabled. Download and delete replays " +
+                        "to free up space!", "danger");
+                }
+                removeNotification("warning");
+            } else if (info.replays > Constraints.max_replays_in_database * 0.8) {
+                if (!replay_notification_list.exists(notifications.warning)) {
+                    notifications.warning = replay_notification_list.add("The replay database is getting full, download and delete replays to prevent issues!", "warning", true);
+                }
+                removeNotification("full");
+
+            } else {
+                if (replay_notification_list.exists(notifications.full)) {
+                    removeNotification("full");
+                }
+                if (replay_notification_list.exists(notifications.warning)) {
+                    removeNotification("warning");
+                }
+            }
+        });
+    }
+
+    // Database size warnings / information.
+    Status.once("idle", function () {
+        updateFullNotifications();
     });
 };
 
@@ -1506,16 +1566,17 @@ Overlay.prototype._actions = function(actions) {
 function NotificationList(container) {
     this.$container = $(container);
     this.notifications = {};
-    this.count = 0;
+    this.count = 1;
     this.listeners = [];
 }
 
-// Add element.
+// Add element, returns id which is >= 1.
 NotificationList.prototype.add = function(content, type, dismissible) {
     var elt = this._getElt(content, type, dismissible);
     this.listeners.forEach(function (fn) {
         fn();
     });
+    return elt;
 };
 
 // Remove element.
@@ -1525,6 +1586,10 @@ NotificationList.prototype.remove = function(id) {
     this.listeners.forEach(function (fn) {
         fn();
     });
+};
+
+NotificationList.prototype.exists = function(id) {
+    return this.notifications.hasOwnProperty(id);
 };
 
 // Add listener to be called on element addition/removal.

@@ -5,6 +5,7 @@ var saveAs = require('file-saver');
 
 var AsyncLoop = require('./modules/async-loop');
 var convert = require('./modules/convert');
+var Constraints = require('./modules/constraints');
 var Data = require('./modules/data');
 var Messaging = require('./modules/messaging');
 var Mutex = require('./modules/mutex');
@@ -630,6 +631,7 @@ function(message) {
  */
 
 var importLoop = null;
+
 /**
  * Actually import replay(s) in a loop. Send progress updates to any listening tabs.
  * @param {(ReplayData|Array<ReplayData>} message - the replays to import.
@@ -728,29 +730,52 @@ function stopImport() {
 
 /**
  * Used by tab to initiate importing.
- * @param {object} message - object with properties `number` and `size`
+ * @param {object} message - object with properties `total` and `size`
  *   with values indicating the total of each for this batch of files.
  */
 Messaging.listen("startImport",
 function (message, sender, sendResponse) {
     lock.get("import").then(function () {
         manager.pause();
-        Status.set("importing").then(function () {
-            // Stop import if tab closes.
-            sender.onDisconnect.addListener(stopImport);
-            sendResponse({
-                failed: false
-            });
+        Data.getDatabaseInfo().then(function (info) {
+            if (info.replays + message.total > Constraints.max_replays_in_database) {
+                sendResponse({
+                    failed: true,
+                    type: "db_full"
+                });
+                lock.release("import");
+                manager.resume();
+            } else {
+                Status.set("importing").then(function () {
+                    // Stop import if tab closes.
+                    sender.onDisconnect.addListener(stopImport);
+                    sendResponse({
+                        failed: false
+                    });
+                }).catch(function (err) {
+                    sendResponse({
+                        failed: true,
+                        type: "internal"
+                    });
+                    console.error("Internal error: Cannot set status: %o", err);
+                    lock.release("import");
+                    manager.resume();
+                });
+            }
         }).catch(function (err) {
             sendResponse({
                 failed: true,
-                reason: "Status error: " + err
+                type: "internal"
             });
+            console.error("Internal error: Cannot retrieving replay database information: %o.", err);
+            lock.release("import");
+            manager.resume();
         });
+        
     }).catch(function () {
         sendResponse({
             failed: true,
-            reason: "busy"
+            type: "busy"
         });
     });
     return true;
