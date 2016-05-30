@@ -17,7 +17,7 @@ inherits(ObjectStream, Writable);
  * Object stream represents a flexible object-mode Writable stream. The
  * flexibility is in allowing extending classes to set their own definition
  * of an object's `size` in the context of determining when it is appropriate
- * to apply backpressute to sending streams. Contrast this with the typical
+ * to apply backpressure to sending streams. Contrast this with the typical
  * object-mode Writable stream where the number of objects is the only limit.
  * Extending classes should override `__write` (same interface as `_write`) and
  * `_size`.

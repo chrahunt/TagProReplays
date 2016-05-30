@@ -51,6 +51,7 @@
     "watchify": "^3.2.1"
   },
   "dependencies": {
+    "async": "^2.0.0-rc.5",
     "concat-stream": "^1.5.0",
     "datatables": "^1.10.7",
     "dexie": "^1.1.0",

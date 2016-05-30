@@ -1,9 +1,9 @@
+var async = require('async');
 var cmp = require('semver-compare');
 var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
 
-var AsyncLoop = require('./modules/async-loop');
 var convert = require('./modules/convert');
 var Constraints = require('./modules/constraints');
 var Data = require('./modules/data');
@@ -95,13 +95,13 @@ chrome.runtime.onInstalled.addListener(function (details) {
         // Install-specific actions.
         console.log("Initial install.");
     } else if (reason == "update") {
-        var from = details.previousVersion;
+        var prev = details.previousVersion;
         var current = chrome.runtime.getManifest().version;
-        console.log("Upgrading from version %s.", from);
-        if (cmp(from, current) === 0) {
+        console.log("Upgrading from version %s.", prev);
+        if (cmp(prev, current) === 0) {
             // Same, fired when reloading in development.
             console.log("Extension reloaded in dev.");
-        } else if (cmp(from, '2.0.0') == -1) {
+        } else if (cmp(prev, '2.0.0') == -1) {
             localStorage.clear();
             Storage.clear().then(function () {
                 // Force texture update.
@@ -630,11 +630,11 @@ function(message) {
  * @property {string} data - The text of the file.
  */
 
-var importLoop = null;
+var importing = null;
 
 /**
  * Actually import replay(s) in a loop. Send progress updates to any listening tabs.
- * @param {(ReplayData|Array<ReplayData>} message - the replays to import.
+ * @param {(ReplayData|Array<ReplayData>)} message - the replays to import.
  * @param {Function} callback - ??
  */
 Messaging.listen(["importReplay", "importReplays"],
@@ -642,12 +642,11 @@ function(message, sender, sendResponse) {
     var files = Array.isArray(message) ? message
                                        : [message];
     console.groupCollapsed("Received %d replays for import.", files.length);
-    importLoop = AsyncLoop(files).do(function (file, resolve, reject, cancelled) {
-        if (cancelled()) { resolve(); return; }
-        var name = file.filename;
-        var replay;
+    async.each(files, function (file, callback) {
+        if (!importing) { callback("cancelled"); return; }
         try {
-            replay = JSON.parse(file.data);
+            var name = file.filename;
+            var replay = JSON.parse(file.data);
         } catch (e) {
             var err = {
                 name: name
@@ -658,7 +657,7 @@ function(message, sender, sendResponse) {
                 err.reason = "unknown error: " + e;
             }
             Messaging.send("importError", err);
-            resolve();
+            callback();
             return;
         }
         console.log("Validating " + name + ".");
@@ -676,17 +675,17 @@ function(message, sender, sendResponse) {
                 var converted = convert(data);
                 var converted_replay_data = converted.data;
                 Data.saveReplay(converted_replay_data).then(function (info) {
-                    if (cancelled()) { resolve(); return; }
+                    if (!importing) { callback("cancelled"); return; }
                     Messaging.send("importProgress");
-                    resolve();
+                    callback();
                 }).catch(function (err) {
-                    if (cancelled()) { resolve(); return; }
+                    if (!importing) { callback("cancelled"); return; }
                     console.error("Error saving replay: %o.", err);
                     Messaging.send("importError", {
                         name: name,
                         reason: 'could not be saved: ' + err
                     });
-                    resolve();
+                    callback();
                 });
             } catch (e) {
                 console.error(e);
@@ -694,7 +693,7 @@ function(message, sender, sendResponse) {
                     name: name,
                     reason: "could not be converted: " + e.message
                 });
-                resolve();
+                callback();
             }
         } else {
             console.error(file.filename + " could not be validated!");
@@ -703,14 +702,17 @@ function(message, sender, sendResponse) {
                 name: name,
                 reason: 'could not be validated: ' + err
             });
-            resolve();
+            callback();
         }
-    }).then(function (results) {
-        console.log("Finished importing replay set.");
+    }, function (err) {
+        if (err === null) {
+            console.log("Finished importing replay set.");
+        } else {
+            console.log("Encountered error importing replays: %o", err);
+        }
         // Send new replay notification to any tabs that may have menu open.
         Messaging.send("replaysUpdated");
         console.groupEnd();
-        importLoop = null;
         sendResponse();
     });
 
@@ -720,8 +722,8 @@ function(message, sender, sendResponse) {
 function stopImport() {
     lock.release("import");
     Status.reset().then(function () {
-        if (importLoop) {
-            importLoop.reject();
+        if (importing) {
+            importing = null;
         }
         manager.resume();
         Messaging.send("replaysUpdated");
@@ -749,6 +751,7 @@ function (message, sender, sendResponse) {
                 Status.set("importing").then(function () {
                     // Stop import if tab closes.
                     sender.onDisconnect.addListener(stopImport);
+                    importing = true;
                     sendResponse({
                         failed: false
                     });
@@ -771,7 +774,6 @@ function (message, sender, sendResponse) {
             lock.release("import");
             manager.resume();
         });
-        
     }).catch(function () {
         sendResponse({
             failed: true,

@@ -1,5 +1,5 @@
+var async = require('async');
 var $ = require('jquery');
-var AsyncLoop = require('./async-loop');
 
 // Save image from texture dialog.
 exports.saveSettings = function() {
@@ -12,37 +12,29 @@ exports.saveSettings = function() {
         speedpadblueInput: "speedpadblue",
         splatsInput: "splats"
     };
-    AsyncLoop(Object.keys(imageSources)).do(function (id, resolve) {
-        var file = $('#' + id)[0].files[0];
-        if (file) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                resolve({
-                    id: id,
-                    data: e.target.result
-                });
-            };
-            reader.readAsDataURL(file);
-        } else {
-            resolve({
-                id: id,
-                data: null
-            });
-        }
-    }).then(function (images) {
-        var imageData = {};
-        images.forEach(function (image) {
-            if (image.data !== null) {
-                imageData[imageSources[image.id]] = image.data;
-            }
-        });
 
-        // Save values to chrome storage.
+    var files = Object.keys(imageSources).reduce(function (files, id) {
+        var file = $('#' + id)[0].files[0];
+        if (file)
+            files[id] = file;
+        return files;
+    }, {});
+
+    async.transform(files, function (imageData, file, id, callback) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            imageData[imageSources[id]] = e.target.result;
+            callback();
+        };
+        reader.readAsDataURL(file);
+    }, function (err, result) {
+        if (err) return;
+
         chrome.storage.local.get("textures", function(items) {
             if (items.textures) {
                 var textures = items.textures;
-                for (var key in imageData) {
-                    textures[key] = imageData[key];
+                for (var key in result) {
+                    textures[key] = result[key];
                 }
                 chrome.storage.local.set({
                     textures: textures
@@ -98,64 +90,33 @@ exports.saveSettings = function() {
  *   result of constructing the texture images.
  */
 exports.getImages = function(textures, callback) {
-    var textureImages = {};
-    var requiredTextures = Object.keys(textures);
-    for (var texture in textures) {
-        var dataURL = textures[texture];
-        // The name argument is provided by the `bind` function called
-        // on the callback.
-        getImage(dataURL, function(name, image) {
-            textureImages[name] = image;
-            // Ensure all textures loaded.
-            var missingTexture = requiredTextures.some(function(t) {
-                return !textureImages.hasOwnProperty(t);
-            });
-            if (!missingTexture) {
-                callback(textureImages);
-            }
-        }.bind(null, texture));
-    }
+    async.transform(textures, function (images, dataUrl, id, callback) {
+        var img = new Image();
+        img.onload = function() {
+            images[id] = img;
+            callback();
+        };
+        // TODO: onerror
+        img.src = dataUrl;
+    }, function (err, result) {
+        if (err) return;
+        callback(result);
+    });
 };
 
 /**
- * @callback ImageCallback
- * @param {Image} image - The constructed image.
+ * Get a data URL for the image.
+ * @param {Image} img - The image.
+ * @returns {string} the Data URL representing the image.
  */
-/**
- * Get an image object populated with the given url.
- * @param  {string} url - The actual or Data URL to use to construct
- *   the image.
- * @param  {ImageCallback} callback - The callback function which is
- *   passed the constructed image.
- */
-function getImage(url, callback) {
-    var img = new Image();
-    img.onload = function() {
-        callback(img);
-    };
-    img.src = url;
-}
-
-/**
- * @callback DataURLCallback
- * @param {string} url - Data URL that represents the image.
- */
-/**
- * Get a data URL for the image at the provided URL.
- * @param {string} url - The url to use to retrieve the image.
- * @param {DataURLCallback} callback - The callback function which
- *   receives the constructed data URL.
- */
-function getImageDataURL(url, callback) {
-    getImage(url, function(img) {
-        var canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        var ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        var dataUrl = canvas.toDataURL("image/png");
-        callback(dataUrl);
-    });
+function imageToDataURL(img) {
+    var canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    var dataUrl = canvas.toDataURL("image/png");
+    return dataUrl;
 }
 
 // Get initial texture information from extension.
@@ -175,21 +136,20 @@ exports.getDefault = function(callback) {
         tagpro: 'images/textures/tagpro.png'
     };
 
-    var textureData = {};
-    var requiredTextures = Object.keys(defaultTextures);
-    for (var texture in defaultTextures) {
-        var url = defaultTextures[texture];
-        // The name argument is provided by the `bind` function called
-        // on the callback.
-        getImageDataURL(url, function(name, dataUrl) {
-            textureData[name] = dataUrl;
-            // Ensure all textures loaded.
-            var missingTexture = requiredTextures.some(function(t) {
-                return !textureData.hasOwnProperty(t);
-            });
-            if (!missingTexture) {
-                callback(textureData);
-            }
-        }.bind(null, texture));
-    }
+    async.transform(defaultTextures, function (images, url, id, callback) {
+        var img = new Image();
+        img.onload = function() {
+            images[id] = img;
+            callback();
+        };
+        // TODO: onerror
+        img.src = url;
+    }, function (err, result) {
+        if (err) return;
+        var dataUrls = {};
+        for (var id in result) {
+            dataUrls[id] = imageToDataURL(result[id]);
+        }
+        callback(dataUrls);
+    });
 };
