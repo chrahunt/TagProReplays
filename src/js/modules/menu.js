@@ -1,23 +1,23 @@
-var concat = require('concat-stream');
-var DataTable = require('datatables');
 var moment = require('moment');
 var Mprogress = require('mprogress');
+var Mustache = require('mustache');
 var $ = require('jquery');
 require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
-//require('material');
-//require('ripples');
-//$.material.init();
 
 var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
+var NotificationList = require('./notification-list');
+var Overlay = require('./overlay');
 var ReplayImportStream = require('./replay-import-stream');
 var Status = require('./status');
 var Table = require('./table');
+var Templates = require('./templates');
 var Textures = require('./textures');
 var Viewer = require('./viewer');
 var Constraints = require('./constraints');
+var Util = require('./util');
 
 // Moment calendar customization for date display.
 moment.locale('en', {
@@ -30,10 +30,6 @@ moment.locale('en', {
         sameElse: 'lll'
     }
 });
-
-function clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
-}
 
 /**
  * Holds the interface to the main page user interface.
@@ -61,7 +57,7 @@ var Menu = function() {
     this.viewer = new Viewer();
 
     // debug
-    Status.on("idle", function () {
+    Status.on("active", function () {
         Messaging.send("getNumReplays", function (result) {
             console.log("Result: %o", result);
         });
@@ -176,7 +172,7 @@ Menu.prototype._initImport = function() {
         disabled: false
     };
 
-    var state = clone(initialState);
+    var state = Util.clone(initialState);
 
     // Visible link invokes the actual file input.
     $('#replay-import').click(function (e) {
@@ -295,7 +291,7 @@ Menu.prototype._initImport = function() {
     });
 
     // Initialize import overlay.
-    Status.on("importing", function (old) {
+    Status.on("importing", function () {
         self.paused = true;
         var options = {
             title: "Replay Import",
@@ -319,14 +315,8 @@ Menu.prototype._initImport = function() {
         updateOverlay();
     });
 
-    // Given text, return a file URL.
-    function makeTextFile(text) {
-        var b = new Blob([text], { type: "text/plain" });
-        return URL.createObjectURL(b);
-    }
-
     // Reset overlay, show error if needed.
-    Status.on("importing->idle", function () {
+    Status.on("importing->active", function () {
         self.paused = false;
         if (state.thisMenu) {
             var update = {
@@ -341,10 +331,10 @@ Menu.prototype._initImport = function() {
                 }).reduce(function (text, msg) {
                     return text + "\n" + msg;
                 });
-                var url = makeTextFile(text);
-                update.message = "There were some errors. You can download them " + 
-                    "<a href=\"" + url + "\" download=\"import-errors.txt\">here</a>. Once downloaded, send them " +
-                    "via the error reporting information you can find in \"Help\" in the menu.";
+                var url = Util.textToDataUrl(text);
+                update.message = Mustache.render(Templates.replay_list.import.error_result, {
+                    url: url
+                });
             } else {
                 if (state.cancelled) {
                     update.message = "Replay import cancelled. Only " +
@@ -361,51 +351,31 @@ Menu.prototype._initImport = function() {
                 }
             }];
             self.overlay.update(update);
-            state = clone(initialState);
+            state = Util.clone(initialState);
         } else {
             console.log("This was not the importing menu.");
             self.overlay.hide();
-            state = clone(initialState);
+            state = Util.clone(initialState);
         }
     });
-
-    // This section changes import UI to reflect capability based on
-    // number of replays in database.
-    function enableImport() {
-        state.disabled = false;
-        $("#replay-import").css({
-            color: "",
-            cursor: ""
-        });
-        $("#replay-import").attr("title", "");
-    }
-
-    function disableImport() {
+    
+    // Update UI-visible capabilities.
+    Status.on("full", function () {
         state.disabled = true;
         $("#replay-import").css({
             color: "#aaa",
             cursor: "default"
         });
         $("#replay-import").attr("title", "delete some replays first");
-    }
-
-    function updateStatus() {
-        Messaging.send("getNumReplays", function (info) {
-            if (info.replays >= Constraints.max_replays_in_database) {
-                disableImport();
-            } else {
-                enableImport();
-            }
-        });
-    }
-
-    Messaging.listen(["replayUpdated", "replaysUpdated"], function () {
-        updateStatus();
     });
 
-    // Initially set upgrade status when idle.
-    Status.once("idle", function () {
-        updateStatus();
+    Status.on("active", function () {
+        state.disabled = false;
+        $("#replay-import").css({
+            color: "",
+            cursor: ""
+        });
+        $("#replay-import").attr("title", "");
     });
 };
 
@@ -427,7 +397,7 @@ Menu.prototype._initUpgrade = function() {
     });
 
     // Display upgrading result page.
-    Status.on("upgrading->idle", function () {
+    Status.on("upgrading->active", function () {
         self.overlay.update({
             description: "The database has been upgraded!",
             actions: [{
@@ -439,6 +409,7 @@ Menu.prototype._initUpgrade = function() {
         });
     });
 
+    // TODO: to template
     function getContact(error, subject) {
         var man = chrome.runtime.getManifest();
         var ver = man.hasOwnProperty("version_name") ? man.version_name
@@ -450,7 +421,9 @@ Menu.prototype._initUpgrade = function() {
             reddit + " with any details and for further instruction.";
         return contact;
     }
+
     // Display error overlay.
+    // TODO: Transition to new state.
     Status.on("error.upgrade", function () {
         self.overlay.set({
             title: "Database Upgrade Error",
@@ -470,6 +443,7 @@ Menu.prototype._initUpgrade = function() {
     });
 
     // Display error overlay.
+    // TODO: Transition to new state.
     Status.on("error.db", function () {
         self.overlay.set({
             title: "Database Error",
@@ -518,6 +492,7 @@ Menu.prototype._initReplayList = function() {
                         replay: replay
                     };
                 });
+                // TODO: Move this.
                 $(".nav-home .badge").text(response.total);
                 callback({
                     data: list,
@@ -534,7 +509,7 @@ Menu.prototype._initReplayList = function() {
                 orderable: false,
                 render: function (data, type, row, meta) {
                     return data ? '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>'
-                                : Table.checkbox;
+                                : Templates.table.checkbox;
                 },
                 width: "24px"
             },
@@ -545,11 +520,9 @@ Menu.prototype._initReplayList = function() {
                     if (row.rendering) {
                         return data;
                     } else {
-                        return '<div class="replay-static"><span class="replay-name">' +
-                            data + '</span><span class="replay-name-edit pull-right">' +
-                            '<i class="material-icons">edit</i></span></div>' +
-                            '<div class="replay-edit">' +
-                            '<input type="text" class="replay-name-input" value="' + data + '"></div>';
+                        return Mustache.render(Templates.replay_list.name, {
+                            name: data
+                        });
                     }
                 }
                 // 'width' set via css.
@@ -581,16 +554,9 @@ Menu.prototype._initReplayList = function() {
                 data: "rendered",
                 orderable: false,
                 render: function (data, type, row, meta) {
-                    var disabled = !data;
-                    var content = '<div class="actions">';
-                    // download
-                    content += disabled ? '<div class="row-download-movie disabled" title="render replay first!">'
-                                        : '<div class="row-download-movie" title="download movie">';
-                    content += '<i class="material-icons">file_download</i></div>';
-                    // preview
-                    content += '<div class="row-preview" title="preview"><i class="material-icons">play_arrow</i></div>';
-                    content += '</div>';
-                    return content;
+                    return Mustache.render(Templates.replay_list.controls, {
+                        disabled: !data
+                    });
                 },
                 width: "60px"
             }
@@ -779,7 +745,7 @@ Menu.prototype._initReplayList = function() {
     });
 
     // Display finish message.
-    Status.on("json_downloading->idle", function () {
+    Status.on("json_downloading->active", function () {
         var error = download.error;
         download.error = null;
         if (error) {
@@ -814,14 +780,8 @@ Menu.prototype._initReplayList = function() {
     });
 
     // Reload replay table if changes occur.
-    Status.on("idle", function () {
+    Status.on("active", function () {
         self.replay_table.reload();
-    });
-
-    Messaging.send("getNumReplays", function (info) {
-        if (info.replays >= Constraints.max_replays_in_database) {
-            // Whatever happens here.
-        }
     });
 
     // Listen for updates.
@@ -873,7 +833,7 @@ Menu.prototype._initReplayList = function() {
     }
 
     // Database size warnings / information.
-    Status.once("idle", function () {
+    Status.once("active", function () {
         updateFullNotifications();
     });
 };
@@ -979,11 +939,11 @@ Menu.prototype._initFailedReplayList = function() {
     function update() {
         self.failed_replay_table.reload();
     }
-    Status.on("idle", update);
+    Status.on("active", update);
 
     // Clean up after table gets destroyed.
     this.failed_replay_table.table.on("destroy", function () {
-        Status.removeListener("idle", update);
+        Status.removeListener("active", update);
         if ($(".nav-failed").hasClass("active")) {
             $(".nav-home").click();
         }
@@ -1029,6 +989,7 @@ Menu.prototype._initFailedReplayList = function() {
     });
 
     // Display json downloading message.
+    // TODO: new states for this.
     Status.on("failed.json_downloading", function () {
         self.overlay.set({
             title: 'Downloading Raw Data',
@@ -1040,6 +1001,7 @@ Menu.prototype._initFailedReplayList = function() {
     });
 
     // Display finish message.
+    // TODO: new states for this.
     Status.on("failed.json_downloading->idle", function () {
         var error = download.error;
         download.error = null;
@@ -1189,7 +1151,7 @@ Menu.prototype._initRenderList = function() {
         }
     });
 
-    Status.on("idle", function () {
+    Status.on("active", function () {
         self.render_table.reload();
     });
 
@@ -1403,226 +1365,4 @@ Menu.prototype._initSettings = function() {
             stopInputting();
         }
     });
-};
-
-// Overlay on menu for blocking operations.
-// Takes selector for overlay element.
-function Overlay(selector) {
-    this.$this = $(selector);
-    this.selector = selector;
-    this.state = {
-        progress: null
-    };
-    this.progress = null;
-}
-
-Overlay.prototype.show = function() {
-    this.$this.removeClass("hidden");
-};
-
-Overlay.prototype.hide = function() {
-    this.$this.addClass("hidden");
-};
-
-// Set overlay state.
-// info can have title (str), message (html), description (html),
-// progress (bool|number), actions (array.<obj>) where obj has text (str) and action (fn)
-Overlay.prototype.set = function(info) {
-    // text
-    if (info.hasOwnProperty("title")) {
-        this._title(info.title);
-    }
-    // html
-    if (info.hasOwnProperty("message")) {
-        this._message(info.message);
-    }
-    // html
-    if (info.hasOwnProperty("description")) {
-        this._description(info.description);
-    }
-    // bool, int
-    if (info.hasOwnProperty("progress")) {
-        this._initProgress(info.progress);
-    }
-    // array<obj> with text (html), action (fn) invoked on click.
-    if (info.hasOwnProperty("actions")) {
-        this._actions(info.actions);
-    }
-};
-
-// Update overlay state.
-Overlay.prototype.update = function(info) {
-    if (info.hasOwnProperty("title")) {
-        this._title(info.title);
-    }
-    if (info.hasOwnProperty("message")) {
-        this._message(info.message);
-    }
-    if (info.hasOwnProperty("description")) {
-        this._description(info.description);
-    }
-    if (info.hasOwnProperty("progress")) {
-        this._progress(info.progress);
-    }
-    if (info.hasOwnProperty("actions")) {
-        this._actions(info.actions);
-    }
-};
-
-// @private
-Overlay.prototype._title = function(str) {
-    this.$this.find(".title").text(str);
-};
-
-// @private
-Overlay.prototype._description = function(html) {
-    this.$this.find(".description").html(html);
-};
-
-// @private
-Overlay.prototype._message = function(html) {
-    this.$this.find(".message").html(html);
-};
-
-// @private
-Overlay.prototype._initProgress = function(val) {
-    var progressClass = "material-progress";
-    if (val) {
-        this.$this.find("."+progressClass).removeClass("hidden");
-        // Reset if needed.
-        if (this.progress)
-            this._resetProgress();
-        var selector = this.selector + " ." + progressClass;
-        // Initialize with determinite value.
-        if (typeof val == "number") {
-            // Determinite, set total.
-            this.state.progress = "determinite";
-            this.progress = new Mprogress({
-                parent: selector
-            });
-            this.progress.set(val);
-        } else {
-            // Indeterminite.
-            this.state.progress = "indeterminite";
-            this.progress = new Mprogress({
-                parent: selector,
-                template: 3,
-                start: true
-            });
-        }        
-    } else {
-        // Hide progress.
-        this.$this.find("."+progressClass).addClass("hidden");
-    }
-};
-
-Overlay.prototype._resetProgress = function() {
-    this.progress._remove();
-    this.progress = null;
-    this.state.progress = null;
-};
-
-// @private
-Overlay.prototype._progress = function(val) {
-    if (val || typeof val == "number") {
-        if (typeof val == "number") {
-            if (this.state.progress == "determinite") {
-                // Update determinite value.
-                this.progress.set(val);
-            } else {
-                // Reset and initialize to determinite value.
-                this._initProgress(val);
-            }
-        } else if (this.state.progress == "determinite") {
-            // Reset and initialize to indeterminite.
-            this._initProgress(true);
-        }
-    } else {
-        // End progress gracefully.
-        if (this.progress) {
-            this.progress.end();
-            this.progress = null;
-            this.state.progress = null;
-        }
-    }
-};
-
-// @private
-Overlay.prototype._actions = function(actions) {
-    var $actions = this.$this.find('.actions');
-    $actions.html("");
-    actions.forEach(function (action) {
-        var $action = $("<button>");
-        $action.text(action.text);
-        $action.click(action.action);
-        $actions.append($action);
-    });
-};
-
-/**
- * Allows setting/removing notifications from a container element.
- * container must be selector string.
- */
-function NotificationList(container) {
-    this.$container = $(container);
-    this.notifications = {};
-    this.count = 1;
-    this.listeners = [];
-}
-
-// Add element, returns id which is >= 1.
-NotificationList.prototype.add = function(content, type, dismissible) {
-    var elt = this._getElt(content, type, dismissible);
-    this.listeners.forEach(function (fn) {
-        fn();
-    });
-    return elt;
-};
-
-// Remove element.
-NotificationList.prototype.remove = function(id) {
-    this.notifications[id].remove();
-    delete this.notifications[id];
-    this.listeners.forEach(function (fn) {
-        fn();
-    });
-};
-
-NotificationList.prototype.exists = function(id) {
-    return this.notifications.hasOwnProperty(id);
-};
-
-// Add listener to be called on element addition/removal.
-NotificationList.prototype.addListener = function(fn) {
-    this.listeners.push(fn);
-};
-
-// Remove listener.
-NotificationList.prototype.removeListener = function(fn) {
-    var i = this.listeners.indexOf(fn);
-    if (i !== -1) {
-        this.listeners.splice(i, 1);
-    }
-};
-
-// types: primary, success, info, warning, danger
-NotificationList.prototype._getElt = function(content, type, dismissible) {
-    var id = this.count++;
-    var html = "<div class=\"notification bg-" + type + "\">";
-    html += "<span>" + content + "</span>";
-    if (dismissible) {
-        html += "<button type=\"button\" class=\"close\"><span>&times;</span></button>";
-
-    }
-    html += "</div>";
-    var $elt = $(html);
-    if (dismissible) {
-        var self = this;
-        $elt.find("button").click(function () {
-            self.remove(id);
-        });
-    }
-    this.notifications[id] = $elt;
-    this.$container.append($elt);
-    return id;
 };

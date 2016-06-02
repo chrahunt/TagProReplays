@@ -3,18 +3,21 @@ var cmp = require('semver-compare');
 var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
+var logger = require('bragi-browser');
 
 var convert = require('./modules/convert');
 var Constraints = require('./modules/constraints');
 var Data = require('./modules/data');
+var fsm = require('./modules/state');
 var Messaging = require('./modules/messaging');
-var Mutex = require('./modules/mutex');
 var RenderManager = require('./modules/rendermanager');
 var Status = require('./modules/status');
 var Storage = require('./modules/storage');
 var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
+var Util = require('./modules/util');
 var ZipFiles = require('./modules/zip-files');
+var ready = require('./modules/subsystem').ready;
 
 /**
  * Acts as the intermediary for content script and background page
@@ -26,67 +29,6 @@ var ZipFiles = require('./modules/zip-files');
 
 // Render manager.
 var manager = new RenderManager();
-
-// Ensure zipping and importing can't occur simultaneously.
-var lock = new Mutex();
-
-// Set initial status and initialize db.
-Status.reset().then(function () {
-    Data.init();
-});
-
-/**
- * Return the index of the first value in the array that satisfies the given
- * function. Same as `findIndex`.
- */
-function findIndex(array, fn) {
-    for (var i = 0; i < array.length; i++) {
-        if (fn(array[i])) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-/**
- * Return the first value in the array that satisfies the given function. Same
- * functionality as `find`.
- */
-function find(array, fn) {
-  for (var i = 0; i < array.length; i++) {
-    if (fn(array[i])) {
-      return array[i];
-    }
-  }
-}
-
-// Clone given object.
-function clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
-}
-
-function setDefaultTextures() {
-    return new Promise(function (resolve, reject) {
-        Textures.getDefault(function(textures) {
-            // Use clone for same object, otherwise default_textures is
-            // null.
-            var result = Storage.set({
-                textures: textures,
-                default_textures: clone(textures)
-            });
-            resolve(result);
-        });
-    });
-}
-
-// Ensure default textures are set.
-Storage.get(["default_textures", "textures"]).then(function(items) {
-    if (!items.textures || !items.default_textures) {
-        setDefaultTextures();
-    }
-}).catch(function (err) {
-    console.warn("Error retrieving textures: %o.", err);
-});
 
 // Listen for extension upgrade.
 chrome.runtime.onInstalled.addListener(function (details) {
@@ -102,20 +44,25 @@ chrome.runtime.onInstalled.addListener(function (details) {
             // Same, fired when reloading in development.
             console.log("Extension reloaded in dev.");
         } else if (cmp(prev, '2.0.0') == -1) {
+            // TODO: Clear filesystem.
+            // TODO: incorporate installer into fsm states.
             localStorage.clear();
             Storage.clear().then(function () {
-                // Force texture update.
-                setDefaultTextures().then(function () {
-                    // Reload so chrome storage is set again.
-                    chrome.runtime.reload();
-                }).catch(function (err) {
-                    console.warn("Error Initializing textures: %o.", err);
-                });
+                chrome.runtime.reload();
             }).catch(function (err) {
                 console.warn("Error clearing storage: %o.", err);
+                // TODO: handle.
             });
         }
     }
+});
+
+ready().then(function () {
+    fsm.handle("ready");
+}).catch(function (err) {
+    // TODO: persist somewhere.
+    console.error("Error in initialization: %o", err);
+    fsm.handle("broken");
 });
 
 /**
@@ -140,7 +87,7 @@ Messaging.listen("saveReplay",
 function(message, sender, sendResponse) {
     var replay = JSON.parse(message.data);
     // TODO: Validate replay. If invalid, save to other object store.
-    var startFrame = findIndex(replay.data.time, function(t) {
+    var startFrame = Util.findIndex(replay.data.time, function(t) {
         return t !== null;
     });
     if (startFrame == -1) {
@@ -151,7 +98,7 @@ function(message, sender, sendResponse) {
         });
     } else {
         // Get first player frame.
-        var playerStartFrame = findIndex(replay.data.players[replay.info.player].draw, function (d) {
+        var playerStartFrame = Util.findIndex(replay.data.players[replay.info.player].draw, function (d) {
             return d !== null;
         });
         if (playerStartFrame == -1) {
@@ -185,15 +132,18 @@ function(message, sender, sendResponse) {
 
 /**
  * Gets the list of replays for UI display.
+ * @param {ReplaySelector} message - parameters for selecting replays.
  * @param {Function} callback - Function that handles the list of replays.
  */
 Messaging.listen("getReplayList",
 function(message, sender, sendResponse) {
+    console.log("Received replay list request.");
     // Pause render manager so it doesn't interfere with list population.
     manager.pause();
     // Iterate over info data in database, accumulating into an array.
     // Send data back.
     Data.getReplayInfoList(message).then(function (data) {
+        console.log("Sending replay list response.");
         manager.resume();
         sendResponse({
             data: data[1],
@@ -201,6 +151,7 @@ function(message, sender, sendResponse) {
             filtered: data[0]
         });
     }).catch(function (err) {
+        // TODO: Better error handling.
         console.error("Could not retrieve list: %o.", err);
     });
     return true;
@@ -322,11 +273,19 @@ function(message, sender, sendResponse) {
     return true;
 });
 
+fsm.on("download-start", function () {
+    manager.pause();
+});
+
+fsm.on("download-end", function () {
+    manager.resume();
+});
+
 /**
  * Initiates download of multiple replays as a zip file, or a single
  * replay as a json file.
- * @param {object} message - Object with `ids` property which is an
- *   array of ids of replays to download.
+ * @param {object} message - Object with either `ids` (array of integer
+ *   ids) or `id` (single integer id)
  */
 Messaging.listen(["downloadReplay", "downloadReplays"],
 function(message, sender, sendResponse) {
@@ -346,8 +305,15 @@ function(message, sender, sendResponse) {
             console.error("Error retrieving replay: %o.", err);
         });
     } else {
+        fsm.try("download-start").then(function () {
+            
+        }).catch(function () {
+            sendResponse({
+                failed: true,
+                reason: "busy"
+            });
+        });
         lock.get("replay_download").then(function () {
-            manager.pause();
             Status.set("json_downloading").then(function () {
                 var zipfiles = new ZipFiles({
                     default_name: "replay",
@@ -393,12 +359,7 @@ function(message, sender, sendResponse) {
                     zipfiles.done(true);
                 });
             });
-        }).catch(function () {
-            sendResponse({
-                failed: true,
-                reason: "Background page busy."
-            });
-        });
+        })
     }
     return true;
 });
@@ -512,9 +473,9 @@ function(message, sender, sendResponse) {
             // Hold array of reasons for set of files.
             var reasons = [];
             function addReasons() {
-                var text = reasons.reduce(function (s, info) {
-                    return s + "\n" + info.name + " (" + info.failure_type + ") [" + info.timestamp + "]: " + info.message;
-                }, "");
+                var text = reasons.map(function (info) {
+                    return info.name + " (" + info.failure_type + ") [" + info.timestamp + "]: " + info.message;
+                }).join("\n");
                 zipfiles.addFile({
                     filename: "failure_info",
                     ext: "txt",
@@ -615,6 +576,7 @@ function(message) {
 ///////////////////
 // Replay import //
 ///////////////////
+
 /*
  * Replay importing is orchestrated by the initiating tab. The tab calls
  * `startImport` which tries to lock the background page and also sets
@@ -630,12 +592,71 @@ function(message) {
  * @property {string} data - The text of the file.
  */
 
-var importing = null;
+var importing = false;
+
+fsm.on("import-start", function () {
+    manager.pause();
+    importing = true;
+});
+
+fsm.on("import-end", function () {
+    manager.resume();
+    importing = false;
+});
+
+function stopImport() {
+    fsm.handle("import-end");
+}
+
+/**
+ * Used by tab to initiate importing.
+ * @param {object} message - object with properties `total` and `size`
+ *   with values indicating the total of each for this batch of files.
+ */
+Messaging.listen("startImport",
+function (message, sender, sendResponse) {
+    fsm.try("import-start").then(function () {
+        Data.getDatabaseInfo().then(function (info) {
+            if (info.replays + message.total > Constraints.max_replays_in_database) {
+                sendResponse({
+                    failed: true,
+                    type: "db_full"
+                });
+                fsm.handle("import-end");
+            } else {
+                // Stop import if tab closes.
+                sender.onDisconnect.addListener(stopImport);
+                sendResponse({
+                    failed: false
+                });
+            }
+        }).catch(function (err) {
+            sendResponse({
+                failed: true,
+                type: "internal"
+            });
+            console.error("Internal error: Cannot retrieving replay database information: %o.", err);
+            fsm.handle("import-end");
+        });
+    }).catch(function () {
+        sendResponse({
+            failed: true,
+            type: "busy"
+        });
+    });
+    return true;
+});
+
+Messaging.listen(["endImport", "cancelImport"],
+function (message, sender, sendResponse) {
+    stopImport();
+    sender.onDisconnect.removeListener(stopImport);
+});
 
 /**
  * Actually import replay(s) in a loop. Send progress updates to any listening tabs.
  * @param {(ReplayData|Array<ReplayData>)} message - the replays to import.
- * @param {Function} callback - ??
+ * @param {Function} sendResponse - callback to inform receiving tab of completion.
  */
 Messaging.listen(["importReplay", "importReplays"],
 function(message, sender, sendResponse) {
@@ -717,74 +738,4 @@ function(message, sender, sendResponse) {
     });
 
     return true;
-});
-
-function stopImport() {
-    lock.release("import");
-    Status.reset().then(function () {
-        if (importing) {
-            importing = null;
-        }
-        manager.resume();
-        Messaging.send("replaysUpdated");
-    });
-}
-
-/**
- * Used by tab to initiate importing.
- * @param {object} message - object with properties `total` and `size`
- *   with values indicating the total of each for this batch of files.
- */
-Messaging.listen("startImport",
-function (message, sender, sendResponse) {
-    lock.get("import").then(function () {
-        manager.pause();
-        Data.getDatabaseInfo().then(function (info) {
-            if (info.replays + message.total > Constraints.max_replays_in_database) {
-                sendResponse({
-                    failed: true,
-                    type: "db_full"
-                });
-                lock.release("import");
-                manager.resume();
-            } else {
-                Status.set("importing").then(function () {
-                    // Stop import if tab closes.
-                    sender.onDisconnect.addListener(stopImport);
-                    importing = true;
-                    sendResponse({
-                        failed: false
-                    });
-                }).catch(function (err) {
-                    sendResponse({
-                        failed: true,
-                        type: "internal"
-                    });
-                    console.error("Internal error: Cannot set status: %o", err);
-                    lock.release("import");
-                    manager.resume();
-                });
-            }
-        }).catch(function (err) {
-            sendResponse({
-                failed: true,
-                type: "internal"
-            });
-            console.error("Internal error: Cannot retrieving replay database information: %o.", err);
-            lock.release("import");
-            manager.resume();
-        });
-    }).catch(function () {
-        sendResponse({
-            failed: true,
-            type: "busy"
-        });
-    });
-    return true;
-});
-
-Messaging.listen(["endImport", "cancelImport"],
-function (message, sender, sendResponse) {
-    stopImport();
-    sender.onDisconnect.removeListener(stopImport);
 });

@@ -117,7 +117,8 @@ Task.prototype._run = function(resolve, reject) {
     } else {
       var now = performance.now();
       setTimeout(function() {
-        console.log("Time between cycles: " + (performance.now() - now) + "ms.");
+        var diff = performance.now() - now;
+        console.log("Time between cycles: " + diff + "ms.");
         //resolve(new Promise(this._run.bind(this)));
         this._run(resolve, reject);
       }.bind(this), this.wait);

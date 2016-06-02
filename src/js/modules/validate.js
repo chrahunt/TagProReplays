@@ -1,6 +1,8 @@
 var $ = require('jquery');
 var imjv = require('is-my-json-valid');
 
+require('./subsystem').add("validate", ready);
+
 /**
  * Holds information for validating a replay. Replay validation is done
  * in two steps:
@@ -23,11 +25,11 @@ var ReplayValidator = function(logger) {
 };
 
 /**
- * Initialize the validator. Required before any 
+ * Initialize the validator. Required before any validation call.
  */
 ReplayValidator.prototype.init = function() {
   var self = this;
-  this.loaded = Promise.all(self.validatorData.map(function (data) {
+  this.readyPromise = Promise.all(self.validatorData.map(function (data) {
     return data.getSchemaValidator().then(function (validate) {
       data.schemaValidator = validate;
       return data;
@@ -47,15 +49,14 @@ ReplayValidator.prototype.init = function() {
         checkContent: version.checkContent
       };
     });
+    self.loaded = true;
+  }).then(function () {
+    console.log("Validate: ready");
   });
 };
 
 ReplayValidator.prototype.ready = function() {
-  if (!this.loaded) {
-    return Promise.reject(new Error("Validator not initialized."));
-  } else {
-    return this.loaded;
-  }
+  return this.readyPromise;
 };
 
 // Get version for data.
@@ -253,4 +254,7 @@ module.exports = function(data) {
  * validation.
  * @return {Promise} - Resolves when the validator is ready.
  */
-module.exports.ready = validator.ready.bind(validator);
+//module.exports.ready = validator.ready;
+function ready() {
+  return validator.ready();
+}

@@ -1,6 +1,8 @@
 var $ = require('jquery');
 var DataTable = require('datatables');
 
+var Templates = require('./templates');
+
 /**
  * Table with selection behaviors.
  * Data should set a row id for selection.
@@ -8,20 +10,20 @@ var DataTable = require('datatables');
 function Table(options) {
     this.id = options.id;
     this.all_selected = [];
-    var table = this;
+    var self = this;
 
     this.table = $("#" + this.id).DataTable({
         ajax: function ajaxWrapper(data, callback) {
-            // Handle case where user is on a page that has no records, but records exit.
+            // Handle case where user is on a page that has no records, but records exist.
             // Occurs after deleting all items on a page.
             options.update.call(null, data, function (result) {
                 if (result.recordsTotal > 0 && result.data.length === 0) {
                     // Go back a page.
-                    var current = table.table.page();
+                    var current = self.table.page();
                     if (current > 0) {
-                        table.table.page(current - 1);
+                        self.table.page(current - 1);
                         // Get new page information.
-                        var info = table.table.page.info();
+                        var info = self.table.page.info();
                         data.start = info.start;
                         data.length = info.length;
                         ajaxWrapper(data, callback);
@@ -40,7 +42,7 @@ function Table(options) {
         searching: false,
         order: options.order,
         rowCallback: function (row, data) {
-            if (table.all_selected.indexOf(data.id) !== -1) {
+            if (self.all_selected.indexOf(data.id) !== -1) {
                 $(row).addClass('selected')
                     .find('.selected-checkbox')
                     .prop('checked', true);
@@ -52,22 +54,18 @@ function Table(options) {
         drawCallback: function (settings) {
             // Update checked items.
             updateWhenChecked();
-            table.resize();
+            self.resize();
         },
         language: {
             paginate: {
-                previous: '<i class="material-icons">chevron_left</i>',
-                next: '<i class="material-icons">chevron_right</span>'
+                previous: Templates.icons.previous,
+                next: Templates.icons.next
             },
             info: "_START_-_END_ of _TOTAL_",
             infoEmpty: "",
             lengthMenu: "Rows per page: _MENU_",
             emptyTable: "No replays. Go record some!",
-            processing: '<div class="material-spinner">' + 
-                '<svg class="spinner" width="35px" height="35px" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">' +
-                    '<circle class="path" fill="none" stroke-width="6" stroke-linecap="round" cx="33" cy="33" r="30"></circle>' +
-                '</svg>' +
-            '</div>'
+            processing: Templates.table.spinner
         },
         stateSave: -1,
         scrollY: 'auto',
@@ -78,12 +76,12 @@ function Table(options) {
 
     // Add select-all checkbox to header.
     $(this.table.column(0).header())
-        .html(Table.select_all_checkbox)
+        .html(Templates.table.select_all_checkbox)
         .addClass('cb-cell');
 
     // "Select all" checkbox.
-    $("#" + table.id + "_wrapper .select-all").change(function() {
-        $("#" + table.id + " tbody .selected-checkbox")
+    $("#" + self.id + "_wrapper .select-all").change(function() {
+        $("#" + self.id + " tbody .selected-checkbox")
             .prop("checked", this.checked)
             .trigger("change");
         updateWhenChecked();
@@ -93,12 +91,12 @@ function Table(options) {
     $("#" + this.id + " tbody").on("change", ".selected-checkbox", function () {
         var tr = $(this).closest("tr");
         var replayId = tr.data("id");
-        var idx = table.all_selected.indexOf(replayId);
+        var idx = self.all_selected.indexOf(replayId);
         if (this.checked && idx === -1) {
-            table.all_selected.push(replayId);
+            self.all_selected.push(replayId);
             tr.addClass('selected');
         } else if (!this.checked) {
-            table.all_selected.splice(idx, 1);
+            self.all_selected.splice(idx, 1);
             tr.removeClass('selected');
         }
     });
@@ -106,10 +104,10 @@ function Table(options) {
     // Selection behavior.
     $("#" + this.id + " tbody").on("click", ".selected-checkbox", function (evt) {
         var elt = $(this);
-        var numChecked = $("#" + table.id + " .selected-checkbox:checked").length;
+        var numChecked = $("#" + self.id + " .selected-checkbox:checked").length;
         var tr = elt.closest("tr");
         if (elt.prop('checked') && evt.shiftKey && numChecked > 1) {
-            var boxes = $("#" + table.id + " .selected-checkbox"),
+            var boxes = $("#" + self.id + " .selected-checkbox"),
                 closestBox,
                 thisBox;
             for (var i = 0; i < boxes.length; i++) {
@@ -134,27 +132,27 @@ function Table(options) {
     // Update table when entry is checked.
     function updateWhenChecked() {
         var header = $(options.header.selector);
-        var rows = $("#" + table.id + " .selected-checkbox").length;
+        var rows = $("#" + self.id + " .selected-checkbox").length;
         if (rows === 0) {
             // Select-all checkbox.
-            $("#" + table.id + "_wrapper .select-all").prop("disabled", true);
-            $("#" + table.id + "_wrapper .select-all").prop("checked", false);
-            $("#" + table.id + "_wrapper .select-all").closest('tr').removeClass('selected');
+            $("#" + self.id + "_wrapper .select-all").prop("disabled", true);
+            $("#" + self.id + "_wrapper .select-all").prop("checked", false);
+            $("#" + self.id + "_wrapper .select-all").closest('tr').removeClass('selected');
 
             // Card header.
             header.find(".actions").addClass("hidden");
             header.find(".title").text(options.header.title);
         } else {
-            var numChecked = $("#" + table.id + " .selected-checkbox:checked").length;
+            var numChecked = $("#" + self.id + " .selected-checkbox:checked").length;
 
             // Select-all checkbox.
-            $("#" + table.id + "_wrapper .select-all").prop("disabled", false);
+            $("#" + self.id + "_wrapper .select-all").prop("disabled", false);
             if (numChecked === rows) {
-                $("#" + table.id + "_wrapper .select-all").prop("checked", true);
-                $("#" + table.id + "_wrapper .select-all").closest('tr').addClass('selected');
+                $("#" + self.id + "_wrapper .select-all").prop("checked", true);
+                $("#" + self.id + "_wrapper .select-all").closest('tr').addClass('selected');
             } else {
-                $("#" + table.id + "_wrapper .select-all").prop("checked", false);
-                $("#" + table.id + "_wrapper .select-all").closest('tr').removeClass('selected');
+                $("#" + self.id + "_wrapper .select-all").prop("checked", false);
+                $("#" + self.id + "_wrapper .select-all").closest('tr').removeClass('selected');
             }
 
             // Card header.
@@ -179,7 +177,7 @@ function Table(options) {
 
     // Resize when first request is complete.
     this.table.one("draw", function () {
-        table.recalcMaxHeight();
+        self.recalcMaxHeight();
     });
 
     // Reset min-height when no records.
@@ -194,19 +192,14 @@ function Table(options) {
             scrollBody.css("min-height", (48 * 5) + 'px');
         }
     });
+    
+    // Delegate eventemitter methods to DataTable.
+    ["on", "one", "off"].forEach(function (method) {
+        self[method] = self.table[method].bind(self.table);
+    });
 }
 
 module.exports = Table;
-
-// Material checkbox.
-Table.checkbox = '<label><i class="material-icons checked">check_box</i>' +
-    '<i class="material-icons unchecked">check_box_outline_blank</i>' +
-    '<input type="checkbox" class="selected-checkbox hidden"></label>';
-
-// Select-all checkbox.
-Table.select_all_checkbox = '<label><i class="material-icons checked">check_box</i>' +
-    '<i class="material-icons unchecked">check_box_outline_blank</i>' +
-    '<input type="checkbox" class="select-all hidden"></label>';
 
 /**
  * Get ids of entries selected on current page.

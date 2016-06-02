@@ -1,11 +1,13 @@
 var $ = require('jquery');
 var Dexie = require('dexie');
 
+require('./subsystem').add("data", ready);
 var convert = require('./convert');
 var fs = require('./filesystem');
+var fsm = require('./state');
 var Messaging = require('./messaging');
-var Status = require('./status');
 var Constraints = require('./constraints');
+var Util = require('./util');
 
 /**
  * This script has utilities for working with the data, and is provided
@@ -16,45 +18,25 @@ var Constraints = require('./constraints');
  */
 
 /**
- * Clones an object.
- * @param {object} obj - The object to clone.
- * @return {object} - The cloned object.
+ * Pre-initialization.
  */
-function clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
+function ready() {
+    return new Promise(function (resolve, reject) {
+        // Initialize FileSystem Replay folder.
+        fs.createDirectory("savedMovies").then(function (_, existed) {
+            if (!existed) {
+                console.log("Saved movies directory created.");
+            } else {
+                console.log("Saved movies directory exists.");
+            }
+        }).catch(function (err) {
+            console.error("Error creating saved movies directory: %o.", err);
+            throw err;
+        });
+    }).then(function () {
+        console.log("Data: ready");
+    });
 }
-
-/**
- * Return the index of the first value in the array that satisfies the given
- * function. Same as `findIndex`.
- */
-function findIndex(array, fn) {
-    for (var i = 0; i < array.length; i++) {
-        if (fn(array[i])) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-/**
- * Return the first value in the array that satisfies the given function. Same
- * functionality as `find`.
- */
-function find(array, fn) {
-  for (var i = 0; i < array.length; i++) {
-    if (fn(array[i])) {
-      return array[i];
-    }
-  }
-}
-
-// Initialize FileSystem Replay folder.
-fs.createDirectory("savedMovies").then(function () {
-    console.log("Saved movies directory created.");
-}).catch(function (err) {
-    console.error("Error creating saved movies directory: %o.", err);
-});
 
 var db = new Dexie("ReplayDatabase");
 
@@ -82,178 +64,135 @@ db.version(3).stores({
     positions: null,
     savedMovies: null
 }).upgrade(function (trans) {
-    Status.set("upgrading");
+    // TODO: Error transition if too big.
+    // Set upgrading status.
+    fsm.handle("db-migrate");
     trans.on('complete', function () {
         console.log("Transaction completed.");
-        Status.reset();
     });
 
     trans.on('abort', function () {
         console.warn("inside transaction abort handler");
-        Status.set("error.upgrade");
+        fsm.handle("db-migrate-err");
     });
 
     trans.on('error', function () {
         console.warn("Inside transaction error handler.");
-        Status.set("error.upgrade");
+        fsm.handle("db-migrate-err");
     });
-    // Num done.
+    
+    // Number complete.
     var numberDone = 0;
-    // Item #.
+    // Total replays to process.
+    var total = 0;
+    // Current item number.
     var n = 0;
-    var numitemsatonce = 50;
-    var total;
-    // loopfn takes item, cursor, done
-    // loopfn shouldn't call anything async if it expects trans to be around.
-    // Returns a promise that resolves when complete.
-    function fn(table, itemsperloop, loopfn) {
-        var total;
-        function inner_loop(start) {
-            var n = Math.min(itemsperloop, total - start);
-            var last = start + itemsperloop >= total;
-            var dones = 0;
-            var looped = false;
-            var donecallfn;
-            // Used in case weird synchronous completion case.
-            var done = false;
-            var err = null;
-            var donePromise = new Dexie.Promise(function (resolve, reject) {
-                if (!done) {
-                    donecallfn = function (err, val) {
-                        if (err) {
-                            reject(err);
-                        } else if (val) {
-                            resolve(val);
-                        } else {
-                            resolve();
-                        }
-                    };
-                } else if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-            // TODO: Change to using then on promise.
-            function checkDone(err) {
-                if (dones === n && looped) {
-                    if (donecallfn) {
-                        if (last) {
-                            donecallfn(err);
-                        } else {
-                            donecallfn(err, inner_loop(start + n));
-                        }
-                    } else {
-                        // Shouldn't happen because idb requests are async and there should
-                        // be enough time for donecallfn to be set. May cause transaction
-                        // lifecycle instability.
-                        console.error("Function not set.");
-                        done = true;
-                    }
-                }
-            }
-            table.offset(start).limit(n).each(function (item, cursor) {
-                loopfn(item, cursor, function (err) {
-                    dones++;
-                    checkDone(err);
-                });
-            }).then(function () {
-                looped = true;
-                checkDone();
-            });
-            return donePromise;
+    // Worker processes replay conversions.
+    function worker(data, callback) {
+        // Skip null values.
+        if (data.value === null) {
+            callback();
+            return;
         }
 
-        return table.count().then(function (t) {
-            if (!t) {
-                return Dexie.Promise.resolve();
-            } else {
-                total = t;
-                return inner_loop(0);
-            }
-        });
+        var name = data.key;
+        var item = data.value;
+        var i = n++;
+
+        console.log("Iterating item: %d.", i); // DEBUG
+        try {
+            var data = convert({
+                name: name,
+                data: JSON.parse(item)
+            });
+            // Save converted replay.
+            var replay = data.data;
+            var info = generateReplayInfo(replay);
+            // Errors here would bubble up to the transaction.
+            return trans.info.add(info).then(function (info_id) {
+                console.log("Added info: %d.", i); // DEBUG
+                replay.info_id = info_id;
+                return trans.replay.add(replay).then(function (replay_id) {
+                    console.log("Added replay: %d.", i); // DEBUG
+                    info.replay_id = replay_id;
+                    return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
+                        // debugging
+                        // Console alert that replay was saved, progress update.
+                        Messaging.send("upgradeProgress", {
+                            total: total,
+                            progress: ++numberDone
+                        });
+                        console.log("Finished replay: %d (%d).", i, numberDone); // DEBUG
+                        callback();
+                    });
+                });
+            });
+        } catch(e) {
+            console.log("Failed replay: %d.", i); // DEBUG
+            // Catch replay conversion or save error.
+            //console.warn("Couldn't convert %s due to: %o.", name, e); // DEBUG
+            //console.log("Saving %s to failed replay database.", name); // DEBUG
+            var failedInfo = {
+                name: name,
+                failure_type: "upgrade_error",
+                timestamp: Date.now(),
+                message: e.message
+            };
+            return trans.failed_info.add(failedInfo).then(function (info_id) {
+                console.log("Added failed info: %d.", i); // DEBUG
+                var failedReplay = {
+                    info_id: info_id,
+                    name: name,
+                    data: item
+                };
+                return trans.failed_replays.add(failedReplay).then(function (replay_id) {
+                    console.log("Added failed replay: %d.", i); // DEBUG
+                    return trans.failed_info.update(info_id, { replay_id: replay_id }).then(function () {
+
+                        Messaging.send("upgradeProgress", {
+                            total: total,
+                            progress: ++numberDone
+                        });
+                        console.log("Saved failed replay: %d (%d).", i, numberDone); // DEBUG
+                        callback();
+                    });
+                });
+            }).catch(function (err) {
+                // TODO: Necessary?
+                // Save error, abort transaction.
+                console.error("Aborting upgrade due to database error: %o.", err);
+                trans.abort();
+                callback(Error("error: " + err));
+            });
+        }
     }
 
-
     trans.positions.count().then(function (t) {
-        total = t;
-        // done err propogates back up.
-        fn(trans.positions, 50, function (item, cursor, done) {
-            // Skip null values.
-            if (item === null) {
-                done();
-                return;
-            }
-
-            var name = cursor.key;
-            var i = n++;
-
-            console.log("Iterating item: %d.", i); // DEBUG
-            try {
-                var data = convert({
-                    name: name,
-                    data: JSON.parse(item)
-                });
-                // Save converted replay.
-                var replay = data.data;
-                var info = generateReplayInfo(replay);
-                return trans.info.add(info).then(function (info_id) {
-                    console.log("Added info: %d.", i); // DEBUG
-                    replay.info_id = info_id;
-                    return trans.replay.add(replay).then(function (replay_id) {
-                        console.log("Added replay: %d.", i); // DEBUG
-                        info.replay_id = replay_id;
-                        return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
-                            // debugging
-                            // Console alert that replay was saved, progress update.
-                            Messaging.send("upgradeProgress", {
-                                total: total,
-                                progress: ++numberDone
-                            });
-                            console.log("Finished replay: %d (%d).", i, numberDone); // DEBUG
-                            done();
-                        });
+        if (t > Constraints.max_replays_in_database) {
+            // TODO: Set error message somehow
+            // set("db_full")
+            console.error("Aborting upgrade due to database size (replays: %d, max: %d.",
+                t, Constraints.max_replays_in_database);
+            trans.abort();
+        } else if (t === 0) {
+            console.log("Empty database, nothing to do.");
+        } else {
+            total = t;
+            var queue = async.queue(worker, 5);
+            queue.buffer = 5;
+            var start = 0;
+            queue.unsaturated = function() {
+                // TODO: dynamic based on diff between workers and saturation point.
+                var number_to_get = 5;
+                trans.positions.offset(start).limit(number_to_get).each(function (item, cursor) {
+                    queue.push({
+                        key: cursor.key,
+                        value: item
                     });
-                });
-            } catch(e) {
-                console.log("Failed replay: %d.", i); // DEBUG
-                // Catch replay conversion or save error.
-                //console.warn("Couldn't convert %s due to: %o.", name, e); // DEBUG
-                //console.log("Saving %s to failed replay database.", name); // DEBUG
-                var failedInfo = {
-                    name: name,
-                    failure_type: "upgrade_error",
-                    timestamp: Date.now(),
-                    message: e.message
-                };
-                return trans.failed_info.add(failedInfo).then(function (info_id) {
-                    console.log("Added failed info: %d.", i); // DEBUG
-                    var failedReplay = {
-                        info_id: info_id,
-                        name: name,
-                        data: item
-                    };
-                    return trans.failed_replays.add(failedReplay).then(function (replay_id) {
-                        console.log("Added failed replay: %d.", i); // DEBUG
-                        return trans.failed_info.update(info_id, { replay_id: replay_id }).then(function () {
-
-                            Messaging.send("upgradeProgress", {
-                                total: total,
-                                progress: ++numberDone
-                            });
-                            console.log("Saved failed replay: %d (%d).", i, numberDone); // DEBUG
-                            done();
-                        });
-                    });
-                }).catch(function (err) {
-                    // TODO: Necessary?
-                    // Save error, abort transaction.
-                    console.error("Aborting upgrade due to database error: %o.", err);
-                    trans.abort();
-                    done(Error("error: " + err));
-                });
-            }
-        });
+                })
+            };
+            queue.unsaturated();
+        }
     });
 });
 
@@ -261,23 +200,12 @@ db.version(3).stores({
  * Call to initialize database.
  */
 exports.init = function() {
-    // Wait for conversion function to be ready before opening database.
-    convert.ready().then(function () {
-        return db.open().then(function () {
-            // Reset status after applying any upgrades.
-            Status.reset();
-        }).catch(function (err) {
-            console.error("Error opening database: %o.", err);
-            // Don't override upgrade error.
-            Status.get().then(function (status) {
-                console.log("Status: %s.", status);
-                if (status !== "upgrade_error" && status !== "upgrading") {
-                    Status.set("error.db");
-                }
-            });
-        });
+    db.open().then(function () {
+        // Set state.
+        fsm.handle("db-open");
     }).catch(function (err) {
-        console.error("Error loading conversion function: %o.", err);
+        console.error("Error opening database: %o.", err);
+        fsm.handle("db-error");
     });
 };
 
@@ -291,15 +219,15 @@ function generateReplayInfo(replay) {
     // Copy replay information.
     // Add player information.
     // Add duration.
-    var info = clone(replay.info);
+    var info = Util.clone(replay.info);
     info.duration = Math.round((1e3 / info.fps) * replay.data.time.length);
     info.players = {};
     // Get player information.
     Object.keys(replay.data.players).forEach(function(id) {
         var player = replay.data.players[id];
         info.players[id] = {
-            name: find(player.name, function(v) { return v !== null; }),
-            team: find(player.team, function(v) { return v !== null; }),
+            name: Util.find(player.name, function(v) { return v !== null; }),
+            team: Util.find(player.team, function(v) { return v !== null; }),
             id: player.id
         };
     });
@@ -323,9 +251,6 @@ function cropReplay(replay, startFrame, endFrame) {
     if (startFrame === 0 && endFrame === replay.data.time.length)
         return replay;
 
-    function clone(obj) {
-        return JSON.parse(JSON.stringify(obj));
-    }
     var startTime = replay.data.time[startFrame],
         endTime = replay.data.time[endFrame];
 
@@ -360,7 +285,7 @@ function cropReplay(replay, startFrame, endFrame) {
             degree: cropFrameArray(player.degree),
             draw: cropFrameArray(player.draw),
             flag: cropFrameArray(player.flag),
-            flair: cropFrameArray(player.flair).map(clone), // Necessary to clone?
+            flair: cropFrameArray(player.flair).map(Util.clone), // Necessary to clone?
             grip: cropFrameArray(player.grip),
             id: player.id,
             name: name,
@@ -389,12 +314,12 @@ function cropReplay(replay, startFrame, endFrame) {
     function cropSpawns(spawns) {
         return spawns.filter(function(spawn) {
             return spawn.time <= endTime && startTime - spawn.time <= spawn.wait;
-        }).map(clone);
+        }).map(Util.clone);
     }
 
     // New, cropped replay.
     var newReplay = {
-        info: clone(replay.info),
+        info: Util.clone(replay.info),
         data: {
             bombs: cropEventArray(replay.data.bombs, 200),
             chat: cropEventArray(replay.data.chat, 3e4),
@@ -402,20 +327,20 @@ function cropReplay(replay, startFrame, endFrame) {
             endTimes: replay.data.endTimes.filter(function(time) {
                 return time >= startTime;
             }),
-            map: clone(replay.data.map),
+            map: Util.clone(replay.data.map),
             players: {},
-            score: cropFrameArray(replay.data.score).map(clone), // necessary to clone?
+            score: cropFrameArray(replay.data.score).map(Util.clone), // necessary to clone?
             spawns: cropSpawns(replay.data.spawns),
             splats: cropEventArray(replay.data.splats),
             time: cropFrameArray(replay.data.time),
-            wallMap: clone(replay.data.wallMap)
+            wallMap: Util.clone(replay.data.wallMap)
         },
         version: "2"
     };
 
     var gameEnd = replay.data.gameEnd;
     if (gameEnd && gameEnd.time <= endTime) {
-        newReplay.data.gameEnd = clone(gameEnd);
+        newReplay.data.gameEnd = Util.clone(gameEnd);
     }
 
     // Crop player properties.
@@ -763,6 +688,10 @@ function deleteMovie(id) {
         });
     });
 }
+
+// ====================================================================
+//
+// ====================================================================
 
 exports.failedReplaysExist = function() {
     return db.failed_info.count().then(function (n) {

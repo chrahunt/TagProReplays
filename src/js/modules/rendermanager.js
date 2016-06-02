@@ -266,6 +266,7 @@ RenderManager.prototype.getNext = function() {
         return value && value.replay_id;
     });
 };
+
 /**
  * Callback function that needs options and textures.
  * @callback OptionsCallback

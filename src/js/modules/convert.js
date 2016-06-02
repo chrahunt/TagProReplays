@@ -9,18 +9,6 @@ var validate = require('./validate');
 // Holds the replay migration functions.
 var conversion = new Migrations();
 
-/**
- * Return the first value in the array that satisfies the given function. Same
- * functionality as `find`.
- */
-function find(array, fn) {
-  for (var i = 0; i < array.length; i++) {
-    if (fn(array[i])) {
-      return array[i];
-    }
-  }
-}
-
 // Takes a replay and returns the integer version of it.
 function getReplayVersion(data) {
   if (!data.hasOwnProperty("version")) {

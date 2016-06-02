@@ -70,4 +70,3 @@ ZipFiles.prototype._zip = function() {
   this.zip = new JSZip();
   this.current_size = 0;
 };
-

@@ -1,6 +1,10 @@
 var async = require('async');
 var $ = require('jquery');
 
+require('./subsystem').add("textures", ready);
+var Storage = require('./storage');
+var Util = require('./util');
+
 // Save image from texture dialog.
 exports.saveSettings = function() {
     // Mapping from file input ids to texture object properties.
@@ -153,3 +157,31 @@ exports.getDefault = function(callback) {
         callback(dataUrls);
     });
 };
+
+function setDefaultTextures() {
+    return new Promise(function (resolve, reject) {
+        Textures.getDefault(function(textures) {
+            // Use clone for same object, otherwise default_textures is
+            // null.
+            var result = Storage.set({
+                textures: textures,
+                default_textures: Util.clone(textures)
+            });
+            resolve(result);
+        });
+    });
+}
+
+/**
+ * Ensure textures are set and ready.
+ * @type {Promise}
+ */
+function ready() {
+    return Storage.get(["default_textures", "textures"]).then(function(items) {
+        if (!items.textures || !items.default_textures) {
+            return setDefaultTextures();
+        }
+    }).then(function () {
+        console.log("Textures: ready");
+    });
+}

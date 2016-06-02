@@ -156,9 +156,25 @@ function saveFile(path, data, callback, error) {
     }, error);
 }
 
+/**
+ * Create a directory if it does not already exist.
+ * @param {Function} callback - function to be called when
+ *   directory is created. Takes parameters 'dirEntry' and 'exists'
+ *   which indicates whether the directory already existed.
+ */
 function createDirectory(path, callback, error) {
-    getDirectory(path, function(dirEntry) {
-        callback();
+    getFileSystem(function(fs) {
+        fs.root.getDirectory(path, { create: false }, function (dirEntry) {
+            callback(dirEntry, true);
+        }, function (err) {
+            if (err.name === "NotFoundError") {
+                fs.root.getDirectory(path, { create: true }, function (dirEntry) {
+                    callback(dirEntry, false);
+                }, error);
+            } else {
+                error(err);
+            }
+        });
     }, error);
 }
 
