@@ -1,7 +1,6 @@
 var async = require('async');
 var $ = require('jquery');
 
-require('./subsystem').add("textures", ready);
 var Storage = require('./storage');
 var Util = require('./util');
 
@@ -176,12 +175,10 @@ function setDefaultTextures() {
  * Ensure textures are set and ready.
  * @type {Promise}
  */
-function ready() {
+exports.ready = function() {
     return Storage.get(["default_textures", "textures"]).then(function(items) {
         if (!items.textures || !items.default_textures) {
             return setDefaultTextures();
         }
-    }).then(function () {
-        console.log("Textures: ready");
     });
 }

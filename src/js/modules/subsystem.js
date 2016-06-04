@@ -9,10 +9,12 @@ module.exports = {
     });
   },
   _subsystems: [],
-  ready: function() {
-    console.log("Executing subsystem ready.");
+  init: function() {
+    var self = this;
+    console.log("Executing subsystem initialization.");
     return new Promise(function (resolve, reject) {
-      async.each(this._subsystems, function (dep, callback) {
+      async.each(self._subsystems, function (dep, callback) {
+        console.log("Executing ready: " + dep.name);
         dep.ready().catch(function (err) {
           console.error("Error in ready: " + dep.name);
           callback(err);
@@ -22,15 +24,13 @@ module.exports = {
         });
       }, function (err) {
         if (!err) {
+          console.log("Subsystems initialized.");
           resolve();
-          //self.handle("ready");
         } else {
-          //console.error("Initialization failed!");
-          // TODO: broken.
+          console.error("Subsystem initialization failed!");
           reject(err);
-          //self.handle("broken");
         }
-      })
+      });
     });
   }
 }

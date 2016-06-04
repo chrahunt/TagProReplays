@@ -1,17 +1,15 @@
 var $ = require('jquery');
 var Dexie = require('dexie');
+var EventEmitter = require('events');
 
-require('./subsystem').add("data", ready);
 var convert = require('./convert');
 var fs = require('./filesystem');
-var fsm = require('./state');
-var Messaging = require('./messaging');
 var Constraints = require('./constraints');
 var Util = require('./util');
 
 /**
- * This script has utilities for working with the data, and is provided
- * as an interface on top of the IndexedDB and FileSystem storage
+ * This script has utilities for working with the replay data, and
+ * provides an interface on top of the IndexedDB and FileSystem storage
  * services.
  *
  * Everywhere a replay id is needed, it refers to the replay info id.
@@ -20,7 +18,7 @@ var Util = require('./util');
 /**
  * Pre-initialization.
  */
-function ready() {
+exports.ready = function() {
     return new Promise(function (resolve, reject) {
         // Initialize FileSystem Replay folder.
         fs.createDirectory("savedMovies").then(function (_, existed) {
@@ -29,14 +27,22 @@ function ready() {
             } else {
                 console.log("Saved movies directory exists.");
             }
+            resolve();
         }).catch(function (err) {
             console.error("Error creating saved movies directory: %o.", err);
             throw err;
         });
-    }).then(function () {
-        console.log("Data: ready");
     });
 }
+
+/**
+ * @fires "db:upgrade"
+ * @fires "db:upgrade:progress" - {total, progress}
+ * @fires "db:open"
+ * @fires "db:err" - {reason}
+ * @fires "db:err:upgrade" - {reason}
+ */
+var bus = exports.events = new EventEmitter();
 
 var db = new Dexie("ReplayDatabase");
 
@@ -66,19 +72,20 @@ db.version(3).stores({
 }).upgrade(function (trans) {
     // TODO: Error transition if too big.
     // Set upgrading status.
-    fsm.handle("db-migrate");
+    bus.emit("db:upgrade");
+
     trans.on('complete', function () {
         console.log("Transaction completed.");
     });
 
-    trans.on('abort', function () {
+    trans.on('abort', function (err) {
         console.warn("inside transaction abort handler");
-        fsm.handle("db-migrate-err");
+        bus.emit("db:err:upgrade", err);
     });
 
-    trans.on('error', function () {
+    trans.on('error', function (err) {
         console.warn("Inside transaction error handler.");
-        fsm.handle("db-migrate-err");
+        bus.emit("db:err:upgrade", err);
     });
     
     // Number complete.
@@ -118,7 +125,7 @@ db.version(3).stores({
                     return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
                         // debugging
                         // Console alert that replay was saved, progress update.
-                        Messaging.send("upgradeProgress", {
+                        bus.emit("db:upgrade:progress", {
                             total: total,
                             progress: ++numberDone
                         });
@@ -149,7 +156,7 @@ db.version(3).stores({
                     console.log("Added failed replay: %d.", i); // DEBUG
                     return trans.failed_info.update(info_id, { replay_id: replay_id }).then(function () {
 
-                        Messaging.send("upgradeProgress", {
+                        bus.emit("db:upgrade:progress", {
                             total: total,
                             progress: ++numberDone
                         });
@@ -201,11 +208,10 @@ db.version(3).stores({
  */
 exports.init = function() {
     db.open().then(function () {
-        // Set state.
-        fsm.handle("db-open");
+        bus.emit("db:open");
     }).catch(function (err) {
         console.error("Error opening database: %o.", err);
-        fsm.handle("db-error");
+        bus.emit("db:err");
     });
 };
 

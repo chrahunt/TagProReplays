@@ -1,8 +1,6 @@
 var $ = require('jquery');
 var imjv = require('is-my-json-valid');
 
-require('./subsystem').add("validate", ready);
-
 /**
  * Holds information for validating a replay. Replay validation is done
  * in two steps:
@@ -50,8 +48,6 @@ ReplayValidator.prototype.init = function() {
       };
     });
     self.loaded = true;
-  }).then(function () {
-    console.log("Validate: ready");
   });
 };
 
@@ -254,7 +250,6 @@ module.exports = function(data) {
  * validation.
  * @return {Promise} - Resolves when the validator is ready.
  */
-//module.exports.ready = validator.ready;
-function ready() {
+module.exports.ready = function () {
   return validator.ready();
-}
+};

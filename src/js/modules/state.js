@@ -1,50 +1,14 @@
 //var async = require('async');
 var machina = require('machina');
-
 var Messaging = require('./messaging');
-var Data = require('./data');
 
 var fsm = new machina.Fsm({
-    // Initialize subsystems.
-    initialize: function (options) {
-        var self = this;
-        // TODO: Also wait for rendermanager, data
-        /*ready().then(function () {
-            self.handle("ready");
-        }).catch(function (err) {
-            // TODO: persist somewhere.
-            console.error("Error in initialization: " + err);
-            self.handle("broken");
-        });*/
-        /*async.each([Textures, validate, Data], function (dep, callback) {
-            dep.ready.catch(function (err) {
-                callback(err);
-            }).then(function () {
-                callback(null);
-            });
-        }, function (err) {
-            if (!err) {
-                self.handle("ready");
-            } else {
-                console.error("Initialization failed!");
-                // TODO: broken.
-                self.handle("broken");
-            }
-        })*/
-    },
+    initialize: function (options) {},
     namespace: "background",
     initialState: "start",
     states: {
         start: {
-            "ready": function () {
-                this.transition("init");
-            }
-        },
-        init: {
-            _onEnter: function () {
-                // TODO: Check for previous db failure.
-                Data.init();
-            },
+            "subsystem-fail": "broken",
             "db-migrate-failed": "broken",
             "db-migrate": "upgrading",
             "db-open": "active",
@@ -70,7 +34,7 @@ var fsm = new machina.Fsm({
         }
     },
     /**
-     * Try event.
+     * Try to send event.
      * @returns {Promise} - resolves if transition completes successfully, rejects otherwise.
      */
     try: function () {

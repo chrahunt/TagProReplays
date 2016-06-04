@@ -17,7 +17,7 @@ var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
 var Util = require('./modules/util');
 var ZipFiles = require('./modules/zip-files');
-var ready = require('./modules/subsystem').ready;
+var Subsystems = require('./modules/subsystem');
 
 /**
  * Acts as the intermediary for content script and background page
@@ -57,12 +57,38 @@ chrome.runtime.onInstalled.addListener(function (details) {
     }
 });
 
-ready().then(function () {
-    fsm.handle("ready");
-}).catch(function (err) {
+// Subsystem initialization.
+Subsystems.add("validate", validate.ready);
+Subsystems.add("data", Data.ready);
+Subsystems.add("textures", Textures.ready);
+
+Subsystems.init().catch(function (err) {
     // TODO: persist somewhere.
     console.error("Error in initialization: %o", err);
-    fsm.handle("broken");
+    fsm.handle("subsystem-fail");
+}).then(function () {
+    console.log("Subsystems ")
+    return Data.init();
+});
+
+Data.events.on("db:upgrade", function () {
+    fsm.handle("db-migrate");
+});
+
+Data.events.on("db:upgrade:progress", function (e) {
+    Messaging.send("upgradeProgress", e);
+});
+
+Data.events.on("db:open", function () {
+    fsm.handle("db-open");
+});
+
+Data.events.on("db:err", function (e) {
+    fsm.handle("db-error");
+});
+
+Data.events.on("db:err:upgrade", function (e) {
+    fsm.handle("db-migrate-err");
 });
 
 /**
