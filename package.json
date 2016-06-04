@@ -3,7 +3,7 @@
   "version": "2.0.1",
   "description": "Record yourself in TagPro!",
   "scripts": {
-    "test": "gulp test"
+    "test": "node ./node_modules/karma/bin/karma start"
   },
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
   "devDependencies": {
     "browserify": "^10.2.1",
     "browserify-shim": "^3.8.7",
+    "chai": "^3.5.0",
     "event-stream": "^3.3.1",
     "expect.js": "^0.3.1",
     "glob": "^5.0.14",
@@ -42,6 +43,11 @@
     "gulp-util": "^3.0.4",
     "gulp-watch": "^4.2.4",
     "jsonfile": "^2.2.1",
+    "karma": "^0.13.22",
+    "karma-browserify": "^5.0.5",
+    "karma-chai": "^0.1.0",
+    "karma-chrome-launcher": "^1.0.1",
+    "karma-mocha": "^1.0.1",
     "lodash.assign": "^3.2.0",
     "mocha": "^2.2.1",
     "phantomjs": "^1.9.16",

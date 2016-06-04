@@ -1,0 +1,1 @@
+var Data = require('modules/data');

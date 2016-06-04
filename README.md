@@ -64,3 +64,5 @@ With [npm](https://github.com/npm/npm) installed, run `npm install` in the proje
 To run tests easily, install gulp globally with `npm install -g gulp` then run `gulp test` in the project's root directory.
 
 Data format. Data formats are documented for the database as well as for the exportable raw replay data.
+
+To test, install karma-cli with `npm install -g karma-cli` and run `karma` or just `npm test`.

@@ -1,3 +1,5 @@
+var Migrations = require('modules/migrations');
+;;;;
 /*
  * Test basic migration functionality.
  */
@@ -75,14 +77,14 @@ describe("Migrations", function() {
         });
 
         fn = migrations.getPatchFunction(2, 2);
-        expect(fn).to.be(null);
+        expect(fn).to.be.null;
     });
 
     it("should fail appropriately", function(done) {
         migrations.add(1, 2, migration_functions['fail:1->2']);
         var fn = migrations.getPatchFunction(1, 2);
         fn(db, {}, function(err) {
-            expect(err).to.be(true);
+            expect(err).to.be.true;
             done();
         });
     });

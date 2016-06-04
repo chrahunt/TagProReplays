@@ -10,7 +10,7 @@ var Migrations = function() {
 };
 
 module.exports = Migrations;
-
+;
 Migrations.prototype.getFunctionName = function(from, to) {
     return "p" + from + "_" + to;
 };
