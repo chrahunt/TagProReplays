@@ -178,10 +178,30 @@ function createDirectory(path, callback, error) {
     }, error);
 }
 
-module.exports = {
+var fs = {
     deleteFile: wrap(deleteFile),
     saveFile: wrap(saveFile),
     getFile: wrap(getFile),
     readDirectory: wrap(readDirectory),
-    createDirectory: wrap(createDirectory)
+    createDirectory: wrap(createDirectory),
+    ready: ready
 };
+
+function ready() {
+    return new Promise(function (resolve, reject) {
+        // Initialize FileSystem Replay folder.
+        fs.createDirectory("savedMovies").then(function (_, existed) {
+            if (!existed) {
+                console.log("Saved movies directory created.");
+            } else {
+                console.log("Saved movies directory exists.");
+            }
+            resolve();
+        }).catch(function (err) {
+            console.error("Error creating saved movies directory: %o.", err);
+            throw err;
+        });
+    });
+}
+
+module.exports = fs;

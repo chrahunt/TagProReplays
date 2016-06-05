@@ -124,8 +124,10 @@ var validator = new ReplayValidator();
  */
 function getJSON(path) {
   return new Promise(function (resolve, reject) {
-    $.getJSON(path, function(data) {
-        resolve(data);
+    $.getJSON(path).done(function (data) {
+      resolve(data);
+    }).fail(function (jqxhr, textStatus, err) {
+      reject(textStatus + ", " + err);
     });
   });
 }

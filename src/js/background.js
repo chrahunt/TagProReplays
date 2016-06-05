@@ -9,6 +9,7 @@ var convert = require('./modules/convert');
 var Constraints = require('./modules/constraints');
 var Data = require('./modules/data');
 var fsm = require('./modules/state');
+var fs = require('./modules/fs');
 var Messaging = require('./modules/messaging');
 var RenderManager = require('./modules/rendermanager');
 var Status = require('./modules/status');
@@ -59,7 +60,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 
 // Subsystem initialization.
 Subsystems.add("validate", validate.ready);
-Subsystems.add("data", Data.ready);
+Subsystems.add("filesystem", fs.ready);
 Subsystems.add("textures", Textures.ready);
 
 Subsystems.init().catch(function (err) {

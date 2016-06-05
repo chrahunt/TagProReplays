@@ -18,7 +18,8 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
       'test/**/*.spec.js',
-      {pattern: 'src/schemas/**/*.json', watched: true, served: true, included: false, nocache: true}
+      {pattern: 'src/schemas/**/*.json', watched: true, served: true, included: false},
+      {pattern: 'test/fixtures/**/*', watched: true, served: true, included: false}
     ],
 
     // list of files to exclude
@@ -27,7 +28,8 @@ module.exports = function(config) {
 
     // Proxy to src folder.
     proxies: {
-      '/schemas/': '/base/src/schemas/'
+      '/schemas/': '/base/src/schemas/',
+      '/fixtures/': '/base/test/fixtures/'
     },
 
     // preprocess matching files before serving them to the browser
@@ -56,7 +58,7 @@ module.exports = function(config) {
 
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-    browsers: ['Chrome', "Firefox"],
+    browsers: ['Chrome'],
 
     // Continuous Integration mode
     // if true, Karma captures browsers, runs the tests and exits

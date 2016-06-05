@@ -16,26 +16,6 @@ var Util = require('./util');
  */
 
 /**
- * Pre-initialization.
- */
-exports.ready = function() {
-    return new Promise(function (resolve, reject) {
-        // Initialize FileSystem Replay folder.
-        fs.createDirectory("savedMovies").then(function (_, existed) {
-            if (!existed) {
-                console.log("Saved movies directory created.");
-            } else {
-                console.log("Saved movies directory exists.");
-            }
-            resolve();
-        }).catch(function (err) {
-            console.error("Error creating saved movies directory: %o.", err);
-            throw err;
-        });
-    });
-}
-
-/**
  * @fires "db:upgrade"
  * @fires "db:upgrade:progress" - {total, progress}
  * @fires "db:open"
@@ -48,18 +28,30 @@ var db = new Dexie("ReplayDatabase");
 
 exports.db = db;
 
-// Initial versions of the database may be either 1 or 2 with
-// a 'positions' object store and an empty 'savedMovies' object
-// store.
-db.version(0.1).stores({
-    positions: '',
-    savedMovies: ''
+// Logging.
+var events = ["ready", "error", "populate", "blocked", "versionchange"];
+events.forEach(function (e) {
+    db.on(e, function () {
+        console.log("Dexie: %s", e);
+    });
 });
 
-db.version(0.2).stores({
-    positions: '',
-    savedMovies: ''
+db.on("blocked", function () {
+    bus.emit("db:err", "blocked");
 });
+
+/**
+ * Set Dexie version methods.
+ * @param {number} [version] - the version to set the database to,
+ *   default is latest. 
+ */
+function setVersion(version) {
+    if (typeof version === "undefined") {
+        version = 3;
+    }
+
+    switch (version) {
+        case 3:
 
 // Current version.
 db.version(3).stores({
@@ -70,6 +62,7 @@ db.version(3).stores({
     positions: null,
     savedMovies: null
 }).upgrade(function (trans) {
+    console.log("Doing upgrade.");
     // TODO: Error transition if too big.
     // Set upgrading status.
     bus.emit("db:upgrade");
@@ -203,15 +196,41 @@ db.version(3).stores({
     });
 });
 
+        case 2:
+
+db.version(0.2).stores({
+    positions: '',
+    savedMovies: ''
+});
+
+        case 1:
+
+// Initial versions of the database may be either 1 or 2 with
+// a 'positions' object store and an empty 'savedMovies' object
+// store.
+db.version(0.1).stores({
+    positions: '',
+    savedMovies: ''
+});
+
+}
+
 /**
  * Call to initialize database.
+ * @param {number} [version] - Version of database to use, only for testing.
+ * @return {Promise} - Promise that resolves on open or rejects on open error.
  */
-exports.init = function() {
-    db.open().then(function () {
+exports.init = function(version) {
+    console.log("In Data#init");
+    setVersion(version);
+    return db.open().then(function () {
+        console.log("Emitting db:open");
         bus.emit("db:open");
     }).catch(function (err) {
         console.error("Error opening database: %o.", err);
         bus.emit("db:err");
+        // Re-throw.
+        throw err;
     });
 };
 
