@@ -24,18 +24,14 @@ var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(
 
 // Inserts Replay button in main page
 function createReplayPageButton() {
-    function findInsertionPoint() {
-        buttons = $('article>div.buttons.smaller>a')
-        for (var i = 0; i < buttons.length; i++) {
-            textcontent = buttons[i].textContent
-            if (textcontent.search('Leaders') >= 0) {
-                return (buttons[i]);
-            }
-        }
+    if ($('#userscript-home').length) {
+        $('#play-now').after('<a class="btn" id="ReplayMenuButton">Replays');
+        $('#ReplayMenuButton').append('<span class="sub-text">watch yourself');
+    } else {
+        $('div.buttons > a[href="/boards"]').after('<a class="button" id="ReplayMenuButton">Replays');
+        $('#ReplayMenuButton').append('<span>watch yourself');
     }
 
-    $(findInsertionPoint()).after('<a class=button id=ReplayMenuButton>Replays')
-    $('#ReplayMenuButton').append('<span>watch yourself')
     $('#ReplayMenuButton').click(function () {
         // Show menu.
         if ($('#menuContainer').length) {
@@ -46,8 +42,14 @@ function createReplayPageButton() {
 
 // Function to create the menu.
 function createMenu() {
+    var insert_point;
+    if ($('#userscript-home').length) {
+        insert_point = $('body');
+    } else {
+        insert_point = $('article');
+    }
     // Create Container for Replay Menu.
-    $('article').append('<div id="tpr-container" class="bootstrap-container">');
+    insert_point.append('<div id="tpr-container" class="bootstrap-container">');
 
     // Retrieve html of all items
     $('#tpr-container').load(chrome.extension.getURL("ui/menus.html"), function () {

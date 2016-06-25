@@ -2,6 +2,31 @@
     color: #333;
 }
 
+/* start resets for redesign page */
+#tpr-container {
+    font-size: 14px;
+}
+
+#tpr-previewer {
+    /* reset for redesign page */
+    color: black;
+}
+
+#tpr-container thead {
+    background-color: white;
+}
+
+#tpr-container tr {
+    background-color: white;
+}
+
+.play-now #ReplayMenuButton {
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+/* end redesign resets */
+
 #tpr-container #replays table {
     table-layout: fixed;
     margin-bottom: 0;

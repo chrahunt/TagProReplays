@@ -38,6 +38,10 @@ function createReplay(positions) {
     }
     tileSize = 40
 
+    var preview_holder = document.createElement('div');
+    preview_holder.id = 'tpr-previewer';
+    document.body.appendChild(preview_holder);
+
     // Canvas for main display
     can = document.createElement('canvas')
     can.id = 'mapCanvas'
@@ -54,8 +58,7 @@ function createReplay(positions) {
     can.style.opacity = 0
     can.title = "replay: " + sessionStorage.getItem('currentReplay').replace(/DATE.*/, '')
 
-    document.body.appendChild(can)
-    can = document.getElementById('mapCanvas')
+    preview_holder.appendChild(can)
     context = can.getContext('2d')
 
     imgDiv = document.createElement('div')
@@ -64,7 +67,7 @@ function createReplay(positions) {
     assignTexture(img, 'tiles');
     img.id = 'tiles'
     img.style.display = 'none'
-    img = document.body.appendChild(img)
+    img = preview_holder.appendChild(img)
     // Get map image and draw initial replay image
     img.onload = function () {
         mapImgData = drawMap(0, 0, positions)
@@ -136,7 +139,7 @@ function createReplay(positions) {
     playbackBarDiv.style.zIndex = 1300
     playbackBarDiv.id = 'playbackBarDiv'
     playbackBarDiv.style.backgroundColor = 'black'
-    document.body.appendChild(playbackBarDiv)
+    preview_holder.appendChild(playbackBarDiv)
 
     // create white bar showing area that will be cropped
     whiteBar = document.createElement('div')
@@ -149,7 +152,7 @@ function createReplay(positions) {
     whiteBar.style.zIndex = 1300
     whiteBar.id = 'whiteBar'
     whiteBar.style.backgroundColor = 'white'
-    document.body.appendChild(whiteBar)
+    preview_holder.appendChild(whiteBar)
 
     // create grey bar showing area that will be kept
     greyBar = document.createElement('div')
@@ -162,7 +165,7 @@ function createReplay(positions) {
     greyBar.style.zIndex = 1300
     greyBar.id = 'greyBar'
     greyBar.style.backgroundColor = 'grey'
-    document.body.appendChild(greyBar)
+    preview_holder.appendChild(greyBar)
 
     // create slider bar to hold slider
     sliderBar = document.createElement('div')
@@ -175,7 +178,7 @@ function createReplay(positions) {
     sliderBar.style.zIndex = 1300
     sliderBar.id = 'sliderBar'
     sliderBar.style.backgroundColor = 'transparent'
-    document.body.appendChild(sliderBar)
+    preview_holder.appendChild(sliderBar)
 
     // create slider
 
@@ -198,22 +201,6 @@ function createReplay(positions) {
     	var useChat = readCookie('useChat') == 'true';
         animateReplay(thisI, positions, mapImg, useSpin, useSplats, useClockAndScore, useChat)
     }
-
-    function clearSliderArea() {
-        $('#playbackBarDiv')[0].style.opacity = "0"
-        $('#sliderBar')[0].style.opacity = "0"
-        $('#slider')[0].style.opacity = "0"
-        $('#greyBar')[0].style.opacity = "0"
-        $('#whiteBar')[0].style.opacity = "0"
-        setTimeout(function () {
-            $('#playbackBarDiv').remove()
-            $('#sliderBar').remove()
-            $('#slider').remove()
-            $('#greyBar').remove()
-            $('#whiteBar').remove()
-        }, 600)
-    }
-
 
     ////////////////////////////////////
     /////     Playback buttons     /////
@@ -255,46 +242,6 @@ function createReplay(positions) {
         }
     }
 
-    function hideButtons() {
-        var buttons = {
-            pause: pauseButton,
-            play: playButton,
-            stop: stopButton,
-            reset: resetButton,
-            cStart: cropStartButton,
-            cEnd: cropEndButton,
-            cButt: cropButton,
-            pCrop: playCroppedMovieButton,
-            cRButt: cropAndReplaceButton,
-            dButt: deleteButton,
-            rButt: renderButton,
-            reButt: renameButton
-        }
-        for (button in buttons) {
-            buttons[button].style.opacity = "0"
-        }
-    }
-
-    function removeButtons() {
-        var buttons = {
-            pause: pauseButton,
-            play: playButton,
-            stop: stopButton,
-            reset: resetButton,
-            cStart: cropStartButton,
-            cEnd: cropEndButton,
-            cButt: cropButton,
-            pCrop: playCroppedMovieButton,
-            cRButt: cropAndReplaceButton,
-            dButt: deleteButton,
-            rButt: renderButton,
-            reButt: renameButton
-        }
-        for (button in buttons) {
-            buttons[button].remove()
-        }
-    }
-
     // functions to control replay playback
     function resetReplay() {
     	var useSpin = readCookie('useSpin') == 'true';
@@ -311,26 +258,20 @@ function createReplay(positions) {
     }
 
     function stopReplay(doNotReopen) {
-        thisI = 0
+        thisI = 0;
         if (typeof thingy !== 'undefined') {
-            clearInterval(thingy)
-            delete(thingy)
-            isPlaying = false
+            clearInterval(thingy);
+            delete(thingy);
+            isPlaying = false;
         }
-        clearSliderArea()
+        //clearSliderArea();
         if (!doNotReopen) {
-            //openReplayMenu()
             $('#menuContainer').show();
         }
-        hideButtons()
-        can.style.opacity = 0
+        preview_holder.style.opacity = 0;
         setTimeout(function () {
-            imgDiv.remove()
-            removeButtons()
-            can.remove()
-            newcan.remove()
-            img.remove()
-            delete(mapImg)
+            preview_holder.remove();
+            delete(mapImg);
         }, 600)
     }
 
@@ -338,7 +279,6 @@ function createReplay(positions) {
         if (typeof thingy === 'undefined') {
             updateMap(mapImg)
             isPlaying = true
-            //hideButtons()
         }
     }
 
@@ -575,7 +515,7 @@ function createReplay(positions) {
     stopButton.style.transition = "opacity 0.25s linear"
     stopButton.style.zIndex = 1300
     stopButton.style.opacity = 0
-    document.body.appendChild(stopButton)
+    preview_holder.appendChild(stopButton)
 
     // reset button
     var resetButton = new Image()
@@ -590,7 +530,7 @@ function createReplay(positions) {
     resetButton.style.transition = "opacity 0.25s linear"
     resetButton.style.zIndex = 1300
     resetButton.style.opacity = 0
-    document.body.appendChild(resetButton)
+    preview_holder.appendChild(resetButton)
 
     // play button
     var playButton = new Image()
@@ -605,7 +545,7 @@ function createReplay(positions) {
     playButton.style.transition = "opacity 0.25s linear"
     playButton.style.zIndex = 1300
     playButton.style.opacity = 0
-    document.body.appendChild(playButton)
+    preview_holder.appendChild(playButton)
 
     // pause button
     var pauseButton = new Image()
@@ -620,7 +560,7 @@ function createReplay(positions) {
     pauseButton.style.transition = "opacity 0.25s linear"
     pauseButton.style.zIndex = 1300
     pauseButton.style.opacity = 0
-    document.body.appendChild(pauseButton)
+    preview_holder.appendChild(pauseButton)
 
     // crop start button
     $('#pauseButton').after('<button id="cropStartButton">Crop Start')
