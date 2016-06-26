@@ -8,11 +8,12 @@ var Constraints = require('./constraints');
 var Util = require('./util');
 
 /**
- * This script has utilities for working with the replay data, and
+ * This module has utilities for working with the replay data, and
  * provides an interface on top of the IndexedDB and FileSystem storage
  * services.
  *
  * Everywhere a replay id is needed, it refers to the replay info id.
+ * @module Data
  */
 
 /**
@@ -109,23 +110,27 @@ db.version(3).stores({
             var replay = data.data;
             var info = generateReplayInfo(replay);
             // Errors here would bubble up to the transaction.
-            return trans.info.add(info).then(function (info_id) {
+            return trans.info.add(info)
+                        .then(function (info_id) {
                 console.log("Added info: %d.", i); // DEBUG
                 replay.info_id = info_id;
-                return trans.replay.add(replay).then(function (replay_id) {
+                return trans.replay.add(replay)
+                            .then(function (replay_id) {
                     console.log("Added replay: %d.", i); // DEBUG
                     info.replay_id = replay_id;
-                    return trans.info.update(info_id, { replay_id: replay_id }).then(function () {
-                        // debugging
-                        // Console alert that replay was saved, progress update.
-                        bus.emit("db:upgrade:progress", {
-                            total: total,
-                            progress: ++numberDone
-                        });
-                        console.log("Finished replay: %d (%d).", i, numberDone); // DEBUG
-                        callback();
+                    return trans.info.update(info_id, {
+                        replay_id: replay_id
                     });
                 });
+            }).then(function () {
+                // debugging
+                // Console alert that replay was saved, progress update.
+                bus.emit("db:upgrade:progress", {
+                    total: total,
+                    progress: ++numberDone
+                });
+                console.log("Finished replay: %d (%d).", i, numberDone); // DEBUG
+                callback();
             });
         } catch(e) {
             console.log("Failed replay: %d.", i); // DEBUG
@@ -138,24 +143,28 @@ db.version(3).stores({
                 timestamp: Date.now(),
                 message: e.message
             };
-            return trans.failed_info.add(failedInfo).then(function (info_id) {
+            return trans.failed_info.add(failedInfo)
+                        .then(function (info_id) {
                 console.log("Added failed info: %d.", i); // DEBUG
                 var failedReplay = {
                     info_id: info_id,
                     name: name,
                     data: item
                 };
-                return trans.failed_replays.add(failedReplay).then(function (replay_id) {
+                return trans.failed_replays.add(failedReplay)
+                            .then(function (replay_id) {
                     console.log("Added failed replay: %d.", i); // DEBUG
-                    return trans.failed_info.update(info_id, { replay_id: replay_id }).then(function () {
-
-                        bus.emit("db:upgrade:progress", {
-                            total: total,
-                            progress: ++numberDone
-                        });
-                        console.log("Saved failed replay: %d (%d).", i, numberDone); // DEBUG
-                        callback();
+                    return trans.failed_info
+                                  .update(info_id, {
+                                      replay_id: replay_id
+                                  });
+                }).then(function () {
+                    bus.emit("db:upgrade:progress", {
+                        total: total,
+                        progress: ++numberDone
                     });
+                    console.log("Saved failed replay: %d (%d).", i, numberDone); // DEBUG
+                    callback();
                 });
             }).catch(function (err) {
                 // TODO: Necessary?
@@ -184,7 +193,10 @@ db.version(3).stores({
             queue.unsaturated = function() {
                 // TODO: dynamic based on diff between workers and saturation point.
                 var number_to_get = 5;
-                trans.positions.offset(start).limit(number_to_get).each(function (item, cursor) {
+                trans.positions
+                       .offset(start)
+                       .limit(number_to_get)
+                     .each(function (item, cursor) {
                     queue.push({
                         key: cursor.key,
                         value: item
@@ -213,22 +225,33 @@ db.version(0.1).stores({
     savedMovies: ''
 });
 
+    } // end switch
+
 }
 
 /**
  * Call to initialize database.
- * @param {number} [version] - Version of database to use, only for testing.
- * @return {Promise} - Promise that resolves on open or rejects on open error.
+ * @param {number} [version] - Version of database to use, only for
+ *   testing.
+ * @param {bool} [events] - Whether to emit events for this init call.
+ * @return {Promise} - Promise that resolves on open or rejects on open
+ *   error.
  */
-exports.init = function(version) {
+exports.init = function(version, events) {
+    if (typeof events === "undefined") {
+        events = true;
+    }
     console.log("In Data#init");
     setVersion(version);
     return db.open().then(function () {
-        console.log("Emitting db:open");
-        bus.emit("db:open");
+        if (events) {
+            console.log("Emitting db:open");
+            bus.emit("db:open");
+        }
     }).catch(function (err) {
         console.error("Error opening database: %o.", err);
-        bus.emit("db:err");
+        if (events)
+            bus.emit("db:err");
         // Re-throw.
         throw err;
     });
@@ -245,14 +268,17 @@ function generateReplayInfo(replay) {
     // Add player information.
     // Add duration.
     var info = Util.clone(replay.info);
-    info.duration = Math.round((1e3 / info.fps) * replay.data.time.length);
+    info.duration = Math.round(
+        (1e3 / info.fps) * replay.data.time.length);
     info.players = {};
     // Get player information.
     Object.keys(replay.data.players).forEach(function(id) {
         var player = replay.data.players[id];
         info.players[id] = {
-            name: Util.find(player.name, function(v) { return v !== null; }),
-            team: Util.find(player.team, function(v) { return v !== null; }),
+            name: Util.find(player.name,
+                function(v) { return v !== null; }),
+            team: Util.find(player.team,
+                function(v) { return v !== null; }),
             id: player.id
         };
     });
@@ -310,7 +336,8 @@ function cropReplay(replay, startFrame, endFrame) {
             degree: cropFrameArray(player.degree),
             draw: cropFrameArray(player.draw),
             flag: cropFrameArray(player.flag),
-            flair: cropFrameArray(player.flair).map(Util.clone), // Necessary to clone?
+            // Necessary to clone?
+            flair: cropFrameArray(player.flair).map(Util.clone),
             grip: cropFrameArray(player.grip),
             id: player.id,
             name: name,
@@ -354,7 +381,8 @@ function cropReplay(replay, startFrame, endFrame) {
             }),
             map: Util.clone(replay.data.map),
             players: {},
-            score: cropFrameArray(replay.data.score).map(Util.clone), // necessary to clone?
+            // necessary to clone?
+            score: cropFrameArray(replay.data.score).map(Util.clone), 
             spawns: cropSpawns(replay.data.spawns),
             splats: cropEventArray(replay.data.splats),
             time: cropFrameArray(replay.data.time),
@@ -403,7 +431,8 @@ function cleanReplay(replay) {
 function getReplayDatabaseInfo() {
     return db.info.count().then(function (n) {
         return new Promise(function (resolve, reject) {
-            navigator.webkitTemporaryStorage.queryUsageAndQuota(function (used) {
+            navigator.webkitTemporaryStorage
+                     .queryUsageAndQuota(function (used) {
                 resolve({
                     replays: n,
                     size: used
@@ -433,7 +462,11 @@ exports.getDatabaseInfo = getReplayDatabaseInfo;
 function cropAndSaveReplayAs(request) {
     if (request.name === "") request.name = false;
     return db.transaction("rw", db.info, db.replay, function() {
-        return db.replay.where("info_id").equals(request.id).first().then(function (replay) {
+        return db.replay
+                   .where("info_id")
+                   .equals(request.id)
+                   .first()
+                 .then(function (replay) {
             var name = request.name ? request.name : replay.info.name + " (cropped)";
             // TODO: Ensure within bounds of replay and doesn't result in a length 0 replay.
             replay = cropReplay(replay, request.start, request.end);
@@ -471,7 +504,11 @@ exports.cropAndSaveReplay = function(request) {
  *   rejects if the replay is not present or another error occurs.
  */
 exports.getReplay = function(id) {
-    return db.replay.where("info_id").equals(id).first().then(function (replay) {
+    return db.replay
+               .where("info_id")
+               .equals(id)
+               .first()
+             .then(function (replay) {
         if (replay)
             return cleanReplay(replay);
 
@@ -485,18 +522,21 @@ exports.getReplay = function(id) {
  *   iterate over.
  * @param {Function} callback - Callback function that receives each of
  *   the replays in turn.
- * @return {Promise} - Promise that resolves when the iteration is
+ * @returns {Promise} - Promise that resolves when the iteration is
  *   complete.
  */
 exports.forEachReplay = function(ids, callback) {
-    return db.replay.where("info_id").anyOf(ids).each(function (replay) {
+    return db.replay
+               .where("info_id")
+               .anyOf(ids)
+             .each(function (replay) {
         callback(cleanReplay(replay));
     });
 };
 
 /**
  * Get list of replay info for population to menu.
- * @return {Promise} callback - Promise that resolves to an array of
+ * @returns {Promise} callback - Promise that resolves to an array of
  *   the replay info, or rejects if an error occurred.
  */
 exports.getAllReplayInfo = function() {
@@ -505,10 +545,10 @@ exports.getAllReplayInfo = function() {
 
 /**
  * @typedef {object} ReplaySelector
- * @property {integer} length - The number of replays to select.
+ * @property {number} length - The number of replays to select.
  * @property {string} dir - The direction the replays should be sorted
  *   by.
- * @property {integer} start - The offset of the replays from the start
+ * @property {number} start - The offset of the replays from the start
  *   of the sorted list.
  * @property {string} sortedBy - String value referencing an indexed
  *   column in the replays object store. Can be one of "name", "date",
@@ -518,7 +558,7 @@ exports.getAllReplayInfo = function() {
  * Retrieve information for a subset of replays.
  * @param {ReplaySelector} data - Information on which replays to
  *   select.
- * @return {Promise} - Promise that resolves to an array with the number
+ * @returns {Promise} - Promise that resolves to an array with the number
  *   of total replays and the replays that were retrieved.
  */
 exports.getReplayInfoList = function(data) {
@@ -535,7 +575,11 @@ exports.getReplayInfoList = function(data) {
     }
 
     return collection.count().then(function (n) {
-        return collection.offset(data.start).limit(data.length).toArray().then(function (results) {
+        return collection
+                 .offset(data.start)
+                 .limit(data.length)
+                 .toArray()
+               .then(function (results) {
             return [n, results];
         });
     });
@@ -543,9 +587,9 @@ exports.getReplayInfoList = function(data) {
 
 /**
  * Update the info for a single replay with the provided values.
- * @param {integer} id - The id of the replay info to update.
+ * @param {number} id - The id of the replay info to update.
  * @param {object} update - The update used for the replay info.
- * @return {Promise} - Promise that rejects on error.
+ * @returns {Promise} - Promise that rejects on error.
  */
 exports.updateReplayInfo = function(id, update) {
     // Not allowed to set these.
@@ -581,10 +625,10 @@ exports.updateReplayInfo = function(id, update) {
 
 /**
  * Saves the replay with the given info and replay values.
- * @param {ReplayInfo} [info] - The info for the replay. If not provided
- *   then it will be generated.
+ * @param {ReplayInfo} [info] - The info for the replay. If not
+ *   provided then it will be generated.
  * @param {Replay} replay - The Replay data.
- * @return {Promise} - Promise that resolves to the info corresponding
+ * @returns {Promise} - Promise that resolves to the info corresponding
  *   to the replay.
  */
 function saveReplay(info, replay) {
@@ -608,10 +652,10 @@ exports.saveReplay = saveReplay;
 
 /**
  * Rename a replay.
- * @param {integer} id - The id of the info object for the replay to
+ * @param {number} id - The id of the info object for the replay to
  *   rename.
  * @param {string} name - A non-empty string to rename the replay to.
- * @return {Promise} - Promise that resolves on successful completion,
+ * @returns {Promise} - Promise that resolves on successful completion,
  *   or rejects if there was an error.
  */
 exports.renameReplay = function(id, name) {
@@ -628,7 +672,7 @@ exports.renameReplay = function(id, name) {
  * Delete replay data, includes the info and raw replay as well as the
  * rendered video, if present.
  * @param {Array.<integer>} ids - The ids of the replays to delete
- * @return {Promise} - Promise that resolves when all ids have been
+ * @returns {Promise} - Promise that resolves when all ids have been
  *   deleted properly, or rejects on error.
  */
 function deleteReplays(ids) {
@@ -649,8 +693,8 @@ exports.deleteReplays = deleteReplays;
 
 /**
  * Get movie for a replay.
- * @param {integer} id - The id of the replay to get the movie for.
- * @return {Promise} - Promise that resolves to the file, or rejects if
+ * @param {number} id - The id of the replay to get the movie for.
+ * @returns {Promise} - Promise that resolves to the file, or rejects if
  *   there is a filesystem error or the movie isn't rendered.
  */
 exports.getMovie = function(id) {
@@ -676,9 +720,9 @@ exports.getMovie = function(id) {
 
 /**
  * Save a movie to the file system.
- * @param {integer} id - The id of the replay to save the movie for.
+ * @param {number} id - The id of the replay to save the movie for.
  * @param {*} data - The movie data
- * @return {Promise} - The promise that resolves if the saving
+ * @returns {Promise} - The promise that resolves if the saving
  *   completes successfully, or rejects if there is an error.
  */
 exports.saveMovie = function(id, data) {
@@ -727,7 +771,8 @@ exports.failedReplaysExist = function() {
 exports.getFailedReplayInfoList = function(data) {
     var collection = db.failed_info.orderBy(":id");
     return collection.count().then(function (n) {
-        return collection.offset(data.start).limit(data.length).toArray().then(function (results) {
+        return collection.offset(data.start).limit(data.length)
+                .toArray().then(function (results) {
             return [n, results];
         });
     });
@@ -736,7 +781,10 @@ exports.getFailedReplayInfoList = function(data) {
 // Returns promise that resolves to object with info id key and failed replay
 // info value.
 exports.getFailedReplayInfoById = function(ids) {
-    return db.failed_info.where(":id").anyOf(ids).toArray(function (info) {
+    return db.failed_info
+               .where(":id")
+               .anyOf(ids)
+             .toArray(function (info) {
         return info.reduce(function (obj, data) {
             obj[data.id] = data;
             return obj;
@@ -752,7 +800,8 @@ exports.getFailedReplayInfoById = function(ids) {
  *   deleted properly, or rejects on error.
  */
 exports.deleteFailedReplays = function(ids) {
-    return db.transaction("rw", db.failed_info, db.failed_replays, function() {
+    return db.transaction("rw", db.failed_info,
+            db.failed_replays, function() {
         return Promise.all(ids.map(function (id) {
             return db.failed_info.get(id).then(function (info) {
                 return Promise.all([
@@ -771,7 +820,11 @@ exports.deleteFailedReplays = function(ids) {
  *   rejects if the replay is not present or another error occurs.
  */
 exports.getFailedReplay = function(id) {
-    return db.failed_replays.where("info_id").equals(id).first().then(function (replay) {
+    return db.failed_replays
+               .where("info_id")
+               .equals(id)
+               .first()
+             .then(function (replay) {
         if (replay)
             return cleanReplay(replay);
 
@@ -798,7 +851,10 @@ exports.getFailedReplayInfo = function(id) {
  *   complete.
  */
 exports.forEachFailedReplay = function(ids, callback) {
-    return db.failed_replays.where("info_id").anyOf(ids).each(function (replay) {
+    return db.failed_replays
+               .where("info_id")
+               .anyOf(ids)
+             .each(function (replay) {
         var info_id = replay.info_id;
         callback(cleanReplay(replay), info_id);
     });

@@ -11,77 +11,55 @@ var files = {
   ]
 };
 
-function get_replays(version, callback) {
+function get_replays(version) {
   console.log("Getting version " + version + " replays.");
-  async.map(files[version], function (path, callback) {
-    $.ajax({
-      url: "/fixtures/replays_" + version + "/" + path,
-      dataType: "text" 
-    }).done(function (data) {
-      callback(null, {
-        name: path,
-        data: data
+  return new Promise(function (resolve, reject) {
+    async.map(files[version], function (path, callback) {
+      $.ajax({
+        url: "/fixtures/replays_" + version + "/" + path,
+        dataType: "text" 
+      }).done(function (data) {
+        callback(null, {
+          name: path,
+          data: data
+        });
+      }).fail(function (err) {
+        callback("Error getting " + path);
       });
-    }).fail(function (err) {
-      callback("Error getting " + path);
+    }, function (err, result) {
+      if (err) {
+        console.log("Error getting version " + version + " replays.");
+        reject(err);
+      } else {
+        console.log("Retrieved " + result.length +
+            " version " + version + " replays.");
+        resolve(result);
+      }
     });
-  }, function (err, result) {
-    if (err) {
-      console.log("Error getting version " + version + " replays.");
-      callback(err);
-    } else {
-      console.log("Retrieved " + result.length + " version " + version + " replays.");
-      callback(null, result);
-    }
   });
 }
 
 // Setup function for db v_1
 function setup_1(spec) {
   console.log("Setting up for version 1.");
-
-  var openRequest = indexedDB.open("ReplayDatabase");
-  openRequest.onupgradeneeded = function (e) {
-    var db = e.target.result;
-    if (!db.objectStoreNames.contains("positions")) {
-      db.createObjectStore("positions", {autoIncrement: true});
-    }
-    if (!db.objectStoreNames.contains("savedMovies")) {
-      db.createObjectStore("savedMovies", {autoIncrement: true});
-    }
-  };
-  return new Promise(function (resolve, reject) {
-    openRequest.onsuccess = function (e) {
-      console.log("Database opened.");
-      
-      var db = e.target.result;
-      db.onerror = function (e) {
-        throw new Error("Database error: ", e);
-      };
-      // Get and add replays to db.
-      get_replays(spec.version, function (err, data) {
-        var t = db.transaction(["positions"], "readwrite");
-        t.onerror = function () {
-          console.log("Transaction error.");
-        };
-        
-        t.onsuccess = function () {
-          console.log("Transaction succeeded.");
-        };
-        var os = t.objectStore("positions");
-        console.log("Adding replays.");
+  return Data.init(1, false).then(function () {
+    return get_replays(spec.version);
+  }).then(function (data) {
+    console.log("Adding replays.");
+    var db = Data.db;
+    return db.transaction("rw", db.positions, function () {
+      console.log("Starting transaction.");
+      return new Promise(function (resolve, reject) {
         async.eachSeries(data, function (data, callback) {
           var name = data.name;
           var content = data.data;
           console.log("Adding replay " + name + ".");
-          var request = os.put(content, name);
-          request.onsuccess = function () {
+          db.positions.add(content, name).then(function () {
             console.log("Successfully added replay " + name + ".");
             callback();
-          };
-          request.onerror = function () {
-            callback("Error adding " + name);
-          };
+          }).catch(function (err) {
+            callback(Error("Error adding " + name));
+          });
         }, function (err) {
           if (err) {
             console.log("Error adding replays.");
@@ -93,7 +71,7 @@ function setup_1(spec) {
           }
         });
       });
-    };
+    });
   });
 }
 
@@ -106,6 +84,7 @@ describe('db', function () {
   
   afterEach(function () {
     // Delete database.
+    // Data.resetDatabase();
     // Remove all Data listeners.
   });
   

@@ -35,7 +35,8 @@ var fsm = new machina.Fsm({
     },
     /**
      * Try to send event.
-     * @returns {Promise} - resolves if transition completes successfully, rejects otherwise.
+     * @returns {Promise} - resolves if transition completes
+     *   successfully, rejects otherwise.
      */
     try: function () {
         var self = this;
