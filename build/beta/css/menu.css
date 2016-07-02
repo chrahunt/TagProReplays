@@ -7,8 +7,18 @@
 i.sort-icon, #tpr-container .card-header .actions div:hover, #tpr-container th .sorting_asc, #tpr-container th .sorting_desc, #tpr-container th.cb-cell, #tpr-container td .actions div:not(.disabled):hover {
   color: rgba(0, 0, 0, 0.86); }
 
+#ReplayMenuButton {
+  margin-left: 25px;
+  cursor: pointer; }
+
 #tpr-container {
   color: #333; }
+  #tpr-container .modal-dialog {
+    background: white; }
+    #tpr-container .modal-dialog .modal-content > * {
+      background: white; }
+  #tpr-container .nav {
+    font-size: initial; }
   #tpr-container .hidden {
     display: none !important; }
 
@@ -177,6 +187,8 @@ i.sort-icon {
     display: inline-block; }
   #tpr-container th, #tpr-container td {
     vertical-align: middle; }
+  #tpr-container thead {
+    background: white; }
   #tpr-container .table tbody tr {
     height: 48px; }
     #tpr-container .table tbody tr:hover {
@@ -184,6 +196,12 @@ i.sort-icon {
     #tpr-container .table tbody tr.selected {
       background-color: #F5F5F5; }
   #tpr-container .footer {
+    position: initial;
+    margin-top: 0px;
+    padding-top: 0px;
+    width: initial;
+    background: white;
+    border-top: none;
     height: 56px;
     padding-right: 14px;
     font-family: 'Roboto', sans-serif;

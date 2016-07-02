@@ -99,7 +99,8 @@ width = #viewer-background.width + 20
     transition-property: opacity;
     transition-duration: 1s;
     border: 4px solid #cccccc;
-    border-radius: 10px; }
+    border-radius: 10px;
+    font: initial; }
   #time-slider .ui-slider-range {
     border-radius: 0px;
     border: none; }

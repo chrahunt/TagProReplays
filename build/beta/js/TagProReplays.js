@@ -33345,7 +33345,7 @@ Overlay.prototype.actions = function(lst) {
  */
 var Menu = function() {
     // Create Container for Replay Menu.
-    $('article').append(
+    $('body').append(
         '<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
     var url = chrome.extension.getURL("html/menu.html");
 
@@ -36801,7 +36801,7 @@ var Render = require('./render');
 
 // Handle the interaction with the viewer for a replay.
 var Viewer = function() {
-    $('article').append(
+    $('body').append(
         '<div id="tpr-viewer-container" class="bootstrap-container jquery-ui-container">');
     var url = chrome.extension.getURL("html/viewer.html");
     $("#tpr-viewer-container").load(url, function() {
@@ -38070,18 +38070,14 @@ checkOptions();
  * @param  {Menu} menu - The menu to open.
  */
 function createReplayPageButton(menu) {
-    function findInsertionPoint() {
-        buttons = $('article>div.buttons.smaller>a');
-        for (var i = 0; i < buttons.length; i++) {
-            textcontent = buttons[i].textContent;
-            if (textcontent.search('Play') >= 0) {
-                return buttons[i];
-            }
-        }
+    if ($('#userscript-home').length) {
+        $('#play-now').after('<a class="btn" id="ReplayMenuButton">Replays');
+        $('#ReplayMenuButton').append('<span class="sub-text">watch yourself');
+    } else {
+        $('div.buttons > a[href="/boards"]').after('<a class="button" id="ReplayMenuButton">Replays');
+        $('#ReplayMenuButton').append('<span>watch yourself');
     }
 
-    $(findInsertionPoint()).after('<a class="button" id="ReplayMenuButton">Replays</a>');
-    $('#ReplayMenuButton').append('<span>watch yourself</span>');
     $('#ReplayMenuButton').click(function () {
         menu.open();
     });
