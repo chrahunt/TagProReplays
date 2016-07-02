@@ -123,6 +123,8 @@ width = #viewer-background.width + 20
         transition-duration: 1s;
         border: 4px solid rgb(204, 204, 204);
         border-radius: 10px;
+        // redesign reset
+        font: initial;
     }
 
     .ui-slider-range {

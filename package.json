@@ -1,6 +1,6 @@
 {
   "name": "TagProReplays",
-  "version": "2.0",
+  "version": "2.0.1",
   "description": "Record yourself in TagPro!",
   "scripts": {
     "test": "gulp test"

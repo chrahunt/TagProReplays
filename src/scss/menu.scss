@@ -32,9 +32,26 @@
 // Height.
 $row-height: 48px;
 
+// Menu button.
+#ReplayMenuButton {
+    margin-left: 25px;
+    cursor: pointer;
+}
+
 // Global classes.
 #tpr-container {
     color: #333;
+    // redesign resets.
+    .modal-dialog {
+        background: white;
+        .modal-content > * {
+            background: white;
+        }
+    }
+
+    .nav {
+        font-size: initial;
+    }
 
     .hidden {
         display: none !important;
@@ -318,6 +335,10 @@ i.sort-icon {
         vertical-align: middle;
     }
 
+    // redesign reset
+    thead {
+        background: white;
+    }
     // Table content row style.
     .table tbody tr {
         height: $row-height;
@@ -334,6 +355,14 @@ i.sort-icon {
     }
 
     .footer {
+        // redesign resets
+        position: initial;
+        margin-top: 0px;
+        padding-top: 0px;
+        width: initial;
+        background: white;
+        border-top: none;
+        // end redesign resets
         height: 56px;
         padding-right: 14px;
         @include roboto-regular(12px);

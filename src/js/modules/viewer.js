@@ -13,7 +13,7 @@ var Render = require('./render');
 
 // Handle the interaction with the viewer for a replay.
 var Viewer = function() {
-    $('article').append(
+    $('body').append(
         '<div id="tpr-viewer-container" class="bootstrap-container jquery-ui-container">');
     var url = chrome.extension.getURL("html/viewer.html");
     $("#tpr-viewer-container").load(url, function() {

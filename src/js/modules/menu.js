@@ -79,7 +79,7 @@ Overlay.prototype.actions = function(lst) {
  */
 var Menu = function() {
     // Create Container for Replay Menu.
-    $('article').append(
+    $('body').append(
         '<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
     var url = chrome.extension.getURL("html/menu.html");
 
