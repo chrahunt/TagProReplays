@@ -13,6 +13,6 @@
    "manifest_version": 2,
    "name": "TagProReplays",
    "permissions": [ "storage", "unlimitedStorage" ],
-   "version": "1.2.27",
+   "version": "1.2.28",
    "web_accessible_resources": [ "replayRecording.js", "tiles.png", "portal.png", "speedpad.png", "speedpadred.png", "speedpadblue.png", "tagpro.png", "rollingbomb.png", "splats.png", "flair.png", "ui/menus.css", "ui/menus.html", "ui/menus.js", "ui/bootstrap.min.css", "ui/bootstrap.css", "ui/glyphicons-halflings-regular.eot", "ui/glyphicons-halflings-regular.svg", "ui/glyphicons-halflings-regular.ttf", "ui/glyphicons-halflings-regular.woff" ]
 }
