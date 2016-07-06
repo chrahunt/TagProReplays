@@ -1,4 +1,5 @@
 var $ = require('jquery');
+var async = require('async');
 var Dexie = require('dexie');
 var EventEmitter = require('events');
 
@@ -41,28 +42,130 @@ db.on("blocked", function () {
     bus.emit("db:err", "blocked");
 });
 
-/**
- * Set Dexie version methods.
- * @param {number} [version] - the version to set the database to,
- *   default is latest. 
- */
-function setVersion(version) {
-    if (typeof version === "undefined") {
-        version = 3;
+// Hold upgrade information until version is decided by Data.init.
+var version_holder = {
+    version: function (version) {
+        console.log("Adding version: " + version);
+        var o = {
+            version: version
+        };
+        this._versions.push(o);
+        this._max_version = Math.max(version, this._max_version);
+        console.log("Total versions added: " + this._versions.length);
+        return {
+            stores: function (defs) {
+                o.stores = defs;
+                return this;
+            },
+            upgrade: function (callback) {
+                o.upgrade = callback;
+                return this;
+            }
+        };
+    },
+    _versions: [],
+    _max_version: 0,
+    init: function (db, version) {
+        if (!version) {
+            version = this._max_version;
+        }
+        console.log("Initializing with versions <= " + version);
+        var versions = this._versions.filter(function (o) {
+            return o.version <= version;
+        });
+        console.log("Versions selected: " + versions.length);
+        versions.forEach(function (o) {
+            db.version(o.version)
+              .stores(o.stores)
+              .upgrade(o.upgrade);
+        });
+    }
+};
+
+// Initial versions of the database may be either 1 or 2 with
+// a 'positions' object store and an empty 'savedMovies' object
+// store.
+version_holder.version(0.1).stores({
+    positions: '',
+    savedMovies: ''
+});
+
+version_holder.version(0.2).stores({
+    positions: '',
+    savedMovies: ''
+});
+
+// Batch process for a table.
+function batch_process(table, batch_size, iteratee) {
+    var total;
+    // start - position in table to start.
+    // returns promise
+    function inner_loop(start) {
+        console.log(`Executing inner loop on ${start}`);
+        // Index of the end of this sequence of items.
+        var n = Math.min(batch_size, total - start);
+        // whether this is the last iteration.
+        var last = start + batch_size >= total;
+        return new Dexie.Promise(function inner_loop_promise(resolve, reject) {
+            var dones = 0;
+            var looped = false; 
+            function check(err) {
+                // check looped to ensure that the table looping
+                // is complete.
+                // or is that redundant with checking n?
+                if (dones === n && looped) {
+                    // reject only when looped?
+                    if (err) {
+                        reject(err);
+                    } else if (!last) {
+                        // recurse
+                        resolve(inner_loop(start + n));
+                    } else {
+                        // done
+                        resolve();
+                    }
+                }
+            }
+            
+            table.offset(start)
+                   .limit(n)
+                 .each(function iteratee_caller(item, cursor) {
+                var data = {
+                    key: cursor.key,
+                    value: item
+                }; 
+                iteratee(data).then(function iteratee_callback(err) {
+                    dones++;
+                    check(err);
+                });
+            }).then(function inner_loop_callback() {
+                looped = true;
+                // check here in case this finishes after each of the individual transactions.
+                // e.g. if everything of the transactions are synchronous.
+                check();
+            });
+        });
     }
 
-    switch (version) {
-        case 3:
+    return table.count().then(function (t) {
+        if (!t) {
+            return Dexie.Promise.resolve();
+        } else {
+            total = t;
+            return inner_loop(0);
+        }
+    });
+}
 
 // Current version.
-db.version(3).stores({
+version_holder.version(3).stores({
     info: '++id,&replay_id,name,rendered,duration,dateRecorded',
     replay: '++id,&info_id',
     failed_info: '++id,&replay_id',
     failed_replays: '++id,&info_id',
     positions: null,
     savedMovies: null
-}).upgrade(function (trans) {
+}).upgrade(function upgrade_3(trans) {
     console.log("Doing upgrade.");
     // TODO: Error transition if too big.
     // Set upgrading status.
@@ -73,7 +176,7 @@ db.version(3).stores({
     });
 
     trans.on('abort', function (err) {
-        console.warn("inside transaction abort handler");
+        console.warn("Inside transaction abort handler");
         bus.emit("db:err:upgrade", err);
     });
 
@@ -81,153 +184,126 @@ db.version(3).stores({
         console.warn("Inside transaction error handler.");
         bus.emit("db:err:upgrade", err);
     });
-    
-    // Number complete.
+
+    // Num done.
     var numberDone = 0;
-    // Total replays to process.
-    var total = 0;
-    // Current item number.
+    // Item #.
     var n = 0;
+
     // Worker processes replay conversions.
-    function worker(data, callback) {
+    // Handles one replay at a time.
+    // - converts
+    // - adds info
+    // - adds replay
+    // - adds info with replay id 
+    function worker(data) {
         // Skip null values.
         if (data.value === null) {
-            callback();
-            return;
+            console.log("Skipping null value.");
+            return Dexie.Promise.resolve();
         }
 
         var name = data.key;
         var item = data.value;
         var i = n++;
 
-        console.log("Iterating item: %d.", i); // DEBUG
+        console.log(`Iterating item: ${i}`); // DEBUG
         try {
             var data = convert({
                 name: name,
                 data: JSON.parse(item)
             });
-            // Save converted replay.
-            var replay = data.data;
-            var info = generateReplayInfo(replay);
-            // Errors here would bubble up to the transaction.
-            return trans.info.add(info)
-                        .then(function (info_id) {
-                console.log("Added info: %d.", i); // DEBUG
-                replay.info_id = info_id;
-                return trans.replay.add(replay)
-                            .then(function (replay_id) {
-                    console.log("Added replay: %d.", i); // DEBUG
-                    info.replay_id = replay_id;
-                    return trans.info.update(info_id, {
-                        replay_id: replay_id
-                    });
-                });
-            }).then(function () {
-                // debugging
-                // Console alert that replay was saved, progress update.
-                bus.emit("db:upgrade:progress", {
-                    total: total,
-                    progress: ++numberDone
-                });
-                console.log("Finished replay: %d (%d).", i, numberDone); // DEBUG
-                callback();
-            });
         } catch(e) {
-            console.log("Failed replay: %d.", i); // DEBUG
+            // Problem with conversion.
+            console.log(`Failed replay: ${i}.`); // DEBUG
             // Catch replay conversion or save error.
-            //console.warn("Couldn't convert %s due to: %o.", name, e); // DEBUG
-            //console.log("Saving %s to failed replay database.", name); // DEBUG
+            console.warn("Couldn't convert %s due to: %O.", name, e); // DEBUG
+            console.log(`Saving ${name} to failed replay database.`); // DEBUG
             var failedInfo = {
                 name: name,
                 failure_type: "upgrade_error",
                 timestamp: Date.now(),
                 message: e.message
             };
-            return trans.failed_info.add(failedInfo)
-                        .then(function (info_id) {
-                console.log("Added failed info: %d.", i); // DEBUG
-                var failedReplay = {
+            return trans.table("failed_info")
+                          .add(failedInfo)
+                        .then(info_id => {
+                console.log(`Added failed info: ${i}.`); // DEBUG
+                return {
                     info_id: info_id,
                     name: name,
                     data: item
                 };
-                return trans.failed_replays.add(failedReplay)
-                            .then(function (replay_id) {
-                    console.log("Added failed replay: %d.", i); // DEBUG
-                    return trans.failed_info
-                                  .update(info_id, {
-                                      replay_id: replay_id
-                                  });
-                }).then(function () {
-                    bus.emit("db:upgrade:progress", {
-                        total: total,
-                        progress: ++numberDone
-                    });
-                    console.log("Saved failed replay: %d (%d).", i, numberDone); // DEBUG
-                    callback();
+            }).then(failedReplay => {
+                return trans.table("failed_replays")
+                              .add(failedReplay);
+            }).then(replay_id => {
+                console.log(`Added failed replay: ${i}.`); // DEBUG
+                return trans.table("failed_info")
+                              .update(info_id, {
+                                  replay_id: replay_id
+                              });
+            }).then(() => {
+                bus.emit("db:upgrade:progress", {
+                    total: total,
+                    progress: ++numberDone
                 });
+                console.log(`Saved failed replay: ${i} (${numberDone}).`); // DEBUG
+                callback();
             }).catch(function (err) {
                 // TODO: Necessary?
                 // Save error, abort transaction.
-                console.error("Aborting upgrade due to database error: %o.", err);
+                console.error("Aborting upgrade due to database error: %O.", err);
                 trans.abort();
-                callback(Error("error: " + err));
+                throw new Error("error: " + err);
             });
         }
+        // Save converted replay.
+        var replay = data.data;
+        var info = generateReplayInfo(replay);
+        // Errors here would bubble up to the transaction.
+        console.log(`Adding info: ${i}`);
+        return trans.table("info")
+                      .add(info)
+                    .then(function w_info_add_1(info_id) {
+            //debugger;
+            console.log(`Added info: ${i}`); // DEBUG
+            replay.info_id = info_id;
+            return trans.table("replay").add(replay);
+        }).then(function w_replay_add(replay_id) {
+            console.log(`Added replay: ${i}`); // DEBUG
+            info.replay_id = replay_id;
+            return trans.table("info").update(replay.info_id, {
+                replay_id: replay_id
+            });
+        }).then(function w_info_add_2() {
+            // Console alert that replay was saved, progress update.
+            bus.emit("db:upgrade:progress", {
+                total: total,
+                progress: ++numberDone
+            });
+            console.log(`Finished replay: ${i} (${numberDone}).`); // DEBUG
+        });
     }
 
-    trans.positions.count().then(function (t) {
+    trans.table("positions").count().then(function (t) {
         if (t > Constraints.max_replays_in_database) {
             // TODO: Set error message somehow
             // set("db_full")
-            console.error("Aborting upgrade due to database size (replays: %d, max: %d.",
+            console.error("Aborting upgrade due to database size (replays: %d, max: %d).",
                 t, Constraints.max_replays_in_database);
             trans.abort();
         } else if (t === 0) {
             console.log("Empty database, nothing to do.");
         } else {
+            console.log(`Database has ${t} replays to upgrade.`);
             total = t;
-            var queue = async.queue(worker, 5);
-            queue.buffer = 5;
-            var start = 0;
-            queue.unsaturated = function() {
-                // TODO: dynamic based on diff between workers and saturation point.
-                var number_to_get = 5;
-                trans.positions
-                       .offset(start)
-                       .limit(number_to_get)
-                     .each(function (item, cursor) {
-                    queue.push({
-                        key: cursor.key,
-                        value: item
-                    });
-                })
-            };
-            queue.unsaturated();
+            var num_workers = 5;
+            batch_process(trans.table("positions"),
+                num_workers, worker);
         }
     });
 });
-
-        case 2:
-
-db.version(0.2).stores({
-    positions: '',
-    savedMovies: ''
-});
-
-        case 1:
-
-// Initial versions of the database may be either 1 or 2 with
-// a 'positions' object store and an empty 'savedMovies' object
-// store.
-db.version(0.1).stores({
-    positions: '',
-    savedMovies: ''
-});
-
-    } // end switch
-
-}
 
 /**
  * Call to initialize database.
@@ -242,16 +318,16 @@ exports.init = function(version, events) {
         events = true;
     }
     console.log("In Data#init");
-    setVersion(version);
+    version_holder.init(db, version);
     return db.open().then(function () {
         if (events) {
             console.log("Emitting db:open");
             bus.emit("db:open");
         }
     }).catch(function (err) {
-        console.error("Error opening database: %o.", err);
+        console.error("Error opening database: %O.", err);
         if (events)
-            bus.emit("db:err");
+            bus.emit("db:err", "unknown");
         // Re-throw.
         throw err;
     });
