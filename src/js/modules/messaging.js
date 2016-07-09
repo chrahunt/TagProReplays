@@ -108,6 +108,8 @@ function commonSend(name, message, callback) {
     return data;
 }
 
+var background = false;
+
 // Set listener for both sides of port.
 function listenPort(port) {
     // Send callback message.
@@ -126,7 +128,7 @@ function listenPort(port) {
             var data = message.data || {};
             if (listeners.hasOwnProperty(method)) {
                 listeners[method].forEach(function (listener) {
-                    if (onBackgroundPage()) {
+                    if (background) {
                         var callback_id = message.callback_id;
                         if (callback_id) {
                             var sync = true;
@@ -239,47 +241,72 @@ exports.removeListener = function (name, callback) {
     }
 };
 
-// Sets `send` function.
-if (onBackgroundPage()) {
-    // Background page port management.
-    var ports = {};
-    // Listen for incoming page ports.
-    chrome.runtime.onConnect.addListener(function (port) {
-        var id = getId(port.id, port.sender);
-        ports[id] = port;
-        listenPort(port);
-        // Action on port disconnection.
-        port.onDisconnect.addListener(function () {
-            delete ports[id];
-        });
-    });
+// Queued initial send.
+var sends = [];
+exports.send = function(name, message, callback) {
+    sends.push([name, message, callback]);
+};
 
-    // No callback on background page.
-    exports.send = function (name, message) {
-        message = commonSend(name, message);
-        for (var id in ports) {
-            var port = ports[id];
+// Sets `send` function.
+onBackgroundPage().then((isbackground) => {
+    if (isbackground) {
+        background = true;
+        // Background page port management.
+        var ports = {};
+        // Listen for incoming page ports.
+        chrome.runtime.onConnect.addListener(function (port) {
+            var id = getId(port.id, port.sender);
+            ports[id] = port;
+            listenPort(port);
+            // Action on port disconnection.
+            port.onDisconnect.addListener(function () {
+                delete ports[id];
+            });
+        });
+
+        // No callback on background page.
+        exports.send = function (name, message) {
+            message = commonSend(name, message);
+            for (var id in ports) {
+                var port = ports[id];
+                port.postMessage(message);
+            }
+        };
+    } else {
+        // Non-background page, single port.
+        var port = chrome.runtime.connect({
+            name: performance.now().toString()
+        });
+        listenPort(port);
+        exports.send = function (name, message, callback) {
+            message = commonSend(name, message, callback);
             port.postMessage(message);
-        }
-    };
-} else {
-    // Content script, single port.
-    var port = chrome.runtime.connect({
-        name: performance.now().toString()
+        };
+    }
+
+    // Replay queued messages.
+    sends.forEach((args) => {
+        exports.send.apply(null, args);
     });
-    listenPort(port);
-    exports.send = function (name, message, callback) {
-        message = commonSend(name, message, callback);
-        port.postMessage(message);
-    };
-}
+    // don't keep it around.
+    sends = null;
+});
+
 
 /**
  * Determine whether the script is running in a background page
  * context.
- * @return {boolean} - Whether the script is running on the
+ * @return {Promise<boolean>} - Whether the script is running on the
  *   background page.
  */
 function onBackgroundPage() {
-    return location.protocol == "chrome-extension:";
+    if (location.protocol != "chrome-extension:") {
+        return Promise.resolve(false);
+    } else {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.getBackgroundPage((that) => {
+                resolve(that === global);
+            });
+        });
+    }
 }

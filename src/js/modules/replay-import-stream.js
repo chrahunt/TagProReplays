@@ -3,10 +3,6 @@ var Writable = require('readable-stream').Writable;
 
 var Messaging = require('./messaging');
 
-function setImmediate(fn) {
-  return setTimeout(fn, 0);
-}
-
 inherits(ObjectStream, Writable);
 
 /**

@@ -3,15 +3,12 @@ var $ = require('jquery');
 var Cookies = require('./modules/cookies');
 var DOMMessaging = require('./modules/messaging.dom');
 var Messaging = require('./modules/messaging');
-var Menu = require('./modules/menu');
 
 /**
- * Takes page-specific actions, either initializing the main menu on
- * main server pages, or injecting the data listener script when user
- * is in a game. Also acts as the intermediary between the listener
- * script and background page.
- *
- * This script is included as a content script.
+ * Content script:
+ * - adds button to home page
+ * - adds record button to game page
+ * - injects game listener script
  */
 
 // Callback for options update event, updates the cookies needed
@@ -83,7 +80,9 @@ function createReplayPageButton(menu) {
     $(findInsertionPoint()).after('<a class="button" id="ReplayMenuButton">Replays</a>');
     $('#ReplayMenuButton').append('<span>watch yourself</span>');
     $('#ReplayMenuButton').click(function () {
-        menu.open();
+        // Open extension page.
+        var url = chrome.extension.getURL("main.html");
+        // TODO: Open page or bring focus to existing page.
     });
 }
 
@@ -103,21 +102,15 @@ function removeScript() {
 // the button that opens it.
 if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     $(function () {
-        // Make the body scrollable.
-        $('body')[0].style.overflowY = "scroll";
-
-        // Initialize the menu.
-        var menu = new Menu();
-        
         // Make the menu-opening button.
-        createReplayPageButton(menu);
+        createReplayPageButton();
     });
 }
 
 // if we're in a game, as evidenced by there being a port number,
 // inject the replayRecording.js script.
 if (document.URL.search(/\.\w+:/) >= 0) {
-    injectScript("js/replayRecording.js");
+    injectScript("js/record.js");
 
     // set up listener for info from injected script
     // if we receive data, send it along to the background script for storage

@@ -38,15 +38,14 @@ var fsm = new machina.Fsm({
      * @returns {Promise} - resolves if transition completes
      *   successfully, rejects otherwise.
      */
-    try: function () {
+    try: function (event) {
         var self = this;
-        var event = arguments[0];
         return new Promise(function (resolve, reject) {
             function nh_cb(e) {
                 if (e.inputType === event) {
                     self.off("nohandler", nh_cb);
                     self.off("handled", h_cb);
-                    reject();
+                    reject(e);
                 }
             }
             function h_cb(e) {
@@ -57,14 +56,16 @@ var fsm = new machina.Fsm({
                 }
             }
             self.on("nohandler", nh_cb);
-            self.on("handled", tr_cb);
+            self.on("handled", h_cb);
+            self.handle(event);
         });
     }
 });
 
 // Logging.
 fsm.on("transition", function (e) {
-    console.log("Transitioning: [%s] -[%s]-> [%s]", e.fromState, e.action, e.toState);
+    console.log(`Transitioning: (${e.fromState}) --[ ${e.action} ]--> (${e.toState})`);
+    fsm.emit(e.action.split(".")[1]);
 });
 
 // Messaging.
@@ -78,7 +79,7 @@ fsm.on("transition", function (e) {
 
 Messaging.listen("_get_state",
 function(message, sender, sendResponse) {
-    console.log("State requested, current state: %s", fsm.state);
+    console.log(`State requested, current state: ${fsm.state}`);
     sendResponse({
         state: fsm.state
     });

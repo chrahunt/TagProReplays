@@ -126,7 +126,7 @@ function imageToDataURL(img) {
 // callback is passed the new textures object.
 // Should only be called from background page to prevent cross-origin
 // canvas contamination.
-exports.getDefault = function(callback) {
+function getDefaultTextures(callback) {
     var defaultTextures = {
         tiles: 'images/textures/tiles.png',
         portal: 'images/textures/portal.png',
@@ -159,7 +159,7 @@ exports.getDefault = function(callback) {
 
 function setDefaultTextures() {
     return new Promise(function (resolve, reject) {
-        Textures.getDefault(function(textures) {
+        getDefaultTextures(function(textures) {
             // Use clone for same object, otherwise default_textures is
             // null.
             var result = Storage.set({

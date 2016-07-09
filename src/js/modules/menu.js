@@ -6,11 +6,16 @@ require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
 
+var sanitize = require('sanitize-filename');
+var saveAs = require('file-saver');
+
+var Data = require('./data');
 var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
 var NotificationList = require('./notification-list');
 var Overlay = require('./overlay');
 var ReplayImportStream = require('./replay-import-stream');
+var Replays = require('./replays');
 var Status = require('./status');
 var Table = require('./table');
 var Templates = require('./templates');
@@ -18,6 +23,10 @@ var Textures = require('./textures');
 var Viewer = require('./viewer');
 var Constraints = require('./constraints');
 var Util = require('./util');
+
+Data.init().then(() => {
+    console.log("Data initialized.");
+});
 
 // Moment calendar customization for date display.
 moment.locale('en', {
@@ -46,7 +55,7 @@ moment.locale('en', {
  */
 var Menu = function() {
     // Create Container for Replay Menu.
-    $('article').append(
+    $('body').append(
         '<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
     var url = chrome.extension.getURL("html/menu.html");
 
@@ -59,7 +68,7 @@ var Menu = function() {
     // debug
     Status.on("active", function () {
         Messaging.send("getNumReplays", function (result) {
-            console.log("Result: %o", result);
+            console.log("Result: %O", result);
         });
     });
 };
@@ -83,14 +92,15 @@ Menu.prototype.open = function() {
  * @private
  */
 Menu.prototype.init = function() {
-    $("#menuContainer").hide();
+    console.log("Menu init.");
     /* UI-specific code */
     // Handling multiple modals
     // http://miles-by-motorcycle.com/fv-b-8-670/stacking-bootstrap-dialogs-using-event-callbacks
     $(function () {
         $('.modal').on('hidden.bs.modal', function (e) {
             $(this).removeClass('fv-modal-stack');
-            $('#tpr-container').data('open_modals', $('#tpr-container').data('open_modals') - 1);
+            $('#tpr-container').data('open_modals',
+                $('#tpr-container').data('open_modals') - 1);
         });
 
         $('.modal').on('shown.bs.modal', function (e) {
@@ -106,16 +116,19 @@ Menu.prototype.init = function() {
 
             $(this).addClass('fv-modal-stack');
 
-            $('#tpr-container').data('open_modals', $('#tpr-container').data('open_modals') + 1);
+            $('#tpr-container').data('open_modals',
+                $('#tpr-container').data('open_modals') + 1);
 
-            $(this).css('z-index', 1040 + (10 * $('#tpr-container').data('open_modals')));
+            $(this).css('z-index',
+                1040 + (10 * $('#tpr-container').data('open_modals')));
 
             $('.modal-backdrop').not('.fv-modal-stack').css(
                 'z-index',
                 1039 + (10 * $('#tpr-container').data('open_modals'))
             );
 
-            $('.modal-backdrop').not('fv-modal-stack').addClass('fv-modal-stack');
+            $('.modal-backdrop').not('fv-modal-stack')
+                .addClass('fv-modal-stack');
         });
     });
 
@@ -477,8 +490,8 @@ Menu.prototype._initReplayList = function() {
                 dir: data.order[0].dir,
                 start: data.start
             };
-            Messaging.send("getReplayList", args, function (response) {
-                var list = response.data.map(function (replay) {
+            Replays.query(args).then((result) => {
+                var list = result.data.map(function (replay) {
                     return {
                         name: replay.name,
                         date: moment(replay.dateRecorded),
@@ -493,13 +506,15 @@ Menu.prototype._initReplayList = function() {
                     };
                 });
                 // TODO: Move this.
-                $(".nav-home .badge").text(response.total);
+                $(".nav-home .badge").text(result.total);
                 callback({
                     data: list,
                     draw: data.draw,
-                    recordsTotal: response.total,
-                    recordsFiltered: response.filtered
+                    recordsTotal: result.total,
+                    recordsFiltered: result.filtered
                 });
+            }).catch((err) => {
+                console.error("Could not retrieve list: %O", err);
             });
         },
         columns: [
@@ -510,8 +525,7 @@ Menu.prototype._initReplayList = function() {
                 render: function (data, type, row, meta) {
                     return data ? '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>'
                                 : Templates.table.checkbox;
-                },
-                width: "24px"
+                }
             },
             { // Name.
                 className: "row-name fixed-cell",
@@ -525,7 +539,6 @@ Menu.prototype._initReplayList = function() {
                         });
                     }
                 }
-                // 'width' set via css.
             },
             { // Rendered.
                 className: "data-cell",
@@ -534,21 +547,18 @@ Menu.prototype._initReplayList = function() {
                 render: function (data) {
                     return data ? '<i class="material-icons">done</i>'
                                 : '';
-                },
-                width: "65px",
+                }
             },
             { // Duration.
                 className: "data-cell",
-                data: "duration",
-                width: "60px"
+                data: "duration"
             },
             { // Date recorded.
                 className: "data-cell",
                 data: "date",
                 render: function (date) {
                     return date.calendar();
-                },
-                width: "180px"
+                }
             },
             { // Controls.
                 data: "rendered",
@@ -557,8 +567,7 @@ Menu.prototype._initReplayList = function() {
                     return Mustache.render(Templates.replay_list.controls, {
                         disabled: !data
                     });
-                },
-                width: "60px"
+                }
             }
         ],
         order: [[1, 'asc']],
@@ -592,43 +601,31 @@ Menu.prototype._initReplayList = function() {
     $('#replays .card-header .actions .render').click(function () {
         var ids = self.replay_table.selected();
         self.replay_table.deselect(ids);
-        if (ids.length > 0) {
-            Messaging.send("renderReplays", {
-                ids: ids
-            }, function(response) {
-                // TODO: Handle error adding replays to queue.
-            });
-        } else {
-            alert("You have to select at least 1 replay.");
-        }
+        Replays.select(ids).render().catch((err) => {
+            // TODO: Handle error.
+        });
     });
 
     // Deleting replays.
     $('#replays .card-header .actions .delete').click(function () {
         var ids = self.replay_table.selected();
         self.replay_table.deselect(ids);
-
-        if (ids.length > 0) {
-            if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-                console.log('Requesting deletion of ' + ids);
-                Messaging.send("deleteReplays", {
-                    ids: ids
-                });
-            }
-        }
+        Replays.select(ids).remove().then((undo) => {
+            // TODO: create undo panel and associate undo with it.
+        }).catch((err) => {
+            // internal error
+            // empty selection.
+        });
     });
 
     // Downloading raw replays.
     $('#replays .card-header .actions .download-raw').click(function () {
         var ids = self.replay_table.selected();
-        if (ids.length > 0) {
-            console.log('Requesting raw replay download for ' + ids + '.');
-            Messaging.send("downloadReplays", { ids: ids }, function (response) {
-                if (response.failed) {
-                    alert("Download failed: " + response.reason);
-                }
-            });
-        }
+        Replays.select(ids).download().then((progress) => {
+            // TODO: hook into progress for UI update.
+        }).catch((err) => {
+
+        });
     });
 
     /////////////////////////
@@ -645,8 +642,15 @@ Menu.prototype._initReplayList = function() {
     $("#replay-table tbody").on("click", ".row-download-movie", function() {
         var id = $(this).closest('tr').data("id");
         console.log('Requesting movie download for replay ' + id + '.');
-        Messaging.send("downloadMovie", {
-            id: id
+        Data.getMovie(id).then(function (file) {
+            var movie = new Blob([file.data], { type: 'video/webm' });
+            var filename = sanitize(file.name);
+            if (filename === "") {
+                filename = "replay";
+            }
+            saveAs(movie, filename + ".webm");
+        }).catch(function (err) {
+            console.error("Error retrieving movie for download: %o.", err);
         });
     });
 
@@ -661,9 +665,10 @@ Menu.prototype._initReplayList = function() {
 
         function save(id, text) {
             console.log("Renaming replay %d to %s.", id, text);
-            Messaging.send("renameReplay", {
-                id: id,
-                name: text
+            Replays.get(id).rename(text).then(() => {
+                // update
+            }).catch((err) => {
+                // TODO: Handle internal error.
             });
         }
 
@@ -907,6 +912,7 @@ Menu.prototype._initFailedReplayList = function() {
         order: [[1, 'asc']]
     });
 
+    // Headers should automatically have the associated table.
     // Download listener.
     $('#failed-replays .card-header .actions .download').click(function () {
         var ids = self.failed_replay_table.selected();
@@ -1084,8 +1090,7 @@ Menu.prototype._initRenderList = function() {
                 className: "cb-cell",
                 data: null,
                 defaultContent: Table.checkbox,
-                orderable: false,
-                width: "24px"
+                orderable: false
             },
             { // id, hidden
                 data: "id",
@@ -1094,35 +1099,30 @@ Menu.prototype._initRenderList = function() {
             { // name
                 className: "fixed-cell",
                 data: "name",
-                orderable: false,
-                width: "100%"
+                orderable: false
             },
             { // date recorded
                 className: "data-cell",
                 data: "date",
                 orderable: false,
-                render: function (date) { return date.calendar(); },
-                width: "180px"
+                render: function (date) { return date.calendar(); }
             },
             { // status
                 className: "data-cell",
                 data: null,
                 defaultContent: '<span class="render-status">Queued</span>',
-                orderable: false,
-                width: "50px"
+                orderable: false
             },
             { // Progress indicator.
                 className: "data-cell",
                 data: null,
                 defaultContent: '<div class="render-progress"></div>',
-                orderable: false,
-                width: "100px"
+                orderable: false
             },
             { // Action buttons.
                 data: null,
                 defaultContent: '<div class="actions"><div class="cancel-render"><i class="material-icons">cancel</i></div></div>',
-                orderable: false,
-                width: "50px"
+                orderable: false
             }
         ],
         order: [[1, 'asc']]
@@ -1146,8 +1146,6 @@ Menu.prototype._initRenderList = function() {
             Messaging.send("cancelRenders", {
                 ids: ids
             });
-        } else {
-            console.warn("At least 1 task must be selected to cancel.");
         }
     });
 

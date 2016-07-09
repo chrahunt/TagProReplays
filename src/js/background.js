@@ -9,7 +9,7 @@ var convert = require('./modules/convert');
 var Constraints = require('./modules/constraints');
 var Data = require('./modules/data');
 var fsm = require('./modules/state');
-var fs = require('./modules/fs');
+var fs = require('./modules/filesystem');
 var Messaging = require('./modules/messaging');
 var RenderManager = require('./modules/rendermanager');
 var Status = require('./modules/status');
@@ -98,9 +98,9 @@ Data.events.on("db:err:upgrade", function (e) {
  * info, which is what the UI uses to distinguish replays.
  */
 
-/////////////////////////////
-// Main recording function //
-/////////////////////////////
+// ============================================================================
+// Main recording function
+// ============================================================================
 
 /**
  * Takes replay data from recording script, crops it down to size,
@@ -153,36 +153,9 @@ function(message, sender, sendResponse) {
     return true;
 });
 
-///////////////////////
-// Replay management //
-///////////////////////
-
-/**
- * Gets the list of replays for UI display.
- * @param {ReplaySelector} message - parameters for selecting replays.
- * @param {Function} callback - Function that handles the list of replays.
- */
-Messaging.listen("getReplayList",
-function(message, sender, sendResponse) {
-    console.log("Received replay list request.");
-    // Pause render manager so it doesn't interfere with list population.
-    manager.pause();
-    // Iterate over info data in database, accumulating into an array.
-    // Send data back.
-    Data.getReplayInfoList(message).then(function (data) {
-        console.log("Sending replay list response.");
-        manager.resume();
-        sendResponse({
-            data: data[1],
-            total: data[0],
-            filtered: data[0]
-        });
-    }).catch(function (err) {
-        // TODO: Better error handling.
-        console.error("Could not retrieve list: %o.", err);
-    });
-    return true;
-});
+// ============================================================================
+// Replay management
+// ============================================================================
 
 /**
  * Request for replay data. response should be a function that will
@@ -219,21 +192,6 @@ function(message, sender, sendResponse) {
         Messaging.send("replaysUpdated");
     }).catch(function (err) {
         console.error("Error deleting replays: %o.", err);
-    });
-});
-
-/**
- * Renames a replay.
- * @param {object} message - Object with properties `id` and `name`
- *   giving the id of the replay to rename and the new name for it.
- * @param {Function} callback - ??
- */
-Messaging.listen("renameReplay",
-function(message, sender, sendResponse) {
-    Data.renameReplay(message.id, message.name).then(function () {
-        Messaging.send("replayUpdated");
-    }).catch(function (err) {
-        console.error("Error renaming replay: %o.", err);
     });
 });
 
@@ -392,26 +350,6 @@ function(message, sender, sendResponse) {
 });
 
 /**
- * Initiate download of a movie.
- * @param {object} message - Message with property `id` for the movie
- *   to download.
- */
-Messaging.listen("downloadMovie",
-function(message) {
-    var id = message.id;
-    Data.getMovie(id).then(function (file) {
-        var movie = new Blob([file.data], { type: 'video/webm' });
-        var filename = sanitize(file.name);
-        if (filename === "") {
-            filename = "replay";
-        }
-        saveAs(movie, filename + ".webm");
-    }).catch(function (err) {
-        console.error("Error retrieving movie for download: %o.", err);
-    });
-});
-
-/**
  * Get the number of replays currently saved.
  */
 Messaging.listen("getNumReplays",
@@ -424,9 +362,9 @@ function(message, sender, sendResponse) {
     return true;
 });
 
-////////////////////
-// Failed replays //
-////////////////////
+// ============================================================================
+// Failed replays 
+// ============================================================================
 
 Messaging.listen("failedReplaysExist",
 function(message, sender, sendResponse) {
@@ -548,9 +486,9 @@ function(message, sender, sendResponse) {
     return true;
 });
 
-//////////////////////
-// Replay rendering //
-//////////////////////
+// ============================================================================
+// Replay rendering
+// ============================================================================
 
 /**
  * Retrieve the queue of rendering replays.
@@ -600,9 +538,9 @@ function(message) {
     });
 });
 
-///////////////////
-// Replay import //
-///////////////////
+// ============================================================================
+// Replay import
+// ============================================================================
 
 /*
  * Replay importing is orchestrated by the initiating tab. The tab calls
@@ -622,11 +560,13 @@ function(message) {
 var importing = false;
 
 fsm.on("import-start", function () {
+    console.log("Setting import-start.");
     manager.pause();
     importing = true;
 });
 
 fsm.on("import-end", function () {
+    console.log("Setting import-end.");
     manager.resume();
     importing = false;
 });
@@ -642,7 +582,9 @@ function stopImport() {
  */
 Messaging.listen("startImport",
 function (message, sender, sendResponse) {
+    console.log("Tab trying to start import.");
     fsm.try("import-start").then(function () {
+        console.log("Starting import.");
         Data.getDatabaseInfo().then(function (info) {
             if (info.replays + message.total > Constraints.max_replays_in_database) {
                 sendResponse({
@@ -665,7 +607,9 @@ function (message, sender, sendResponse) {
             console.error("Internal error: Cannot retrieving replay database information: %o.", err);
             fsm.handle("import-end");
         });
-    }).catch(function () {
+    }).catch(function (err) {
+        console.log("Can't start import.");
+        console.log(err);
         sendResponse({
             failed: true,
             type: "busy"
@@ -756,7 +700,7 @@ function(message, sender, sendResponse) {
         if (err === null) {
             console.log("Finished importing replay set.");
         } else {
-            console.log("Encountered error importing replays: %o", err);
+            console.log("Encountered error importing replays: %O", err);
         }
         // Send new replay notification to any tabs that may have menu open.
         Messaging.send("replaysUpdated");

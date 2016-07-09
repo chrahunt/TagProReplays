@@ -26,23 +26,17 @@
         "http://support.koalabeast.com/*"
       ],
       "js": [
-        "js/TagProReplays.js"
+        "js/content.js"
       ],
       "css": [
-        "css/bootstrap.css",
-        "css/jquery-ui.min.css",
-        "css/spinkit.css",
-        "css/material-spinner.css",
-        "css/mprogress.min.css",
         "css/menu.css",
-        "css/viewer.css",
         "css/record.css"
       ],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
-    "js/replayRecording.js",
+    "js/record.js",
     "images/**/*.png",
     "html/*.html",
     "fonts/*.woff"
