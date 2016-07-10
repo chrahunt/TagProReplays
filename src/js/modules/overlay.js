@@ -1,4 +1,5 @@
 var $ = require('jquery');
+var Mprogress = require('mprogress');
 
 /**
  * Interface for modal overlay used for showing progress/info on menu

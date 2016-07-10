@@ -59,6 +59,8 @@
   },
   "dependencies": {
     "async": "^2.0.0-rc.5",
+    "bootstrap": "^3.3.6",
+    "bootstrap-material-design": "^0.5.10",
     "bragi-browser": "0.0.12",
     "concat-stream": "^1.5.0",
     "datatables": "^1.10.7",
@@ -66,6 +68,7 @@
     "is-my-json-valid": "^2.12.0",
     "jquery": "^2.1.4",
     "jszip": "^2.5.0",
+    "keycode-js": "0.0.2",
     "machina": "^2.0.0-1",
     "moment": "^2.10.3",
     "mustache": "^2.2.1",
@@ -96,11 +99,6 @@
         "jquery:jQuery"
       ]
     },
-    "bootstrap": {
-      "depends": [
-        "jquery:jQuery"
-      ]
-    },
     "jquery-ui": {
       "depends": [
         "jquery:jQuery"
@@ -108,7 +106,6 @@
     }
   },
   "browser": {
-    "bootstrap": "./vendor/js/bootstrap.min.js",
     "file-saver": "./vendor/js/FileSaver.min.js",
     "jquery.actual": "./vendor/js/jquery.actual.min.js",
     "jquery-ui": "./vendor/js/jquery-ui.min.js",

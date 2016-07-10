@@ -1,15 +1,5 @@
 module.exports = {
   replay_list: {
-    name:
-      `<div class="replay-static">
-         <span class="replay-name">{{name}}</span>
-         <span class="replay-name-edit pull-right">
-           <i class="material-icons">edit</i>
-         </span>
-       </div>
-       <div class="replay-edit">
-         <input type="text" class="replay-name-input" value="{{name}}">
-       </div>`,
     controls:
       `<div class="actions">
          {{^disabled}}<div class="row-download-movie disabled" title="render replay first!">{{/disabled}}
@@ -42,6 +32,18 @@ module.exports = {
          <svg class="spinner" width="35px" height="35px" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
            <circle class="path" fill="none" stroke-width="6" stroke-linecap="round" cx="33" cy="33" r="30"></circle>
          </svg>
+       </div>`,
+    editable:
+      `<div class="field-editable">
+         <div class="field-editable-static">
+           <span class="field-editable-content">{{content}}</span>
+           <span class="field-editable-control pull-right">
+             <i class="material-icons">edit</i>
+           </span>
+         </div>
+         <div class="field-editable-input-holder">
+           <input type="text" class="field-editable-input" value="{{content}}">
+         </div>
        </div>`
   },
   icons: {

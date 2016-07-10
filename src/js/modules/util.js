@@ -18,7 +18,7 @@ exports.findIndex = function(array, fn) {
         }
     }
     return -1;
-}
+};
 
 /**
  * Return the first value in the array that satisfies the given function. Same
@@ -30,7 +30,7 @@ exports.find = function(array, fn) {
       return array[i];
     }
   }
-}
+};
 
 /**
  * Given text, return a data URL representing a document containing it.
@@ -38,4 +38,40 @@ exports.find = function(array, fn) {
 exports.textToDataUrl = function(text) {
     var b = new Blob([text], { type: "text/plain" });
     return URL.createObjectURL(b);
-}
+};
+
+/**
+ * Wrap a function to handle multiple types of results.
+ */
+exports.wrap = function(fn) {
+  return function() {
+    var args = [...arguments];
+    return new Promise((resolve, reject) => {
+      // Resolve with callback, handle feedback.
+      var result = self.callback(...args, function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          var args = [...arguments];
+          resolve(...args.slice(1));
+        }
+      });
+      if (typeof result === "boolean") {
+        // Bool handling.
+        if (result) {
+          resolve();
+        } else {
+          reject(Error("Function returned false."));
+        }
+      } else if (result && result.then) {
+        // Promise response handling.
+        resolve(result);
+      } else if (typeof result === "undefined") {
+        // Nothing, wait for callback.
+      } else {
+        // Non-conforming function.
+        reject(Error("Function did not return value value."));
+      }
+    });
+  };
+};

@@ -1,17 +1,355 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <link rel="stylesheet" href="css/bootstrap.css" type="text/css"></link>
+  <!-- copied from node modules -->
+  <link rel="stylesheet" href="css/bootstrap.min.css" type="text/css"></link>
+  <link rel="stylesheet" href="css/bootstrap-material-design.min.css" type="text/css"></link>
+  <link rel="stylesheet" href="css/ripples.min.css" type="text/css"></link>
+  <!-- copied from vendor -->
   <link rel="stylesheet" href="css/jquery-ui.min.css" type="text/css"></link>
   <link rel="stylesheet" href="css/spinkit.css" type="text/css"></link>
   <link rel="stylesheet" href="css/material-spinner.css" type="text/css"></link>
   <link rel="stylesheet" href="css/mprogress.min.css" type="text/css"></link>
+
+  <!-- project-specific -->
   <link rel="stylesheet" href="css/menu.css" type="text/css"></link>
   <link rel="stylesheet" href="css/viewer.css" type="text/css"></link>
   <link rel="stylesheet" href="css/record.css" type="text/css"></link>
+
+  <!-- remote imports -->
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.7/css/jquery.dataTables.css">
+  <!-- Material design icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href='https://fonts.googleapis.com/css?family=Roboto:400,500' rel='stylesheet' type='text/css'>
   <title>TagProReplays</title>
 </head>
+
 <body>
+  <div id="tpr-container" class="bootstrap-container jquery-ui-container">
+    <!-- Main Menu -->
+    <div class="modal fade" id="menuContainer">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-overlay hidden">
+            <div class="title"></div>
+            <div class="description"></div>
+            <div class="material-progress"></div>
+            <div class="message"></div>
+            <div class="actions"></div>
+          </div>
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <ul class="nav nav-pills">
+              <li class="active nav-home nav-item"><a href="#">Replays <span class="badge">0</span></a></li>
+              <li class="nav-render nav-item"><a href="#">Rendering <span class="badge">0</span></a></li>
+              <li class="nav-failed nav-item"><a href="#">Failed <span class="badge">0</span></a></li>
+              <li class="dropdown pull-right">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Menu <span class="caret"></span></a>
+                <ul class="dropdown-menu">
+                  <li><a id="open-settings" href="#" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
+                  <li>
+                    <a id="replay-import" href="#">Import...</a>
+                    <input type="file" class="hidden" id="raw-upload">
+                  </li>
+                  <li><a id="open-help" href="#" data-toggle="modal" data-target="#helpContainer">Help</a></li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <!-- Panels -->
+          <div class="modal-body">
+            <div id="replays" class="section-panel">
+              <div class="header">
+                <div class="card-header">
+                  <div>
+                    <span class="title"></span>
+                  </div>
+                  <div class="actions hidden">
+                    <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
+                    <div class="render" title="render selected"><i class="material-icons">movie_creation</i></div>
+                    <div class="download-raw" title="download json"><i class="material-icons">file_download</i></div>
+                  </div>
+                </div>
+              </div>
+              <table id="replay-table" class="table table-condensed">
+                <thead>
+                  <tr>
+                    <th>
+                      <!-- Select-all checkbox -->
+                    </th>
+                    <th>Name</th>
+                    <th>Rendered</th>
+                    <th>Duration</th>
+                    <th>Date</th>
+                    <th>
+                      <!-- Controls -->
+                    </th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+            <div id="rendering" class="section-panel">
+              <div class="header">
+                <div class="card-header">
+                  <div>
+                    <span class="title"></span>
+                  </div>
+                  <div class="actions hidden">
+                    <div class="cancel" title="cancel selected"><i class="material-icons">cancel</i></div>
+                  </div>
+                </div>
+              </div>
+              <table id="render-table" class="table table-condensed">
+                <thead>
+                  <tr>
+                    <th>
+                      <!-- Select-all checkbox -->
+                    </th>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>
+                      <!-- Controls -->
+                    </th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+            <div id="failed-replays" class="section-panel">
+              <div class="header">
+                <div class="card-header">
+                  <div>
+                    <span class="title"></span>
+                  </div>
+                  <div class="actions hidden">
+                    <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
+                    <div class="download" title="download json"><i class="material-icons">file_download</i></div>
+                  </div>
+                </div>
+              </div>
+              <table id="failed-replay-table" class="table table-condensed">
+                <thead>
+                  <tr>
+                    <th>
+                      <!-- Select-all checkbox -->
+                    </th>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <!--<th>Date</th>-->
+                  </tr>
+                </thead>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Settings -->
+    <div class="modal fade" id="settingsContainer">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title" id="settings-title">TagPro Replays</h4>
+          </div>
+          <div class="modal-body">
+            <h3>Settings</h3>
+
+            <div class="row form-horizontal" id="settings-form">
+              <div class="col-sm-12 text-center">
+                <div class="form-group">
+                  <label>
+                                    <input type="checkbox" id="recordCheckbox"> Extension Enabled
+                                </label>
+                </div>
+              </div>
+              <div class="col-sm-6 text-center">
+                <h4>Recording</h4>
+
+                <div class="form-group">
+                  <label for="fpsInput" class="control-label-sm col-sm-6">FPS:</label>
+
+                  <div class="col-sm-4">
+                    <input type="text" class="form-control input-xs narrow-input" id="fpsInput">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="durationInput" class="control-label-sm col-sm-6">Duration:</label>
+
+                  <div class="col-sm-4">
+                    <input type="text" class="form-control input-xs narrow-input" id="durationInput">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="recordKeyChooserInput" class="control-label-sm col-sm-6">Record Key:</label>
+
+                  <div class="col-sm-4">
+                    <span class="form-control input-xs narrow-input" id="record-key-input-container">
+                                        <span id="recordKeyChooserInput"></span>
+                    <span class="glyphicon glyphicon-remove pull-right" id="record-key-remove"></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 text-center">
+                <h4>Rendering</h4>
+
+                <div class="form-group">
+                  <label>
+                                    <input type="checkbox" id="useSpinCheckbox"> Show Spin
+                                </label>
+                </div>
+                <div class="form-group">
+                  <label>
+                                    <input type="checkbox" id="useSplatsCheckbox"> Show Splats
+                                </label>
+                </div>
+                <div class="form-group">
+                  <label>
+                                    <input type="checkbox" id="useClockAndScoreCheckbox"> Show Clock and Score
+                                </label>
+                </div>
+                <div class="form-group">
+                  <label>
+                                    <input type="checkbox" id="useChatCheckbox"> Show Chat
+                                </label>
+                </div>
+                <div class="form-group">
+                  <label class="col-sm-12">
+                                    <input type="checkbox" id="useTextureCheckbox"> Use Custom Textures
+                                </label>
+                  <button data-toggle="modal" data-target="#textureContainer">Load Textures</button>
+                </div>
+                <div class="form-group">
+                  <label for="canvasWidthInput" class="control-label-sm col-sm-6">Canvas Width:</label>
+
+                  <div class="col-sm-4">
+                    <input type="text" class="form-control input-xs narrow-input" id="canvasWidthInput">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="canvasHeightInput" class="control-label-sm col-sm-6">Canvas Height:</label>
+
+                  <div class="col-sm-4">
+                    <input type="text" class="form-control input-xs narrow-input" id="canvasHeightInput">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" id="saveSettingsButton">Save changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Texture Picker -->
+    <div class="modal fade" id="textureContainer">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">TagPro Replays</h4>
+          </div>
+          <div class="modal-body">
+            <h3>Select Texture Files</h3>
+
+            <div class="form" id="texture-form">
+              <div class="form-group">
+                <label for="tilesInput" class="control-label">Tiles File</label>
+                <input type="file" id="tilesInput">
+              </div>
+              <div class="form-group">
+                <label for="portalInput" class="control-label">Portal File</label>
+                <input type="file" id="portalInput">
+              </div>
+              <div class="form-group">
+                <label for="speedpadInput" class="control-label">Speedpad File</label>
+                <input type="file" id="speedpadInput">
+              </div>
+              <div class="form-group">
+                <label for="speedpadredInput" class="control-label">Red Speedpad File</label>
+                <input type="file" id="speedpadredInput">
+              </div>
+              <div class="form-group">
+                <label for="speedpadblueInput" class="control-label">Blue Speedpad File</label>
+                <input type="file" id="speedpadblueInput">
+              </div>
+              <div class="form-group">
+                <label for="splatsInput" class="control-label">Splats File</label>
+                <input type="file" id="splatsInput">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" id="textureSaveButton">Save changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Help -->
+    <div class="modal fade" id="helpContainer">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Help</h4>
+          </div>
+          <div class="modal-body">
+            <h3>Help</h3>
+            <div id="help-content">
+              See the <a href="https://github.com/chrahunt/TagProReplays/wiki/Help">wiki</a> for help content!
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="tpr-viewer-container" class="bootstrap-container jquery-ui-container">
+    <!-- In-Browser Preview Viewer -->
+    <div id="tpr-viewer">
+      <div id="viewer-background">
+        <div id="viewer-container">
+          <div id="viewer-screen">
+            <canvas id="viewer-canvas" width="1280" height="800"></canvas>
+          </div>
+          <div id="viewer-controls">
+            <div class="time-slider-container">
+              <div id="time-slider"></div>
+              <div id="crop-slider">
+                <div class="crop-handle ui-slider-handle"></div>
+                <div class="crop-handle ui-slider-handle"></div>
+              </div>
+            </div>
+            <div class="viewer-buttons">
+              <div class="tpr-button tpr-button-play"><span class="glyphicon glyphicon-play"></span></div>
+              <div class="tpr-button tpr-button-pause"><span class="glyphicon glyphicon-pause"></span></div>
+              <div class="tpr-button tpr-button-reset"><span class="glyphicon glyphicon-step-backward"></span></div>
+              <div class="tpr-button tpr-button-stop"><span class="glyphicon glyphicon-stop"></span></div>
+              <div class="tpr-button tpr-button-crop-start" data-toggle="tooltip" data-placement="bottom" title="Set trim start."><span class="glyphicon glyphicon-chevron-right"></span></div>
+              <div class="tpr-button tpr-button-crop-end" data-toggle="tooltip" data-placement="bottom" title="Set trim end."><span class="glyphicon glyphicon-chevron-left"></span></div>
+              <div class="tpr-button tpr-button-crop-play" data-toggle="tooltip" data-placement="bottom" title="Preview trimmed replay."><span class="glyphicon glyphicon-eye-open"></span></div>
+              <div class="tpr-button tpr-button-rename" data-toggle="tooltip" data-placement="bottom" title="Rename this replay."><span class="glyphicon glyphicon-pencil"></span></div>
+              <div class="tpr-button tpr-button-delete" data-toggle="tooltip" data-placement="bottom" title="Delete this replay."><span class="glyphicon glyphicon-trash"></span></div>
+              <div class="tpr-option tpr-button-crop" data-toggle="tooltip" data-placement="bottom" title="Trim and save as a new replay.">Save As</div>
+              <div class="tpr-option tpr-button-crop-replace" data-toggle="tooltip" data-placement="bottom" title="Trim and replace this replay.">Save</div>
+              <div class="tpr-option tpr-button-render" data-toggle="tooltip" data-placement="bottom" title="Renders the current replay.">Render</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="js/main.js"></script>
 </body>
+
 </html>

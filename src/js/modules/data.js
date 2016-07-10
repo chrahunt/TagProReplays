@@ -644,7 +644,7 @@ exports.getReplayInfoList = function(data) {
         "rendered": "rendered",
         "duration": "duration"
     };
-    var index = mapped[data.sortedBy];
+    var index = mapped[data.sort];
     var collection = db.info.orderBy(index);
     if (data.dir !== "asc") {
         collection.reverse();

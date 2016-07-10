@@ -156,6 +156,7 @@ function getDefaultTextures(callback) {
         callback(dataUrls);
     });
 };
+exports.getDefault = getDefaultTextures;
 
 function setDefaultTextures() {
     return new Promise(function (resolve, reject) {

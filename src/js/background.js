@@ -58,6 +58,53 @@ chrome.runtime.onInstalled.addListener(function (details) {
     }
 });
 
+// Browser action and listen for button.
+chrome.browserAction.onClicked.addListener(route);
+
+Messaging.listen("openMenu", route);
+
+var menu_tab = null;
+// Set router for menu page.
+function route() {
+    if (menu_tab === null) {
+        // Create new page and give it focus.
+        chrome.tabs.create({
+            url: chrome.runtime.getURL("main.html")
+        }, function (tab) {
+            console.log("Created menu tab.");
+        });
+    } else {
+        chrome.tabs.get(menu_tab, (tab) => {
+            chrome.tabs.update(menu_tab, {
+                active: true
+            });
+            chrome.windows.update(tab.windowId, {
+                focused: true
+            });
+        });
+        // TODO: make sure window is set
+        // https://developer.chrome.com/extensions/windows#current-window
+    }
+}
+
+Messaging.on("connect", (sender) => {
+    if (!sender.tab || !sender.url) {
+        console.log("Sender does not have required info.");
+        return;
+    }
+    var url = sender.url;
+    var tab = sender.tab;
+    if (url.indexOf(chrome.runtime.getURL("main.html")) === 0) {
+        menu_tab = tab.id;
+    }
+});
+
+Messaging.on("disconnect", (sender) => {
+    if (sender.tab.id === menu_tab) {
+        menu_tab = null;
+    }
+});
+
 // Subsystem initialization.
 Subsystems.add("validate", validate.ready);
 Subsystems.add("filesystem", fs.ready);

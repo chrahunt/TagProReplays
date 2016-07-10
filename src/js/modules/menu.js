@@ -1,20 +1,18 @@
 var moment = require('moment');
-var Mprogress = require('mprogress');
 var Mustache = require('mustache');
 var $ = require('jquery');
 require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
+require('bootstrap-material-design');
 
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
 
 var Data = require('./data');
-var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
 var NotificationList = require('./notification-list');
 var Overlay = require('./overlay');
-var ReplayImportStream = require('./replay-import-stream');
 var Replays = require('./replays');
 var Status = require('./status');
 var Table = require('./table');
@@ -23,11 +21,7 @@ var Textures = require('./textures');
 var Viewer = require('./viewer');
 var Constraints = require('./constraints');
 var Util = require('./util');
-
-Data.init().then(() => {
-    console.log("Data initialized.");
-});
-
+//
 // Moment calendar customization for date display.
 moment.locale('en', {
     calendar: {
@@ -55,12 +49,12 @@ moment.locale('en', {
  */
 var Menu = function() {
     // Create Container for Replay Menu.
-    $('body').append(
-        '<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
-    var url = chrome.extension.getURL("html/menu.html");
+    //$('body').append(
+    //    '<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
+    //var url = chrome.extension.getURL("html/menu.html");
 
     // Retrieve html of menu.
-    $('#tpr-container').load(url, this.init.bind(this));
+    //$('#tpr-container').load(url, this.init.bind(this));
     
     // Initialize viewer for replay preview.
     this.viewer = new Viewer();
@@ -71,6 +65,7 @@ var Menu = function() {
             console.log("Result: %O", result);
         });
     });
+    this.init();
 };
 
 module.exports = Menu;
@@ -179,7 +174,6 @@ Menu.prototype._initImport = function() {
         errors: [],
         finished: 0,
         total: 0,
-        thisMenu: false,
         cancel: null,
         cancelled: false,
         disabled: false
@@ -202,142 +196,46 @@ Menu.prototype._initImport = function() {
     $('#raw-upload').change(function () {
         var files = $(this).prop('files');
         if (files.length === 0) return;
-        var file_summary = {
-            number: files.length,
-            size: 0
-        };
-        for (var i = 0; i < files.length; i++) {
-            file_summary.size += files[i].size;
-        }
-        var mb = 25;
-        var sizeLimit = 1024 * 1024 * mb;
-        // File size filter.
-        /*files = files.filter(function (file) {
-            if (file.size > sizeLimit) {
-                self.importing.errors.push({
-                    name: file.name,
-                    reason: "file too big, max file size is " + mb + "MB."
-                });
-                self.importing.finished++;
-                return false;
+        Replays.import(files).then(useActivity)
+          .catch((err) => {
+            // File size bad.
+            // Too many files.
+            // Failures.
+            // TODO: Move to dialog.
+            if (err == "db_full") {
+                alert("Importing that number of replays would fill " +
+                    "up the database. Try selecting fewer replays, " +
+                    "or download and remove replays to free up space.");
+            } else if (err == "busy") {
+                alert("The background page is busy, try again later.");
+            } else if (err == "internal") {
+                // TODO: Add link.
+                alert("Internal error, see information here for reporting.");
             } else {
-                return true;
-            }
-        });*/
-        state.thisMenu = true;
-        state.total = files.length;
-        Messaging.send("startImport", { total: files.length }, function (result) {
-            if (!result.failed) {
-                self.paused = true;
-                console.group("Importing %d replays.", files.length);
-                console.time("Replay import");
-                var fls = FileListStream(files);
-                var send = ReplayImportStream({
-                    highWaterMark: sizeLimit
-                });
-                fls.pipe(send);
-                // For cancelling import streams.
-                state.cancel = function () {
-                    fls.unpipe();
-                    send.stop();
-                    state.cancelled = true;
-                    Messaging.send("cancelImport");
-                };
-                send.on('finish', function () {
-                    console.timeEnd("Replay import");
-                    console.groupEnd();
-                    if (!state.cancelled) {
-                        Messaging.send("endImport");
-                    }
-                });
-                fls.on("end", function () {
-                    console.log("File list stream ended.");
-                });
-            } else {
-                // Failures.
-                // TODO: Move to dialog.
-                if (result.type == "db_full") {
-                    alert("Importing that number of replays would fill " +
-                        "up the database. Try selecting fewer replays, " +
-                        "or download and remove replays to free up space.");
-                } else if (result.type == "busy") {
-                    alert("The background page is busy, try again later.");
-                } else if (result.type == "internal") {
-                    // TODO: Add link.
-                    alert("Internal error, see information here for reporting.");
-                }
+                console.error("Uncaught error in import.");
+                console.error(err);
             }
         });
-    });
-
-    // Update overlay with import progress.
-    function updateOverlay() {
-        var update = {};
-        if (state.thisMenu) {
-            update.message = "On replay " + state.finished + " of " + state.total + ".";
-            update.progress = state.finished / state.total;
-        } else {
-            update.message = "Replay " + state.finished + " imported.";
-        }
+        state.total = files.length;
         
-        // TODO: Reflect import errors information by changing overlay style/message
-        if (state.errors.length > 0) {
-            //console.log("There were some importing errors.");
-        }
-        self.overlay.update(update);
-    }
-
-    Messaging.listen("importProgress",
-    function () {
-        if (state.cancelled) return;
-        console.log("Received import progress.");
-        state.finished++;
-        updateOverlay();
     });
-
-    Messaging.listen("importError",
-    function (message) {
-        if (state.cancelled) return;
-        state.errors.push(message);
-        state.finished++;
-        updateOverlay();
-    });
-
-    // Initialize import overlay.
-    Status.on("importing", function () {
+    // set listeners on activity.
+    function useActivity(activity) {
         self.paused = true;
-        var options = {
-            title: "Replay Import",
-            progress: true,
-            actions: [{
-                text: "cancel",
-                action: function() {
-                    if (state.cancel) {
-                        state.cancel();
-                    }
-                }
-            }]
-        };
-        if (state.thisMenu) {
-            options.description = "Importing your replays, don't navigate away from this page until the process is complete!";
-        } else {
-            options.description = "Importing your replays in another tab.";
-        }
-        self.overlay.set(options);
-        self.overlay.show();
-        updateOverlay();
-    });
-
-    // Reset overlay, show error if needed.
-    Status.on("importing->active", function () {
-        self.paused = false;
-        if (state.thisMenu) {
+        activity.on("done", (cancelled) => {
+            self.paused = false;
             var update = {
-                progress: false
+                progress: false,
+                description: cancelled ? "Import cancelled"
+                                       : "Import finished",
+                actions: [{
+                    text: "dismiss",
+                    action: function() {
+                        self.overlay.hide();
+                    }
+                }]
             };
-            update.description = state.cancelled ? "Import cancelled"
-                                                 : "Replays Imported!";
-            if (state.errors.length > 0) {
+            if (warnings.length) {
                 // Gather errors into text file.
                 var text = state.errors.map(function (err) {
                     return err.name + " - " + err.reason;
@@ -345,32 +243,51 @@ Menu.prototype._initImport = function() {
                     return text + "\n" + msg;
                 });
                 var url = Util.textToDataUrl(text);
-                update.message = Mustache.render(Templates.replay_list.import.error_result, {
+                update.message = Mustache.render(
+                    Templates.replay_list.import.error_result, {
                     url: url
                 });
+            } else if (cancelled) {
+                update.message = "Replay import cancelled. Only " +
+                    state.finished + " of " + state.total +
+                    " replays processed.";
             } else {
-                if (state.cancelled) {
-                    update.message = "Replay import cancelled. Only " +
-                        state.finished + " of " + state.total +
-                        " replays processed.";
-                } else {
-                    update.message = "All replays imported successfully.";
-                }
+                update.message = "All replays imported successfully.";
             }
-            update.actions = [{
-                text: "dismiss",
-                action: function() {
-                    self.overlay.hide();
-                }
-            }];
+
             self.overlay.update(update);
-            state = Util.clone(initialState);
-        } else {
-            console.log("This was not the importing menu.");
-            self.overlay.hide();
-            state = Util.clone(initialState);
-        }
-    });
+        });
+
+        activity.on("progress", (progress) => {
+            self.overlay.update({
+                message: `On replay ${progress.current} of ` +
+                  `${progress.total}.`,
+                progress: progress.current / progress.total
+            });
+            // TODO: handle any intermediate error cases?
+        });
+        var warnings = [];
+
+        activity.on("warning", (info) => {
+            warnings.push(info);
+            // TODO: display some warning notification?
+        });
+
+        // Initialize overlay.
+        self.overlay.set({
+            title: "Replay Import",
+            progress: true,
+            description: "Importing your replays, don't navigate " +
+              "away from this page until the process is complete!", 
+            actions: [{
+                text: "cancel",
+                action: () => {
+                    activity.cancel();
+                }
+            }]
+        });
+        self.overlay.show();
+    }
     
     // Update UI-visible capabilities.
     Status.on("full", function () {
@@ -483,61 +400,58 @@ Menu.prototype._initReplayList = function() {
             plural: "replays",
             title: "Replays"
         },
-        update: function (data, callback) {
-            var args = {
-                length: data.length,
-                sortedBy: data.columns[data.order[0].column].data,
-                dir: data.order[0].dir,
-                start: data.start
-            };
-            Replays.query(args).then((result) => {
+        ajax: function (data) {
+            return Replays.query(data).then((result) => {
                 var list = result.data.map(function (replay) {
                     return {
                         name: replay.name,
                         date: moment(replay.dateRecorded),
-                        duration: moment.utc(replay.duration).format('mm:ss'),
+                        duration: moment.utc(replay.duration)
+                                        .format('mm:ss'),
                         rendered: replay.rendered,
                         id: replay.id,
                         rendering: replay.rendering,
-                        DT_RowData: {
-                            id: replay.id
-                        },
                         replay: replay
                     };
                 });
                 // TODO: Move this.
                 $(".nav-home .badge").text(result.total);
-                callback({
+                return {
                     data: list,
-                    draw: data.draw,
-                    recordsTotal: result.total,
-                    recordsFiltered: result.filtered
-                });
+                    total: result.total
+                };
             }).catch((err) => {
                 console.error("Could not retrieve list: %O", err);
+                // Rethrow.
+                throw err;
             });
         },
         columns: [
             { // Checkbox.
-                className: "cb-cell",
+                type: "checkbox",
                 data: "rendering",
-                orderable: false,
                 render: function (data, type, row, meta) {
                     return data ? '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>'
                                 : Templates.table.checkbox;
                 }
             },
-            { // Name.
+            { // Editable name.
                 className: "row-name fixed-cell",
                 data: "name",
-                render: function (data, type, row, meta) {
-                    if (row.rendering) {
-                        return data;
+                type: "editable",
+                // Callback for editable field.
+                callback: (id, text) => {
+                    console.log(`Renaming replay ${id} to ${text}.`);
+                    if (text === "") {
+                        return Promise.reject(
+                            new Error("Name must not be empty."));
                     } else {
-                        return Mustache.render(Templates.replay_list.name, {
-                            name: data
-                        });
+                        return Replays.get(id).rename(text);
                     }
+                },
+                // TODO: actually implement.
+                enabled: function (data, type, row, meta) {
+                    return !row.rendering;
                 }
             },
             { // Rendered.
@@ -654,56 +568,6 @@ Menu.prototype._initReplayList = function() {
         });
     });
 
-    // Row name editing.
-    $("#replay-table tbody").on("click", ".replay-name-edit", function() {
-        var tr = $(this).closest('tr');
-        var id = tr.data("id");
-        tr.find(".replay-static").hide();
-        var input_container = tr.find(".replay-edit");
-        input_container.show();
-        var input = input_container.find(".replay-name-input");
-
-        function save(id, text) {
-            console.log("Renaming replay %d to %s.", id, text);
-            Replays.get(id).rename(text).then(() => {
-                // update
-            }).catch((err) => {
-                // TODO: Handle internal error.
-            });
-        }
-
-        function enter(evt) {
-            // Enter key.
-            if (evt.which === 13) {
-                var text = $(this).val();
-                if (text !== "") {
-                    var id = $(this).closest("tr").data("id");
-                    save(id, text);
-                    // TODO: Saving feedback?
-                    dismiss();
-                } else {
-                    // Show invalid error.
-                }
-            }
-        }
-
-        function dismiss() {
-            tr.find(".replay-static").show();
-            input_container.hide();
-            input.off("keypress", enter);
-            input.off("blur", dismiss);
-        }
-
-        // Listen for enter key to
-        input.keypress(enter);
-        input.blur(dismiss);
-        input.focus(function () {
-            this.selectionStart = 0;
-            this.selectionEnd = this.value.length;
-        });
-        input.focus();
-    });
-
     /////////////////////////////
     // Downloading raw replays //
     /////////////////////////////
@@ -785,9 +649,9 @@ Menu.prototype._initReplayList = function() {
     });
 
     // Reload replay table if changes occur.
-    Status.on("active", function () {
+    /*Status.on("active", function () {
         self.replay_table.reload();
-    });
+    });*/
 
     // Listen for updates.
     Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
@@ -860,19 +724,21 @@ Menu.prototype._initFailedReplayList = function() {
             plural: "failed replays",
             title: "Failed Replays"
         },
-        update: function (data, callback) {
+        ajax: function (data) {
             var args = {
                 length: data.length,
                 start: data.start
             };
-            Messaging.send("getFailedReplayList", args, function (response) {
+            // TODO: Transition to promise.
+            return Promise.resolve({
+                data: [],
+                total: 0
+            });
+            /*Messaging.send("getFailedReplayList", args, function (response) {
                 var list = response.data.map(function (info) {
                     return {
                         id: info.id,
-                        name: info.name,
-                        DT_RowData: {
-                            id: info.id
-                        }
+                        name: info.name
                     };
                 });
                 if (response.total === 0) {
@@ -882,20 +748,15 @@ Menu.prototype._initFailedReplayList = function() {
                     $(".nav-failed .badge").text(response.total);
                     callback({
                         data: list,
-                        draw: data.draw,
-                        recordsTotal: response.total,
-                        recordsFiltered: response.filtered
+                        total: response.tota
                     });
                 }
-            });
+            });*/
         },
         columns: [
             { // checkbox
-                className: 'cb-cell',
-                data: null,
-                defaultContent: Table.checkbox,
-                orderable: false,
-                width: "24px"
+                type: "checkbox",
+                data: null
             },
             { // id, hidden
                 data: "id",
@@ -904,8 +765,7 @@ Menu.prototype._initFailedReplayList = function() {
             { // name
                 className: "fixed-cell",
                 data: "name",
-                orderable: false,
-                width: "100%"
+                orderable: false
             }
         ],
         // Order by id.
@@ -1057,12 +917,17 @@ Menu.prototype._initRenderList = function() {
             plural: "tasks",
             title: "Render Tasks"
         },
-        update: function (data, callback) {
+        ajax: function (data, callback) {
             var args = {
                 length: data.length,
-                dir: data.order[0].dir,
+                dir: data.dir,
                 start: data.start
             };
+            // TODO: Actual promise implementation.
+            return Promise.resolve({
+                data: [],
+                total: 0
+            });
 
             Messaging.send("getRenderList", args, function (response) {
                 var list = response.data.map(function (task) {
@@ -1087,10 +952,8 @@ Menu.prototype._initRenderList = function() {
         },
         columns: [
             { // Checkbox.
-                className: "cb-cell",
+                type: "checkbox",
                 data: null,
-                defaultContent: Table.checkbox,
-                orderable: false
             },
             { // id, hidden
                 data: "id",

@@ -2,6 +2,7 @@
   "manifest_version": 2,
   "name": "TagProReplays",
   "version": "",
+  "minimum_chrome_version": "46",
   "description": "Save Replays from within TagPro Games",
   "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
   "background": {
@@ -11,6 +12,7 @@
     "persistent": true
   },
   "permissions": [
+    "tab",
     "storage",
     "unlimitedStorage",
     "https://github.com/chrahunt/TagProReplays/*"
@@ -29,12 +31,13 @@
         "js/content.js"
       ],
       "css": [
-        "css/menu.css",
+        "css/content.css",
         "css/record.css"
       ],
       "run_at": "document_start"
     }
   ],
+  "browser_action": {},
   "web_accessible_resources": [
     "js/record.js",
     "images/**/*.png",

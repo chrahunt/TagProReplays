@@ -66,23 +66,17 @@ checkOptions();
  * Inserts Replay button in main page
  * @param  {Menu} menu - The menu to open.
  */
-function createReplayPageButton(menu) {
-    function findInsertionPoint() {
-        buttons = $('article>div.buttons.smaller>a');
-        for (var i = 0; i < buttons.length; i++) {
-            textcontent = buttons[i].textContent;
-            if (textcontent.search('Play') >= 0) {
-                return buttons[i];
-            }
-        }
+function createReplayPageButton() {
+    if ($('#userscript-home').length) {
+        $('#play-now').after('<a class="btn" id="ReplayMenuButton">Replays');
+        $('#ReplayMenuButton').append('<span class="sub-text">watch yourself');
+    } else {
+        $('div.buttons > a[href="/boards"]').after('<a class="button" id="ReplayMenuButton">Replays');
+        $('#ReplayMenuButton').append('<span>watch yourself');
     }
 
-    $(findInsertionPoint()).after('<a class="button" id="ReplayMenuButton">Replays</a>');
-    $('#ReplayMenuButton').append('<span>watch yourself</span>');
     $('#ReplayMenuButton').click(function () {
-        // Open extension page.
-        var url = chrome.extension.getURL("main.html");
-        // TODO: Open page or bring focus to existing page.
+        Messaging.send("openMenu");
     });
 }
 

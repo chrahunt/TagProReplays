@@ -129,12 +129,12 @@ $row-height: 48px;
     }
 }
 
-#tpr-container .section-panel table {
+.section-panel table {
     table-layout: fixed;
     margin-bottom: 0;
 }
 
-#tpr-container .progressbar {
+.progressbar {
     width: 100%;
 }
 
@@ -145,10 +145,8 @@ $row-height: 48px;
 }
 
 // Initial state of other panels.
-#tpr-container {
-    #rendering, #failed-replays {
-        display: none;
-    }
+#rendering, #failed-replays {
+    display: none;
 }
 
 /*#tpr-container #alert-message {
@@ -220,224 +218,222 @@ i.sort-icon {
     }
 }
 
-#tpr-container {
-    // Header controls and notifications.
-    .header > * {
-        height: 64px;
-        padding: {
-            left: 24px;
-            right: 14px;
-        }
-
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+// Header controls and notifications.
+.header > * {
+    height: 64px;
+    padding: {
+        left: 24px;
+        right: 14px;
     }
-    // Card header, containing title and controls for selected rows.
-    .card-header {
-        .actions {
-            div {
-                @extend %text-medium;
-                transition: color 0.15s;
-                display: inline-block;
-                padding: 12px;
-                cursor: pointer;
 
-                &:hover {
-                    @extend %text-dark;
-                }
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+// Card header, containing title and controls for selected rows.
+.card-header {
+    .actions {
+        div {
+            @extend %text-medium;
+            transition: color 0.15s;
+            display: inline-block;
+            padding: 12px;
+            cursor: pointer;
 
-                &:last-child {
-                    margin-right: -12px;
-                }
+            &:hover {
+                @extend %text-dark;
+            }
+
+            &:last-child {
+                margin-right: -12px;
             }
         }
-
-        .title {
-            @include roboto-regular(20px);
-        }
     }
 
-    .notification {
-        @include roboto-regular(16px);
+    .title {
+        @include roboto-regular(20px);
     }
+}
 
-    // Header row spacing.
-    .dataTables_scrollHeadInner {
+.notification {
+    @include roboto-regular(16px);
+}
+
+// Header row spacing.
+.dataTables_scrollHeadInner {
+    width: 100% !important;
+
+    table {
         width: 100% !important;
-
-        table {
-            width: 100% !important;
-        }
     }
+}
 
-    /** Table fonts. **/
-    th {
-        @extend %text-medium;
-        @include roboto-medium(12px);
+/** Table fonts. **/
+th {
+    @extend %text-medium;
+    @include roboto-medium(12px);
 
-        .sorting_asc, .sorting_desc {
-            @extend %text-dark;
-        }
-    }
-
-    // Don't dim check all header.
-    th.cb-cell {
+    .sorting_asc, .sorting_desc {
         @extend %text-dark;
     }
+}
 
-    tbody {
-        @include roboto-medium(13px);
-        @extend %text-medium;
+// Don't dim check all header.
+th.cb-cell {
+    @extend %text-dark;
+}
+
+tbody {
+    @include roboto-medium(13px);
+    @extend %text-medium;
+}
+
+// Checkbox spacing.
+.cb-cell {
+    width: 24px;
+
+    padding: {
+        left: 21px;
+        right: 21px;
     }
 
-    // Checkbox spacing.
-    .cb-cell {
+    label {
+        display: block;
         width: 24px;
-
-        padding: {
-            left: 21px;
-            right: 21px;
-        }
-
-        label {
-            display: block;
-            width: 24px;
-            height: 24px;
-            text-align: center;
-            line-height: 24px;
-        }
-
-        .material-icons {
-            font-size: 18px;
-            vertical-align: middle;
-        }
+        height: 24px;
+        text-align: center;
+        line-height: 24px;
     }
 
-    // Checkbox behavior.
-    .table tr {
-        &.selected {
-            .checked {
-                display: inline-block;
-            }
+    .material-icons {
+        font-size: 18px;
+        vertical-align: middle;
+    }
+}
 
-            .unchecked {
-                display: none;
-            }
-        }
-
+// Checkbox behavior.
+.table tr {
+    &.selected {
         .checked {
-            display: none;
+            display: inline-block;
         }
 
         .unchecked {
-            display: inline-block;
+            display: none;
         }
     }
 
-    // Content.
-    th, td {
-        vertical-align: middle;
+    .checked {
+        display: none;
     }
 
-    // Table content row style.
-    .table tbody tr {
-        height: $row-height;
+    .unchecked {
+        display: inline-block;
+    }
+}
 
-        &:hover {
-            background-color: #EEEEEE;
+// Content.
+th, td {
+    vertical-align: middle;
+}
+
+// Table content row style.
+.table tbody tr {
+    height: $row-height;
+
+    &:hover {
+        background-color: #EEEEEE;
+    }
+
+    // Selected row.
+    &.selected {
+        // dt override.
+        background-color: #F5F5F5;
+    }
+}
+
+.footer {
+    height: 56px;
+    padding-right: 14px;
+    @include roboto-regular(12px);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    .dataTables_paginate a.paginate_button {
+        &:first-child {
+            padding-right: 14px;
         }
 
-        // Selected row.
-        &.selected {
-            // dt override.
-            background-color: #F5F5F5;
-        }
-    }
-
-    .footer {
-        height: 56px;
-        padding-right: 14px;
-        @include roboto-regular(12px);
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-
-        .dataTables_paginate a.paginate_button {
-            &:first-child {
-                padding-right: 14px;
-            }
-
-            .material-icons {
-                @extend %text-medium;
-            }
-
-            &.disabled .material-icons {
-                @extend %text-light;
-            }
-        }
-
-        .dataTables_info {
-            padding-right: 32px;
-        }
-
-        .dataTables_length {
-            padding-right: 32px;
-        }
-    }
-
-    // Scroll body height.
-    .dataTables_scrollBody {
-        min-height: 5 * $row-height;
-    }
-
-    // Column widths and offset.
-    .data-cell {
-        padding-left: 56px;
-        text-align: right;
-    }
-
-    .fixed-cell {
-        padding: {
-            left: 0px;
-            right: 0px;
-        }
-    }
-
-    .cb-cell {
-        width: 18px;
-    }
-
-    // Fixed cell sibling.
-    .fixed-cell + th, .fixed-cell + td {
-        padding-left: 24px;
-    }
-
-    td .actions {
-        div {
+        .material-icons {
             @extend %text-medium;
-            display: inline-block;
-            padding: 3px;
-            cursor: pointer;
-            transition: color 0.15s;
-            .material-icons {
-                font-size: 18px;
-                display: block;
-            }
-            &:not(.disabled):hover {
-                @extend %text-dark
-            }
         }
 
-        div.disabled {
+        &.disabled .material-icons {
             @extend %text-light;
-            cursor: not-allowed;
         }
     }
 
-    .dataTables_wrapper div.dataTables_processing {
-        top: 50px;
+    .dataTables_info {
+        padding-right: 32px;
     }
+
+    .dataTables_length {
+        padding-right: 32px;
+    }
+}
+
+// Scroll body height.
+.dataTables_scrollBody {
+    min-height: 5 * $row-height;
+}
+
+// Column widths and offset.
+.data-cell {
+    padding-left: 56px;
+    text-align: right;
+}
+
+.fixed-cell {
+    padding: {
+        left: 0px;
+        right: 0px;
+    }
+}
+
+.cb-cell {
+    width: 18px;
+}
+
+// Fixed cell sibling.
+.fixed-cell + th, .fixed-cell + td {
+    padding-left: 24px;
+}
+
+td .actions {
+    div {
+        @extend %text-medium;
+        display: inline-block;
+        padding: 3px;
+        cursor: pointer;
+        transition: color 0.15s;
+        .material-icons {
+            font-size: 18px;
+            display: block;
+        }
+        &:not(.disabled):hover {
+            @extend %text-dark
+        }
+    }
+
+    div.disabled {
+        @extend %text-light;
+        cursor: not-allowed;
+    }
+}
+
+.dataTables_wrapper div.dataTables_processing {
+    top: 50px;
 }
 
 // Alerts.
@@ -457,25 +453,6 @@ i.sort-icon {
         .row-name {
             // Greedy column.
             width: 100% !important;
-
-            // Edit icon.
-            .replay-name-edit {
-                cursor: pointer;
-                padding: 8px;
-                margin: -8px 0px;
-
-                .material-icons {
-                    @extend %text-medium;
-                    font-size: 18px;
-                    // Removes space underneath icon.
-                    display: block;
-                }
-            }
-
-            // Actual input.
-            .replay-edit {
-                display: none;
-            }
         }
 
         /* Last cell leaves spacing to action icons. */
@@ -487,5 +464,27 @@ i.sort-icon {
             vertical-align: middle;
             font-size: 18px;
         }
+    }
+}
+
+// Editable table field.
+.field-editable {
+    // Edit icon.
+    .field-editable-control {
+        cursor: pointer;
+        padding: 8px;
+        margin: -8px 0px;
+
+        .material-icons {
+            @extend %text-medium;
+            font-size: 18px;
+            // Removes space underneath icon.
+            display: block;
+        }
+    }
+
+    // Actual input.
+    .field-editable-input-holder {
+        display: none;
     }
 }

@@ -24,8 +24,10 @@ Status.prototype.get = function() {
 };
 
 Status.prototype.force = function() {
+    console.log("Status#force");
     var self = this;
     this.get().then(function (status) {
+        console.log(`Retrieved state: ${status}`);
         self.emit(status);
     }).catch(function (err) {
         console.warn("Error retrieving status: %o.", err);

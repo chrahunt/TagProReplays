@@ -1,3 +1,6 @@
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
+
 /**
  * Messenger interface for Content Script<->Background page
  * communication.
@@ -50,17 +53,17 @@ function getId(id, sender) {
 }
 
 // Callback management for content scripts.
-var callbacks = {};
+var callbacks = new Map();
 var callback_i = 1;
 
 function setCallback(callback) {
     var id = callback_i++;
-    callbacks[id] = callback;
+    callbacks.set(id, callback);
     return id;
 }
 
 function getCallback(id) {
-    var callback = callbacks[id];
+    var callback = callbacks.get(id);
     if (callback) {
         removeCallback(id);
         return callback;
@@ -70,7 +73,7 @@ function getCallback(id) {
 }
 
 function removeCallback(id) {
-    delete callbacks[id];
+    delete callbacks.delete(id);
 }
 
 /**
@@ -123,6 +126,7 @@ function listenPort(port) {
 
     // Listen for messages over port.
     port.onMessage.addListener(function (message, sender) {
+        console.debug(`port#onMessage: [type:${message.type}], [name:${message.name}]`);
         if (message.type == "main") {
             var method = message.name;
             var data = message.data || {};
@@ -202,6 +206,65 @@ function listenPort(port) {
     });
 }
 
+function Messenger() {
+    EventEmitter.call(this);
+    this.queue = [];
+    this._send = (name, message, callback) => {
+        this.queue.push([name, message, callback]);
+    };
+    this._init();
+}
+util.inherits(Messenger, EventEmitter);
+
+Messenger.prototype._init = function() {
+    // Sets `send` function.
+    onBackgroundPage().then((isbackground) => {
+        if (isbackground) {
+            background = true;
+            // Background page port management.
+            var ports = {};
+            // Listen for incoming page ports.
+            chrome.runtime.onConnect.addListener((port) => {
+                this.emit("connect", port.sender);
+                var id = getId(port.id, port.sender);
+                ports[id] = port;
+                listenPort(port);
+                // Action on port disconnection.
+                port.onDisconnect.addListener(() => {
+                    this.emit("disconnect", port.sender);
+                    delete ports[id];
+                });
+            });
+
+            // No callback on background page.
+            this._send = function (name, message) {
+                message = commonSend(name, message);
+                for (var id in ports) {
+                    var port = ports[id];
+                    port.postMessage(message);
+                }
+            };
+        } else {
+            // Non-background page, single port.
+            var port = chrome.runtime.connect({
+                name: performance.now().toString()
+            });
+            listenPort(port);
+            this._send = function (name, message, callback) {
+                message = commonSend(name, message, callback);
+                port.postMessage(message);
+            };
+        }
+
+        // Replay queued messages.
+        this.queue.forEach((args) => {
+            this._send.apply(null, args);
+        });
+        // don't keep it around.
+        this.queue = null;
+    });
+};
+
 /**
  * Callback that is called with the message sent from either the 
  * @callback BackgroundMessageCallback
@@ -221,7 +284,7 @@ function listenPort(port) {
  *   with the message.
  * @return {[type]} [description]
  */
-exports.listen = function (names, callback) {
+Messenger.prototype.listen = function (names, callback) {
     if (typeof names == 'string') names = [names];
     names.forEach(function(name) {
         if (!listeners.hasOwnProperty(name)) {
@@ -232,7 +295,7 @@ exports.listen = function (names, callback) {
 };
 
 // Remove a listener.
-exports.removeListener = function (name, callback) {
+Messenger.prototype.removeListener = function (name, callback) {
     if (listeners.hasOwnProperty(name)) {
         var i = listeners[name].indexOf(callback);
         if (i !== -1) {
@@ -241,57 +304,11 @@ exports.removeListener = function (name, callback) {
     }
 };
 
-// Queued initial send.
-var sends = [];
-exports.send = function(name, message, callback) {
-    sends.push([name, message, callback]);
+Messenger.prototype.send = function(name, message, callback) {
+    this._send(name, message, callback);
 };
 
-// Sets `send` function.
-onBackgroundPage().then((isbackground) => {
-    if (isbackground) {
-        background = true;
-        // Background page port management.
-        var ports = {};
-        // Listen for incoming page ports.
-        chrome.runtime.onConnect.addListener(function (port) {
-            var id = getId(port.id, port.sender);
-            ports[id] = port;
-            listenPort(port);
-            // Action on port disconnection.
-            port.onDisconnect.addListener(function () {
-                delete ports[id];
-            });
-        });
-
-        // No callback on background page.
-        exports.send = function (name, message) {
-            message = commonSend(name, message);
-            for (var id in ports) {
-                var port = ports[id];
-                port.postMessage(message);
-            }
-        };
-    } else {
-        // Non-background page, single port.
-        var port = chrome.runtime.connect({
-            name: performance.now().toString()
-        });
-        listenPort(port);
-        exports.send = function (name, message, callback) {
-            message = commonSend(name, message, callback);
-            port.postMessage(message);
-        };
-    }
-
-    // Replay queued messages.
-    sends.forEach((args) => {
-        exports.send.apply(null, args);
-    });
-    // don't keep it around.
-    sends = null;
-});
-
+module.exports = new Messenger();
 
 /**
  * Determine whether the script is running in a background page

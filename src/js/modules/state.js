@@ -83,6 +83,7 @@ function(message, sender, sendResponse) {
     sendResponse({
         state: fsm.state
     });
+    return true;
 });
 
 module.exports = fsm;

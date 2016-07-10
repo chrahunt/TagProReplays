@@ -14,13 +14,19 @@ var gulp = require('gulp'),
     jsonfile = require('jsonfile'),
     notify = require('gulp-notify');
 
-// shim debug
+// Uncomment for shim debugging.
 //process.env.BROWSERIFYSHIM_DIAGNOSTICS=1;
 var assets = [
     // Asset files in src
     ['src/**/*', '!src/js/**/*', '!src/scss/**/*', '!src/manifest.json'],
     // Asset files in vendor
-    ['vendor/**/*', '!vendor/js/**/*']
+    [
+        'vendor/**/*',
+        '!vendor/js/**/*',
+        // glob from /css so it ends up in the right folder.
+        'node_modules/bootstrap/dist/**/bootstrap.min.css*',
+        'node_modules/bootstrap-material-design/dist/**/*.min.css*'
+    ]
 ];
 
 var sources = 'src/js/*.js';
