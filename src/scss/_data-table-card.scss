@@ -1,0 +1,81 @@
+@import 'roboto';
+
+@mixin container($size) {
+    font: {
+        family: 'Roboto', sans-serif;
+        size: $size;
+        weight: 400;
+    }
+}
+
+// heights
+$card-table-header-height: 64px;
+$card-table-row-height: 48px;
+$card-table-footer-height: 56px;
+
+.card {
+    .card-header {
+        height: $card-table-header-height;
+        padding: {
+            left: 24px;
+            right: 14px;
+        }
+
+        .action {
+            padding-right: 24px;
+
+            &:last-of-type {
+                padding-right: 0px;
+            }
+        }
+
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .card-footer {
+        height: $card-table-footer-height;
+    }
+}
+
+.card-table {
+    td {
+        &:first-of-type {
+            padding-left: 24px;
+        }
+
+        &:not(nth-of-type(1)) {
+            padding-right: 56px;
+            text-align: right;
+        }
+
+        &:last-of-type {
+            padding-right: 26px;
+        }
+    }
+}
+
+/* bootstrap material design resets */
+.card .card-height-indicator {
+    margin: 0;
+}
+
+.card .card-content {
+    position: relative !important;
+}
+
+.card-container {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+table.table {
+    border-bottom: 1px solid #ddd;
+    //width: initial !important;
+}
+
+/* datatables css override auto */
+.card .table {
+    margin: 0; // left/right: auto
+}

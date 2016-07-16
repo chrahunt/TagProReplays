@@ -27,7 +27,6 @@ var Util = require('./util');
 var bus = exports.events = new EventEmitter();
 
 var db = new Dexie("ReplayDatabase");
-
 exports.db = db;
 
 // Logging.

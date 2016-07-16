@@ -9,19 +9,17 @@ var wrap = require('./util').wrap;
 function callback_intercept(handler, interceptor) {
     return function() {
         var args = [...arguments];
-        handler.apply(null, args.slice(-1).concat([() => {
-            var args2 = [...arguments];
-            interceptor.apply(null, args2.concat(args[args.length - 1]));
-        }]));
+        handler.apply(null, ...args.slice(0, -1), function() {
+            interceptor.apply(null, ...arguments, ...args.slice(-1));
+        });
     };
 }
 
 function intercept(after, interceptor) {
     return function() {
-        var args = [...arguments];
-        interceptor.apply(null, args);
+        interceptor(...arguments);
         if (after) {
-            after.apply(null, args);
+            after(...arguments);
         }
     }
 }
@@ -62,8 +60,16 @@ function Table(options) {
 
         // style
         processing: true,
-        scrollY: 'auto',
+        //scrollY: 'auto',
         pagingType: "simple",
+        /*
+        processing display element
+        table
+        <div class="footer pull-right">
+        length input control
+        Table info summary
+        pagination control
+        */
         dom: 'rt<"footer pull-right"lip>',
         language: {
             paginate: {
@@ -153,9 +159,11 @@ function Table(options) {
             self.resize();
         }
     };
+    // Additional column types.
     var extensions = [
         Editable,
-        Checkbox
+        Checkbox,
+        Actions
     ];
     var init_options = {
         columns: process_columns(options.columns)
@@ -344,6 +352,7 @@ Table.prototype.deselect = function(ids) {
 
 /**
  * Given an element, get the corresponding record id.
+ * API for cell extensions.
  */
 Table.prototype.getRecordId = function(elt) {
     return $(elt).closest('tr').data('id');
@@ -394,8 +403,16 @@ Table.prototype.recalcMaxHeight = function() {
 };
 
 // ============================================================================
-// Additional fields
+// Additional Cell Types
 // ============================================================================
+/*
+    Cell Types adhere to the following interface:
+    - Type(table, column)
+    - Type.applies(column) -> bool (static method)
+    - Type#render
+    - Type#column -> object - get column specification for DT
+        initialization.
+*/
 // Fields take the table as an argument on construction.
 // And have an applies method that takes a column def.
 
@@ -407,11 +424,13 @@ Table.prototype.recalcMaxHeight = function() {
 // - callback - takes id, text, callback or can return boolean or thenable.
 
 // Represents editable content column.
+// type: 'editable'
 function Editable(table, column) {
-    this.table = table;
+    this._table = table;
     var callback = column.callback || (() => true);
-    this.callback = wrap(callback);
+    this._callback = wrap(callback);
     this._column = column;
+    this._initialized = false;
 }
 
 // Static method to see if this applies to column.
@@ -419,13 +438,26 @@ Editable.applies = function(column) {
     return column.type === "editable";
 };
 
+Editable._template =
+  `<div class="field-editable">
+     <div class="field-editable-static">
+       <span class="field-editable-content">{{content}}</span>
+       <span class="field-editable-control pull-right">
+         <i class="material-icons">edit</i>
+       </span>
+     </div>
+     <div class="field-editable-input-holder">
+       <input type="text" class="field-editable-input" value="{{content}}">
+     </div>
+   </div>`;
+
 // Initializations that need to happen after table exists.
 Editable.prototype._init = function() {
     var self = this;
     // Set editable cell behavior callback.
-    $(`#${this.table.id} tbody`).on("click", ".field-editable-control",
+    $(`#${this._table.id} tbody`).on("click", ".field-editable-control",
     function() {
-        var id = self.table.getRecordId(this);
+        var id = self._table.getRecordId(this);
         var td = $(this).closest('td');
         var tr = $(this).closest('tr');
         td.find(".field-editable-static").hide();
@@ -439,7 +471,7 @@ Editable.prototype._init = function() {
         }
 
         function save(id, text) {
-            self.callback(id, text)
+            self._callback(id, text)
               .then(dismiss)
               .catch(feedback);
         }
@@ -484,24 +516,13 @@ Editable.prototype._init = function() {
 };
 
 Editable.prototype.render = function(data, type, row, meta) {
-    if (!this.initialized) this._init();
-    return Mustache.render(Templates.table.editable, {
+    if (!this._initialized) {
+        this._init();
+        this._initialized = true;
+    }
+    return Mustache.render(Editable._template, {
         content: data
     });
-};
-
-// Start editing.
-Editable.prototype._edit = function() {
-
-};
-
-// Stop editing.
-Editable.prototype._noedit = function() {
-
-};
-
-Editable.prototype._resolve = function() {
-
 };
 
 // Apply change to column.
@@ -511,8 +532,9 @@ Editable.prototype.column = function() {
     });
 };
 
+
 function Checkbox(table, column) {
-    this.table = table;
+    this._table = table;
     this._column = column;
 }
 
@@ -520,33 +542,141 @@ Checkbox.applies = function(col) {
     return col.type === "checkbox";
 };
 
+Checkbox._template =
+  `<label>
+     <i class="material-icons checked">check_box</i>
+     <i class="material-icons unchecked">check_box_outline_blank</i>
+     <input type="checkbox" class="selected-checkbox hidden">
+   </label>`;
+
 Checkbox.prototype.render = function(data, type, row, meta) {
     // TODO: Implement enable/disable.
-    return Templates.table.checkbox;
+    return Checkbox._template;
 };
 
 Checkbox.prototype.column = function() {
     var classnames = "cb-cell";
-    if (this.column.className) {
-        classnames += ` ${this.column.className}`;
+    if (this._column.className) {
+        classnames += ` ${this._column.className}`;
     }
-    return Object.assign({}, this.column, {
+    return Object.assign({}, this._column, {
         className: classnames,
         orderable: false,
         render: this.render.bind(this)
     });
 }
 
-function Control() {
-
+// Container for actions, column should have
+function Actions(table, column) {
+    this._table = table;
+    this._column = column;
+    this._initialized = false;
 }
 
-function CardAction() {
-    this.icon = null;
-    this.callback = null;
+Actions.applies = function(col) {
+    return col.type === "actions";
+};
+
+Actions._template =
+  `<div class="actions">
+     {{#actions}}{{render}}{{/actions}}
+   </div>`;
+
+// Initialize actions.
+Actions.prototype._init = function() {
+
+};
+
+Actions.prototype.render = function(data, type, row, meta) {
+    if (!this._initialized) {
+        this._init();
+        this._initialized = true;
+    }
+    return Mustache.render(Actions._template, {
+        actions: this._actions
+    });
+};
+
+// Column return function.
+Actions.prototype.column = function() {
+    return Object.assign({}, this._column, {
+        render: this.render.bind(this)
+    });
+};
+
+// Gets added indirectly, must init on rowcontainer
+// RowAction accepts a data parameter boolean for enabled/disabled.
+// opts has a name, callback, icon, title.
+// optional disabled fn for determining if it should be enabled.
+function RowAction(opts) {
+    this._name = opts.name;
+    this._callback = wrap(opts.callback);
+    this._class = `card-row-action-${this.name}`; 
+    this._vars = {
+        icon: opts.icon,
+        title: opts.title,
+        class: this._class,
+        disabled: opts.disabled || (() => true)
+    };
 }
 
-CardAction.prototype.render = function(header) {
+RowAction._template =
+  `<div class="{{class}}{{#disabled}} disabled{{/disabled}}"
+     {{#title}} title="{{title}}"{{/title}}>
+     <i class="material-icons">{{icon}}</i>
+   </div>`;
 
+// Set listeners on parent.
+RowAction.prototype.init = function(table, container) {
+    this.table = table;
+    var self = this;
+    $(container).on("click", `.${this.class}`, function() {
+        var id = self.table.getRecordId(this);
+        self.callback(id).catch((err) => {
+            console.error("Error executing action callback: " +
+                "%O", err);
+        });
+    });
+};
+
+RowAction.prototype.render = function(data, type, row, meta) {
+    var vars = Object.assign({}, this.vars, {
+        disabled: data
+    })
+    return Mustache.render(
+        RowAction.template, this.vars);
+};
+
+// gets added directly, single-instance
+function CardAction(opts) {
+    this._id = ++CardAction.instances;
+    this._callback = opts.callback;
+    this._vars = {
+        icon: opts.icon,
+        title: opts.title,
+        class: `card-action-${this.id}`
+    };
+}
+
+CardAction._template =
+  `<div{{#title}} title="{{title}}"{{/title}}>
+     <i class="material-icons">{{icon}}</i>
+   </div>`;
+
+CardAction._instances = 0;
+
+// Initialized with parent.
+CardAction.prototype.init = function(container) {
+    var self = this;
+    $(container).on("click", `.${this.vars.class}`, function() {
+        var id = self.table.getRecordId(this);
+        self.callback(id);
+    });
+};
+
+// Called by parent when ready to render.
+CardAction.prototype.render = function() {
+    return Mustache.render(
+        CardAction.template, this.vars);
 };
 

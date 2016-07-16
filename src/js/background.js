@@ -225,24 +225,6 @@ function(message, sender, sendResponse) {
 });
 
 /**
- * Delete a replay and all associated data.
- * @param {object} message - Object with property `id` or `ids` for
- *   single or multiple deletion, containing the id or array of ids of
- *   replays to be deleted.
- */
-Messaging.listen(["deleteReplay", "deleteReplays"],
-function(message, sender, sendResponse) {
-    // Check if single or multiple replays and normalize.
-    var ids = message.id ? [message.id] : message.ids;
-
-    Data.deleteReplays(ids).then(function () {
-        Messaging.send("replaysUpdated");
-    }).catch(function (err) {
-        console.error("Error deleting replays: %o.", err);
-    });
-});
-
-/**
  * Crops a replay and replaces it in the database.
  * @param {object} message - Has properties `id`, `start`, and `end`
  *   with the id of the replay, and the start and end frames to use.
@@ -575,14 +557,17 @@ function(message) {
  * Cancel the rendering of one or more replays.
  */
 Messaging.listen(["cancelRender", "cancelRenders"],
-function(message) {
+function(message, sender, sendResponse) {
     var ids = message.id ? [message.id] : message.ids;
     manager.cancel(ids).then(function () {
         Messaging.send("rendersUpdated");
         Messaging.send("replaysUpdated");
+        sendResponse();
     }).catch(function (err) {
         console.error("Error cancelling renders: %o.", err);
+        sendResponse(err);
     });
+    return true;
 });
 
 // ============================================================================

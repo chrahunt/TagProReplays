@@ -1,33 +1,5 @@
-// Material values.
-// Fonts.
-@mixin roboto-regular($size) {
-    font: {
-        family: 'Roboto', sans-serif;
-        size: $size;
-        weight: 400;
-    }
-}
-
-@mixin roboto-medium($size) {
-    font: {
-        family: 'Roboto', sans-serif;
-        size: $size;
-        weight: 500;
-    }
-}
-
-// Text color.
-%text-light {
-    color: rgba(0, 0, 0, 0.26);
-}
-
-%text-medium {
-    color: rgba(0, 0, 0, 0.54);
-}
-
-%text-dark {
-    color: rgba(0, 0, 0, 0.86);
-}
+@import 'roboto';
+@import 'data-table-card';
 
 // Height.
 $row-height: 48px;
@@ -129,19 +101,13 @@ $row-height: 48px;
     }
 }
 
-.section-panel table {
+.card table {
     table-layout: fixed;
     margin-bottom: 0;
 }
 
 .progressbar {
     width: 100%;
-}
-
-
-/** Replay/Rendering **/
-#menuContainer .modal-body {
-    padding: 0px;
 }
 
 // Initial state of other panels.
@@ -180,15 +146,14 @@ $row-height: 48px;
 }
 
 // Bootstrap overrides.
-.bootstrap-container {
-    label {
-        margin-bottom: 0px;
-    }
-
-    div.progress {
-        margin-bottom: 0px;
-    }
+label {
+    margin-bottom: 0px;
 }
+
+div.progress {
+    margin-bottom: 0px;
+}
+
 
 // Header sort icon.
 i.sort-icon {
@@ -218,18 +183,6 @@ i.sort-icon {
     }
 }
 
-// Header controls and notifications.
-.header > * {
-    height: 64px;
-    padding: {
-        left: 24px;
-        right: 14px;
-    }
-
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
 // Card header, containing title and controls for selected rows.
 .card-header {
     .actions {
@@ -257,15 +210,6 @@ i.sort-icon {
 
 .notification {
     @include roboto-regular(16px);
-}
-
-// Header row spacing.
-.dataTables_scrollHeadInner {
-    width: 100% !important;
-
-    table {
-        width: 100% !important;
-    }
 }
 
 /** Table fonts. **/
@@ -383,11 +327,6 @@ th, td {
     }
 }
 
-// Scroll body height.
-.dataTables_scrollBody {
-    min-height: 5 * $row-height;
-}
-
 // Column widths and offset.
 .data-cell {
     padding-left: 56px;
@@ -410,7 +349,8 @@ th, td {
     padding-left: 24px;
 }
 
-td .actions {
+// Row actions.
+tr .actions {
     div {
         @extend %text-medium;
         display: inline-block;

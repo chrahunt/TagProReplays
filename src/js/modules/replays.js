@@ -86,20 +86,19 @@ Selection.prototype.render = function() {
 };
 
 // replays + failed
+// TODO: undo-able.
 Selection.prototype.remove = function() {
   console.log("Selection#remove");
-  // check if rendering
-  // remove/cancel render if so
-  // mark for removal
-  // return an undoer
-  this._remove();
-
-};
-
-// internal, actual removal.
-Selection.prototype._remove = function() {
-  Messaging.send("deleteReplays", {
+  // Cancel any in-progress renders.
+  return Messaging.send("cancelRenders", {
     ids: this.ids
+  }).then((err) => {
+    // TODO: proper API between background page and us.
+    if (err) throw err;
+  }).then(() => {
+    return Data.deleteReplays(ids).catch((err) => {
+      console.error("Error deleting replays: %O", err);
+    });
   });
 };
 

@@ -57,7 +57,10 @@ RenderManager.prototype.cancel = function(ids) {
         // properly.
         this.task.cancel();
     }
-    return db.renders.where("replay_id").anyOf(ids).delete().then(function () {
+    return db.renders
+               .where("replay_id")
+               .anyOf(ids)
+             .delete().then(function () {
         return Data.db.info.where(":id").anyOf(ids).modify({
             rendering: false
         });
@@ -99,7 +102,10 @@ RenderManager.prototype.add = function(ids) {
     return Data.db.transaction("rw", Data.db.info, function() {
         var nonRenderingIds = [];
         var nonRenderingData = [];
-        return Data.db.info.where(":id").anyOf(ids).each(function (info) {
+        return Data.db.info
+                        .where(":id")
+                        .anyOf(ids)
+                      .each(function (info) {
             // Get replays being added that aren't already rendering.
             if (!info.rendering && !info.rendered) {
                 nonRenderingIds.push(info.id);
@@ -111,7 +117,10 @@ RenderManager.prototype.add = function(ids) {
             }
         }).then(function () {
             // Update rendering property to lock the replays.
-            Data.db.info.where(":id").anyOf(nonRenderingIds).modify({
+            Data.db.info
+                     .where(":id")
+                     .anyOf(nonRenderingIds)
+                   .modify({
                 rendering: true
             });
             return nonRenderingData;

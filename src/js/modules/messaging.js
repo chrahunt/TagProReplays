@@ -44,14 +44,6 @@ var EventEmitter = require('events').EventEmitter;
  */
 var listeners = {};
 
-function getId(id, sender) {
-    if (sender && sender.tab && sender.tab.id) {
-        return id + "-" + sender.tab.id;
-    } else {
-        return id + "-" + performance.now();
-    }
-}
-
 // Callback management for content scripts.
 var callbacks = new Map();
 var callback_i = 1;
@@ -216,6 +208,16 @@ function Messenger() {
 }
 util.inherits(Messenger, EventEmitter);
 
+var unmarked = 0;
+
+function getId(id, sender) {
+    if (sender && sender.tab && sender.tab.id) {
+        return `${id}-${sender.tab.id}`;
+    } else {
+        return `${id}--${++unmarked}`;
+    }
+}
+
 Messenger.prototype._init = function() {
     // Sets `send` function.
     onBackgroundPage().then((isbackground) => {
@@ -251,8 +253,13 @@ Messenger.prototype._init = function() {
             });
             listenPort(port);
             this._send = function (name, message, callback) {
-                message = commonSend(name, message, callback);
-                port.postMessage(message);
+                return new Promise((resolve, reject) => {
+                    message = commonSend(name, message, function() {
+                        callback && callback(...arguments);
+                        resolve(...arguments);
+                    });
+                    port.postMessage(message);
+                });
             };
         }
 
@@ -305,7 +312,7 @@ Messenger.prototype.removeListener = function (name, callback) {
 };
 
 Messenger.prototype.send = function(name, message, callback) {
-    this._send(name, message, callback);
+    return this._send(name, message, callback);
 };
 
 module.exports = new Messenger();

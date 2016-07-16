@@ -1,0 +1,29 @@
+// Fonts.
+@mixin roboto-regular($size) {
+    font: {
+        family: 'Roboto', sans-serif;
+        size: $size;
+        weight: 400;
+    }
+}
+
+@mixin roboto-medium($size) {
+    font: {
+        family: 'Roboto', sans-serif;
+        size: $size;
+        weight: 500;
+    }
+}
+
+// Text color.
+%text-light {
+    color: rgba(0, 0, 0, 0.26);
+}
+
+%text-medium {
+    color: rgba(0, 0, 0, 0.54);
+}
+
+%text-dark {
+    color: rgba(0, 0, 0, 0.86);
+}
