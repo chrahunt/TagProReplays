@@ -42,13 +42,27 @@ exports.textToDataUrl = function(text) {
 
 /**
  * Wrap a function to handle multiple types of results.
+ * Maps the following behaviors to returned Promise:
+ * bool returned:
+ * - true -> resolve
+ * - false -> reject
+ * thenable returned:
+ * - resolve(thenable)
+ * function callback (as last argument):
+ * - err -> reject(err)
+ * - * -> resolve(...args)
+ * Wrapped function can return true/false to resolve to
+ * 
+ * 
+ * Returns a function which takes arbitrary arguments and returns
+ * a promise on resolution.
  */
-exports.wrap = function(fn) {
+exports.wrap = function(wrapped) {
   return function() {
     var args = [...arguments];
     return new Promise((resolve, reject) => {
       // Resolve with callback, handle feedback.
-      var result = self.callback(...args, function(err) {
+      var result = wrapped(...args, function(err) {
         if (err) {
           reject(err);
         } else {

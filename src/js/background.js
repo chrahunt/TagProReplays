@@ -96,12 +96,15 @@ Messaging.on("connect", (sender) => {
     var tab = sender.tab;
     if (url.indexOf(chrome.runtime.getURL("main.html")) === 0) {
         menu_tab = tab.id;
+        // Assuming only 1 tab connects.
+        manager.pause();
     }
 });
 
 Messaging.on("disconnect", (sender) => {
     if (sender.tab.id === menu_tab) {
         menu_tab = null;
+        manager.resume();
     }
 });
 

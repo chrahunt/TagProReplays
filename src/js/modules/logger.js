@@ -1,3 +1,4 @@
+require('debug').enable("*");
 var debug = require('debug');
 
 var top = "tpr";
@@ -8,7 +9,7 @@ if (global.localStorage) {
 }
 
 var loggers = {
-  details: console.log.bind(console),
+  trace: console.log.bind(console),
   debug: console.log.bind(console),
   info: console.log.bind(console),
   warn: console.warn.bind(console),
@@ -16,7 +17,7 @@ var loggers = {
 };
 
 module.exports = function getLogger(name) {
-  var levels = ["details", "debug", "info", "warn", "error"];
+  var levels = ["trace", "debug", "info", "warn", "error"];
   var debugs = {};
   for (let level of levels) {
     debugs[level] = debug(`${top}:${name}:${level}`);

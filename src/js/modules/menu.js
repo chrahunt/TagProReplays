@@ -6,6 +6,7 @@ require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
 require('bootstrap-material-design');
+require('snackbarjs');
 
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
@@ -22,7 +23,8 @@ var Textures = require('./textures');
 var Viewer = require('./viewer');
 var Constraints = require('./constraints');
 var Util = require('./util');
-var log = require('./logger')('menu');
+
+var logger = require('./logger')('menu');
 
 // Moment calendar customization for date display.
 moment.locale('en', {
@@ -93,32 +95,32 @@ function cardSwitch(name) {
 // ============================================================================
 
 page('/', () => {
-    log.info("Page: main page.");
+    logger.info("Page: main page.");
     page('/replays');
 });
 
 page('/replays', () => {
-    log.info("Page: replays.");
+    logger.info("Page: replays.");
     cardSwitch("replays");
 });
 
 page('/renders', () => {
-    log.info("Page: renders.");
+    logger.info("Page: renders.");
     cardSwitch("renders");
 });
 
 page('/failed', () => {
-    log.info("Page: failed.");
+    logger.info("Page: failed.");
     cardSwitch("failed");
 });
 
 page('/settings', () => {
-    log.info("Page: settings.");
+    logger.info("Page: settings.");
     //togglePanel(".nav-failed", "#failed-replays");
 });
 
 page('*', () => {
-    log.warn("Page: not found!");
+    logger.warn("Page: not found!");
     page('/');
 });
 
@@ -441,7 +443,7 @@ var replay_table = new Table({
                 title: "",
                 callback: (id) => {
                     // TODO: Move to replay management.
-                    console.log('Requesting movie download for replay ' + id + '.');
+                    logger.info(`Requesting movie download for replay ${id}.`);
                     Data.getMovie(id).then(function (file) {
                         var movie = new Blob([file.data], { type: 'video/webm' });
                         var filename = sanitize(file.name);
@@ -450,7 +452,7 @@ var replay_table = new Table({
                         }
                         saveAs(movie, filename + ".webm");
                     }).catch(function (err) {
-                        console.error("Error retrieving movie for download: %o.", err);
+                        logger.error("Error retrieving movie for download: ", err);
                     });
                 }
             }, {
@@ -458,6 +460,7 @@ var replay_table = new Table({
                 icon: "play_arrow",
                 title: "preview",
                 callback: (id) => {
+                    logger.info("Starting preview.");
                     // hide menu? some kind of transition.
                     viewer.preview(id);
                 }
@@ -510,8 +513,25 @@ $('#replays .card-header .actions .delete').click(function () {
     var ids = replay_table.selected();
     console.log("Deleting replays.");
     replay_table.deselect(ids);
-    Replays.select(ids).remove().then((undo) => {
+    Replays.select(ids).remove().then((task) => {
         // TODO: create undo panel and associate undo with it.
+        $.snackbar({
+            content: "Replays deleted",
+            timeout: 5000,
+            onClose: () => {
+                task.complete().catch((err) => {
+                    // TODO: Dialog error.
+                });
+            },
+            action_message: "undo",
+            action_function: () => {
+                task.undo().then(() => {
+                    // TODO: Reload table.
+                }).catch((err) => {
+                    // TODO: Dialog error.
+                });
+            }
+        });
     }).catch((err) => {
         // internal error
         // empty selection.

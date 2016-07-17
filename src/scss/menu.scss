@@ -1,9 +1,6 @@
 @import 'roboto';
 @import 'data-table-card';
 
-// Height.
-$row-height: 48px;
-
 // Global classes.
 #tpr-container {
     color: #333;
@@ -99,11 +96,6 @@ $row-height: 48px;
         text-align: center;
         margin-top: 20px;
     }
-}
-
-.card table {
-    table-layout: fixed;
-    margin-bottom: 0;
 }
 
 .progressbar {
@@ -273,26 +265,6 @@ tbody {
 
     .unchecked {
         display: inline-block;
-    }
-}
-
-// Content.
-th, td {
-    vertical-align: middle;
-}
-
-// Table content row style.
-.table tbody tr {
-    height: $row-height;
-
-    &:hover {
-        background-color: #EEEEEE;
-    }
-
-    // Selected row.
-    &.selected {
-        // dt override.
-        background-color: #F5F5F5;
     }
 }
 

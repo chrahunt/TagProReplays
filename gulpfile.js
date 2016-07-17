@@ -96,16 +96,17 @@ function watchifyFile(src, out) {
         entries: src,
         debug: true
     });
+    var target = src.replace(/^src\//, '');
     var b = watchify(browserify(opts));
     function bundle() {
         return b.bundle()
             .on('error', notify.onError(function (err) {
                 gutil.log("Browserify Error: " + err.message);
-                return "Build Failed";
+                return `Build failed for ${target}`;
             }))
-            .pipe(source(src.replace(/^src\//, '')))
+            .pipe(source(target))
             .pipe(gulp.dest(out))
-            .pipe(notify("Build Succeeded"));
+            .pipe(notify(`Built ${target}`));
     }
     b.on('update', bundle);
     b.on('log', gutil.log);

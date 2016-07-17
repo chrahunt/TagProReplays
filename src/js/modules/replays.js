@@ -6,9 +6,11 @@ var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
 var ReplayImportStream = require('./replay-import-stream');
 
+var logger = require('./logger')('replays');
+
 // TODO: prevent upgrade occurring on foreground page.
 Data.init().then(() => {
-    console.log("Data initialized.");
+  logger.info("Data initialized.");
 });
 
 function Replays() {
@@ -44,8 +46,9 @@ Replays.prototype.count = function() {
 };
 
 Replays.prototype.query = function(args) {
-  console.log("Replays#query");
+  logger.info("Replays#query");
   return Data.getReplayInfoList(args).then((data) => {
+    logger.debug("Query returned.");
     return {
       data: data[1],
       total: data[0]
@@ -88,7 +91,7 @@ Selection.prototype.render = function() {
 // replays + failed
 // TODO: undo-able.
 Selection.prototype.remove = function() {
-  console.log("Selection#remove");
+  logger.info("Selection#remove");
   // Cancel any in-progress renders.
   return Messaging.send("cancelRenders", {
     ids: this.ids
@@ -96,8 +99,9 @@ Selection.prototype.remove = function() {
     // TODO: proper API between background page and us.
     if (err) throw err;
   }).then(() => {
-    return Data.deleteReplays(ids).catch((err) => {
-      console.error("Error deleting replays: %O", err);
+    return Data.deleteReplays(this.ids).catch((err) => {
+      logger.error("Error deleting replays: %O", err);
+      throw err;
     });
   });
 };
@@ -227,7 +231,7 @@ function Replay(id) {
 }
 
 Replay.prototype.rename = function(new_name) {
-  console.log("Replay#rename");
+  logger.info("Replay#rename");
   // validate name is nonempty?
   //
   return Data.renameReplay(this.id, new_name);
@@ -298,9 +302,21 @@ function Progress() {
 
 }
 
-function Undo() {
-  // inherits eventemitter
-  // events:
-  // - undone
-  // - confirmed
+// Wrap a destructive task.
+function DestructiveTask(_do, undo) {
+  this._do = _do;
+  this._undo = undo;
 }
+
+// Returns promise.
+DestructiveTask.prototype.undo = function() {
+  logger.info("Undoing.");
+  return this._undo();
+};
+
+// Returns promise.
+DestructiveTask.prototype.complete = function() {
+  logger.info("Doing");
+  return this._do();
+};
+

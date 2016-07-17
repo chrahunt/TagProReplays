@@ -40,6 +40,9 @@ $card-table-footer-height: 56px;
 }
 
 .card-table {
+    th, td {
+        vertical-align: middle;
+    }
     td {
         &:first-of-type {
             padding-left: 24px;
@@ -54,6 +57,22 @@ $card-table-footer-height: 56px;
             padding-right: 26px;
         }
     }
+
+    // content row styles
+    tr {
+        height: $card-table-row-height;
+
+        &:hover {
+            background-color: #EEEEEE;
+        }
+
+        &.selected {
+            // @override DataTables
+            background-color: #F5F5F5;
+        }
+    }
+    table-layout: fixed;
+    margin-bottom: 0;
 }
 
 /* bootstrap material design resets */

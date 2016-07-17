@@ -1,10 +1,12 @@
 var $ = require('jquery');
-var DataTable = require('datatables');
+require('datatables.net')(global, $);
 var Mustache = require('mustache');
 var KeyCode = require('keycode-js');
 
 var Templates = require('./templates');
 var wrap = require('./util').wrap;
+
+var logger = require('./logger')('table');
 
 function callback_intercept(handler, interceptor) {
     return function() {
@@ -431,6 +433,8 @@ function Editable(table, column) {
     this._callback = wrap(callback);
     this._column = column;
     this._initialized = false;
+    // for logging.
+    this._name = `${this._table.id} > ${this._column.data}`;
 }
 
 // Static method to see if this applies to column.
@@ -464,15 +468,21 @@ Editable.prototype._init = function() {
         var input_container = td.find(".field-editable-input-holder");
         input_container.show();
         var input = input_container.find(".field-editable-input");
+        var edited = false;
 
         function feedback(err) {
             // TODO: actual feedback.
+            logger.error(`Editable field ${self._name} error`, err);
             dismiss();
         }
 
         function save(id, text) {
+            logger.debug(`Saving editable field ${self._name}`);
             self._callback(id, text)
-              .then(dismiss)
+              .then(() => {
+                  edited = true;
+                  dismiss();
+              })
               .catch(feedback);
         }
 
@@ -497,11 +507,9 @@ Editable.prototype._init = function() {
             input_container.hide();
             input.off("keypress", enter);
             input.off("blur", dismiss);
-        }
-
-        // display error text on element.
-        function error(text) {
-
+            if (edited) {
+                self._table.reload();
+            }
         }
 
         // Listen for enter key to
