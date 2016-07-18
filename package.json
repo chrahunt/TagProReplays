@@ -65,7 +65,7 @@
     "datatables.net": "^1.10.12",
     "dexie": "^1.4.1",
     "is-my-json-valid": "^2.13.1",
-    "jquery": "^3.1.0",
+    "jquery": "^2.2.4",
     "jszip": "^2.5.0",
     "keycode-js": "0.0.2",
     "machina": "^2.0.0-1",
@@ -75,7 +75,8 @@
     "readable-stream": "^2.0.2",
     "sanitize-filename": "^1.3.0",
     "semver-compare": "^1.0.0",
-    "snackbarjs": "jallier/snackbarjs#e6abe9f"
+    "snackbarjs": "jallier/snackbarjs#e6abe9f",
+    "source-map-support": "^0.4.2"
   },
   "browserify": {
     "transform": [

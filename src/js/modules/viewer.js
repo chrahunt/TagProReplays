@@ -4,7 +4,10 @@ require('bootstrap');
 
 var Messaging = require('./messaging');
 var Renderer = require('./renderer');
+var Replays = require('./replays');
 var Textures = require('./textures');
+
+var logger = require('./logger')('viewer');
 
 /**
  * Code to support the in-page replay viewer. This file is included as
@@ -14,12 +17,6 @@ module.exports = Viewer;
 
 // Handle the interaction with the viewer for a replay.
 function Viewer() {
-    //$('article').append(
-    //    '<div id="tpr-viewer-container" class="bootstrap-container jquery-ui-container">');
-    //var url = chrome.extension.getURL("html/viewer.html");
-    //$("#tpr-viewer-container").load(url, function() {
-    //    this.init();
-    //}.bind(this));
     this.init();
 }
 
@@ -238,14 +235,11 @@ Viewer.prototype.init = function() {
 Viewer.prototype.preview = function(id) {
     // Show viewer.
     this.show();
-    var self = this;
     // Get replay data.
-    console.log('Requesting data for replay ' + id + ".");
-    Messaging.send("getReplay", {
-        id: id
-    }, function(response) {
-        console.log('Data received for replay ' + id + ".");
-        self._viewReplay(id, response.data);
+    console.log(`Requesting data for replay ${id}.`);
+    return Replays.get(id).then(data => {
+        console.log(`Data received for replay ${id}.`);
+        this._viewReplay(id, data);
     });
 };
 

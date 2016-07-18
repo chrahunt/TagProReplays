@@ -16,6 +16,7 @@ var Messaging = require('./messaging');
 var NotificationList = require('./notification-list');
 var Overlay = require('./overlay');
 var Replays = require('./replays');
+var Renders = require('./renders');
 var Status = require('./status');
 var Table = require('./table');
 var Templates = require('./templates');
@@ -439,18 +440,12 @@ var replay_table = new Table({
             actions: [{
                 name: "download",
                 icon: "file_download",
-                // need dynamic title.
+                // TODO: Dynamic title text.
                 title: "",
                 callback: (id) => {
-                    // TODO: Move to replay management.
                     logger.info(`Requesting movie download for replay ${id}.`);
-                    Data.getMovie(id).then(function (file) {
-                        var movie = new Blob([file.data], { type: 'video/webm' });
-                        var filename = sanitize(file.name);
-                        if (filename === "") {
-                            filename = "replay";
-                        }
-                        saveAs(movie, filename + ".webm");
+                    return Renders.get(id).download().then(data => {
+                        saveAs(data.data, data.name);
                     }).catch(function (err) {
                         logger.error("Error retrieving movie for download: ", err);
                     });
@@ -461,8 +456,8 @@ var replay_table = new Table({
                 title: "preview",
                 callback: (id) => {
                     logger.info("Starting preview.");
-                    // hide menu? some kind of transition.
-                    viewer.preview(id);
+                    // TODO: hide menu? some kind of transition.
+                    return viewer.preview(id);
                 }
             }],
             render: function (data, type, row, meta) {

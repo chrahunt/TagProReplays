@@ -103,6 +103,11 @@ Selection.prototype.remove = function() {
       logger.error("Error deleting replays: %O", err);
       throw err;
     });
+  }).then(() => {
+    // Future interface for undo.
+    return new DestructiveTask(
+      () => Promise.resolve(),
+      () => Promise.reject());
   });
 };
 
@@ -238,7 +243,7 @@ Replay.prototype.rename = function(new_name) {
 };
 
 Replay.prototype.data = function() {
-
+  return Data.getReplay(this.id);
 };
 
 function crop() {

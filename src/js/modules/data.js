@@ -29,6 +29,8 @@ var logger = require('./logger')('data');
 var bus = exports.events = new EventEmitter();
 
 var db = new Dexie("ReplayDatabase");
+// TODO: better way to track this, shouldn't rely on being open at all.
+var open = false;
 exports.db = db;
 
 // Logging.
@@ -308,7 +310,8 @@ version_holder.version(3).stores({
 });
 
 /**
- * Call to initialize database.
+ * Call to initialize database. Idempotent within a single page
+ * context.
  * @param {number} [version] - Version of database to use, only for
  *   testing.
  * @param {bool} [events] - Whether to emit events for this init call.
@@ -316,6 +319,7 @@ version_holder.version(3).stores({
  *   error.
  */
 exports.init = function(version, events) {
+    if (open) return Promise.resolve();
     if (typeof events === "undefined") {
         events = true;
     }
@@ -590,7 +594,7 @@ exports.getReplay = function(id) {
         if (replay)
             return cleanReplay(replay);
 
-        throw new Error("No replay found.");
+        throw new Error(`Replay with id ${id} not found.`);
     });
 };
 

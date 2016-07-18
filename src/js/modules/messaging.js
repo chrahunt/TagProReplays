@@ -1,6 +1,8 @@
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
+var logger = require('./logger')('messaging');
+
 /**
  * Messenger interface for Content Script<->Background page
  * communication.
@@ -118,7 +120,7 @@ function listenPort(port) {
 
     // Listen for messages over port.
     port.onMessage.addListener(function (message, sender) {
-        console.debug(`port#onMessage: [type:${message.type}], [name:${message.name}]`);
+        logger.debug(`port#onMessage: [type:${message.type}], [name:${message.name}]`);
         if (message.type == "main") {
             var method = message.name;
             var data = message.data || {};
@@ -148,8 +150,8 @@ function listenPort(port) {
                                         });
                                     } else {
                                         // Error, calling callback without returning true.
-                                        console.error("Calling callback without " +
-                                            "returning `true`: %s", method);
+                                        logger.error("Calling callback without " +
+                                            `returning 'true': ${method}`);
                                     }
                                 }
                             });
@@ -168,9 +170,8 @@ function listenPort(port) {
                             sync = false;
                         } else {
                             listener.call(null, data, sender, function () {
-                                console.error("Listener called callback, " +
-                                    "but none was defined with message: %s",
-                                    method);
+                                logger.error("Listener called callback, " +
+                                    `but none was defined with message: ${method}`);
                             });
                         }
                     } else {
@@ -187,7 +188,7 @@ function listenPort(port) {
                         //console.log("Calling callback: %d.", callback_data.id);
                         callback.call(null, callback_data.response);
                     } else {
-                        console.error("Callback called, but doesn't exist. id: %d", callback_data.id);
+                        logger.error(`Callback called, but doesn't exist. id: ${callback_data.id}`);
                     }
                 } else {
                     // Callback not called, remove.

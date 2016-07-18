@@ -1,3 +1,8 @@
+// Maps Error stacks to source.
+require('source-map-support').install({
+  handleUncaughtExceptions: false
+});
+
 // Main app.
 var $ = require('jquery');
 

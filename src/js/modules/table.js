@@ -2,6 +2,7 @@ var $ = require('jquery');
 require('datatables.net')(global, $);
 var Mustache = require('mustache');
 var KeyCode = require('keycode-js');
+var assert = require('assert');
 
 var Templates = require('./templates');
 var wrap = require('./util').wrap;
@@ -195,13 +196,14 @@ function Table(options) {
 
     this.table = $("#" + this.id).DataTable(init_options);
 
+    // TODO: configurable based on checkbox column.
     // Add select-all checkbox to header.
     $(this.table.column(0).header())
         .html(Templates.table.select_all_checkbox)
         .addClass('cb-cell');
 
     // "Select all" checkbox.
-    $("#" + self.id + "_wrapper .select-all").change(function() {
+    $(`#${self.id}_wrapper .select-all`).change(function() {
         $("#" + self.id + " tbody .selected-checkbox")
             .prop("checked", this.checked)
             .trigger("change");
@@ -209,10 +211,9 @@ function Table(options) {
     });
 
     // Track selected rows across all pages.
-    $("#" + this.id + " tbody").on("change", ".selected-checkbox", function () {
+    this.setRowClickListener("selected-checkbox", function(id) {
         var tr = $(this).closest("tr");
-        var replayId = tr.data("id");
-        var idx = self.all_selected.indexOf(replayId);
+        var idx = self.all_selected.indexOf(id);
         if (this.checked && idx === -1) {
             self.all_selected.push(replayId);
             tr.addClass('selected');
@@ -222,13 +223,13 @@ function Table(options) {
         }
     });
 
-    // Selection behavior.
-    $("#" + this.id + " tbody").on("click", ".selected-checkbox", function (evt) {
+    // Range selection when shift held.
+    this.setClickListener("selected-checkbox", function (e) {
         var elt = $(this);
-        var numChecked = $("#" + self.id + " .selected-checkbox:checked").length;
+        var numChecked = $(`#${self.id} .selected-checkbox:checked`).length;
         var tr = elt.closest("tr");
-        if (elt.prop('checked') && evt.shiftKey && numChecked > 1) {
-            var boxes = $("#" + self.id + " .selected-checkbox"),
+        if (elt.prop('checked') && e.shiftKey && numChecked > 1) {
+            var boxes = $(`#${self.id} .selected-checkbox`),
                 closestBox,
                 thisBox;
             for (var i = 0; i < boxes.length; i++) {
@@ -240,7 +241,7 @@ function Table(options) {
                 if (boxes[i].checked) closestBox = i;
                 if (thisBox && closestBox) break;
             }
-            var bounds = [closestBox, thisBox].sort(function(a, b){
+            var bounds = [closestBox, thisBox].sort((a, b) => {
                 return a - b;
             });
             boxes.slice(bounds[0], bounds[1])
@@ -253,29 +254,29 @@ function Table(options) {
     // Update table when entry is checked.
     function updateWhenChecked() {
         var header = $(options.header.selector);
-        var rows = $("#" + self.id + " .selected-checkbox").length;
+        var rows = $(`#${self.id} .selected-checkbox`).length;
+        var select_all = $(`#${self.id}_wrapper .select-all`);
         if (rows === 0) {
             // Select-all checkbox.
-            $("#" + self.id + "_wrapper .select-all").prop("disabled", true);
-            $("#" + self.id + "_wrapper .select-all").prop("checked", false);
-            $("#" + self.id + "_wrapper .select-all")
-              .closest('tr').removeClass('selected');
+            select_all.prop("disabled", true);
+            select_all.prop("checked", false);
+            select_all.closest('tr').removeClass('selected');
 
             // Card header.
             header.find(".actions").addClass("hidden");
             header.find(".title").text(options.header.title);
         } else {
-            var numChecked = $("#" + self.id + " .selected-checkbox:checked").length;
+            var numChecked = $(`#${self.id} .selected-checkbox:checked`).length;
 
             // Select-all checkbox.
-            $("#" + self.id + "_wrapper .select-all")
+            select_all
               .prop("disabled", false);
             if (numChecked === rows) {
-                $("#" + self.id + "_wrapper .select-all").prop("checked", true);
-                $("#" + self.id + "_wrapper .select-all").closest('tr').addClass('selected');
+                select_all.prop("checked", true);
+                select_all.closest('tr').addClass('selected');
             } else {
-                $("#" + self.id + "_wrapper .select-all").prop("checked", false);
-                $("#" + self.id + "_wrapper .select-all").closest('tr').removeClass('selected');
+                select_all.prop("checked", false);
+                select_all.closest('tr').removeClass('selected');
             }
 
             // Card header.
@@ -324,15 +325,20 @@ function Table(options) {
 
 module.exports = Table;
 
+// Initialize selection behavior.
+Table.prototype._init = function() {
+
+};
 /**
  * Get ids of entries selected on current page.
  * @return {Array.<integer>} - Array of ids of rows selected.
  */
 Table.prototype.selected = function() {
     var selected = [];
+    var self = this;
     $("#" + this.id + ' .selected-checkbox').each(function () {
         if (this.checked) {
-            var id = $(this).closest("tr").data("id");
+            var id = self.getRecordId(this);
             selected.push(id);
         }
     });
@@ -404,6 +410,20 @@ Table.prototype.recalcMaxHeight = function() {
     }
 };
 
+// Passes id of record to callback followed by anything else.
+Table.prototype.setRowClickListener = function(class_, callback) {
+    var self = this;
+    this.setClickListener(class_, function() {
+        var id = self.getRecordId(this);
+        callback.call(this, id, ...arguments);
+    });
+};
+
+// For functions not interested in id so much.
+Table.prototype.setClickListener = function(class_, callback) {
+    $(`#${this.id} tbody`).on("click", `.${class_}`, callback);
+};
+
 // ============================================================================
 // Additional Cell Types
 // ============================================================================
@@ -459,9 +479,8 @@ Editable._template =
 Editable.prototype._init = function() {
     var self = this;
     // Set editable cell behavior callback.
-    $(`#${this._table.id} tbody`).on("click", ".field-editable-control",
-    function() {
-        var id = self._table.getRecordId(this);
+    this._table.setRowClickListener("field-editable-control",
+    function(id) {
         var td = $(this).closest('td');
         var tr = $(this).closest('tr');
         td.find(".field-editable-static").hide();
@@ -540,7 +559,7 @@ Editable.prototype.column = function() {
     });
 };
 
-
+// Checkbox column.
 function Checkbox(table, column) {
     this._table = table;
     this._column = column;
@@ -579,6 +598,7 @@ function Actions(table, column) {
     this._table = table;
     this._column = column;
     this._initialized = false;
+    this._cached = "";
 }
 
 Actions.applies = function(col) {
@@ -587,12 +607,13 @@ Actions.applies = function(col) {
 
 Actions._template =
   `<div class="actions">
-     {{#actions}}{{render}}{{/actions}}
+     {{#actions}}{{{render}}}{{/actions}}
    </div>`;
 
 // Initialize actions.
 Actions.prototype._init = function() {
-
+    this._actions = this._column.actions.map(
+        a => new RowAction(this._table, a));
 };
 
 Actions.prototype.render = function(data, type, row, meta) {
@@ -600,8 +621,12 @@ Actions.prototype.render = function(data, type, row, meta) {
         this._init();
         this._initialized = true;
     }
+    // TODO: cache result.
+    var actions = this._actions.map(action => {
+        return { render: action.render(data, type, row, meta) };
+    });
     return Mustache.render(Actions._template, {
-        actions: this._actions
+        actions: actions
     });
 };
 
@@ -615,44 +640,49 @@ Actions.prototype.column = function() {
 // Gets added indirectly, must init on rowcontainer
 // RowAction accepts a data parameter boolean for enabled/disabled.
 // opts has a name, callback, icon, title.
-// optional disabled fn for determining if it should be enabled.
-function RowAction(opts) {
+// optional enabled fn for determining if it should be enabled.
+function RowAction(table, opts) {
+    this._table = table;
+    this._initialized = false;
     this._name = opts.name;
     this._callback = wrap(opts.callback);
-    this._class = `card-row-action-${this.name}`; 
+    this._class = `card-row-action-${this._name}`; 
     this._vars = {
         icon: opts.icon,
         title: opts.title,
         class: this._class,
-        disabled: opts.disabled || (() => true)
+        enabled: opts.enabled || (() => true)
     };
 }
 
 RowAction._template =
-  `<div class="{{class}}{{#disabled}} disabled{{/disabled}}"
+  `<div class="{{class}}{{^enabled}} disabled{{/enabled}}"
      {{#title}} title="{{title}}"{{/title}}>
      <i class="material-icons">{{icon}}</i>
    </div>`;
 
 // Set listeners on parent.
-RowAction.prototype.init = function(table, container) {
-    this.table = table;
-    var self = this;
-    $(container).on("click", `.${this.class}`, function() {
-        var id = self.table.getRecordId(this);
-        self.callback(id).catch((err) => {
-            console.error("Error executing action callback: " +
-                "%O", err);
+RowAction.prototype._init = function() {
+    this._table.setRowClickListener(this._class, id => {
+        logger.debug(`RowAction ${this._name} clicked for item ${id}.`);
+        this._callback(id).catch(err => {
+            logger.error("Error executing action callback: %O", err);
         });
     });
 };
 
+// Called by Action.
 RowAction.prototype.render = function(data, type, row, meta) {
-    var vars = Object.assign({}, this.vars, {
-        disabled: data
+    if (!this._initialized) {
+        this._init();
+        this._initialized = true;
+    }
+    // TODO: implement function checking.
+    var vars = Object.assign({}, this._vars, {
+        enabled: data
     })
     return Mustache.render(
-        RowAction.template, this.vars);
+        RowAction._template, vars);
 };
 
 // gets added directly, single-instance
@@ -662,7 +692,7 @@ function CardAction(opts) {
     this._vars = {
         icon: opts.icon,
         title: opts.title,
-        class: `card-action-${this.id}`
+        class: `card-action-${this._id}`
     };
 }
 

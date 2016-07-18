@@ -1,3 +1,8 @@
+// Maps Error stacks to source.
+require('source-map-support').install({
+    handleUncaughtExceptions: false
+});
+
 var async = require('async');
 var cmp = require('semver-compare');
 var JSZip = require('jszip');
@@ -206,26 +211,6 @@ function(message, sender, sendResponse) {
 // ============================================================================
 // Replay management
 // ============================================================================
-
-/**
- * Request for replay data. response should be a function that will
- * take an object with a `data` property which is the replay information.
- * @param {object} message - Should have a property `id` property corresponding
- *   to the replay data is being requested for.
- * @param {Function} callback - Function that takes the retrieved replay data.
- */
-Messaging.listen("getReplay",
-function(message, sender, sendResponse) {
-    // Get replay.
-    Data.getReplay(message.id).then(function (replay) {
-        sendResponse({
-            data: replay
-        });
-    }).catch(function (err) {
-        console.error("Error retrieving replay: %o.", err);
-    });
-    return true;
-});
 
 /**
  * Crops a replay and replaces it in the database.
