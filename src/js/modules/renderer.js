@@ -27,13 +27,13 @@ var tiles = {
   4: { x: 15, y: 1, drawFloor: true, dynamic: true },
   blueflag: { x: 15, y: 1, dynamic: true },
   4.1: { x: 15, y: 2, drawFloor: true, dynamic: true },
-  5: { drawFloor: true, dynamic: true, animated: true, img: "speedpad" }, // speedpad
+  5: { drawFloor: true, dynamic: true, animated: true, img: "speedpad" },
   5.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "speedpad" },
-  14: { drawFloor: true, dynamic: true, animated: true, img: "speedpadred" }, // speedpadred
+  14: { drawFloor: true, dynamic: true, animated: true, img: "speedpadred" },
   14.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "speedpadred" },
-  15: { drawFloor: true, dynamic: true, animated: true, img: "speedpadblue" }, // speedpadblue
+  15: { drawFloor: true, dynamic: true, animated: true, img: "speedpadblue" },
   15.1: { x: 4, y: 0, drawFloor: true, dynamic: true, img: "speedpadblue" },
-  6: { x: 12, y: 8, drawFloor: true, dynamic: true }, // powerups
+  6: { x: 12, y: 8, drawFloor: true, dynamic: true },
   6.1: { x: 12, y: 4, drawFloor: true, dynamic: true },
   grip: { x: 12, y: 4, dynamic: true },
   6.2: { x: 12, y: 5, drawFloor: true, dynamic: true },
@@ -304,139 +304,136 @@ var tiles = {
 };
 
 var flagTiles = {
-    1: 'redflag',
-    2: 'blueflag',
-    3: 'yellowflag'
+  1: 'redflag',
+  2: 'blueflag',
+  3: 'yellowflag'
 };
 
 function Renderer(replay, opts) {
-    this.options = opts.options;
-    this.textures = opts.textures;
-    this.replay = replay;
-    if (opts.canvas) {
-        this.canvas = opts.canvas;
-    } else {
-        this.canvas = document.createElement('canvas');
-        this.canvas.width = this.options.canvas_width;
-        this.canvas.height = this.options.canvas_height;
-    }
-    this.context = this.canvas.getContext('2d');
-    this.frame = 0;
-    this.state = {
-        players: {},
-        splats: {},
-        bombs: {}
+  this.options = opts.options;
+  this.textures = opts.textures;
+  this.replay = replay;
+  if (opts.canvas) {
+    this.canvas = opts.canvas;
+  } else {
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.options.canvas_width;
+    this.canvas.height = this.options.canvas_height;
+  }
+  this.context = this.canvas.getContext('2d');
+  this.frame = 0;
+  this.state = {
+    players: {},
+    splats: {},
+    bombs: {}
+  };
+  this.camera = {
+    x: 0,
+    y: 0
+  };
+  // Initialize state for each player.
+  for (var id in this.replay.data.players) {
+    this.state.players[id] = {
+      pops: [],
+      bombs: []
     };
-    this.camera = {
-        x: 0,
-        y: 0
-    };
-    // Initialize state for each player.
-    for (var id in this.replay.data.players) {
-        this.state.players[id] = {
-            pops: [],
-            bombs: []
-        };
-    }
-    var mapImg = this.makeBackgroundTexture();
-    // draw background
-    this.background = new Image();
-    // TODO: fire ready.
-    this.background.onload = function() {
+  }
+  var mapImg = this.makeBackgroundTexture();
+  // draw background
+  this.background = new Image();
+  // TODO: fire ready.
+  this.background.onload = function () {
 
-    };
-    this.background.src = mapImg;
+  };
+  this.background.src = mapImg;
 }
 
 module.exports = Renderer;
 
-Renderer.prototype.onReady = function(fn) {
-    if (this.ready) {
-        fn();
-    } else {
-        this._onReady = fn;
-    }
+Renderer.prototype.onReady = function (fn) {
+  if (this.ready) {
+    fn();
+  } else {
+    this._onReady = fn;
+  }
 };
 
-Renderer.prototype.setFrame = function(i) {
-    this.frame = i;
+Renderer.prototype.setFrame = function (i) {
+  this.frame = i;
 };
 
-Renderer.prototype.getCamera = function() {
-    var player = this.getPlayer();
-    return {
-        x: player.x[this.frame] + TILE_SIZE / 2,
-        y: player.y[this.frame] + TILE_SIZE / 2
-    };
+Renderer.prototype.getCamera = function () {
+  var player = this.getPlayer();
+  return {
+    x: player.x[this.frame] + TILE_SIZE / 2,
+    y: player.y[this.frame] + TILE_SIZE / 2
+  };
 };
 
-Renderer.prototype.toScreen = function(loc) {
-    return {
-        x: loc.x - this.camera.x + this.center.x,
-        y: loc.y - this.camera.y + this.center.y
-    };
+Renderer.prototype.toScreen = function (loc) {
+  return {
+    x: loc.x - this.camera.x + this.center.x,
+    y: loc.y - this.camera.y + this.center.y
+  };
 };
 
 /**
  * Draw frame of replay.
  * @param {integer} i - The frame to draw.
  */
-Renderer.prototype.drawFrame = function(i) {
-    var ctx = this.context;
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+Renderer.prototype.drawFrame = function (i) {
+  var ctx = this.context;
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    this.setFrame(i);
-    this.camera = this.getCamera();
-    this.screen = {
-        x: ctx.canvas.width,
-        y: ctx.canvas.height
-    };
-    this.center = {
-        x: this.screen.x / 2,
-        y: this.screen.y / 2
-    };
+  this.setFrame(i);
+  this.camera = this.getCamera();
+  this.screen = {
+    x: ctx.canvas.width,
+    y: ctx.canvas.height
+  };
+  this.center = {
+    x: this.screen.x / 2,
+    y: this.screen.y / 2
+  };
 
-    this.drawBackground();
-    if (this.options.splats) {
-        this.drawSplats();
-    }
-    this.drawFloorTiles();
-    this.drawSpawns();
-    this.drawPlayers();
-    if (this.options.ui) {
-        this.drawUI();
-    }
-    if (this.options.chat) {
-        this.drawChats();
-    }
-    this.drawExplosions();
-    this.drawEndText();
+  this.drawBackground();
+  if (this.options.splats) {
+    this.drawSplats();
+  }
+  this.drawFloorTiles();
+  this.drawSpawns();
+  this.drawPlayers();
+  if (this.options.ui) {
+    this.drawUI();
+  }
+  if (this.options.chat) {
+    this.drawChats();
+  }
+  this.drawExplosions();
+  this.drawEndText();
 };
 
-Renderer.prototype.drawUI = function() {
-    this.drawClock();
-    this.drawScore(this.replay.data.score[this.frame]);
-    this.drawScoreFlag();
+Renderer.prototype.drawUI = function () {
+  this.drawClock();
+  this.drawScore(this.replay.data.score[this.frame]);
+  this.drawScoreFlag();
 };
 
-Renderer.prototype.drawBackground = function() {
-    var offset = this.toScreen({
-        x: 0,
-        y: 0
-    });
-    this.context.drawImage(this.background,
-        0,
-        0,
-        this.background.width,
-        this.background.height,
-        offset.x,
-        offset.y,
-        this.background.width,
-        this.background.height);
+Renderer.prototype.drawBackground = function () {
+  var offset = this.toScreen({
+    x: 0,
+    y: 0
+  });
+  this.context
+      .drawImage(this.background,
+                 0, 0,
+                 this.background.width, this.background.height,
+                 offset.x, offset.y,
+                 this.background.width, this.background.height);
 };
 
-Renderer.prototype.getContext = function() {
-    return this.context;
+Renderer.prototype.getContext = function () {
+  return this.context;
 };
 
 /**
@@ -448,9 +445,9 @@ Renderer.prototype.getContext = function() {
  * @return {?Player} - The player object.
  */
 // done
-Renderer.prototype.getPlayer = function() {
-    var playerId = this.replay.info.player;
-    return this.replay.data.players[playerId];
+Renderer.prototype.getPlayer = function () {
+  var playerId = this.replay.info.player;
+  return this.replay.data.players[playerId];
 };
 
 /**
@@ -460,12 +457,12 @@ Renderer.prototype.getPlayer = function() {
  * @return {Array.<Player>} - The players.
  */
 // done
-Renderer.prototype.getPlayers = function() {
-    var players = [];
-    for (var i in this.replay.data.players) {
-        players.push(this.replay.data.players[i]);
-    }
-    return players;
+Renderer.prototype.getPlayers = function () {
+  var players = [];
+  for (var i in this.replay.data.players) {
+    players.push(this.replay.data.players[i]);
+  }
+  return players;
 };
 
 /**
@@ -482,107 +479,103 @@ Renderer.prototype.getPlayers = function() {
  * @param {Point} position - The draw position for the player.
  * @param {PlayerInfo} info - The information to draw.
  */
-Renderer.prototype.drawText = function(position, info) {
-    var ctx = this.context;
-    // Move from player position to text drawing position.
-    position = {
-        x: position.x + 30,
-        y: position.y - 5
-    };
-    ctx.textAlign = 'left';
-    ctx.fillStyle = info.auth ? "#BFFF00" : "#ffffff";
-    ctx.strokeStyle = "#000000";
-    ctx.shadowColor = "#000000";
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.lineWidth = 2;
-    ctx.font = "bold 8pt Arial";
-    ctx.shadowBlur = 10;
-    ctx.strokeText(info.name, position.x + 3, position.y);
-    if (info.degree && info.degree !== 0) {
-        ctx.strokeText(info.degree + "°", position.x + 10, position.y + 12);
-    }
-    ctx.shadowBlur = 0;
-    ctx.fillText(info.name, position.x + 3, position.y);
-    if (info.degree && info.degree !== 0) {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(info.degree + "°", position.x + 10, position.y + 12);
-    }
+Renderer.prototype.drawText = function (position, info) {
+  var ctx = this.context;
+  // Move from player position to text drawing position.
+  position = {
+    x: position.x + 30,
+    y: position.y - 5
+  };
+  ctx.textAlign = 'left';
+  ctx.fillStyle = info.auth ? "#BFFF00" : "#ffffff";
+  ctx.strokeStyle = "#000000";
+  ctx.shadowColor = "#000000";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.lineWidth = 2;
+  ctx.font = "bold 8pt Arial";
+  ctx.shadowBlur = 10;
+  ctx.strokeText(info.name, position.x + 3, position.y);
+  if (info.degree && info.degree !== 0) {
+    ctx.strokeText(info.degree + "°", position.x + 10, position.y + 12);
+  }
+  ctx.shadowBlur = 0;
+  ctx.fillText(info.name, position.x + 3, position.y);
+  if (info.degree && info.degree !== 0) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(info.degree + "°", position.x + 10, position.y + 12);
+  }
 };
 
 /**
  * @param {Point} pos - Location to draw flair on canvas.
  * @param {Point} ballFlair - Location of flair on sprite.
  */
-Renderer.prototype.drawFlair = function(pos, flair) {
-    this.context.drawImage(this.textures.flair,
-        flair.x * 16,
-        flair.y * 16,
-        16,
-        16,
-        pos.x,
-        pos.y,
-        16,
-        16);
+Renderer.prototype.drawFlair = function (pos, flair) {
+  this.context
+      .drawImage(this.textures.flair,
+                 flair.x * 16, flair.y * 16,
+                 16, 16,
+                 pos.x, pos.y,
+                 16, 16);
 };
 
-Renderer.prototype.prettyText = function(text, textx, texty, color) {
-    var ctx = this.context;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = color;
-    ctx.strokeStyle = "#000000";
-    ctx.shadowColor = "#000000";
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.lineWidth = 2;
-    ctx.font = "bold 8pt Arial";
-    ctx.shadowBlur = 10;
-    ctx.strokeText(text, textx, texty);
-    ctx.shadowBlur = 0;
-    ctx.fillText(text, textx, texty);
-    return ctx.measureText(text).width;
+Renderer.prototype.prettyText = function (text, textx, texty, color) {
+  var ctx = this.context;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "#000000";
+  ctx.shadowColor = "#000000";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.lineWidth = 2;
+  ctx.font = "bold 8pt Arial";
+  ctx.shadowBlur = 10;
+  ctx.strokeText(text, textx, texty);
+  ctx.shadowBlur = 0;
+  ctx.fillText(text, textx, texty);
+  return ctx.measureText(text).width;
 };
 
-Renderer.prototype.drawChats = function() {
-    var chats = this.replay.data.chat.slice().reverse();
-    var frame = this.frame;
-    var self = this;
-    var time = this.replay.data.time[frame];
-    var currentChats = [];
-    for (var i = chats.length - 1; i >= 0; i--) {
-        var chat = chats[i];
-        if (chat.time < time && chat.time + 3e4 > time) {
-            currentChats.push(chat);
-        }
-        if (currentChats.length > 10) break;
+Renderer.prototype.drawChats = function () {
+  var chats = this.replay.data.chat.slice().reverse();
+  var frame = this.frame;
+  var time = this.replay.data.time[frame];
+  var currentChats = [];
+  for (var i = chats.length - 1; i >= 0; i--) {
+    var chat = chats[i];
+    if (chat.time < time && chat.time + 3e4 > time) {
+      currentChats.push(chat);
     }
-    var ctx = this.context;
-    var players = this.replay.data.players;
-    currentChats.forEach(function(chat, i) {
-        var left = 10;
-        var top = ctx.canvas.height - 175 + i * 12;
-        if (typeof chat.from == 'number') {
-            if (players[chat.from].auth[frame]) {
-                left += self.prettyText("✓ ", left, top, "#BFFF00");
-            }
-            var chatName = players[chat.from].name[frame];
-            left += self.prettyText(chatName + ': ',
+    if (currentChats.length > 10) break;
+  }
+  var ctx = this.context;
+  var players = this.replay.data.players;
+  currentChats.forEach((chat, i) => {
+    var left = 10;
+    var top = ctx.canvas.height - 175 + i * 12;
+    if (typeof chat.from == 'number') {
+      if (players[chat.from].auth[frame]) {
+        left += this.prettyText("✓ ", left, top, "#BFFF00");
+      }
+      var chatName = players[chat.from].name[frame];
+      left += this.prettyText(chatName + ': ',
                 left,
                 top,
                 players[chat.from].team[frame] === 1 ? "#FFB5BD" : "#CFCFFF");
-        }
-        var color;
-        if (chat.to == 'team') {
-            color = players[chat.from].team[frame] === 1 ? "#FFB5BD" : "#CFCFFF";
-        } else if (chat.to == 'group') {
-            color = "#E7E700";
-        } else if (chat.color) {
-            color = chat.color;
-        } else {
-            color = 'white';
-        }
-        self.prettyText(chat.message, left, top, color);
-    });
+    }
+    var color;
+    if (chat.to == 'team') {
+      color = players[chat.from].team[frame] === 1 ? "#FFB5BD" : "#CFCFFF";
+    } else if (chat.to == 'group') {
+      color = "#E7E700";
+    } else if (chat.color) {
+      color = chat.color;
+    } else {
+      color = 'white';
+    }
+    this.prettyText(chat.message, left, top, color);
+  });
 };
 
 /**
@@ -592,16 +585,13 @@ Renderer.prototype.drawChats = function() {
  *   player.
  */
 // done
-Renderer.prototype.drawGrip = function(point) {
-    this.context.drawImage(this.textures.tiles,
-        12 * TILE_SIZE,
-        4 * TILE_SIZE,
-        TILE_SIZE,
-        TILE_SIZE,
-        point.x,
-        point.y + 20,
-        TILE_SIZE / 2,
-        TILE_SIZE / 2);
+Renderer.prototype.drawGrip = function (point) {
+  this.context
+      .drawImage(this.textures.tiles,
+                 12 * TILE_SIZE, 4 * TILE_SIZE,
+                 TILE_SIZE, TILE_SIZE,
+                 point.x, point.y + 20,
+                 TILE_SIZE / 2, TILE_SIZE / 2);
 };
 
 /**
@@ -611,19 +601,16 @@ Renderer.prototype.drawGrip = function(point) {
  *   player.
  */
 // done
-Renderer.prototype.drawBomb = function(point) {
-    // Draw 25% of the time.
-    if (Math.round(Math.random() * 4) == 1) {
-        this.context.drawImage(this.textures.rollingbomb,
-            0,
-            0,
-            TILE_SIZE,
-            TILE_SIZE,
-            point.x,
-            point.y,
-            TILE_SIZE,
-            TILE_SIZE);
-    }
+Renderer.prototype.drawBomb = function (point) {
+  // Draw 25% of the time.
+  if (Math.round(Math.random() * 4) == 1) {
+    this.context
+        .drawImage(this.textures.rollingbomb,
+                   0, 0,
+                   TILE_SIZE, TILE_SIZE,
+                   point.x, point.y,
+                   TILE_SIZE, TILE_SIZE);
+  }
 };
 
 /**
@@ -633,55 +620,51 @@ Renderer.prototype.drawBomb = function(point) {
  *   player.
  */
 // done
-Renderer.prototype.drawTagpro = function(point) {
-    this.context.drawImage(this.textures.tagpro,
-        0,
-        0,
-        TILE_SIZE,
-        TILE_SIZE,
-        point.x,
-        point.y,
-        TILE_SIZE,
-        TILE_SIZE);
+Renderer.prototype.drawTagpro = function (point) {
+  this.context
+      .drawImage(this.textures.tagpro,
+                 0, 0,
+                 TILE_SIZE, TILE_SIZE,
+                 point.x, point.y,
+                 TILE_SIZE, TILE_SIZE);
 };
 
-Renderer.prototype.drawClock = function() {
-    // define the end time that applies to the current frame
-    var endTimes = this.replay.data.endTimes.map(function (t) {
-            return moment(t);
-        }),
-        time = moment(this.replay.data.time[this.frame]),
-        endTime, clockTime;
+Renderer.prototype.drawClock = function () {
+  // define the end time that applies to the current frame
+  var endTimes = this.replay.data.endTimes.map(
+    (t) => moment(t));
+  var time = moment(this.replay.data.time[this.frame]);
+  var endTime, clockTime;
 
-    for (var i = 0; i < endTimes.length; i++) {
-        if (time.isBefore(endTimes[i])) {
-          endTime = endTimes[i];
-          break;
-        }
+  for (var i = 0; i < endTimes.length; i++) {
+    if (time.isBefore(endTimes[i])) {
+      endTime = endTimes[i];
+      break;
     }
+  }
 
-    if (endTime) {
-        if (this.replay.data.gameEnd) {
-            var gameEnd = moment(this.replay.data.gameEnd.time);
-            if (gameEnd.isBefore(time)) {
-                clockTime = moment(endTime.diff(gameEnd)).format("mm:ss");
-            }
-        }
-        if (!clockTime) {
-            clockTime = moment(endTime.diff(time)).format("mm:ss");
-        }
-    } else {
-        // After clock has run out.
-        clockTime = "0:00";
+  if (endTime) {
+    if (this.replay.data.gameEnd) {
+      var gameEnd = moment(this.replay.data.gameEnd.time);
+      if (gameEnd.isBefore(time)) {
+        clockTime = moment(endTime.diff(gameEnd)).format("mm:ss");
+      }
     }
-    var ctx = this.context;
-    ctx.fillStyle = "rgba(255, 255, 255, 1)";
-    ctx.strokeStyle = "rgba(0, 0, 0, .75)";
-    ctx.font = "bold 30pt Arial";
-    ctx.textAlign = 'center';
-    ctx.lineWidth = 4;
-    ctx.strokeText(clockTime, ctx.canvas.width / 2, ctx.canvas.height - 25);
-    ctx.fillText(clockTime, ctx.canvas.width / 2, ctx.canvas.height - 25);
+    if (!clockTime) {
+      clockTime = moment(endTime.diff(time)).format("mm:ss");
+    }
+  } else {
+    // After clock has run out.
+    clockTime = "0:00";
+  }
+  var ctx = this.context;
+  ctx.fillStyle = "rgba(255, 255, 255, 1)";
+  ctx.strokeStyle = "rgba(0, 0, 0, .75)";
+  ctx.font = "bold 30pt Arial";
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 4;
+  ctx.strokeText(clockTime, ctx.canvas.width / 2, ctx.canvas.height - 25);
+  ctx.fillText(clockTime, ctx.canvas.width / 2, ctx.canvas.height - 25);
 };
 
 /**
@@ -696,49 +679,44 @@ Renderer.prototype.drawClock = function() {
  * @param  {ScoreObj} score - The score object for the current frame.
  */
 // done
-Renderer.prototype.drawScore = function(score) {
-    var ctx = this.context;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(255, 0, 0, .5)";
-    ctx.font = "bold 40pt Arial";
-    ctx.fillText(score.r, ctx.canvas.width / 2 - 120, ctx.canvas.height - 50);
-    ctx.fillStyle = "rgba(0, 0, 255, .5)";
-    ctx.fillText(score.b, ctx.canvas.width / 2 + 120, ctx.canvas.height - 50);
+Renderer.prototype.drawScore = function (score) {
+  var ctx = this.context;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255, 0, 0, .5)";
+  ctx.font = "bold 40pt Arial";
+  ctx.fillText(score.r, ctx.canvas.width / 2 - 120, ctx.canvas.height - 50);
+  ctx.fillStyle = "rgba(0, 0, 255, .5)";
+  ctx.fillText(score.b, ctx.canvas.width / 2 + 120, ctx.canvas.height - 50);
 };
 
 /**
  * Draw flags at bottom of UI  indicating which flags are held.
  */
-Renderer.prototype.drawScoreFlag = function() {
-    var ctx = this.context;
-    var players = this.getPlayers();
-    var frame = this.frame;
-    var self = this;
-    players.forEach(function(player) {
-        // Flag status for this player for this frame.
-        var flagStatus = player.flag[frame];
-        // Check if they had the flag this frame.
-        if (flagStatus) {
-            var flagCoords = tiles[flagTiles[flagStatus]];
-            // Get team of player with flag.
-            var flagTeam = player.team[frame];
-            var flagPos = {
-                x: ctx.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
-                y: ctx.canvas.height - 50
-            };
-            ctx.globalAlpha = 0.5;
-            ctx.drawImage(self.textures.tiles,
-                flagCoords.x * TILE_SIZE,
-                flagCoords.y * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE,
-                flagPos.x,
-                flagPos.y,
-                TILE_SIZE * 0.8,
-                TILE_SIZE * 0.8);
-            ctx.globalAlpha = 1;
-        }
-    });
+Renderer.prototype.drawScoreFlag = function () {
+  var ctx = this.context;
+  var players = this.getPlayers();
+  var frame = this.frame;
+  players.forEach((player) => {
+    // Flag status for this player for this frame.
+    var flagStatus = player.flag[frame];
+    // Check if they had the flag this frame.
+    if (flagStatus) {
+      var flagCoords = tiles[flagTiles[flagStatus]];
+      // Get team of player with flag.
+      var flagTeam = player.team[frame];
+      var flagPos = {
+        x: ctx.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
+        y: ctx.canvas.height - 50
+      };
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(this.textures.tiles,
+                    flagCoords.x * TILE_SIZE, flagCoords.y * TILE_SIZE,
+                    TILE_SIZE, TILE_SIZE,
+                    flagPos.x, flagPos.y,
+                    TILE_SIZE * 0.8, TILE_SIZE * 0.8);
+      ctx.globalAlpha = 1;
+    }
+  });
 };
 
 /**
@@ -748,17 +726,14 @@ Renderer.prototype.drawScoreFlag = function() {
  * @param {Image} tiles - The image representing the tiles texture.
  */
 // done
-Renderer.prototype.drawFlag = function(point, flag) {
-    var flagCoords = tiles[flagTiles[flag]];
-    this.context.drawImage(this.textures.tiles,
-        flagCoords.x * TILE_SIZE,
-        flagCoords.y * TILE_SIZE,
-        TILE_SIZE,
-        TILE_SIZE,
-        point.x + 10,
-        point.y - 30,
-        TILE_SIZE,
-        TILE_SIZE);
+Renderer.prototype.drawFlag = function (point, flag) {
+  var flagCoords = tiles[flagTiles[flag]];
+  this.context
+      .drawImage(this.textures.tiles,
+                 flagCoords.x * TILE_SIZE, flagCoords.y * TILE_SIZE,
+                 TILE_SIZE, TILE_SIZE,
+                 point.x + 10, point.y - 30,
+                 TILE_SIZE, TILE_SIZE);
 };
 
 /**
@@ -769,115 +744,115 @@ Renderer.prototype.drawFlag = function(point, flag) {
  * @return {Array.<Array.<number>>} - Specifies the floor tiles to be
  *   drawn, or -1 if not needed at a location.
  */
-Renderer.prototype.makeFloorMap = function(map) {
-    // Directions to check for neighboring special tiles.
-    var defaultOffsets = [
-        { x: -1, y: 0 },
-        { x: 1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 }
-    ];
+Renderer.prototype.makeFloorMap = function (map) {
+  // Directions to check for neighboring special tiles.
+  var defaultOffsets = [
+    { x: -1, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 }
+  ];
 
-    // Check if position is in the bounds of the map.
-    // loc is an object with x and y properties.
-    function inBounds(loc) {
-        return loc.x >= 0 && loc.x < map.length && loc.y >= 0 && loc.y < map[0].length;
-    }
+  // Check if position is in the bounds of the map.
+  // loc is an object with x and y properties.
+  function inBounds(loc) {
+    return loc.x >= 0 && loc.x < map.length &&
+           loc.y >= 0 && loc.y < map[0].length;
+  }
 
-    // Given a position, return the tile value in the map. If outside
-    // map bounds, return 0.
-    function getTileValue(loc) {
-        if (inBounds(loc)) {
-            return map[loc.x][loc.y];
-        } else {
-            return 0;
-        }
+  // Given a position, return the tile value in the map. If outside
+  // map bounds, return 0.
+  function getTileValue(loc) {
+    if (inBounds(loc)) {
+      return map[loc.x][loc.y];
+    } else {
+      return 0;
     }
+  }
 
-    // Get values of tiles at provided position.
-    function getNeighbors(loc, offsets) {
-        return offsets.map(function(offset) {
-            return { x: loc.x + offset.x, y: loc.y + offset.y };
-        });
-    }
-    // Takes x and y from map.
-    function setFloorTile(x, y) {
-        var draw = true,
-            val, // Value to use for all contiguous drawFloor tiles.
-            nodes = [{ x: x, y: y }],
-            adjacent = [],
-            visited = {}; // Track visited locations.
-
-        while (nodes.length > 0) {
-            var node = nodes.shift();
-            if (visited[node.x + ',' + node.y]) {
-                continue;
-            }
-            visited[node.x + ',' + node.y] = true;
-            var thisVal = getTileValue(node);
-            // Value is in list of special floor tiles.
-            if (floorTiles.indexOf(thisVal) !== -1) {
-                if (typeof val !== "undefined" && val !== thisVal) {
-                    val = 2;
-                } else {
-                    val = thisVal;
-                }
-            } else {
-                // Node is an adjacent tile that also needs its floor
-                // drawn.
-                var tile = tiles[thisVal];
-                if (tile && tile.drawFloor) {
-                    if (tile.redrawFloor) {
-                        draw = false;
-                    }
-                    var neighbors;
-                    if (Array.isArray(tile.drawFloor)) {
-                        neighbors = getNeighbors(node, tile.drawFloor);
-                    } else {
-                        neighbors = getNeighbors(node, defaultOffsets);
-                    }
-                    neighbors.forEach(function(neighbor) {
-                        var val = getTileValue(neighbor);
-                        // Ensure tiles are in bounds and disregard diagonal tiles that aren't
-                        // across from the current tile.
-                        if (tiles[val] && Array.isArray(tiles[val].drawFloor) &&
-                            !tiles[val].drawFloor.some(function(other) {
-                                return other.x == -neighbor.x && other.y == -neighbor.y;
-                            })) {
-                            return;
-                        }
-                        nodes.push(neighbor);
-                    });
-                    adjacent.push(node);
-                }
-            }
-        }
-        // Default value for underneath tile.
-        if (typeof val == "undefined" || !val && !draw) {
-            val = 2;
-        }
-        adjacent.forEach(function(tile) {
-            floorMap[tile.x][tile.y] = val;
-        });
-    }
-    // Tile values that bleed over into adjacent tiles.
-    var floorTiles = [0, 2, 11, 12, 17, 18],
-        floorMap = [];
-    // Initialize floor map array with -1.
-    for (var x = 0; x < map.length; x++) {
-        floorMap[x] = [];
-        for (var y = 0; y < map[0].length; y++) {
-            floorMap[x][y] = -1;
-        }
-    }
-    map.forEach(function(row, x) {
-        row.forEach(function(val, y) {
-            if (floorMap[x][y] == -1 && tiles[val] && tiles[val].drawFloor) {
-                setFloorTile(x, y);
-            }
-        });
+  // Get values of tiles at provided position.
+  function getNeighbors(loc, offsets) {
+    return offsets.map((offset) => {
+      return { x: loc.x + offset.x, y: loc.y + offset.y };
     });
-    return floorMap;
+  }
+  // Takes x and y from map.
+  function setFloorTile(x, y) {
+    var draw = true,
+      val, // Value to use for all contiguous drawFloor tiles.
+      nodes = [{ x: x, y: y }],
+      adjacent = [],
+      visited = {}; // Track visited locations.
+
+    while (nodes.length > 0) {
+      var node = nodes.shift();
+      if (visited[node.x + ',' + node.y]) {
+        continue;
+      }
+      visited[node.x + ',' + node.y] = true;
+      var thisVal = getTileValue(node);
+      // Value is in list of special floor tiles.
+      if (floorTiles.indexOf(thisVal) !== -1) {
+        if (typeof val !== "undefined" && val !== thisVal) {
+          val = 2;
+        } else {
+          val = thisVal;
+        }
+      } else {
+        // Node is an adjacent tile that also needs its floor
+        // drawn.
+        var tile = tiles[thisVal];
+        if (tile && tile.drawFloor) {
+          if (tile.redrawFloor) {
+            draw = false;
+          }
+          var neighbors;
+          if (Array.isArray(tile.drawFloor)) {
+            neighbors = getNeighbors(node, tile.drawFloor);
+          } else {
+            neighbors = getNeighbors(node, defaultOffsets);
+          }
+          neighbors.forEach((neighbor) => {
+            var val = getTileValue(neighbor);
+            // Ensure tiles are in bounds and disregard diagonal tiles that aren't
+            // across from the current tile.
+            if (tiles[val] && Array.isArray(tiles[val].drawFloor) &&
+                !tiles[val].drawFloor.some(
+                  (other) => other.x == -neighbor.x && other.y == -neighbor.y)) {
+              return;
+            }
+            nodes.push(neighbor);
+          });
+          adjacent.push(node);
+        }
+      }
+    }
+        // Default value for underneath tile.
+    if (typeof val == "undefined" || !val && !draw) {
+      val = 2;
+    }
+    adjacent.forEach((tile) => {
+      floorMap[tile.x][tile.y] = val;
+    });
+  }
+    // Tile values that bleed over into adjacent tiles.
+  var floorTiles = [0, 2, 11, 12, 17, 18],
+    floorMap = [];
+    // Initialize floor map array with -1.
+  for (var x = 0; x < map.length; x++) {
+    floorMap[x] = [];
+    for (var y = 0; y < map[0].length; y++) {
+      floorMap[x][y] = -1;
+    }
+  }
+  map.forEach((row, x) => {
+    row.forEach((val, y) => {
+      if (floorMap[x][y] == -1 && tiles[val] && tiles[val].drawFloor) {
+        setFloorTile(x, y);
+      }
+    });
+  });
+  return floorMap;
 };
 
 /**
@@ -886,183 +861,166 @@ Renderer.prototype.makeFloorMap = function(map) {
  * @param {Image} tiles - The image representing the tiles texture.
  * @return {string} - DataURL representing the map.
  */
-Renderer.prototype.makeBackgroundTexture = function() {
-    var canvas = document.createElement('canvas');
-    canvas.id = 'newCanvas';
-    canvas.style.display = 'none';
-    document.body.appendChild(canvas);
-    canvas = document.getElementById('newCanvas');
-    canvas.width = this.replay.data.map.length * TILE_SIZE;
-    canvas.height = this.replay.data.map[0].length * TILE_SIZE;
-    canvas.style.zIndex = 200;
-    canvas.style.position = 'absolute';
-    canvas.style.top = 0;
-    canvas.style.left = 0;
-    var ctx = canvas.getContext('2d');
+Renderer.prototype.makeBackgroundTexture = function () {
+  var canvas = document.createElement('canvas');
+  canvas.id = 'newCanvas';
+  canvas.style.display = 'none';
+  document.body.appendChild(canvas);
+  canvas = document.getElementById('newCanvas');
+  canvas.width = this.replay.data.map.length * TILE_SIZE;
+  canvas.height = this.replay.data.map[0].length * TILE_SIZE;
+  canvas.style.zIndex = 200;
+  canvas.style.position = 'absolute';
+  canvas.style.top = 0;
+  canvas.style.left = 0;
+  var ctx = canvas.getContext('2d');
 
-    var floorMap = this.makeFloorMap(this.replay.data.map);
-    var wallMap = this.replay.data.wallMap;
-    var wallOffsets = [
+  var floorMap = this.makeFloorMap(this.replay.data.map);
+  var wallMap = this.replay.data.wallMap;
+  var wallOffsets = [
         { x: 0, y: 0},
         { x: 20, y: 0 },
         { x: 20, y: 20 },
         { x: 0, y: 20 }
-    ];
-    var self = this;
-    this.replay.data.map.forEach(function(row, x) {
-        row.forEach(function(tileId, y) {
-            var tile = tiles[tileId];
-            var tileSize = tile.size || TILE_SIZE;
-            var loc = { x: x, y: y };
+  ];
+  this.replay.data.map.forEach((row, x) => {
+    row.forEach((tileId, y) => {
+      var tile = tiles[tileId];
+      var tileSize = tile.size || TILE_SIZE;
+      var loc = { x: x, y: y };
 
             // Draw floor underneath tiles where relevant.
-            if (tile.drawFloor) {
-                var floorTile = tiles[floorMap[loc.x][loc.y]];
-                ctx.drawImage(self.textures.tiles,
-                    floorTile.x * TILE_SIZE,
-                    floorTile.y * TILE_SIZE,
-                    TILE_SIZE,
-                    TILE_SIZE,
-                    loc.x * TILE_SIZE,
-                    loc.y * TILE_SIZE,
-                    TILE_SIZE,
-                    TILE_SIZE);
-            }
+      if (tile.drawFloor) {
+        var floorTile = tiles[floorMap[loc.x][loc.y]];
+        ctx.drawImage(this.textures.tiles,
+                      floorTile.x * TILE_SIZE, floorTile.y * TILE_SIZE,
+                      TILE_SIZE, TILE_SIZE,
+                      loc.x * TILE_SIZE, loc.y * TILE_SIZE,
+                      TILE_SIZE, TILE_SIZE);
+      }
             // Skip drawing dynamic tiles.
-            if (tile.dynamic) return;
+      if (tile.dynamic) return;
             // Get wall quadrants and draw.
-            if (Math.floor(tileId) === 1) {
+      if (Math.floor(tileId) === 1) {
                 // Get coordinates for floor tile.
-                var quadrants = wallMap[loc.x][loc.y];
-                quadrants.forEach(function(quadrant, i) {
-                    var offset = wallOffsets[i];
-                    var quadrantTile = tiles[quadrant];
-                    var quadrantSize = quadrantTile.size;
-                    ctx.drawImage(self.textures.tiles,
-                        quadrantTile.x * tileSize,
-                        quadrantTile.y * tileSize,
-                        quadrantSize,
-                        quadrantSize,
-                        loc.x * tileSize + offset.x,
-                        loc.y * tileSize + offset.y,
-                        quadrantSize,
-                        quadrantSize);
-                });
-            } else {
-                // Draw tile.
-                ctx.drawImage(self.textures.tiles,
-                    tile.x * tileSize,
-                    tile.y * tileSize,
-                    tileSize,
-                    tileSize,
-                    loc.x * tileSize,
-                    loc.y * tileSize,
-                    tileSize,
-                    tileSize);
-            }
+        var quadrants = wallMap[loc.x][loc.y];
+        quadrants.forEach((quadrant, i) => {
+          var offset = wallOffsets[i];
+          var quadrantTile = tiles[quadrant];
+          var quadrantSize = quadrantTile.size;
+          ctx.drawImage(this.textures.tiles,
+                        quadrantTile.x * tileSize, quadrantTile.y * tileSize,
+                        quadrantSize, quadrantSize,
+                        loc.x * tileSize + offset.x, loc.y * tileSize + offset.y,
+                        quadrantSize, quadrantSize);
         });
+      } else {
+        // Draw tile.
+        ctx.drawImage(this.textures.tiles,
+                      tile.x * tileSize, tile.y * tileSize,
+                      tileSize, tileSize,
+                      loc.x * tileSize, loc.y * tileSize,
+                      tileSize, tileSize);
+      }
     });
-    return ctx.canvas.toDataURL();
+  });
+  return ctx.canvas.toDataURL();
 };
 
 /**
  * Draw the dynamic floor tiles.
  */
 // done
-Renderer.prototype.drawFloorTiles = function() {
-    var fps = this.replay.info.fps;
-    var mod = this.frame % (fps * 2 / 3);
-    var fourth = (fps * 2 / 3) / 4;
-    var animationTile = Math.floor(mod / fourth);
-    var self = this;
-    this.replay.data.dynamicTiles.forEach(function(dynamicTile) {
-        var loc = self.toScreen({
-          x: dynamicTile.x * TILE_SIZE,
-          y: dynamicTile.y * TILE_SIZE
-        });
-        var tileId = dynamicTile.value[self.frame];
-        var tile = tiles[tileId];
-        var size = tile.size || TILE_SIZE;
-        var textureName = tile.img || "tiles";
-        var spriteLoc;
-        if (tile.animated) {
-            spriteLoc = {
-              x: animationTile,
-              y: 0
-            };
-        } else {
-            spriteLoc = {
-              x: tile.x,
-              y: tile.y
-            };
-        }
-        self.context.drawImage(self.textures[textureName],
-            spriteLoc.x * TILE_SIZE,
-            spriteLoc.y * TILE_SIZE,
-            size,
-            size,
-            loc.x,
-            loc.y,
-            size,
-            size);
+Renderer.prototype.drawFloorTiles = function () {
+  var fps = this.replay.info.fps;
+  var mod = this.frame % (fps * 2 / 3);
+  var fourth = (fps * 2 / 3) / 4;
+  var animationTile = Math.floor(mod / fourth);
+  this.replay.data.dynamicTiles.forEach((dynamicTile) => {
+    var loc = this.toScreen({
+      x: dynamicTile.x * TILE_SIZE,
+      y: dynamicTile.y * TILE_SIZE
     });
+    var tileId = dynamicTile.value[this.frame];
+    var tile = tiles[tileId];
+    var size = tile.size || TILE_SIZE;
+    var textureName = tile.img || "tiles";
+    var spriteLoc;
+    if (tile.animated) {
+      spriteLoc = {
+        x: animationTile,
+        y: 0
+      };
+    } else {
+      spriteLoc = {
+        x: tile.x,
+        y: tile.y
+      };
+    }
+    this.context
+        .drawImage(this.textures[textureName],
+                   spriteLoc.x * TILE_SIZE, spriteLoc.y * TILE_SIZE,
+                   size, size,
+                   loc.x, loc.y,
+                   size, size);
+  });
 };
 
 /**
  * Draws exploding bombs. Animation.
  */
-Renderer.prototype.drawExplosions = function() {
-    var bombs = this.replay.data.bombs;
-    // Current animations.
-    var states = this.state.bombs;
-    var fps = this.replay.info.fps;
-    var frame = this.frame;
-    var time = this.replay.data.time[this.frame];
+Renderer.prototype.drawExplosions = function () {
+  var bombs = this.replay.data.bombs;
+  // Current animations.
+  var states = this.state.bombs;
+  var fps = this.replay.info.fps;
+  var frame = this.frame;
+  var time = this.replay.data.time[this.frame];
 
-    // Create animations.
-    for (var i = 0; i < bombs.length; i++) {
-        var bomb = bombs[i];
-        // This and all following are in the future.
-        if (bomb.time > time) break;
-        // Too far in the past.
-        if (bomb.time + 100 < time) continue;
-        // Only bomb tile explosions.
-        if (bomb.type !== 2) continue;
-        // Don't create duplicates.
-        if (states.hasOwnProperty(i)) continue;
-        states[i] = {
-            length: Math.round(fps / 10),
-            start: frame - Math.floor((time - bomb.time) / fps),
-            frame: 0,
-            loc: this.toScreen({
-                x: bomb.x + TILE_SIZE / 2,
-                y: bomb.y + TILE_SIZE / 2
-            })
-        };
+  // Create animations.
+  for (var i = 0; i < bombs.length; i++) {
+    var bomb = bombs[i];
+    // This and all following are in the future.
+    if (bomb.time > time) break;
+    // Too far in the past.
+    if (bomb.time + 100 < time) continue;
+    // Only bomb tile explosions.
+    if (bomb.type !== 2) continue;
+    // Don't create duplicates.
+    if (states.hasOwnProperty(i)) continue;
+    states[i] = {
+      length: Math.round(fps / 10),
+      start: frame - Math.floor((time - bomb.time) / fps),
+      frame: 0,
+      loc: this.toScreen({
+        x: bomb.x + TILE_SIZE / 2,
+        y: bomb.y + TILE_SIZE / 2
+      })
+    };
+  }
+
+  var ctx = this.context;
+  // Draw animations.
+  for (var j in states) {
+    var animation = states[j];
+    // Prune animations.
+    if (animation.frame >= animation.length || animation.start > frame) {
+      delete states[j];
+      continue;
     }
+    animation.frame = frame - animation.start;
 
-    var ctx = this.context;
-    // Draw animations.
-    for (var j in states) {
-        var animation = states[j];
-        // Prune animations.
-        if (animation.frame >= animation.length || animation.start > frame) {
-            delete states[j];
-            continue;
-        }
-        animation.frame = frame - animation.start;
-
-        var bombSize = 40 + (280 * (animation.frame / animation.length));
-        var bombOpacity = 1 - animation.frame / animation.length;
-        ctx.fillStyle = "#FF8000";
-        ctx.globalAlpha = bombOpacity;
-        ctx.beginPath();
-        ctx.arc(animation.loc.x, animation.loc.y, Math.round(bombSize), 0, 2 * Math.PI, true);
-        ctx.closePath();
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = "#ffffff";
-    }
+    var bombSize = 40 + (280 * (animation.frame / animation.length));
+    var bombOpacity = 1 - animation.frame / animation.length;
+    ctx.fillStyle = "#FF8000";
+    ctx.globalAlpha = bombOpacity;
+    ctx.beginPath();
+    ctx.arc(animation.loc.x, animation.loc.y, Math.round(bombSize), 0, 2 * Math.PI, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#ffffff";
+  }
 };
 
 /**
@@ -1072,25 +1030,25 @@ Renderer.prototype.drawExplosions = function() {
  * @param  {PositionData} data - The replay data.
  * @return {boolean} - Whether or not there was a recent collision.
  */
-Renderer.prototype.collided = function(player) {
-    var frame = this.frame;
-    var prevX = player.x[frame - 1];
-    var prevY = player.y[frame - 1];
-    var thisX = player.x[frame];
-    var thisY = player.y[frame];
-    for (var id in this.replay.data.players) {
-        if (id === player.id) continue;
-        var otherPlayer = this.replay.data.players[id];
-        var prevOtherX = otherPlayer.x[frame - 1];
-        var prevOtherY = otherPlayer.y[frame - 1];
-        var thisOtherX = otherPlayer.x[frame];
-        var thisOtherY = otherPlayer.y[frame];
-        if ((Math.abs(prevOtherX - prevX) < 45 && Math.abs(prevOtherY - prevY) < 45) ||
-            (Math.abs(thisOtherX - thisX) < 45 && Math.abs(thisOtherY - thisY) < 45)) {
-            return true;
-        }
+Renderer.prototype.collided = function (player) {
+  var frame = this.frame;
+  var prevX = player.x[frame - 1];
+  var prevY = player.y[frame - 1];
+  var thisX = player.x[frame];
+  var thisY = player.y[frame];
+  for (var id in this.replay.data.players) {
+    if (id === player.id) continue;
+    var otherPlayer = this.replay.data.players[id];
+    var prevOtherX = otherPlayer.x[frame - 1];
+    var prevOtherY = otherPlayer.y[frame - 1];
+    var thisOtherX = otherPlayer.x[frame];
+    var thisOtherY = otherPlayer.y[frame];
+    if ((Math.abs(prevOtherX - prevX) < 45 && Math.abs(prevOtherY - prevY) < 45) ||
+        (Math.abs(thisOtherX - thisX) < 45 && Math.abs(thisOtherY - thisY) < 45)) {
+      return true;
     }
-    return false;
+  }
+  return false;
 };
 
 /**
@@ -1098,86 +1056,83 @@ Renderer.prototype.collided = function(player) {
  * @param  {Player} player - The player to do the animation update for.
  */
 // done
-Renderer.prototype.rollingBombPop = function(player) {
-    var state = this.state.players[player.id].bombs;
-    var frame = this.frame;
-    // Determine if a rolling bomb went off.
-    if (!player.bomb[frame] & player.bomb[frame - 1] & this.collided(player)) {
-        state.push({
-            length: Math.round(this.replay.info.fps / 10),
-            frame: 0
-        });
-    }
-    var ctx = this.context;
-    for (var i = state.length - 1; i >= 0; i--) {
-        var bombAnimation = state[i];
-        bombAnimation.frame++;
+Renderer.prototype.rollingBombPop = function (player) {
+  var state = this.state.players[player.id].bombs;
+  var frame = this.frame;
+  // Determine if a rolling bomb went off.
+  if (!player.bomb[frame] & player.bomb[frame - 1] & this.collided(player)) {
+    state.push({
+      length: Math.round(this.replay.info.fps / 10),
+      frame: 0
+    });
+  }
+  var ctx = this.context;
+  for (var i = state.length - 1; i >= 0; i--) {
+    var bombAnimation = state[i];
+    bombAnimation.frame++;
 
-        var rollingBombSize = 40 + (200 * (bombAnimation.frame / bombAnimation.length));
-        var rollingBombOpacity = 1 - bombAnimation.frame / bombAnimation.length;
+    var rollingBombSize = 40 + (200 * (bombAnimation.frame / bombAnimation.length));
+    var rollingBombOpacity = 1 - bombAnimation.frame / bombAnimation.length;
 
-        ctx.fillStyle = "#FFFF00";
-        ctx.globalAlpha = rollingBombOpacity;
-        ctx.beginPath();
-        var rollingBombX = player.x[frame] - this.camera.x + ctx.canvas.width / 2;
-        var rollingBombY = player.y[frame] - this.camera.y + ctx.canvas.height / 2;
-        ctx.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, true);
-        ctx.closePath();
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = "#ffffff";
-        // Remove from list if over.
-        if (bombAnimation.frame >= bombAnimation.length) {
-            state.splice(i, 1);
-        }
+    ctx.fillStyle = "#FFFF00";
+    ctx.globalAlpha = rollingBombOpacity;
+    ctx.beginPath();
+    var rollingBombX = player.x[frame] - this.camera.x + ctx.canvas.width / 2;
+    var rollingBombY = player.y[frame] - this.camera.y + ctx.canvas.height / 2;
+    ctx.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#ffffff";
+    // Remove from list if over.
+    if (bombAnimation.frame >= bombAnimation.length) {
+      state.splice(i, 1);
     }
+  }
 };
 
 /**
  * Initiate or continue a ball pop animation for the given player. Animation.
- * @param {Player} player - The player to update the ball pop 
+ * @param {Player} player - The player to update the ball pop
  *   animation for.
  * @param {PositionData} data - The replay data.
  * @param {Image} tiles - The image representing the tiles textures.
  */
-Renderer.prototype.ballPop = function(player, data, tiles) {
-    var state = this.state.players[player.id].pops;
-    var frame = this.frame;
+Renderer.prototype.ballPop = function (player, data, tiles) {
+  var state = this.state.players[player.id].pops;
+  var frame = this.frame;
 
-    // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
-    if (player.dead[frame] && !player.dead[frame - 1] && player.draw[frame - 1]) {
-        state.push({
-            start: frame,
-            frame: 0,
-            length: Math.round(this.replay.info.fps / 10),
-            loc: this.toScreen({
-              x: player.x[frame] + TILE_SIZE / 2,
-              y: player.y[frame] + TILE_SIZE / 2
-            })
-        });
+  // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
+  if (player.dead[frame] && !player.dead[frame - 1] && player.draw[frame - 1]) {
+    state.push({
+      start: frame,
+      frame: 0,
+      length: Math.round(this.replay.info.fps / 10),
+      loc: this.toScreen({
+        x: player.x[frame] + TILE_SIZE / 2,
+        y: player.y[frame] + TILE_SIZE / 2
+      })
+    });
+  }
+  var ctx = this.context;
+  for (var i = state.length - 1; i >= 0; i--) {
+    var popAnimation = state[i];
+    if (popAnimation.start > frame || popAnimation.frame >= popAnimation.length) {
+      state.splice(i, 1);
+      continue;
     }
-    var ctx = this.context;
-    for (var i = state.length - 1; i >= 0; i--) {
-        var popAnimation = state[i];
-        if (popAnimation.start > frame || popAnimation.frame >= popAnimation.length) {
-            state.splice(i, 1);
-            continue;
-        }
-        popAnimation.frame = frame - popAnimation.start;
-        var popSize = 40 + (80 * (popAnimation.frame / popAnimation.length));
-        var popOpacity = 1 - popAnimation.frame / popAnimation.length;
-        ctx.globalAlpha = popOpacity;
-        ctx.drawImage(this.textures.tiles,
-            (player.team[frame] == 1 ? 14 : 15) * TILE_SIZE,
-            0,
-            TILE_SIZE,
-            TILE_SIZE,
-            popAnimation.loc.x - popSize / 2,
-            popAnimation.loc.y - popSize / 2,
-            popSize,
-            popSize);
-        ctx.globalAlpha = 1;
-    }
+    popAnimation.frame = frame - popAnimation.start;
+    var popSize = 40 + (80 * (popAnimation.frame / popAnimation.length));
+    var popOpacity = 1 - popAnimation.frame / popAnimation.length;
+    ctx.globalAlpha = popOpacity;
+    var radius = popSize / 2;
+    ctx.drawImage(this.textures.tiles,
+            (player.team[frame] == 1 ? 14 : 15) * TILE_SIZE, 0,
+            TILE_SIZE, TILE_SIZE,
+            popAnimation.loc.x - radius, popAnimation.loc.y - radius,
+            popSize, popSize);
+    ctx.globalAlpha = 1;
+  }
 };
 
 /**
@@ -1187,238 +1142,224 @@ Renderer.prototype.ballPop = function(player, data, tiles) {
  * @param {[type]} img [description]
  * @return {[type]} [description]
  */
-Renderer.prototype.drawSplat = function(loc, team, img) {
-    this.context.drawImage(this.textures.splats,
-        img * SPLAT_SIZE,
-        (team - 1) * SPLAT_SIZE,
-        SPLAT_SIZE,
-        SPLAT_SIZE,
-        loc.x,
-        loc.y,
-        SPLAT_SIZE,
-        SPLAT_SIZE);
+Renderer.prototype.drawSplat = function (loc, team, img) {
+  this.context
+       .drawImage(this.textures.splats,
+                  img * SPLAT_SIZE, (team - 1) * SPLAT_SIZE,
+                  SPLAT_SIZE, SPLAT_SIZE,
+                  loc.x, loc.y,
+                  SPLAT_SIZE, SPLAT_SIZE);
 };
 
 /**
  * Draw splats. Animation.
  */
-Renderer.prototype.drawSplats = function() {
-    // Draw the splats that occurred up to this point in time.
-    var splats = this.replay.data.splats;
-    var states = this.state.splats;
-    var frameTime = this.replay.data.time[this.frame];
-    var ctx = this.context;
-    for (var i = 0; i < splats.length; i++) {
-        var splat = splats[i];
-        if (splat.time > frameTime) break;
-        var state;
-        if (!states.hasOwnProperty(i)) {
-            state = {
-                img: Math.floor(Math.random() * (this.textures.splats.width / 120))
-            };
-            if (splat.temp) {
-                state.fade = true;
-                state.fadeStart = splat.time;
-                state.fadeUntil = state.fadeStart + 5000;
-            }
-            states[i] = state;
-        } else {
-            state = states[i];
-        }
-        // Ignore faded splats.
-        if (!state) continue;
-        // Location of top-left of splat.
-        var loc = this.toScreen({
-            x: splat.x - SPLAT_SIZE / 2 + TILE_SIZE / 2,
-            y: splat.y - SPLAT_SIZE / 2 + TILE_SIZE / 2
-        });
-        if (state.fade) {
-            // Remove completely faded splats.
-            if (state.fadeUntil < frameTime) {
-                states[i] = false;
-            } else {
-                var alpha = 1 - ((frameTime - state.fadeStart) / (state.fadeUntil - state.fadeStart));
-                ctx.globalAlpha = alpha;
-                this.drawSplat(loc, splat.team, state.img);
-                ctx.globalAlpha = 1;
-            }
-        } else {
-            this.drawSplat(loc, splat.team, state.img);
-        }
+Renderer.prototype.drawSplats = function () {
+  // Draw the splats that occurred up to this point in time.
+  var splats = this.replay.data.splats;
+  var states = this.state.splats;
+  var frameTime = this.replay.data.time[this.frame];
+  var ctx = this.context;
+  for (var i = 0; i < splats.length; i++) {
+    var splat = splats[i];
+    if (splat.time > frameTime) break;
+    var state;
+    if (!states.hasOwnProperty(i)) {
+      state = {
+        img: Math.floor(Math.random() * (this.textures.splats.width / 120))
+      };
+      if (splat.temp) {
+        state.fade = true;
+        state.fadeStart = splat.time;
+        state.fadeUntil = state.fadeStart + 5000;
+      }
+      states[i] = state;
+    } else {
+      state = states[i];
     }
+    // Ignore faded splats.
+    if (!state) continue;
+    // Location of top-left of splat.
+    var loc = this.toScreen({
+      x: splat.x - SPLAT_SIZE / 2 + TILE_SIZE / 2,
+      y: splat.y - SPLAT_SIZE / 2 + TILE_SIZE / 2
+    });
+    if (state.fade) {
+      // Remove completely faded splats.
+      if (state.fadeUntil < frameTime) {
+        states[i] = false;
+      } else {
+        var alpha = 1 - ((frameTime - state.fadeStart) / (state.fadeUntil - state.fadeStart));
+        ctx.globalAlpha = alpha;
+        this.drawSplat(loc, splat.team, state.img);
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      this.drawSplat(loc, splat.team, state.img);
+    }
+  }
 };
 
 /**
  * Draw spawning players.
  */
-Renderer.prototype.drawSpawns = function() {
-    this.context.globalAlpha = 0.25;
-    var spawns = this.replay.data.spawns;
-    var time = this.replay.data.time[this.frame];
-    for (var i = 0; i < spawns.length; i++) {
-        var spawn = spawns[i];
-        if (spawn.time < time) {
-            if (spawn.time + spawn.wait < time) {
-                break;
-            } else {
-                var pos = this.toScreen(spawn);
-                this.context.drawImage(this.textures.tiles,
-                    (spawn.team == 1 ? 14 : 15) * TILE_SIZE,
-                    0,
-                    40,
-                    40,
-                    pos.x,
-                    pos.y,
-                    40,
-                    40);
-            }
-        }
+Renderer.prototype.drawSpawns = function () {
+  this.context.globalAlpha = 0.25;
+  var spawns = this.replay.data.spawns;
+  var time = this.replay.data.time[this.frame];
+  for (var i = 0; i < spawns.length; i++) {
+    var spawn = spawns[i];
+    if (spawn.time < time) {
+      if (spawn.time + spawn.wait < time) {
+        break;
+      } else {
+        var pos = this.toScreen(spawn);
+        this.context
+            .drawImage(this.textures.tiles,
+                       (spawn.team == 1 ? 14 : 15) * TILE_SIZE, 0,
+                       40, 40,
+                       pos.x, pos.y,
+                       40, 40);
+      }
     }
-    this.context.globalAlpha = 1;
+  }
+  this.context.globalAlpha = 1;
 };
 
 /**
  * Draw game result at end.
  */
-Renderer.prototype.drawEndText = function() {
-    var gameEnd = this.replay.data.gameEnd;
-    if (gameEnd) {
-        var ctx = this.context;
-        var endTime = gameEnd.time;
-        var winner = gameEnd.winner;
-        var thisTime = this.replay.data.time[this.frame];
-        if (endTime <= thisTime) {
-            var endColor, endText;
-            if (winner === 'red') {
-                endColor = "#ff0000";
-                endText = "Red Wins!";
-            } else if (winner === 'blue') {
-                endColor = "#0000ff";
-                endText = "Blue Wins!";
-            } else if (winner === 'tie') {
-                endColor = "#ffffff";
-                endText = "It's a Tie!";
-            } else {
-                endColor = "#ffffff";
-                endText = winner;
-            }
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.font = "bold 48pt Arial";
-            ctx.fillStyle = endColor;
-            ctx.strokeStyle = "#000000";
-            ctx.strokeText(endText, ctx.canvas.width / 2, 100);
-            ctx.fillText(endText, ctx.canvas.width / 2, 100);
-            ctx.restore();
-        }
+Renderer.prototype.drawEndText = function () {
+  var gameEnd = this.replay.data.gameEnd;
+  if (gameEnd) {
+    var ctx = this.context;
+    var endTime = gameEnd.time;
+    var winner = gameEnd.winner;
+    var thisTime = this.replay.data.time[this.frame];
+    if (endTime <= thisTime) {
+      var endColor, endText;
+      if (winner === 'red') {
+        endColor = "#ff0000";
+        endText = "Red Wins!";
+      } else if (winner === 'blue') {
+        endColor = "#0000ff";
+        endText = "Blue Wins!";
+      } else if (winner === 'tie') {
+        endColor = "#ffffff";
+        endText = "It's a Tie!";
+      } else {
+        endColor = "#ffffff";
+        endText = winner;
+      }
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.font = "bold 48pt Arial";
+      ctx.fillStyle = endColor;
+      ctx.strokeStyle = "#000000";
+      ctx.strokeText(endText, ctx.canvas.width / 2, 100);
+      ctx.fillText(endText, ctx.canvas.width / 2, 100);
+      ctx.restore();
     }
+  }
 };
 
-Renderer.prototype.drawBall = function() {
-    
+Renderer.prototype.drawBall = function () {
+
 };
 
-Renderer.prototype.drawPlayer = function(player) {
-    var frame = this.frame;
-    var fps = this.replay.info.fps;
-    var position = {
-        x: player.x[frame],
-        y: player.y[frame]
-    };
-    var drawPos = this.toScreen(position);
-    var team = player.team[frame];
-    var name = player.name[frame];
-    var dead = player.dead[frame];
-    var angle = player.angle && player.angle[frame];
-    var draw = player.draw[frame];
-    var auth = player.auth[frame];
-    var degree = player.degree[frame];
-    var grip = player.grip[frame];
-    var bomb = player.bomb[frame];
-    var tagpro = player.tagpro[frame];
-    var flair = player.flair[frame];
-    var flag = player.flag[frame];
-    var spin = this.options.spin;
+Renderer.prototype.drawPlayer = function (player) {
+  var frame = this.frame;
+  var fps = this.replay.info.fps;
+  var position = {
+    x: player.x[frame],
+    y: player.y[frame]
+  };
+  var drawPos = this.toScreen(position);
+  var team = player.team[frame];
+  var name = player.name[frame];
+  var dead = player.dead[frame];
+  var angle = player.angle && player.angle[frame];
+  var draw = player.draw[frame];
+  var auth = player.auth[frame];
+  var degree = player.degree[frame];
+  var grip = player.grip[frame];
+  var bomb = player.bomb[frame];
+  var tagpro = player.tagpro[frame];
+  var flair = player.flair[frame];
+  var flag = player.flag[frame];
+  var spin = this.options.spin;
 
-    if (!dead && draw) {
-        // If at the start of the replay or the player was drawn last frame.
-        if (frame === 0 || player.draw[frame - 1]) {
-            // TODO: Figure out what case the first part of this is handling
-            if ((player.dead[frame - 1] && position.x !== player.x[frame - fps]) ||
-                !player.dead[frame - 1]) {
-                
-                // draw with or without spin
-                if(!spin || !angle) {
-                    this.context.drawImage(this.textures.tiles,
-                        (team == 1 ? 14 : 15) * TILE_SIZE,
-                        0,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        drawPos.x,
-                        drawPos.y,
-                        TILE_SIZE,
-                        TILE_SIZE);
-                } else {
-                    // Add half a tile width so this is truly in
-                    // the center of the player, so rotation
-                    // doesn't change location.
-                    var playerCenter = {
-                        x: drawPos.x + TILE_SIZE / 2,
-                        y: drawPos.y + TILE_SIZE / 2
-                    };
-                    this.context.translate(playerCenter.x,
+  if (!dead && draw) {
+    // If at the start of the replay or the player was drawn last frame.
+    if (frame === 0 || player.draw[frame - 1]) {
+      // TODO: Figure out what case the first part of this is handling
+      if ((player.dead[frame - 1] && position.x !== player.x[frame - fps]) ||
+           !player.dead[frame - 1]) {
+
+        // draw with or without spin
+        if(!spin || !angle) {
+          this.context.drawImage(this.textures.tiles,
+                                 (team == 1 ? 14 : 15) * TILE_SIZE, 0,
+                                 TILE_SIZE, TILE_SIZE,
+                                 drawPos.x, drawPos.y,
+                                 TILE_SIZE, TILE_SIZE);
+        } else {
+          // Add half a tile width so this is truly in
+          // the center of the player, so rotation
+          // doesn't change location.
+          var playerCenter = {
+            x: drawPos.x + TILE_SIZE / 2,
+            y: drawPos.y + TILE_SIZE / 2
+          };
+          this.context.translate(playerCenter.x,
                         playerCenter.y);
-                    this.context.rotate(angle);
-                    this.context.drawImage(this.textures.tiles,
-                        (team == 1 ? 14 : 15) * TILE_SIZE,    
-                        0,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        -TILE_SIZE / 2,
-                        -TILE_SIZE / 2,
-                        TILE_SIZE,
-                        TILE_SIZE);
-                    this.context.rotate(-angle);
-                    this.context.translate(-playerCenter.x,
+          this.context.rotate(angle);
+          this.context
+              .drawImage(this.textures.tiles,
+                         (team == 1 ? 14 : 15) * TILE_SIZE, 0,
+                         TILE_SIZE, TILE_SIZE,
+                         -TILE_SIZE / 2, -TILE_SIZE / 2,
+                         TILE_SIZE, TILE_SIZE);
+          this.context.rotate(-angle);
+          this.context.translate(-playerCenter.x,
                         -playerCenter.y);
-                }
-
-                if (grip) {
-                   this.drawGrip(drawPos);
-                }
-                if (tagpro) {
-                    this.drawTagpro(drawPos);
-                }
-                if (bomb) {
-                    this.drawBomb(drawPos);
-                }
-                if (flag) {
-                    this.drawFlag(drawPos, flag);
-                }
-
-                this.drawText(drawPos, {
-                    name: name,
-                    degree: degree,
-                    auth: auth
-                });
-                if (flair) {
-                    this.drawFlair({
-                        x: drawPos.x + 12,
-                        y: drawPos.y - 20
-                    }, flair);
-                }
-            }
         }
+
+        if (grip) {
+          this.drawGrip(drawPos);
+        }
+        if (tagpro) {
+          this.drawTagpro(drawPos);
+        }
+        if (bomb) {
+          this.drawBomb(drawPos);
+        }
+        if (flag) {
+          this.drawFlag(drawPos, flag);
+        }
+
+        this.drawText(drawPos, {
+          name: name,
+          degree: degree,
+          auth: auth
+        });
+        if (flair) {
+          this.drawFlair({
+            x: drawPos.x + 12,
+            y: drawPos.y - 20
+          }, flair);
+        }
+      }
     }
-    // animations
-    this.rollingBombPop(player);
-    this.ballPop(player);
+  }
+  // animations
+  this.rollingBombPop(player);
+  this.ballPop(player);
 };
 
-Renderer.prototype.drawPlayers = function() {
-    var players = this.getPlayers();
-    var self = this;
-    players.forEach(function(player) {
-        self.drawPlayer(player);
-    });
+Renderer.prototype.drawPlayers = function () {
+  var players = this.getPlayers();
+  players.forEach((player) => {
+    this.drawPlayer(player);
+  });
 };

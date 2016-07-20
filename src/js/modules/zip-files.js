@@ -7,7 +7,8 @@ var EventEmitter = require('events').EventEmitter;
 // Handles zipping files.
 // events:
 // - file: when file is handled
-// - generating_int_zip: when generating/downloading intermediate zip file
+// - generating_int_zip: when generating/downloading intermediate zip
+//     file
 // - generating_final_zip: when generating/downloading final zip.
 // - error: error somewhere.
 // - end: after done is called.
@@ -24,23 +25,25 @@ function ZipFiles(opts) {
 util.inherits(ZipFiles, EventEmitter);
 module.exports = ZipFiles;
 
-// Takes object with filename, ext, contents properties. contents can be blob/string.
-ZipFiles.prototype.addFile = function(file) {
+// Takes object with filename, ext, contents properties. contents can
+// be blob/string.
+ZipFiles.prototype.addFile = function (file) {
   var filename = sanitize(file.filename);
   if (filename === "") {
     filename =  this.default_name;
   }
   // Handle duplicate replay names.
   if (this.filenames.hasOwnProperty(filename)) {
-      filename += " (" + (++this.filenames[filename]) + ")";
+    filename += " (" + (++this.filenames[filename]) + ")";
   } else {
-      this.filenames[filename] = 0;
+    this.filenames[filename] = 0;
   }
   filename += "." + file.ext;
   var contents = file.contents;
   var size = typeof contents == "string" ? contents.length
                                          : contents.size;
-  if (this.current_size !== 0 && this.current_size + size > this.max_size) {
+  if (this.current_size !== 0 &&
+      this.current_size + size > this.max_size) {
     this.emit("generating_int_zip");
     this._zip();
   }
@@ -50,7 +53,7 @@ ZipFiles.prototype.addFile = function(file) {
 };
 
 // Call when finished.
-ZipFiles.prototype.done = function(download) {
+ZipFiles.prototype.done = function (download) {
   if (typeof download == "undefined") download = true;
   if (download) {
     this.emit("generating_final_zip");
@@ -61,7 +64,7 @@ ZipFiles.prototype.done = function(download) {
 
 // Generate zip file and reset.
 // @private
-ZipFiles.prototype._zip = function() {
+ZipFiles.prototype._zip = function () {
   var contents = this.zip.generate({
     type: "blob",
     compression: "STORE"

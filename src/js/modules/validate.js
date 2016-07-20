@@ -15,7 +15,7 @@ var imjv = require('is-my-json-valid');
 /**
  * Manage creation of schema validators and cache for calls.
  */
-var ReplayValidator = function(logger) {
+var ReplayValidator = function (logger) {
   this.logger = logger || console;
   this.validators = {};
   this.validatorData = [];
@@ -25,17 +25,17 @@ var ReplayValidator = function(logger) {
 /**
  * Initialize the validator. Required before any validation call.
  */
-ReplayValidator.prototype.init = function() {
+ReplayValidator.prototype.init = function () {
   var self = this;
-  this.readyPromise = Promise.all(self.validatorData.map(function (data) {
-    return data.getSchemaValidator().then(function (validate) {
+  this.readyPromise = Promise.all(self.validatorData.map(
+    (data) => data.getSchemaValidator().then((validate) => {
       data.schemaValidator = validate;
       return data;
-    });
-  })).then(function (data) {
-    data.forEach(function (version) {
+    })
+  )).then((data) => {
+    data.forEach((version) => {
       self.validators[version.version] = {
-        checkSchema: function(data, logger) {
+        checkSchema: function (data, logger) {
           var valid = this.schemaValidator(data);
           if (!valid) {
             logger.log(this.schemaValidator.errors);
@@ -51,12 +51,12 @@ ReplayValidator.prototype.init = function() {
   });
 };
 
-ReplayValidator.prototype.ready = function() {
+ReplayValidator.prototype.ready = function () {
   return this.readyPromise;
 };
 
 // Get version for data.
-ReplayValidator.prototype.getVersion = function(data) {
+ReplayValidator.prototype.getVersion = function (data) {
   if (!data.hasOwnProperty("version")) {
     return "1";
   } else {
@@ -70,12 +70,12 @@ ReplayValidator.prototype.getVersion = function(data) {
  *   replay object in question.
  * @return {object}
  */
-ReplayValidator.prototype.validate = function(data) {
+ReplayValidator.prototype.validate = function (data) {
   var self = this;
   if (!this.loaded) throw Error("Validator not loaded.");
   var version = self.getVersion(data);
   if (!self.validators.hasOwnProperty(version))
-    throw Error("Invalid version, or no validator with that version exists.");
+    throw Error("Invalid version.");
   var validator = self.validators[version];
   // Schema validation.
   var valid = validator.checkSchema(data, self.logger);
@@ -104,10 +104,11 @@ ReplayValidator.prototype.validate = function(data) {
 // TODO: Specify validator object format.
 /**
  * Add a validator to the object.
- * @param {(string|integer)} version - The version the validator applies to.
+ * @param {(string|integer)} version - The version the validator
+ *   applies to.
  * @param {[type]} data [description]
  */
-ReplayValidator.prototype.addVersion = function(version, data) {
+ReplayValidator.prototype.addVersion = function (version, data) {
   this.validatorData.push({
     version: version,
     getSchemaValidator: data.schemaValidator,
@@ -123,10 +124,10 @@ var validator = new ReplayValidator();
  * @return {Promise} - Resolves to the parsed JSON, or rejects on error.
  */
 function getJSON(path) {
-  return new Promise(function (resolve, reject) {
-    $.getJSON(path).done(function (data) {
+  return new Promise((resolve, reject) => {
+    $.getJSON(path).done((data) => {
       resolve(data);
-    }).fail(function (jqxhr, textStatus, err) {
+    }).fail((jqxhr, textStatus, err) => {
       reject(textStatus + ", " + err);
     });
   });
@@ -136,15 +137,17 @@ function getJSON(path) {
  * @typedef SchemaOptions
  * @typedef {object}
  * @property {string} path - The relative path to the schema files.
- * @property {string} main - The name of the main file in the array of dependencies
- *   that acts as the top-level schema.
- * @property {Array.<string>} [deps] - An array of the dependency schemas to be loaded.
+ * @property {string} main - The name of the main file in the array of
+ *   dependencies that acts as the top-level schema.
+ * @property {Array.<string>} [deps] - An array of the dependency
+ *   schemas to be loaded.
  */
 /**
  * Retrieve the schema.
- * @param {SchemaOptions} opts - Options giving the schema location and its dependencies.
- * @return {Promise} - Promise that resolves to constructed is-my-json-valid validate
- *   function for the schema.
+ * @param {SchemaOptions} opts - Options giving the schema location and
+ *   its dependencies.
+ * @return {Promise} - Promise that resolves to constructed
+ *   is-my-json-valid validate function for the schema.
  */
 function getSchema(opts) {
   if (!opts.hasOwnProperty("deps")) opts.deps = [];
@@ -152,38 +155,35 @@ function getSchema(opts) {
   var schemas = {};
   var main = null;
 
-  return Promise.all(files.map(function (file) {
-    return getJSON(opts.path + '/' + file).then(function (data) {
+  return Promise.all(files.map((file) =>
+    getJSON(opts.path + '/' + file).then((data) => {
       if (file === opts.main) {
         main = data;
       } else {
         schemas[file] = data;
       }
-    });
-  })).then(function () {
-    return imjv(main, { schemas: schemas });
-  });
+    })
+  )).then(() => imjv(main, { schemas: schemas }));
 }
 
 validator.addVersion("1", {
   // Returns schema validation function which takes data and a logger
   // and outputs a boolean indicating whether the provided data passes
   // or fails.
-  schemaValidator: function() {
+  schemaValidator: function () {
     return getSchema({
       path: "schemas/1",
       main: "data.json",
       deps: ["data.json", "player.json", "definitions.json"]
     });
   },
-  // Function that checks data against other requirements. Takes the data
-  // and a logger.
-  contentValidator: function(data, logger) {
+  // Function that checks data against other requirements. Takes the
+  // data and a logger.
+  contentValidator: function (data, logger) {
     // Validate other aspects of replay.
     // At least one player must exist.
-    var playerKeys = Object.keys(data).filter(function(key) {
-      return key.search('player') === 0;
-    });
+    var playerKeys = Object.keys(data).filter(
+      (key) => key.search('player') === 0);
 
     // At least one player must have "me" value.
     if (playerKeys.length === 0) {
@@ -191,9 +191,8 @@ validator.addVersion("1", {
       return false;
     }
 
-    var playerExists = playerKeys.some(function(key) {
-      return data[key].me == "me";
-    });
+    var playerExists = playerKeys.some(
+      (key) => data[key].me == "me");
 
     if (!playerExists) {
       logger.log("No player is main player.");
@@ -204,19 +203,24 @@ validator.addVersion("1", {
 });
 
 validator.addVersion("2", {
-  schemaValidator: function() {
+  schemaValidator: function () {
     return getSchema({
       path: "schemas/2",
       main: "replay.json",
-      deps: ['data.json', 'db_info.json', 'definitions.json', 'info.json', 'player.json', 'replay.json']
+      deps: [
+        'data.json',
+        'db_info.json',
+        'definitions.json',
+        'info.json',
+        'player.json',
+        'replay.json'
+      ]
     });
   },
-  contentValidator: function(data, logger) {
+  contentValidator: function (data, logger) {
     // No players that were not present should be in the data.
     function playerExists(player) {
-      return player.name.some(function(name) {
-        return name !== null;
-      });
+      return player.name.some((name) => name !== null);
     }
     var playerError = false;
     for (var id in data.players) {
@@ -243,7 +247,7 @@ validator.init();
  * Validate a replay against requirements.
  * See ReplayValidator.validate.
  */
-module.exports = function(data) {
+module.exports = function (data) {
   return validator.validate(data);
 };
 

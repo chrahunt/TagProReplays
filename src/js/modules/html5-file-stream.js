@@ -10,12 +10,12 @@ module.exports = FileStream;
  * @typedef {object} FileStreamOptions
  * @property {integer} [size=5mb] - The size, in bytes, of each chunk to
  *   read.
- * @property {string} [format="text"] - The format to return chunks in. Can
- *   be one of `arraybuffer`, `binarystring`, `dataurl`, or `text`.
- * @property {string} [encoding="UTF-8"] - The encoding to use for reading
- *   the file. Only relevant if format is "text".
- * todo: add info about issue when encoding is not included to be passed to underliying
- * readable stream.
+ * @property {string} [format="text"] - The format to return chunks in.
+ *   Can be one of `arraybuffer`, `binarystring`, `dataurl`, or `text`.
+ * @property {string} [encoding="UTF-8"] - The encoding to use for
+ *   reading the file. Only relevant if format is "text".
+ * todo: add info about issue when encoding is not included to be
+ *   passed to underliying readable stream.
  */
 /**
  * FileStream is a readable stream that can read a file in chunks.
@@ -39,7 +39,7 @@ function FileStream(file, options) {
 
   this._reader = new FileReader();
   var self = this;
-  this._reader.onload = function(event) {
+  this._reader.onload = function (event) {
     var data = event.target.result;
     if (data instanceof ArrayBuffer)
       data = new Buffer(new Uint8Array(data));
@@ -54,7 +54,7 @@ function FileStream(file, options) {
 /**
  * @private
  */
-FileStream.prototype.__read = function() {
+FileStream.prototype.__read = function () {
   if (this.reading) {
     return;
   } else {
@@ -86,7 +86,7 @@ FileStream.prototype.__read = function() {
   }
 };
 
-FileStream.prototype._read = function() {
+FileStream.prototype._read = function () {
   this.__read();
 };
 

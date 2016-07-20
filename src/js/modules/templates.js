@@ -1,3 +1,4 @@
+/*eslint max-len: "off"*/
 module.exports = {
   replay_list: {
     controls:
@@ -38,4 +39,4 @@ module.exports = {
     previous: '<i class="material-icons">chevron_left</i>',
     next: '<i class="material-icons">chevron_right</i>'
   }
-}
+};

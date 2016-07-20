@@ -17,12 +17,12 @@ function Replays() {
   EventEmitter.call(this);
   // Listen for db changes
   // - emit full
-  // - emit 
+  // - emit
 }
 util.inherits(Replays, EventEmitter);
 
 // select multiple replays.
-Replays.prototype.select = function(ids) {
+Replays.prototype.select = function (ids) {
   if (typeof ids === "string") {
     ids = [ids];
   }
@@ -32,7 +32,7 @@ Replays.prototype.select = function(ids) {
 };
 
 // select 1 replay.
-Replays.prototype.get = function(id) {
+Replays.prototype.get = function (id) {
   return new Replay(id);
 };
 
@@ -41,11 +41,11 @@ Replays.prototype.get = function(id) {
 // ============================================================================
 // replays + failed
 // public api, only active, unmarked
-Replays.prototype.count = function() {
-  console.log("Replays#count");
+Replays.prototype.count = function () {
+  logger.info("Replays#count");
 };
 
-Replays.prototype.query = function(args) {
+Replays.prototype.query = function (args) {
   logger.info("Replays#query");
   return Data.getReplayInfoList(args).then((data) => {
     logger.debug("Query returned.");
@@ -72,7 +72,7 @@ function Selection(ids) {
 // activities
 // ============================================================================
 // replays
-Selection.prototype.render = function() {
+Selection.prototype.render = function () {
   // Check if rendering/rendered
   // return progress
   return new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@ Selection.prototype.render = function() {
 
 // replays + failed
 // TODO: undo-able.
-Selection.prototype.remove = function() {
+Selection.prototype.remove = function () {
   logger.info("Selection#remove");
   // Cancel any in-progress renders.
   return Messaging.send("cancelRenders", {
@@ -113,19 +113,19 @@ Selection.prototype.remove = function() {
 
 // replays + failed
 // remove x oldest marked items
-Selection.prototype._clean = function() {
-  
+Selection.prototype._clean = function () {
+
 };
 
 // replays
-Replays.prototype.add = function() {
-  
+Replays.prototype.add = function () {
+
   // check constraints
   // clean up removed
   // add
 };
 
-Replays.prototype.import = function(files) {
+Replays.prototype.import = function (files) {
   // Take files
   // return progress
   // error if it would put us over.
@@ -188,7 +188,7 @@ Replays.prototype.import = function(files) {
           }
         });
         fls.on("end", function () {
-          console.log("File list stream ended.");
+          logger.debug("File list stream ended.");
         });
         resolve(activity);
       } else {
@@ -213,11 +213,11 @@ Replays.prototype.import = function(files) {
 };
 
 // replays + failed
-Selection.prototype.download = function() {
-  console.log("Selection#download");
+Selection.prototype.download = function () {
+  logger.info("Selection#download");
   return new Promise((resolve, reject) => {
     // TODO: need an a progress id.
-    Messaging.send("downloadReplays", { ids: this.ids }, function (response) {
+    Messaging.send("downloadReplays", { ids: this.ids }, (response) => {
       if (response.failed) {
         reject(response.reason);
       } else {
@@ -235,29 +235,28 @@ function Replay(id) {
   this.id = id;
 }
 
-Replay.prototype.rename = function(new_name) {
+Replay.prototype.rename = function (new_name) {
   logger.info("Replay#rename");
   // validate name is nonempty?
   //
   return Data.renameReplay(this.id, new_name);
 };
 
-Replay.prototype.data = function() {
+Replay.prototype.data = function () {
   return Data.getReplay(this.id);
 };
 
-function crop() {
+Replay.prototype.crop = function () {
 
-}
+};
 
-function save() {
+Replay.prototype.save = function () {
   // Check for render, remove if rendered.
+};
 
-}
+Replay.prototype.saveAs = function (name) {
 
-function saveAs() {
-
-}
+};
 
 //////////
 // ongoing action
@@ -269,34 +268,24 @@ function Activity(spec) {
 }
 util.inherits(Activity, EventEmitter);
 
-Activity.prototype.cancel = function() {
+Activity.prototype.cancel = function () {
   this._cancelled = true;
   this.emit("cancelled");
 };
 
 // Indicate progress.
 // total / current
-Activity.prototype.progress = function(info) {
+Activity.prototype.progress = function (info) {
   this.emit("progress", {
     total: info.total,
-    current: info.current  
+    current: info.current
   });
 };
 
 // Indicate complete.
-Activity.prototype.complete = function() {
+Activity.prototype.complete = function () {
   this.emit("done", this._cancelled);
 };
-
-// then
-function done() {
-
-}
-
-// catch
-function error() {
-
-}
 
 function Progress() {
   // inherits eventemitter
@@ -314,14 +303,13 @@ function DestructiveTask(_do, undo) {
 }
 
 // Returns promise.
-DestructiveTask.prototype.undo = function() {
+DestructiveTask.prototype.undo = function () {
   logger.info("Undoing.");
   return this._undo();
 };
 
 // Returns promise.
-DestructiveTask.prototype.complete = function() {
+DestructiveTask.prototype.complete = function () {
   logger.info("Doing");
   return this._do();
 };
-

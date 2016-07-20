@@ -1,3 +1,5 @@
+var logger = require('./logger')('task');
+
 /**
  * @typedef {object} TaskOptions
  * @property {integer} [target=200] - The target time, in ms, of each loop
@@ -32,14 +34,14 @@
  * rejected with the reason "cancelled".
  * @param {TaskTemplate} template - The template to use for this task.
  */
-var Task = function(template) {
+var Task = function (template) {
   if (!template.hasOwnProperty("context")) {
     template.context = {};
   }
   if (template.hasOwnProperty("init")) {
-    var wait = template.init.call(template.context, function() {
+    var wait = template.init.call(template.context, () => {
       this.waiting = false;
-    }.bind(this));
+    });
   }
   var opts = template.options;
   this.polling_length = opts.polling_length || 50;
@@ -61,21 +63,21 @@ module.exports = Task;
 /**
  * Cancel the task.
  */
-Task.prototype.cancel = function() {
+Task.prototype.cancel = function () {
   this.cancelled = true;
 };
 
 /**
  * Pause the task.
  */
-Task.prototype.pause = function() {
+Task.prototype.pause = function () {
   this.paused = true;
 };
 
 /**
  * Unpause the task.
  */
-Task.prototype.resume = function() {
+Task.prototype.resume = function () {
   this.paused = false;
 };
 
@@ -84,7 +86,7 @@ Task.prototype.resume = function() {
  * @return {Promise} - The promise that resolves to the result of the
  *   task.
  */
-Task.prototype.getResult = function() {
+Task.prototype.getResult = function () {
   return this.result;
 };
 
@@ -93,14 +95,14 @@ Task.prototype.getResult = function() {
  * result.
  * @private
  */
-Task.prototype._run = function(resolve, reject) {
+Task.prototype._run = function (resolve, reject) {
   if (this.cancelled) {
     reject("cancelled");
   } else if (this.paused || this.waiting) {
-    setTimeout(function() {
+    setTimeout(() => {
       //resolve(new Promise(this._run.bind(this)));
       this._run(resolve, reject);
-    }.bind(this), this.polling_length);
+    }, this.polling_length);
   } else {
     var stop = Math.min(this.end, this.iteration + Math.floor(this.rate));
 
@@ -116,12 +118,12 @@ Task.prototype._run = function(resolve, reject) {
       resolve(this.tmpl.context);
     } else {
       var now = performance.now();
-      setTimeout(function() {
+      setTimeout(() => {
         var diff = performance.now() - now;
-        console.log("Time between cycles: " + diff + "ms.");
+        logger.debug(`Time between cycles: ${diff} ms.`);
         //resolve(new Promise(this._run.bind(this)));
         this._run(resolve, reject);
-      }.bind(this), this.wait);
+      }, this.wait);
     }
   }
 };

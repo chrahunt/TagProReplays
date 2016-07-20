@@ -1,8 +1,8 @@
 // Promise wrapper around chrome.storage.local.
 module.exports = {
-  get: function(items) {
-    return new Promise(function (resolve, reject) {
-      chrome.storage.local.get(items, function (items) {
+  get: function (items) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(items, (items) => {
         if (chrome.runtime.lastError)
           reject(chrome.runtime.lastError);
         else
@@ -10,9 +10,9 @@ module.exports = {
       });
     });
   },
-  getBytesInUse: function(items) {
-    return new Promise(function (resolve, reject) {
-      chrome.storage.local.getBytesInUse(items, function (bytesInUse) {
+  getBytesInUse: function (items) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.getBytesInUse(items, (bytesInUse) => {
         if (chrome.runtime.lastError)
           reject(chrome.runtime.lastError);
         else
@@ -20,9 +20,9 @@ module.exports = {
       });
     });
   },
-  set: function(items) {
-    return new Promise(function (resolve, reject) {
-      chrome.storage.local.set(items, function () {
+  set: function (items) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set(items, () => {
         if (chrome.runtime.lastError)
           reject(chrome.runtime.lastError);
         else
@@ -30,9 +30,9 @@ module.exports = {
       });
     });
   },
-  clear: function() {
-    return new Promise(function (resolve, reject) {
-      chrome.storage.local.clear(function () {
+  clear: function () {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.clear(() => {
         if (chrome.runtime.lastError)
           reject(chrome.runtime.lastError);
         else
@@ -40,9 +40,9 @@ module.exports = {
       });
     });
   },
-  remove: function(items) {
-    return new Promise(function (resolve, reject) {
-      chrome.storage.local.remove(items, function () {
+  remove: function (items) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.remove(items, () => {
         if (chrome.runtime.lastError)
           reject(chrome.runtime.lastError)
         else

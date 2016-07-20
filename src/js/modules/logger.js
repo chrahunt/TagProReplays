@@ -1,3 +1,4 @@
+/*eslint no-console: "off"*/
 require('debug').enable("*");
 var debug = require('debug');
 

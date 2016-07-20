@@ -40,7 +40,7 @@ function FileListStream(filelist, options) {
  * @private
  * @return {File} - Next file, or null if no next file.
  */
-FileListStream.prototype._next = function() {
+FileListStream.prototype._next = function () {
   if (this._index >= this._files.length) return null;
   var index = this._index++;
   return this._files[index];
@@ -51,7 +51,7 @@ FileListStream.prototype._next = function() {
  * the initiation of one file reading, if one is not already being read.
  * @override
  */
-FileListStream.prototype._read = function() {
+FileListStream.prototype._read = function () {
   // Stopping condition.
   if (this._index >= this._files.length) {
     this.push(null);
@@ -63,7 +63,7 @@ FileListStream.prototype._read = function() {
     });
     var self = this;
     // Merge all read data together.
-    fs.pipe(concat(function (data) {
+    fs.pipe(concat((data) => {
       self._reading = false;
       var info = {
         filename: file.name,

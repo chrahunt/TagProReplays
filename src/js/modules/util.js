@@ -3,28 +3,34 @@
  * @param {object}
  * @return {object}
  */
-exports.clone = function(obj) {
+exports.clone = function (obj) {
   return JSON.parse(JSON.stringify(obj));
+};
+
+exports.map = function (obj, iteratee) {
+  return Object.keys(obj).map((key) => {
+    return iteratee(key, obj[key]);
+  });
 };
 
 /**
  * Return the index of the first value in the array that satisfies the given
  * function. Same as `findIndex`.
  */
-exports.findIndex = function(array, fn) {
-    for (var i = 0; i < array.length; i++) {
-        if (fn(array[i])) {
-            return i;
-        }
+exports.findIndex = function (array, fn) {
+  for (var i = 0; i < array.length; i++) {
+    if (fn(array[i])) {
+      return i;
     }
-    return -1;
+  }
+  return -1;
 };
 
 /**
  * Return the first value in the array that satisfies the given function. Same
  * functionality as `find`.
  */
-exports.find = function(array, fn) {
+exports.find = function (array, fn) {
   for (var i = 0; i < array.length; i++) {
     if (fn(array[i])) {
       return array[i];
@@ -35,9 +41,9 @@ exports.find = function(array, fn) {
 /**
  * Given text, return a data URL representing a document containing it.
  */
-exports.textToDataUrl = function(text) {
-    var b = new Blob([text], { type: "text/plain" });
-    return URL.createObjectURL(b);
+exports.textToDataUrl = function (text) {
+  var b = new Blob([text], { type: "text/plain" });
+  return URL.createObjectURL(b);
 };
 
 /**
@@ -52,17 +58,17 @@ exports.textToDataUrl = function(text) {
  * - err -> reject(err)
  * - * -> resolve(...args)
  * Wrapped function can return true/false to resolve to
- * 
- * 
+ *
+ *
  * Returns a function which takes arbitrary arguments and returns
  * a promise on resolution.
  */
-exports.wrap = function(wrapped) {
-  return function() {
+exports.wrap = function (wrapped) {
+  return function () {
     var args = [...arguments];
     return new Promise((resolve, reject) => {
       // Resolve with callback, handle feedback.
-      var result = wrapped(...args, function(err) {
+      var result = wrapped(...args, function (err) {
         if (err) {
           reject(err);
         } else {

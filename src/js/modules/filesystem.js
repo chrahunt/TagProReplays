@@ -1,3 +1,5 @@
+var logger = require('./logger')('filesystem');
+
 /**
  * This script provides functions for saving and retrieving rendered
  * movie files stored using the FileSystem API.
@@ -12,17 +14,16 @@
 function wrap(fn) {
     // Returns function that calls the given function with arguments
     // provided when called.
-    function caller(fn) {
-        return function() {
-            fn.apply(null, arguments);
-        };
-    }
-    return function() {
-        var args = Array.prototype.concat.apply([], arguments);
-        return new Promise(function (resolve, reject) {
-            fn.apply(null, args.concat([caller(resolve), caller(reject)]));
-        });
+  function caller(fn) {
+    return function () {
+      fn(...arguments);
     };
+  }
+  return function () {
+    return new Promise((resolve, reject) => {
+      fn(...arguments, caller(resolve), caller(reject));
+    });
+  };
 }
 
 /**
@@ -30,25 +31,25 @@ function wrap(fn) {
  * @param  {FileException} err - The error.
  */
 function errorHandler(err) {
-    var msg = 'An error occured: ';
-    switch (err.code) {
-        case FileError.NOT_FOUND_ERR:
-            msg += 'File or directory not found';
-            break;
-        case FileError.NOT_READABLE_ERR:
-            msg += 'File or directory not readable';
-            break;
-        case FileError.PATH_EXISTS_ERR:
-            msg += 'File or directory already exists';
-            break;
-        case FileError.TYPE_MISMATCH_ERR:
-            msg += 'Invalid filetype';
-            break;
-        default:
-            msg += 'Unknown Error';
-            break;
-    }
-    console.error(msg);
+  var msg = 'An error occured: ';
+  switch (err.code) {
+  case FileError.NOT_FOUND_ERR:
+    msg += 'File or directory not found';
+    break;
+  case FileError.NOT_READABLE_ERR:
+    msg += 'File or directory not readable';
+    break;
+  case FileError.PATH_EXISTS_ERR:
+    msg += 'File or directory already exists';
+    break;
+  case FileError.TYPE_MISMATCH_ERR:
+    msg += 'Invalid filetype';
+    break;
+  default:
+    msg += 'Unknown Error';
+    break;
+  }
+  logger.error(msg);
 }
 
 /**
@@ -56,24 +57,25 @@ function errorHandler(err) {
  * system object.
  */
 function getFileSystem(callback, error) {
-    var requestFileSystem = window.requestFileSystem ||
-        window.webkitRequestFileSystem;
-    var size = 50 * 1024 * 1024 * 1024;
-    requestFileSystem(window.PERSISTENT, size, callback, error);
+  var requestFileSystem = window.requestFileSystem ||
+                          window.webkitRequestFileSystem;
+  var size = 50 * 1024 * 1024 * 1024;
+  requestFileSystem(window.PERSISTENT, size, callback, error);
 }
 
 /**
  * Get directory and pass resulting dirEntry to callback. Directory
  * is created if it does not already exist.
- * @param {string} directory 
- * @param {function} callback - callback of the form `function(dirEntry) {...}`.
+ * @param {string} directory
+ * @param {function} callback - callback of the form
+ *   `function(dirEntry) {...}`.
  */
 function getDirectory(directory, callback, error) {
-    getFileSystem(function(fs) {
-        fs.root.getDirectory(directory, { create: true }, function (dirEntry) {
-            callback(dirEntry);
-        }, error);
+  getFileSystem((fs) => {
+    fs.root.getDirectory(directory, { create: true }, (dirEntry) => {
+      callback(dirEntry);
     }, error);
+  }, error);
 }
 
 /**
@@ -82,12 +84,12 @@ function getDirectory(directory, callback, error) {
  * @param {Function} callback - The function called on success.
  * @param {Function} error - The function called with any error.
  */
- function deleteFile(path, callback, error) {
-    getFileSystem(function(fs) {
-        fs.root.getFile(path, {}, function(fileEntry) {
-            fileEntry.remove(callback, error);
-        }, error);
+function deleteFile(path, callback, error) {
+  getFileSystem((fs) => {
+    fs.root.getFile(path, {}, (fileEntry) => {
+      fileEntry.remove(callback, error);
     }, error);
+  }, error);
 }
 
 /**
@@ -97,20 +99,20 @@ function getDirectory(directory, callback, error) {
  * @param  {Function} [error=errorHandler] - The error handler to use.
  */
 function saveFile(path, data, callback, error) {
-    getFileSystem(function(fs) {
-        fs.root.getFile(path, { create: true }, function (fileEntry) {
-            fileEntry.createWriter(function (fileWriter) {
-                fileWriter.onwriteend = function () {
-                    if (!fileWriter.error) {
-                        callback();
-                    } else {
-                        error(fileWriter.error);
-                    }
-                };
-                fileWriter.write(data);
-            }, error);
-        }, error);
+  getFileSystem((fs) => {
+    fs.root.getFile(path, { create: true }, (fileEntry) => {
+      fileEntry.createWriter((fileWriter) => {
+        fileWriter.onwriteend = function () {
+          if (!fileWriter.error) {
+            callback();
+          } else {
+            error(fileWriter.error);
+          }
+        };
+        fileWriter.write(data);
+      }, error);
     }, error);
+  }, error);
 }
 
 /**
@@ -120,14 +122,14 @@ function saveFile(path, data, callback, error) {
  * @param {Function} callback
  * @param {Function} error
  */
- function getFile(path, callback, error) {
-    getFileSystem(function(fs) {
-        fs.root.getFile(path, {}, function(fileEntry) {
-            fileEntry.file(function(file) {
-                callback(file);
-            });
-        }, error);
+function getFile(path, callback, error) {
+  getFileSystem((fs) => {
+    fs.root.getFile(path, {}, (fileEntry) => {
+      fileEntry.file((file) => {
+        callback(file);
+      });
     }, error);
+  }, error);
 }
 
 /**
@@ -136,24 +138,21 @@ function saveFile(path, data, callback, error) {
  * @param {Function} callback - The callback function that receives the
  *   array of file names from the directory.
  */
- function readDirectory(path, callback, error) {
-    function readFullDirectory(dirReader, names) {
-        dirReader.readEntries(function (entries) {
-            if (entries.length === 0) {
-                callback(names);
-            } else {
-                names = names.concat(entries.map(function(entry) {
-                    return entry.name;
-                }));
-                readFullDirectory(dirReader, names);
-            }
-        }, error);
-    }
-    getDirectory(path, function(dirEntry) {
-        var dirReader = dirEntry.createReader();
-        var movieNames = [];
-        readFullDirectory(dirReader, []);
+function readDirectory(path, callback, error) {
+  function readFullDirectory(dirReader, names) {
+    dirReader.readEntries((entries) => {
+      if (entries.length === 0) {
+        callback(names);
+      } else {
+        names = names.concat(entries.map((entry) => entry.name));
+        readFullDirectory(dirReader, names);
+      }
     }, error);
+  }
+  getDirectory(path, (dirEntry) => {
+    var dirReader = dirEntry.createReader();
+    readFullDirectory(dirReader, []);
+  }, error);
 }
 
 /**
@@ -163,45 +162,42 @@ function saveFile(path, data, callback, error) {
  *   which indicates whether the directory already existed.
  */
 function createDirectory(path, callback, error) {
-    getFileSystem(function(fs) {
-        fs.root.getDirectory(path, { create: false }, function (dirEntry) {
-            callback(dirEntry, true);
-        }, function (err) {
-            if (err.name === "NotFoundError") {
-                fs.root.getDirectory(path, { create: true }, function (dirEntry) {
-                    callback(dirEntry, false);
-                }, error);
-            } else {
-                error(err);
-            }
-        });
-    }, error);
+  getFileSystem((fs) => {
+    fs.root.getDirectory(path, { create: false }, (dirEntry) => {
+      callback(dirEntry, true);
+    }, (err) => {
+      if (err.name === "NotFoundError") {
+        fs.root.getDirectory(path, { create: true }, (dirEntry) => {
+          callback(dirEntry, false);
+        }, error);
+      } else {
+        error(err);
+      }
+    });
+  }, error);
 }
 
 var fs = {
-    deleteFile: wrap(deleteFile),
-    saveFile: wrap(saveFile),
-    getFile: wrap(getFile),
-    readDirectory: wrap(readDirectory),
-    createDirectory: wrap(createDirectory),
-    ready: ready
+  deleteFile: wrap(deleteFile),
+  saveFile: wrap(saveFile),
+  getFile: wrap(getFile),
+  readDirectory: wrap(readDirectory),
+  createDirectory: wrap(createDirectory),
+  ready: ready
 };
 
 function ready() {
-    return new Promise(function (resolve, reject) {
-        // Initialize FileSystem Replay folder.
-        fs.createDirectory("savedMovies").then(function (_, existed) {
-            if (!existed) {
-                console.log("Saved movies directory created.");
-            } else {
-                console.log("Saved movies directory exists.");
-            }
-            resolve();
-        }).catch(function (err) {
-            console.error("Error creating saved movies directory: %o.", err);
-            throw err;
-        });
-    });
+  // Initialize FileSystem Replay folder.
+  return fs.createDirectory("savedMovies").then((_, existed) => {
+    if (!existed) {
+      logger.debug("Saved movies directory created.");
+    } else {
+      logger.debug("Saved movies directory exists.");
+    }
+  }).catch((err) => {
+    logger.error("Error creating saved movies directory: %o.", err);
+    throw err;
+  });
 }
 
 module.exports = fs;

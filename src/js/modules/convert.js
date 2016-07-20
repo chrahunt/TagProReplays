@@ -9,25 +9,18 @@ var validate = require('./validate');
 // Holds the replay migration functions.
 var conversion = new Migrations();
 
-// Takes a replay and returns the integer version of it.
-function getReplayVersion(data) {
-  if (!data.hasOwnProperty("version")) {
-    return 1;
-  } else {
-    return data.version;
-  }
-}
-
 // Convert from version 1 to 2 of replay.
 // Takes data with name and data properties which is the filename/id and
 // replay data, respectively.
-conversion.add("1", "2", function(data, callback) {
+conversion.add("1", "2", (data, callback) => {
   // Get time from replay Id.
   function parseReplayId(replayId) {
-      return Number(replayId.replace('replays', '').replace(/.*DATE/, ''));
+    return Number(
+      replayId.replace('replays', '').replace(/.*DATE/, ''));
   }
 
-  // Get replay info from players and into object from v1 to v2 replay format.
+  // Get replay info from players and into object from v1 to v2 replay
+  // format.
   function get_info(name, data) {
     var info = {};
     var replayId = name.replace(/\.(txt|json)$/, '');
@@ -41,12 +34,11 @@ conversion.add("1", "2", function(data, callback) {
     };
 
     // Get player objects.
-    var playerKeys = Object.keys(data).filter(function(key) {
-      return key.search('player') === 0;
-    });
-    
+    var playerKeys = Object.keys(data).filter(
+      (key) => key.search('player') === 0);
+
     // Get information from players.
-    playerKeys.forEach(function(key) {
+    playerKeys.forEach((key) => {
       var player = data[key];
       var id = Number(key.replace('player', ''));
       // Replay information stored in players.
@@ -70,7 +62,7 @@ conversion.add("1", "2", function(data, callback) {
   // of the replay format to version 2.
   var Convert = {
     // Takes a single spawn from the spawns property..
-    spawn: function(data) {
+    spawn: function (data) {
       return {
         x: data.x,
         y: data.y,
@@ -80,7 +72,7 @@ conversion.add("1", "2", function(data, callback) {
       };
     },
     // Takes bomb from v1 replay.
-    bomb: function(data) {
+    bomb: function (data) {
       return {
         x: data.x,
         y: data.y,
@@ -89,7 +81,7 @@ conversion.add("1", "2", function(data, callback) {
       };
     },
     // Takes splat from v1 replay.
-    splat: function(data) {
+    splat: function (data) {
       return {
         team: data.t,
         x: data.x,
@@ -99,11 +91,13 @@ conversion.add("1", "2", function(data, callback) {
       };
     },
     // Takes chat object. Returns null if chat is invalid.
-    chat: function(data) {
+    chat: function (data) {
       // Handle incomplete chat objects from TagPro 3.0 bug.
       if (!data.hasOwnProperty('removeAt')) return null;
       // Ignore sound messages that were populated into chat.
-      if (data.hasOwnProperty('s') && data.hasOwnProperty('v')) return null;
+      if (data.hasOwnProperty('s') && data.hasOwnProperty('v')) {
+        return null;
+      }
       var obj = {
         from: data.from,
         message: data.message,
@@ -115,11 +109,11 @@ conversion.add("1", "2", function(data, callback) {
       return obj;
     },
     // Takes the player id and player object.
-    player: function(id, data) {
+    player: function (id, data) {
       // Get start of player presence, and replace leading zeros with
       // null.
       var start = 0;
-      for (var i = 0; i < data.team.length; i++) {
+      for (let i = 0; i < data.team.length; i++) {
         if (data.team[i] !== 0) {
           start = i;
           break;
@@ -133,20 +127,18 @@ conversion.add("1", "2", function(data, callback) {
       // Ignore properties that don't exist. Required properties are
       // known to be present due to validation against schema prior to
       // conversion.
-      props = props.filter(function(prop) {
-        return data.hasOwnProperty(prop);
-      });
+      props = props.filter((prop) => data.hasOwnProperty(prop));
 
       if (start !== 0) {
         var pre = [];
-        for (var i = 0; i < start; i++) {
+        for (let i = 0; i < start; i++) {
           pre.push(null);
         }
-        props.forEach(function(prop) {
+        props.forEach((prop) => {
           player[prop] = pre.concat(data[prop].slice(start));
         });
       } else {
-        props.forEach(function(prop) {
+        props.forEach((prop) => {
           player[prop] = data[prop];
         });
       }
@@ -154,7 +146,7 @@ conversion.add("1", "2", function(data, callback) {
       return player;
     },
     // Takes the gameEndsAt property value from v1 replay.
-    gameEndsAt: function(time) {
+    gameEndsAt: function (time) {
       if (typeof time == "number") {
         // Handles previous version of replay that only had the initial
         // value of gameEndsAt.
@@ -163,22 +155,22 @@ conversion.add("1", "2", function(data, callback) {
         var output = [];
         output.push(time[0]); // Initial value of gameEndsAt.
         if (time.length == 2) {
-          // Convert message with properties startTime and time to the ms
-          // timestamp corresponding to the next end time.
+          // Convert message with properties startTime and time to the
+          // ms timestamp corresponding to the next end time.
           output.push(strToTime(time[1].startTime) + time[1].time);
         }
         return output;
       }
     },
     // Takes a single floor tile from v1 replay.
-    floorTile: function(tile) {
+    floorTile: function (tile) {
       return {
         value: tile.value,
         x: Number(tile.x),
         y: Number(tile.y)
       };
     },
-    end: function(end) {
+    end: function (end) {
       return {
         time: strToTime(end.time),
         winner: end.winner
@@ -194,9 +186,8 @@ conversion.add("1", "2", function(data, callback) {
     parsed.spawns = data.spawns.map(Convert.spawn);
     parsed.bombs = data.bombs.map(Convert.bomb);
     parsed.splats = data.splats.map(Convert.splat);
-    parsed.chat = data.chat.map(Convert.chat).filter(function(val) {
-      return val !== null;
-    });
+    parsed.chat = data.chat.map(Convert.chat).filter(
+      (val) => val !== null);
     parsed.time = data.clock.map(strToTime);
     parsed.score = data.score;
     parsed.wallMap = data.wallMap;
@@ -209,15 +200,13 @@ conversion.add("1", "2", function(data, callback) {
 
     // Players.
     parsed.players = {};
-    var playerKeys = Object.keys(data).filter(function(key) {
-      return key.search("player") === 0;
-    });
-    playerKeys.forEach(function(key) {
+    var playerKeys = Object.keys(data).filter(
+      (key) => key.search("player") === 0);
+    playerKeys.forEach((key) => {
       var player = data[key];
       var id = Number(key.replace("player", ""));
-      var valid = player.name.some(function(val) {
-        return val !== null;
-      });
+      var valid = player.name.some(
+        (val) => val !== null);
       if (!valid) return;
       parsed.players[id] = Convert.player(id, player);
     });
@@ -290,7 +279,7 @@ module.exports = function convert(data) {
       var fn = conversion.getPatchFunction(version, CURRENT_VERSION);
       if (fn) {
         // Upgrade data.
-        fn(newData, function(err) {
+        fn(newData, (err) => {
           if (err) {
             throw Error("Final converted replay not valid: " + err);
           } else {

@@ -3,6 +3,8 @@ var Writable = require('readable-stream').Writable;
 
 var Messaging = require('./messaging');
 
+var logger = require('./logger')('replay-import-stream');
+
 inherits(ObjectStream, Writable);
 
 /**
@@ -38,8 +40,8 @@ function ObjectStream(options) {
  * Override to get buffered data length before calling original `write`.
  * @override
  */
-ObjectStream.prototype.write = function(chunk, encoding, cb) {
-  console.log("ObjectStream#write: Received chunk.");
+ObjectStream.prototype.write = function (chunk, encoding, cb) {
+  logger.debug("ObjectStream#write: Received chunk.");
   var size = this._size(chunk);
   // Size of currently called write value + size of all buffered calls.
   this.length += size;
@@ -47,7 +49,7 @@ ObjectStream.prototype.write = function(chunk, encoding, cb) {
   Writable.prototype.write.apply(this, arguments);
   var ret = this.length < this.__highWaterMark;
   if (!ret) {
-    console.log("ObjectStream#write: Need drain.");
+    logger.debug("ObjectStream#write: Need drain.");
     this._writableState.needDrain = true;
   }
 
@@ -58,7 +60,7 @@ ObjectStream.prototype.write = function(chunk, encoding, cb) {
  * Override to get written data length and call subclass override __write.
  * @override
  */
-ObjectStream.prototype._write = function(chunk, encoding, cb) {
+ObjectStream.prototype._write = function (chunk, encoding, cb) {
   var writelen = this._size(chunk);
   // Remove from size of internal buffer.
   this.length -= writelen;
@@ -68,8 +70,8 @@ ObjectStream.prototype._write = function(chunk, encoding, cb) {
 /**
  * Subclasses may override. Same signature as _write.
  */
-ObjectStream.prototype.__write = function(chunk, encoding, cb) {
-  console.log("ObjectStream#__write not overriden.");
+ObjectStream.prototype.__write = function (chunk, encoding, cb) {
+  logger.error("ObjectStream#__write not overriden.");
 };
 
 /**
@@ -77,8 +79,8 @@ ObjectStream.prototype.__write = function(chunk, encoding, cb) {
  * @param {object} obj - an object in the stream.
  * @return {number} - "Size" of the object.
  */
-ObjectStream.prototype._size = function(obj) {
-  console.warn("ObjectStream#_size not overriden!");
+ObjectStream.prototype._size = function (obj) {
+  logger.error("ObjectStream#_size not overriden!");
 };
 
 inherits(ReplayImportStream, ObjectStream);
@@ -121,18 +123,18 @@ function ReplayImportStream(options) {
     self._srcEmpty = true;
   }
 
-  this.on('pipe', function (src) {
-    console.log("ReplayImportStream: piped to.");
+  this.on('pipe', (src) => {
+    logger.log("ReplayImportStream: piped to.");
     src.on('end', setEmpty);
   });
 
-  this.on('unpipe', function (src) {
-    console.log("ReplayImportStream: unpiped.");
+  this.on('unpipe', (src) => {
+    logger.log("ReplayImportStream: unpiped.");
     src.removeListener('end', setEmpty);
   });
 }
 
-ReplayImportStream.prototype.stop = function() {
+ReplayImportStream.prototype.stop = function () {
   this.ended = true;
 };
 
@@ -141,11 +143,11 @@ ReplayImportStream.prototype.stop = function() {
  * @override
  * @param {FileInfo} value - Replay file information.
  * @param {string} encoding - disregarded.
- * @param {Function} done - Called with 
+ * @param {Function} done - Called with
  * @return {[type]} [description]
  */
-ReplayImportStream.prototype.__write = function(value, encoding, done) {
-  console.log("ReplayImportStream#__write: Writing chunk.");
+ReplayImportStream.prototype.__write = function (value, encoding, done) {
+  logger.log("ReplayImportStream#__write: Writing chunk.");
   // Disregard data if stream has already been ended.
   if (this.ended) { done(); return; }
   this._lastValue = value;
@@ -185,7 +187,7 @@ ReplayImportStream.prototype.__write = function(value, encoding, done) {
  * Override for ObjectStream.
  * @override
  */
-ReplayImportStream.prototype._size = function(obj) {
+ReplayImportStream.prototype._size = function (obj) {
   return obj.size;
 };
 
@@ -194,7 +196,7 @@ ReplayImportStream.prototype._size = function(obj) {
  * @param {*} value
  * @return {boolean}
  */
-ReplayImportStream.prototype._moreBuffered = function() {
+ReplayImportStream.prototype._moreBuffered = function () {
   return this._writableState.lastBufferedRequest &&
       this._writableState.lastBufferedRequest.chunk !== this._lastValue;
 };
@@ -203,20 +205,20 @@ ReplayImportStream.prototype._moreBuffered = function() {
  * Send files to background page.
  * @return {[type]} [description]
  */
-ReplayImportStream.prototype._send = function() {
+ReplayImportStream.prototype._send = function () {
   var self = this;
   this._importing = true;
 
   var cache = this._cache;
   this._cache = [];
   this._cachesize = 0;
-  console.log("ReplayImportStream#_send: Sending %d replays.", cache.length);
+  logger.log("ReplayImportStream#_send: Sending %d replays.", cache.length);
 
-  Messaging.send('importReplay', cache, function (response) {
-    console.log("ReplayImportStream:callback: Replay import complete.");
+  Messaging.send('importReplay', cache, (response) => {
+    logger.log("ReplayImportStream:callback: Replay import complete.");
     self._importing = false;
     if (self._pendingCallback) {
-      console.log("ReplayImportStream:callback: calling pending callback.");
+      logger.log("ReplayImportStream:callback: calling pending callback.");
       var cb = self._pendingCallback;
       self._pendingCallback = null;
       cb();
