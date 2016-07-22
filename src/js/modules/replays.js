@@ -125,6 +125,11 @@ Replays.prototype.add = function () {
   // add
 };
 
+/**
+ * Imports a number of replays.
+ * returns a promise that resolves to an 
+ * Activity.
+ */
 Replays.prototype.import = function (files) {
   // Take files
   // return progress
@@ -164,9 +169,9 @@ Replays.prototype.import = function (files) {
 
     Messaging.send("startImport", { total: files.length }, (result) => {
       if (!result.failed) {
-        console.group("Importing %d replays.", files.length);
+        logger.info("Importing %d replays.", files.length);
         state.total = files.length;
-        console.time("Replay import");
+        logger.debug("Replay import");
         var fls = FileListStream(files);
         var send = ReplayImportStream({
           highWaterMark: sizeLimit
@@ -179,15 +184,14 @@ Replays.prototype.import = function (files) {
           Messaging.send("cancelImport");
         });
 
-        send.on('finish', function () {
-          console.timeEnd("Replay import");
-          console.groupEnd();
+        send.on('finish', () => {
+          logger.debug("Replay import finished");
           activity.complete();
           if (!state.cancelled) {
             Messaging.send("endImport");
           }
         });
-        fls.on("end", function () {
+        fls.on("end", () => {
           logger.debug("File list stream ended.");
         });
         resolve(activity);
@@ -198,7 +202,7 @@ Replays.prototype.import = function (files) {
 
     Messaging.listen("importProgress", () => {
       if (cancelled) return;
-      console.log("Received import progress.");
+      logger.debug("Received import progress.");
       state.current++;
       activity.progress(state);
     });
@@ -261,7 +265,21 @@ Replay.prototype.saveAs = function (name) {
 //////////
 // ongoing action
 //////////
-
+/**
+ * Activity represents an ongoing action.
+ * Events:
+ * - update - some change occurred
+ * Properties:
+ * - state - fulfilled, rejected, pending
+ * - substate - activity-specific value, can be used as a map to some
+ *   display text.
+ * - cancellable - boolean
+ * - cancel - if above is true, cancels the activity.
+ * - progress
+ * -- total
+ * -- progress
+ * -- known - i.e. determinate
+ */
 function Activity(spec) {
   EventEmitter.call(this);
   this._cancelled = false;

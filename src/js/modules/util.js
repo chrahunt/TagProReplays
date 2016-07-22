@@ -57,7 +57,8 @@ exports.textToDataUrl = function (text) {
  * function callback (as last argument):
  * - err -> reject(err)
  * - * -> resolve(...args)
- * Wrapped function can return true/false to resolve to
+ * anything else returned -> resolve(val)
+ * - rejects on thrown error.
  *
  *
  * Returns a function which takes arbitrary arguments and returns

@@ -175,9 +175,7 @@
           <div class="row form-horizontal" id="settings-form">
             <div class="col-sm-12 text-center">
               <div class="form-group">
-                <label>
-                                    <input type="checkbox" id="recordCheckbox"> Extension Enabled
-                                </label>
+                <label><input type="checkbox" id="recordCheckbox"> Extension Enabled</label>
               </div>
             </div>
             <div class="col-sm-6 text-center">
@@ -212,29 +210,19 @@
               <h4>Rendering</h4>
 
               <div class="form-group">
-                <label>
-                                    <input type="checkbox" id="useSpinCheckbox"> Show Spin
-                                </label>
+                <label><input type="checkbox" id="useSpinCheckbox"> Show Spin</label>
               </div>
               <div class="form-group">
-                <label>
-                                    <input type="checkbox" id="useSplatsCheckbox"> Show Splats
-                                </label>
+                <label><input type="checkbox" id="useSplatsCheckbox"> Show Splats</label>
               </div>
               <div class="form-group">
-                <label>
-                                    <input type="checkbox" id="useClockAndScoreCheckbox"> Show Clock and Score
-                                </label>
+                <label><input type="checkbox" id="useClockAndScoreCheckbox"> Show Clock and Score</label>
               </div>
               <div class="form-group">
-                <label>
-                                    <input type="checkbox" id="useChatCheckbox"> Show Chat
-                                </label>
+                <label><input type="checkbox" id="useChatCheckbox"> Show Chat</label>
               </div>
               <div class="form-group">
-                <label class="col-sm-12">
-                                    <input type="checkbox" id="useTextureCheckbox"> Use Custom Textures
-                                </label>
+                <label class="col-sm-12"><input type="checkbox" id="useTextureCheckbox"> Use Custom Textures</label>
                 <button data-toggle="modal" data-target="#textureContainer">Load Textures</button>
               </div>
               <div class="form-group">
@@ -362,7 +350,32 @@
       </div>
     </div>
   </div>
+  <div id="error" class="modal fade">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-body">
+          <span class="message"></span>
+        </div>
+        <div class="modal-footer">
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div id="progress" class="modal fade">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-body">
+          <span class="message"></span>
+          <div class="progress"></div>
+        </div>
+        <div class="modal-footer">
+          <!-- button -->
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="js/main.js" async></script>
 </body>
-
 </html>

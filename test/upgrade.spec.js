@@ -10,37 +10,7 @@ var Dexie = require('dexie');
 Dexie.debug = false;
 var files = {
   1: [
-    "HOW_TO_WIN_AT_EVENT_HORIZONDATE1429567229815.txt",
-    "replays1431810391430.txt",
-    "replays1430861081332.txt",
-    "replays1431836535487.txt",
-    "replays1430867339575.txt",
-    "replays1431912125451.txt",
-    "replays1430948549004.txt",
-    "replays1431917583791.txt",
-    "replays1431289119971.txt",
-    "replays1431917760968.txt",
-    "replays1431381196146.txt",
-    "replays1432182077449.txt",
-    "replays1431382178597.txt",
-    "replays1432332868378.txt",
-    "replays1431382380136.txt",
-    "replays1432333294171.txt",
-    "replays1431382541556.txt",
-    "replays1432333387755.txt",
-    "replays1431468001167.txt",
-    "replays1432352416317.txt",
-    "replays1431468692137.txt",
-    "replays1432354635168.txt",
-    "replays1431469491151.txt",
-    "replays1432520044708.txt",
-    "replays1431480891558.txt",
-    "replays1432521073920.txt",
-    "replays1431485670653.txt",
-    "replays1432590816052.txt",
-    "replays1431486564926.txt",
-    "replays1432593718834.txt",
-    "replays1431743346120.txt"
+    "replays1430861081332.txt"
   ]
 };
 

@@ -295,7 +295,7 @@ Messenger.prototype._init = function () {
  */
 Messenger.prototype.listen = function (names, callback) {
   if (typeof names == 'string') names = [names];
-  names.forEach(function (name) {
+  names.forEach((name) => {
     if (!listeners.hasOwnProperty(name)) {
       listeners[name] = [];
     }

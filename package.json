@@ -70,6 +70,7 @@
     "keycode-js": "0.0.2",
     "machina": "^2.0.0-1",
     "moment": "^2.14.1",
+    "mprogress": "^0.1.1",
     "mustache": "^2.2.1",
     "page": "^1.7.1",
     "readable-stream": "^2.0.2",
@@ -112,7 +113,7 @@
     "jquery.actual": "./vendor/js/jquery.actual.min.js",
     "jquery-ui": "./vendor/js/jquery-ui.min.js",
     "material": "./vendor/js/material.min.js",
-    "mprogress": "./vendor/js/mprogress.min.js",
+    "mprogress": "./node_modules/mprogress/mprogress.min.js",
     "ripples": "./vendor/js/ripples.min.js",
     "whammy": "./vendor/js/whammy.js"
   }

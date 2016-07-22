@@ -6,7 +6,8 @@ require('source-map-support').install({
 // Main app.
 var $ = require('jquery');
 
-var Menu = require('./modules/menu');
+require('./modules/menu');
+require('./modules/settings');
 
 // Load help content from wiki.
 $("#help-content").load("https://github.com/chrahunt/TagProReplays/wiki/Help #wiki-body .markdown-body");

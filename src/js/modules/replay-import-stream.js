@@ -1,7 +1,9 @@
 var inherits = require('util').inherits;
 var Writable = require('readable-stream').Writable;
+var async = require('async');
 
-var Messaging = require('./messaging');
+var json = require('./json');
+var validate = require('./validate');
 
 var logger = require('./logger')('replay-import-stream');
 
@@ -108,9 +110,11 @@ function ReplayImportStream(options) {
     options = {};
   this._cache = [];
   this._cachesize = 0;
+  // In the process of importing buffered files.
   this._importing = false;
   this._highWaterMark = options.highWaterMark || 1024 * 1024 * 50;
   this._done = false;
+  this._cancelled = false;
   ObjectStream.call(this, {
     objectMode: true,
     highWaterMark: this._highWaterMark
@@ -130,6 +134,7 @@ function ReplayImportStream(options) {
 
   this.on('unpipe', (src) => {
     logger.log("ReplayImportStream: unpiped.");
+    this._cancelled = true;
     src.removeListener('end', setEmpty);
   });
 }
@@ -212,7 +217,7 @@ ReplayImportStream.prototype._send = function () {
   var cache = this._cache;
   this._cache = [];
   this._cachesize = 0;
-  logger.log("ReplayImportStream#_send: Sending %d replays.", cache.length);
+  logger.log(`ReplayImportStream#_send: Saving ${cache.length} replays`);
 
   Messaging.send('importReplay', cache, (response) => {
     logger.log("ReplayImportStream:callback: Replay import complete.");
@@ -223,5 +228,93 @@ ReplayImportStream.prototype._send = function () {
       self._pendingCallback = null;
       cb();
     }
+  });
+};
+
+/**
+ * Save replays.
+ * @private
+ */
+ReplayImportStream.prototype._save = function (files) {
+  async.each(files, (file, callback) => {
+    if (!this._cancelled) return;
+    json(file.data).then((parsed) => {
+      logger.debug(`Validating ${name}.`);
+    }).catch((err) => {
+      this.emit('error', {
+        name: file.name,
+        reason: err instanceof SyntaxError ? "could not be parsed"
+                                           : "unknown JSON error"
+      });
+    })
+    try {
+      var name = file.filename;
+      var replay = JSON.parse(file.data);
+    } catch (e) {
+      var err = {
+        name: name
+      };
+      if (e instanceof SyntaxError) {
+        err.reason = "could not be parsed: " + e;
+      } else {
+        err.reason = "unknown error: " + e;
+      }
+      Messaging.send("importError", err);
+      callback();
+      return;
+    }
+    
+    // Validate replay.
+    var result = validate(replay);
+    if (result.valid) {
+      var version = result.version;
+      logger.debug(`${file.filename} is a valid v${version} replay.`);
+      logger.debug("Applying necessary conversions...");
+      var data = {
+        data: replay,
+        name: name
+      };
+      try {
+        var converted = convert(data);
+        var converted_replay_data = converted.data;
+        Data.saveReplay(converted_replay_data).then((info) => {
+          if (!importing) { callback("cancelled"); return; }
+          Messaging.send("importProgress");
+          callback();
+        }).catch((err) => {
+          if (!importing) { callback("cancelled"); return; }
+          logger.error("Error saving replay: %o.", err);
+          Messaging.send("importError", {
+            name: name,
+            reason: 'could not be saved: ' + err
+          });
+          callback();
+        });
+      } catch (e) {
+        logger.error(e);
+        Messaging.send("importError", {
+          name: name,
+          reason: `could not be converted: ${e.message}`
+        });
+        callback();
+      }
+    } else {
+      logger.error(`${file.filename} could not be validated!`);
+      logger.error(err);
+      Messaging.send("importError", {
+        name: name,
+        reason: 'could not be validated: ' + err
+      });
+      callback();
+    }
+  }, (err) => {
+    if (err === null) {
+      logger.debug("Finished importing replay set.");
+    } else {
+      logger.error("Encountered error importing replays: %O", err);
+    }
+    // Send new replay notification to any tabs that may have menu open.
+    Messaging.send("replaysUpdated");
+    sendResponse();
   });
 };

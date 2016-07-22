@@ -12,7 +12,12 @@ module.exports = {
       error_result:
         `There were some errors. You can download them
          <a href="{{url}}" download=\"import-errors.txt\">here</a>. Once downloaded, send them
-         via the error reporting information you can find in \"Help\" in the menu.`
+         via the error reporting information you can find in \"Help\" in the menu.`,
+      full:
+        `Importing that many replays would fill up the database. Try selecting fewer replays,
+         or download and remove replays to free up space.`,
+      busy:
+        `The background page is busy, try again later.`,
     }
   },
   table: {
