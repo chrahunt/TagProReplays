@@ -1,5 +1,6 @@
 var Migrations = require('./migrations');
 var validate = require('./validate');
+var Util = require('./util');
 
 /**
  * Exports a function that can convert replays to the most recent
@@ -262,7 +263,7 @@ var CURRENT_VERSION = "2";
  * @return {Promise} - Promise that resolves to a ReplayData object with
  *   the converted replay, or rejects on error.
  */
-module.exports = function convert(data) {
+function convert(data) {
   var newData = {
     name: data.name,
     data: data.data
@@ -300,7 +301,11 @@ module.exports = function convert(data) {
       }
     }
   }
-};
+}
+
+module.exports = convert;
+
+module.exports.p = Util.wrap(convert);
 
 // Expose validation ready function.
 module.exports.ready = validate.ready;

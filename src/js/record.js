@@ -96,10 +96,10 @@ function recordReplayData() {
   delete data.map.splats;
   data.wallMap = tagpro.wallMap;
 
-    // Set initial value for end time.
+  // Set initial value for end time.
   data.endTimes.push((new Date(tagpro.gameEndsAt)).getTime());
 
-    // Set up dynamic tiles.
+  // Set up dynamic tiles.
   var dynamicTileIds = [3, 4, 5, 6, 9, 10, 13, 14, 15, 16, 19, 20, 21];
   for (var col in data.map) {
     for (var row in data.map[col]) {
@@ -113,7 +113,7 @@ function recordReplayData() {
     }
   }
 
-    // set up listener for chats, splats, and bombs
+  // set up listener for chats, splats, and bombs
   tagpro.socket.on('chat', (msg) => {
     data.chat.push({
       from: msg.from,

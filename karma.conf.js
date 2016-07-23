@@ -1,3 +1,5 @@
+/*eslint no-sync: "off" */
+/* global __dirname: false */
 var jsonfile = require('jsonfile');
 var path = require('path');
 
@@ -6,7 +8,7 @@ var path = require('path');
 var pkg = jsonfile.readFileSync("./package.json");
 var basePath = path.resolve(path.join(__dirname, './src/js'));
 
-module.exports = function(config) {
+module.exports = function (config) {
   var props = {
     // base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: '',
@@ -68,10 +70,10 @@ module.exports = function(config) {
     // how many browser should be started simultaneous
     concurrency: Infinity
   };
-  
+
   props.browserify = pkg.browserify;
   props.browserify.debug = true;
-  props.browserify.paths = [ basePath ];
+  props.browserify.paths = [basePath];
   props["browserify-shim"] = pkg["browserify-shim"];
   props.browser = pkg.browser;
   config.set(props);

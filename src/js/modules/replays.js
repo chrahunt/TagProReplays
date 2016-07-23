@@ -1,6 +1,7 @@
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
+var Constraints = require('./constraints');
 var Data = require('./data');
 var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
@@ -127,92 +128,62 @@ Replays.prototype.add = function () {
 
 /**
  * Imports a number of replays.
- * returns a promise that resolves to an 
+ * returns a promise that resolves to an
  * Activity.
  */
 Replays.prototype.import = function (files) {
-  // Take files
-  // return progress
-  // error if it would put us over.
-  //
-  var file_summary = {
-    number: files.length,
-    size: 0
-  };
-  for (var i = 0; i < files.length; i++) {
-    file_summary.size += files[i].size;
-  }
-  var mb = 25;
-  var sizeLimit = 1024 * 1024 * mb;
-  // File size filter.
-  /*files = files.filter(function (file) {
-    if (file.size > sizeLimit) {
-      self.importing.errors.push({
-          name: file.name,
-          reason: "file too big, max file size is " + mb + "MB."
-      });
-      self.importing.finished++;
-      return false;
-    } else {
-      return true;
+  logger.info("Replays#import");
+  var num_files = files.length;
+  return Data.getDatabaseInfo().then((info) => {
+    // Error if it would fill up the database.
+    if (info.replays + num_files > Constraints.max_replays_in_database) {
+      var e = new Error("");
+      e.name = "db_full";
+      throw e;
     }
-  });*/
-  return new Promise((resolve, reject) => {
-    var state = {
-      total: 0,
-      current: 0
-    };
-
-    var activity = new Activity();
-
-    var cancelled = false;
-
-    Messaging.send("startImport", { total: files.length }, (result) => {
-      if (!result.failed) {
-        logger.info("Importing %d replays.", files.length);
-        state.total = files.length;
-        logger.debug("Replay import");
-        var fls = FileListStream(files);
-        var send = ReplayImportStream({
-          highWaterMark: sizeLimit
-        });
-        fls.pipe(send);
-        activity.on("cancelled", () => {
-          cancelled = true;
-          fls.unpipe();
-          send.stop();
-          Messaging.send("cancelImport");
-        });
-
-        send.on('finish', () => {
-          logger.debug("Replay import finished");
-          activity.complete();
-          if (!state.cancelled) {
-            Messaging.send("endImport");
-          }
-        });
-        fls.on("end", () => {
-          logger.debug("File list stream ended.");
-        });
-        resolve(activity);
-      } else {
-        reject(result.type);
-      }
+  }).then(() => {
+    logger.info(`Importing ${files.length} replays.`);
+    var activity = new Activity({
+      cancellable: true
     });
 
-    Messaging.listen("importProgress", () => {
-      if (cancelled) return;
-      logger.debug("Received import progress.");
-      state.current++;
-      activity.progress(state);
+    var fls = new FileListStream(files, {
+      max_file_size: Constraints.max_replay_upload_size
+    });
+    fls.on('error', (err) => {
+      // File size error.
+      activity.emit('error', err);
+    });
+    fls.on("end", () => {
+      // Don't complete activity, wait for importstream.
+      logger.debug("File list stream ended.");
     });
 
-    Messaging.listen("importError", (message) => {
-      if (cancelled) return;
-      activity.warn(message);
-      state.current++;
-      activity.progress(state);
+    var send = ReplayImportStream({
+      highWaterMark: Constraints.max_replay_upload_size * 2
     });
+    send.on('error', (err) => {
+      // Other errors: validation, conversion, saving.
+      activity.emit('error', err);
+    });
+    send.on('finish', () => {
+      logger.info("Replay import finished");
+      activity.complete();
+    });
+    var total = files.length;
+    var current = 0;
+    send.on('progress', () => {
+      activity.update(total, current);
+    });
+
+    fls.pipe(send);
+
+    activity.on("cancelled", () => {
+      fls.unpipe();
+      send.stop();
+    });
+
+    return activity;
   });
 };
 
@@ -276,33 +247,49 @@ Replay.prototype.saveAs = function (name) {
  * - cancellable - boolean
  * - cancel - if above is true, cancels the activity.
  * - progress
- * -- total
+ * -- total - 0 if indetermindate
  * -- progress
  * -- known - i.e. determinate
  */
 function Activity(spec) {
+  if (typeof spec == "undefined") spec = {};
   EventEmitter.call(this);
-  this._cancelled = false;
+  this.cancellable = spec.cancellable;
+  this.state = "pending";
+  this.progress = {
+    total: 0,
+    current: 0
+  };
 }
 util.inherits(Activity, EventEmitter);
 
+/**
+ * Fires and indicates whether activity was cancelled.
+ * @event Activity#done
+ * @type {boolean}
+ */
 Activity.prototype.cancel = function () {
-  this._cancelled = true;
-  this.emit("cancelled");
+  this.state = "rejected";
+  this.emit("done");
 };
 
-// Indicate progress.
-// total / current
-Activity.prototype.progress = function (info) {
-  this.emit("progress", {
-    total: info.total,
-    current: info.current
-  });
+/**
+ * Update activity progress.
+ * @fires Activity#update
+ */
+Activity.prototype.update = function (total, current) {
+  this.progress.total = total;
+  this.progress.current = current;
+  this.emit("update");
 };
 
-// Indicate complete.
+/**
+ * Indicate activity completion.
+ * @fires Activity#done
+ */
 Activity.prototype.complete = function () {
-  this.emit("done", this._cancelled);
+  this.state = "fulfilled";
+  this.emit("done");
 };
 
 function Progress() {

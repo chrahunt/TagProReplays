@@ -1,16 +1,18 @@
+/* global describe:false */
 var Data = require('modules/data');
 var Subsystems = require('modules/subsystem');
 var convert = require('modules/convert');
 
-var jsonfile = require('jsonfile');
 var $ = require('jquery');
 var async = require('async');
 var Dexie = require('dexie');
 
+// Since this runs in localhost Dexie does debug mode by default,
+// but retains replay text in stack trace.
 Dexie.debug = false;
 var files = {
   1: [
-    "replays1430861081332.txt"
+    "replays1430867339575.txt"
   ]
 };
 

@@ -2,7 +2,6 @@ var $ = require('jquery');
 require('datatables.net')(global, $);
 var Mustache = require('mustache');
 var KeyCode = require('keycode-js');
-var assert = require('assert');
 
 var Templates = require('./templates');
 var wrap = require('./util').wrap;
@@ -107,8 +106,10 @@ function Table(options) {
         // Mapping to DT format.
         var mapped = {
           data: result.data,
-          draw: data.draw,
           recordsTotal: result.total,
+          // Handle DT-specific parameters so caller doesn't
+          // have to.
+          draw: data.draw,
           // No actual filtering yet.
           recordsFiltered: result.total
         };
@@ -126,11 +127,9 @@ function Table(options) {
             record.DT_RowData = {id: record.id};
           }
         }
-        // Handle DT-specific parameters so caller doesn't
-        // have to.
-        result.draw = data.draw;
-        if (result.recordsTotal > 0 &&
-                    result.data.length === 0) {
+        
+        if (mapped.recordsTotal > 0 &&
+            mapped.data.length === 0) {
           // Go back a page.
           var current = self.table.page();
           if (current > 0) {
@@ -141,10 +140,10 @@ function Table(options) {
             data.length = info.length;
             ajax_wrapper(data, callback);
           } else {
-            callback(result);
+            callback(mapped);
           }
         } else {
-          callback(result);
+          callback(mapped);
         }
       });
     },
@@ -589,7 +588,14 @@ Checkbox.prototype.column = function () {
   });
 }
 
-// Container for actions, column should have
+/**
+ * Container for row actions, select with cell type "actions".
+ * Cell must not be orderable.
+ * Cell must have an array of actions in 'actions'
+ * Each action must have 'name', 'icon', 'title', 'callback'
+ * if a property is a function it will be called with the data
+ * for the row.
+ */
 function Actions(table, column) {
   this._table = table;
   this._column = column;
@@ -635,7 +641,7 @@ Actions.prototype.column = function () {
 
 // Gets added indirectly, must init on rowcontainer
 // RowAction accepts a data parameter boolean for enabled/disabled.
-// opts has a name, callback, icon, title.
+// opts has a name, callback, icon, title, enabled
 // optional enabled fn for determining if it should be enabled.
 function RowAction(table, opts) {
   this._table = table;
@@ -647,7 +653,7 @@ function RowAction(table, opts) {
     icon: opts.icon,
     title: opts.title,
     class: this._class,
-    enabled: opts.enabled || (() => true)
+    enabled: opts.enabled
   };
 }
 
@@ -673,10 +679,13 @@ RowAction.prototype.render = function (data, type, row, meta) {
     this._init();
     this._initialized = true;
   }
-  // TODO: implement function checking.
-  var vars = Object.assign({}, this._vars, {
-    enabled: data
-  })
+  var vars = Object.assign({}, this._vars);
+  // Resolve any function rows.
+  for (let p in vars) {
+    if (typeof vars[p] == "function") {
+      vars[p] = vars[p](row);
+    }
+  }
   return Mustache.render(
         RowAction._template, vars);
 };

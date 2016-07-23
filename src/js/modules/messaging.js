@@ -170,9 +170,9 @@ function listenPort(port) {
               }
               sync = false;
             } else {
-              listener.call(null, data, sender, function () {
+              listener.call(null, data, sender, () => {
                 logger.error("Listener called callback, " +
-                                    `but none was defined with message: ${method}`);
+                  `but none was defined with message: ${method}`);
               });
             }
           } else {
@@ -186,13 +186,12 @@ function listenPort(port) {
         if (callback_data.called) {
           var callback = getCallback(callback_data.id);
           if (callback) {
-                        //console.log("Calling callback: %d.", callback_data.id);
             callback.call(null, callback_data.response);
           } else {
             logger.error(`Callback called, but doesn't exist. id: ${callback_data.id}`);
           }
         } else {
-                    // Callback not called, remove.
+          // Callback not called, remove.
           removeCallback(callback_data.id);
         }
       }

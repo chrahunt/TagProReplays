@@ -1,6 +1,8 @@
+var EventEmitter = require('events').EventEmitter;
 var moment = require('moment');
 var page = require('page');
 var Mustache = require('mustache');
+var util = require('util');
 var $ = require('jquery');
 require('jquery.actual');
 require('jquery-ui');
@@ -15,13 +17,15 @@ var Data = require('./data');
 var Messaging = require('./messaging');
 var NotificationList = require('./notification-list');
 var Overlay = require('./overlay');
+var Progress = require('./progress');
 var Replays = require('./replays');
 var Renders = require('./renders');
 var Status = require('./status');
-var Table = require('./table');
+var Table = require('./card-table');
 var Templates = require('./templates');
 var Viewer = require('./viewer');
 var Constraints = require('./constraints');
+var Upload = require('./upload');
 var Util = require('./util');
 
 var logger = require('./logger')('menu');
@@ -39,6 +43,7 @@ moment.updateLocale('en', {
 });
 
 var viewer = new Viewer();
+var progress = new Progress('progress-dialog');
 
 // UI-specific code
 // Handling multiple modals
@@ -130,141 +135,104 @@ function cardSwitch(name) {
 // ============================================================================
 // Replay import.
 // ============================================================================
-var paused = false;
+// TODO: pause table update while importing.
+// TODO: disable upload when full.
+var upload = new Upload("replay-import");
 
-// Importing state.
-var initialState = {
-  errors: [],
-  finished: 0,
-  total: 0,
-  cancel: null,
-  cancelled: false,
-  disabled: false
-};
-
-var state = Util.clone(initialState);
-
-// Visible link invokes the actual file input.
-$('#replay-import').click((e) => {
-  if (!state.disabled) {
-    // Empty file input so change listener is invoked even if the
-    // same file is selected.
-    $('#raw-upload').val('');
-    $('#raw-upload').click();
-  }
-  e.preventDefault();
-});
-$('#raw-upload').attr('accept', '.txt,.json');
-$('#raw-upload').prop('multiple', true);
-$('#raw-upload').change(function () {
-  var files = $(this).prop('files');
-  if (files.length === 0) return;
-  Replays.import(files)
-         .then(useActivity)
-         .catch((err) => {
-        // File size bad.
-        // Too many files.
-        // Failures.
-        // TODO: Move to dialog.
-          if (err == "db_full") {
-            alert(Templates.replay_list.full);
-          } else if (err == "busy") {
-            alert(Templates.replay_list.busy);
-          } else if (err == "internal") {
-            // TODO: Add link.
-            alert("Internal error, see information here for reporting.");
-          } else {
-            logger.error("Uncaught error in import.");
-            logger.error(err);
-          }
-        });
-  state.total = files.length;
-});
-// set listeners on activity.
-function useActivity(activity) {
-  paused = true;
-  activity.on("done", (cancelled) => {
-    paused = false;
-    var update = {
-      progress: false,
-      description: cancelled ? "Import cancelled"
-                             : "Import finished",
-      actions: [{
-        text: "dismiss",
-        action: function () {
-          overlay.hide();
-        }
-      }]
-    };
-    if (warnings.length) {
-      // Gather errors into text file.
-      var text = state.errors
-                      .map((err) => `${err.name}-${err.reason}`)
-                      .join("\n");
-      var url = Util.textToDataUrl(text);
-      update.message = Mustache.render(
-                Templates.replay_list.import.error_result, {
-                  url: url
-                });
-    } else if (cancelled) {
-      update.message = "Replay import cancelled. Only " +
-                state.finished + " of " + state.total +
-                " replays processed.";
-    } else {
-      update.message = "All replays imported successfully.";
-    }
-
-    overlay.update(update);
-  });
-
-  activity.on("progress", (progress) => {
-    overlay.update({
-      message: `On replay ${progress.current} of ` +
-                `${progress.total}.`,
-      progress: progress.current / progress.total
-    });
-    // TODO: handle any intermediate error cases?
-  });
-  var warnings = [];
-
-  activity.on("warning", (info) => {
-    warnings.push(info);
-    // TODO: display some warning notification?
-  });
-
-    // Initialize overlay.
-  overlay.set({
-    title: "Replay Import",
-    progress: true,
-    description: "Importing your replays, don't navigate " +
-            "away from this page until the process is complete!",
-    actions: [{
-      text: "cancel",
-      action: () => {
-        activity.cancel();
-      }
-    }]
-  });
-  overlay.show();
-}
-
-// Update UI-visible capabilities.
-Status.on("full", () => {
-  state.disabled = true;
-  $("#replay-import").css({
+upload.on('disabled', () => {
+  upload.$.css({
     color: "#aaa",
     cursor: "default"
   });
-  $("#replay-import").attr("title", "delete some replays first");
+  upload.$.attr("title", "delete some replays first");
 });
 
-Status.on("active", () => {
-  state.disabled = false;
-  $("#replay-import").css({
+upload.on('enabled', () => {
+  upload.$.css({
     color: "",
     cursor: ""
   });
-  $("#replay-import").attr("title", "");
+  upload.$.attr("title", "");
+});
+
+// adheres to activity spec but has view-specific information
+// e.g. description.
+function ImportActivityView(activity) {
+  EventEmitter.call(this);
+  this.message = Templates.importing.start;
+  this.cancellable = true;
+  this.cancel = activity.cancel.bind(activity);
+  this.cancel_message = "cancel";
+  this._activity = activity;
+  this._errors = [];
+  this.progress = {
+    total: 0,
+    progress: 0
+  };
+  this._activity.on('update', () => {
+    this.progress.total = this._activity.progress.total;
+    this.progress.progress = this._activity.progress.current;
+  });
+
+  // Track upload errors.
+  this._activity.on('error', (err) => {
+    this._errors.push(err);
+  });
+
+  this._activity.on('done', () => {
+    var errors = this._errors.length !== 0;
+    var text = "";
+    if (errors) {
+      var errs = this._errors
+                     .map((err) => `${err.name}-${err.reason}`)
+                     .join("\n");
+      var url = Util.textToDataUrl(errs);
+      text = Mustache.render(
+        Templates.replay_list.import.error_result, {
+          url: url
+        });
+    }
+    if (this._activity.state == "fulfilled") {
+      if (errors) {
+        text = `Replay import complete.\n${text}`;
+        this.message = text;
+      } else {
+        progress.close();
+        return;
+      }
+    } else if (this._activity.state == "rejected") {
+      if (errors) {
+        text = `Replay import cancelled.\n${text}`;
+        this.message = text;
+      } else {
+        progress.close();
+        return;
+      }
+    } else {
+      logger.error("Error, activity was done but not fulfilled.");
+    }
+  });
+}
+util.inherits(ImportActivityView, EventEmitter);
+
+upload.on('files', (files) => {
+  Replays.import(files)
+  .then((activity) => {
+    var view = new ImportActivityView(activity);
+    progress.open(view);
+  }).catch((err) => {
+    // Errors that we can know about before upload.
+    if (err.name == "db_full") {
+      alert(Templates.replay_list.full);
+    } else {
+      logger.error("Uncaught error in import.");
+      logger.error(err);
+    }
+  });
+});
+
+upload.on('files', () => {
+  logger.info("hi");
 });
 
 // ============================================================================
@@ -432,8 +400,11 @@ var replay_table = new Table({
       actions: [{
         name: "download",
         icon: "file_download",
-        // TODO: Dynamic title text.
-        title: "",
+        title: (data) => {
+          return data.rendered ? "download movie"
+                               : "render replay first!"
+        },
+        enabled: (data) => data.rendered,
         callback: (id) => {
           logger.info(`Requesting movie download for replay ${id}.`);
           return Renders.get(id).download().then((data) => {
@@ -446,17 +417,13 @@ var replay_table = new Table({
         name: "preview",
         icon: "play_arrow",
         title: "preview",
+        enabled: true,
         callback: (id) => {
           logger.info("Starting preview.");
-          // TODO: hide menu? some kind of transition.
+          // TODO: Some kind of transition.
           return viewer.preview(id);
         }
-      }],
-      render: function (data, type, row, meta) {
-        return Mustache.render(Templates.replay_list.controls, {
-          disabled: !data
-        });
-      }
+      }]
     }
   ],
   order: [[1, 'asc']],
@@ -732,10 +699,10 @@ var failed_replay_table = new Table({
 $('#failed-replays .card-header .actions .download').click(function () {
   var ids = failed_replay_table.selected();
   if (ids.length > 0) {
-    console.log('Requesting raw json download for ' + ids + '.');
+    logger.info('Requesting raw json download for ' + ids + '.');
     Messaging.send("downloadFailedReplays", {
       ids: ids
-    }, function (response) {
+    }, (response) => {
       if (response.failed) {
         alert("Failed replay download failed: " + response.reason);
       }
@@ -749,7 +716,7 @@ $('#failed-replays .card-header .actions .delete').click(() => {
 
   if (ids.length > 0) {
     if (confirm('Are you sure you want to delete these failed replays? This cannot be undone.')) {
-      logger.log(`Requesting deletion of ${ids}`);
+      logger.info(`Requesting deletion of ${ids}`);
       Messaging.send("deleteFailedReplays", {
         ids: ids
       });

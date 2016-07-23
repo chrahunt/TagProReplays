@@ -19,7 +19,7 @@
 
   <!-- remote imports -->
   <!-- DataTables CSS -->
-  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.7/css/jquery.dataTables.css">
+  <!--<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.7/css/jquery.dataTables.css">-->
   <!-- Material design icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href='https://fonts.googleapis.com/css?family=Roboto:400,500' rel='stylesheet' type='text/css'>
@@ -54,10 +54,7 @@
               <b class="caret"></b></a>
             <ul class="dropdown-menu">
               <li><a id="open-settings" href="#!/settings" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
-              <li>
-                <a id="replay-import" href="#">Import...</a>
-                <input type="file" class="hidden" id="raw-upload">
-              </li>
+              <li><a id="replay-import" href="#">Import...</a></li>
               <li><a id="open-help" href="#" data-toggle="modal" data-target="#helpContainer">Help</a></li>
             </ul>
           </li>
@@ -363,7 +360,7 @@
     </div>
 
   </div>
-  <div id="progress" class="modal fade">
+  <div id="progress-dialog" class="modal fade">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-body">
@@ -371,7 +368,7 @@
           <div class="progress"></div>
         </div>
         <div class="modal-footer">
-          <!-- button -->
+          <button type="button" class="btn btn-primary"></button>
         </div>
       </div>
     </div>

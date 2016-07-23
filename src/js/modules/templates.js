@@ -43,5 +43,8 @@ module.exports = {
   icons: {
     previous: '<i class="material-icons">chevron_left</i>',
     next: '<i class="material-icons">chevron_right</i>'
+  },
+  importing: {
+    start: "Importing your replays, don't navigate away from this page until the process is complete!"
   }
 };

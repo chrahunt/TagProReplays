@@ -60,7 +60,6 @@ exports.textToDataUrl = function (text) {
  * anything else returned -> resolve(val)
  * - rejects on thrown error.
  *
- *
  * Returns a function which takes arbitrary arguments and returns
  * a promise on resolution.
  */
@@ -90,8 +89,8 @@ exports.wrap = function (wrapped) {
       } else if (typeof result === "undefined") {
         // Nothing, wait for callback.
       } else {
-        // Non-conforming function.
-        reject(Error("Function did not return value value."));
+        // Throw-catch success.
+        resolve(result);
       }
     });
   };

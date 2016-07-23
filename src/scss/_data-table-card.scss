@@ -62,13 +62,38 @@ $card-table-footer-height: 56px;
     tr {
         height: $card-table-row-height;
 
+        // Checkbox.
+        th:first-child, td:first-child {
+            padding-left: 24px;
+            padding-right: 0px;
+            width: 56px;
+            min-width: 56px;
+        }
+
+        th:nth-of-type(2), td:nth-of-type(2) {
+            padding-left: 10px;
+        }
+
+        th:last-of-type, td:last-of-type {
+            padding-right: 24px;
+        }
+
+        th, td {
+            padding: 6px 28px 6px 28px;
+            box-sizing: border-box;
+        }
+
+        td {
+            height: $card-table-row-height;
+        }
+
         &:hover {
             background-color: #EEEEEE;
         }
 
         &.selected {
             // @override DataTables
-            background-color: #F5F5F5;
+            background-color: #F5F5F5 !important;
         }
     }
     table-layout: fixed;

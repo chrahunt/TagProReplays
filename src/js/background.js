@@ -122,7 +122,7 @@ Subsystems.init().catch((err) => {
   logger.error("Error in initialization: %o", err);
   fsm.handle("subsystem-fail");
 }).then(() => {
-  logger.log("Subsystems initialized.")
+  logger.info("Subsystems initialized.")
   return Data.init();
 });
 
@@ -418,7 +418,7 @@ Messaging.listen(["deleteFailedReplay", "deleteFailedReplays"],
 
 Messaging.listen(["downloadFailedReplay", "downloadFailedReplays"],
 (message, sender, sendResponse) => {
-  logger.log("Attempted download of failed replays.");
+  logger.info("Attempted download of failed replays.");
   // Validate the number of replays.
   var ids = message.id ? [message.id] : message.ids;
   lock.get("failed.replay_download").then(() => {
@@ -550,179 +550,5 @@ Messaging.listen(["cancelRender", "cancelRenders"],
     logger.error("Error cancelling renders: %o.", err);
     sendResponse(err);
   });
-  return true;
-});
-
-// ============================================================================
-// Replay import
-// ============================================================================
-
-/*
- * Replay importing is orchestrated by the initiating tab. The tab calls
- * `startImport` which tries to lock the background page and also sets
- * the extension status so the menu on all tabs will reflect import progress.
- * Importing is then carried out by calling `importReplay`/`importReplays` with
- * one or multiple replay files, which are just objects containing filename and
- * data attributes.
- */
-
-/**
- * @typedef {object} ReplayData
- * @property {string} filename - The name of the file being imported.
- * @property {string} data - The text of the file.
- */
-
-var importing = false;
-
-fsm.on("import-start", () => {
-  logger.debug("Setting import-start.");
-  manager.pause();
-  importing = true;
-});
-
-fsm.on("import-end", () => {
-  logger.debug("Setting import-end.");
-  manager.resume();
-  importing = false;
-});
-
-function stopImport() {
-  fsm.handle("import-end");
-}
-
-/**
- * Used by tab to initiate importing.
- * @param {object} message - object with properties `total` and `size`
- *   with values indicating the total of each for this batch of files.
- */
-Messaging.listen("startImport", (message, sender, sendResponse) => {
-  logger.debug("Tab trying to start import.");
-  fsm.try("import-start").then(() => {
-    logger.info("Starting import.");
-    Data.getDatabaseInfo().then((info) => {
-      if (info.replays + message.total > Constraints.max_replays_in_database) {
-        sendResponse({
-          failed: true,
-          type: "db_full"
-        });
-        fsm.handle("import-end");
-      } else {
-                // Stop import if tab closes.
-        sender.onDisconnect.addListener(stopImport);
-        sendResponse({
-          failed: false
-        });
-      }
-    }).catch((err) => {
-      sendResponse({
-        failed: true,
-        type: "internal"
-      });
-      logger.error(
-        "Cannot retrieving replay database information: %o.", err);
-      fsm.handle("import-end");
-    });
-  }).catch((err) => {
-    logger.error("Can't start import.");
-    logger.error(err);
-    sendResponse({
-      failed: true,
-      type: "busy"
-    });
-  });
-  return true;
-});
-
-Messaging.listen(["endImport", "cancelImport"],
-(message, sender) => {
-  stopImport();
-  sender.onDisconnect.removeListener(stopImport);
-});
-
-/**
- * Actually import replay(s) in a loop. Send progress updates to any listening
- * tabs.
- * @param {(ReplayData|Array<ReplayData>)} message - the replays to import.
- * @param {Function} sendResponse - callback to inform receiving tab of
- *   completion.
- */
-Messaging.listen(["importReplay", "importReplays"],
-(message, sender, sendResponse) => {
-  var files = Array.isArray(message) ? message
-                                     : [message];
-  logger.info(`Received ${files.length} replays for import.`);
-  async.each(files, (file, callback) => {
-    if (!importing) { callback("cancelled"); return; }
-    try {
-      var name = file.filename;
-      var replay = JSON.parse(file.data);
-    } catch (e) {
-      var err = {
-        name: name
-      };
-      if (e instanceof SyntaxError) {
-        err.reason = "could not be parsed: " + e;
-      } else {
-        err.reason = "unknown error: " + e;
-      }
-      Messaging.send("importError", err);
-      callback();
-      return;
-    }
-    logger.debug(`Validating ${name}.`);
-    // Validate replay.
-    var result = validate(replay);
-    if (result.valid) {
-      var version = result.version;
-      logger.debug(`${file.filename} is a valid v${version} replay.`);
-      logger.debug("Applying necessary conversions...");
-      var data = {
-        data: replay,
-        name: name
-      };
-      try {
-        var converted = convert(data);
-        var converted_replay_data = converted.data;
-        Data.saveReplay(converted_replay_data).then((info) => {
-          if (!importing) { callback("cancelled"); return; }
-          Messaging.send("importProgress");
-          callback();
-        }).catch((err) => {
-          if (!importing) { callback("cancelled"); return; }
-          logger.error("Error saving replay: %o.", err);
-          Messaging.send("importError", {
-            name: name,
-            reason: 'could not be saved: ' + err
-          });
-          callback();
-        });
-      } catch (e) {
-        logger.error(e);
-        Messaging.send("importError", {
-          name: name,
-          reason: `could not be converted: ${e.message}`
-        });
-        callback();
-      }
-    } else {
-      logger.error(`${file.filename} could not be validated!`);
-      logger.error(err);
-      Messaging.send("importError", {
-        name: name,
-        reason: 'could not be validated: ' + err
-      });
-      callback();
-    }
-  }, (err) => {
-    if (err === null) {
-      logger.debug("Finished importing replay set.");
-    } else {
-      logger.error("Encountered error importing replays: %O", err);
-    }
-    // Send new replay notification to any tabs that may have menu open.
-    Messaging.send("replaysUpdated");
-    sendResponse();
-  });
-
   return true;
 });

@@ -1,6 +1,8 @@
 var inherits = require('util').inherits;
 var Readable = require('readable-stream').Readable;
 
+var logger = require('./logger')('file-stream');
+
 inherits(FileStream, Readable);
 module.exports = FileStream;
 
@@ -26,6 +28,7 @@ module.exports = FileStream;
 function FileStream(file, options) {
   if (!(this instanceof FileStream))
     return new FileStream(file, options);
+  logger.debug("Initialize FileStream");
   if (typeof options == "undefined")
     options = {};
   Readable.call(this, options);
@@ -38,15 +41,16 @@ function FileStream(file, options) {
   this.reading = false;
 
   this._reader = new FileReader();
-  var self = this;
-  this._reader.onload = function (event) {
+
+  this._reader.onload = (event) => {
     var data = event.target.result;
     if (data instanceof ArrayBuffer)
       data = new Buffer(new Uint8Array(data));
-    var stop = !self.push(data);
-    self.reading = false;
+    logger.trace("Read file chunk.");
+    var stop = !this.push(data);
+    this.reading = false;
     if (!stop) {
-      self.__read();
+      this._read();
     }
   };
 }
@@ -54,16 +58,20 @@ function FileStream(file, options) {
 /**
  * @private
  */
-FileStream.prototype.__read = function () {
+FileStream.prototype._read = function () {
   if (this.reading) {
+    logger.trace("FileStream#_read, skipping since we're already reading");
     return;
   } else {
+    logger.debug("FileStream#_read");
     this.reading = true;
   }
   if (this._offset >= this._file.size) {
+    logger.debug("End of file.");
     this.push(null);
     this.reading = false;
   } else {
+    logger.debug("Starting read of next file chunk.");
     var start = this._offset;
     var end = Math.min(start + this._size, this._file.size);
     var chunk;
@@ -84,10 +92,6 @@ FileStream.prototype.__read = function () {
     }
     this._offset = end;
   }
-};
-
-FileStream.prototype._read = function () {
-  this.__read();
 };
 
 // test

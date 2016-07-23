@@ -5,6 +5,7 @@ require('bootstrap');
 var Messaging = require('./messaging');
 var Renderer = require('./renderer');
 var Replays = require('./replays');
+var Storage = require('./storage');
 var Textures = require('./textures');
 
 var logger = require('./logger')('viewer');
@@ -234,9 +235,11 @@ Viewer.prototype.init = function () {
 Viewer.prototype.preview = function (id) {
   // Show viewer.
   this.show();
+  this._replay = Replays.get(id);
+
   // Get replay data.
   logger.info(`Requesting data for replay ${id}.`);
-  return Replays.get(id).then((data) => {
+  return this._replay.data().then((data) => {
     logger.info(`Data received for replay ${id}.`);
     this._viewReplay(id, data);
   });
@@ -286,11 +289,11 @@ Viewer.prototype.replayInit = function () {
   this.reset();
 
   // Get options and textures.
-  chrome.storage.local.get(["options", "textures", "default_textures"], (items) => {
+  Storage.get(["options", "textures", "default_textures"]).then((items) => {
     var opts = items.options;
     var textures = opts.custom_textures ? items.textures
                                         : items.default_textures;
-    Textures.getImages(textures, (textureImages) => {
+    Textures.getImages(textures).then((textureImages) => {
       this.renderer = new Renderer(this.replay, {
         options: opts,
         textures: textureImages,

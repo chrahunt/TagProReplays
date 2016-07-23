@@ -38,7 +38,7 @@ ReplayValidator.prototype.init = function () {
         checkSchema: function (data, logger) {
           var valid = this.schemaValidator(data);
           if (!valid) {
-            logger.log(this.schemaValidator.errors);
+            logger.error(this.schemaValidator.errors);
             return false;
           }
           return true;
@@ -187,7 +187,7 @@ validator.addVersion("1", {
 
     // At least one player must have "me" value.
     if (playerKeys.length === 0) {
-      logger.log("No valid players!");
+      logger.error("No valid players!");
       return false;
     }
 
@@ -195,7 +195,7 @@ validator.addVersion("1", {
       (key) => data[key].me == "me");
 
     if (!playerExists) {
-      logger.log("No player is main player.");
+      logger.error("No player is main player.");
       return false;
     }
     return true;
@@ -232,7 +232,7 @@ validator.addVersion("2", {
     }
 
     if (playerError) {
-      logger.log("Unnecessary player object present.");
+      logger.error("Unnecessary player object present.");
       return false;
     }
 
@@ -258,4 +258,16 @@ module.exports = function (data) {
  */
 module.exports.ready = function () {
   return validator.ready();
+};
+
+/**
+ * Promise version of validator.
+ */
+module.exports.p = function (data) {
+  var result = validator.validate(data);
+  if (result.valid) {
+    return Promise.resolve(result);
+  } else {
+    return Promise.reject(result.reason);
+  }
 };

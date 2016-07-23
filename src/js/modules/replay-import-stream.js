@@ -1,7 +1,8 @@
 var inherits = require('util').inherits;
 var Writable = require('readable-stream').Writable;
-var async = require('async');
 
+var convert = require('./convert');
+var Data = require('./data');
 var json = require('./json');
 var validate = require('./validate');
 
@@ -48,7 +49,7 @@ ObjectStream.prototype.write = function (chunk, encoding, cb) {
   // Size of currently called write value + size of all buffered calls.
   this.length += size;
   // Disregard original return value.
-  Writable.prototype.write.apply(this, arguments);
+  Writable.prototype.write.call(this, ...arguments);
   var ret = this.length < this.__highWaterMark;
   if (!ret) {
     logger.debug("ObjectStream#write: Need drain.");
@@ -102,6 +103,7 @@ module.exports = ReplayImportStream;
  * currently the case with IndexedDB and reading the files). Pipe streams
  * into this stream with `{end: false}` so the stream has a chance to clear
  * out the buffer, and so the `finish` event actually indicates end of writing.
+ * emits a `progress` event on successful replay upload.
  */
 function ReplayImportStream(options) {
   if (!(this instanceof ReplayImportStream))
@@ -116,7 +118,6 @@ function ReplayImportStream(options) {
   this._done = false;
   this._cancelled = false;
   ObjectStream.call(this, {
-    objectMode: true,
     highWaterMark: this._highWaterMark
   });
 
@@ -128,15 +129,26 @@ function ReplayImportStream(options) {
   }
 
   this.on('pipe', (src) => {
-    logger.log("ReplayImportStream: piped to.");
+    logger.debug("ReplayImportStream: piped to.");
     src.on('end', setEmpty);
   });
 
   this.on('unpipe', (src) => {
-    logger.log("ReplayImportStream: unpiped.");
+    logger.debug("ReplayImportStream: unpiped.");
     this._cancelled = true;
     src.removeListener('end', setEmpty);
   });
+
+  // An error still represents progress.
+  this.on('error', () => {
+    this.emit('progress');
+  });
+
+  for (let evt in ['close', 'drain', 'error', 'finish']) {
+    this.on(evt, () => {
+      logger.debug(`ReplayImportStream: ${evt}`);
+    });
+  }
 }
 
 ReplayImportStream.prototype.stop = function () {
@@ -152,7 +164,7 @@ ReplayImportStream.prototype.stop = function () {
  * @return {[type]} [description]
  */
 ReplayImportStream.prototype.__write = function (value, encoding, done) {
-  logger.log("ReplayImportStream#__write: Writing chunk.");
+  logger.debug("ReplayImportStream#__write: Writing chunk.");
   // Disregard data if stream has already been ended.
   if (this.ended) { done(); return; }
   this._lastValue = value;
@@ -211,21 +223,20 @@ ReplayImportStream.prototype._moreBuffered = function () {
  * @return {[type]} [description]
  */
 ReplayImportStream.prototype._send = function () {
-  var self = this;
   this._importing = true;
 
   var cache = this._cache;
   this._cache = [];
   this._cachesize = 0;
-  logger.log(`ReplayImportStream#_send: Saving ${cache.length} replays`);
+  logger.debug(`ReplayImportStream#_send: Saving ${cache.length} replays`);
 
-  Messaging.send('importReplay', cache, (response) => {
-    logger.log("ReplayImportStream:callback: Replay import complete.");
-    self._importing = false;
-    if (self._pendingCallback) {
-      logger.log("ReplayImportStream:callback: calling pending callback.");
-      var cb = self._pendingCallback;
-      self._pendingCallback = null;
+  this._save(cache).then(() => {
+    logger.debug("ReplayImportStream:callback: Replay import complete.");
+    this._importing = false;
+    if (this._pendingCallback) {
+      logger.debug("ReplayImportStream:callback: calling pending callback.");
+      var cb = this._pendingCallback;
+      this._pendingCallback = null;
       cb();
     }
   });
@@ -236,85 +247,57 @@ ReplayImportStream.prototype._send = function () {
  * @private
  */
 ReplayImportStream.prototype._save = function (files) {
-  async.each(files, (file, callback) => {
-    if (!this._cancelled) return;
-    json(file.data).then((parsed) => {
+  return Promise.all(files.map((file) => {
+    if (this._cancelled) return Promise.resolve();
+    var name = file.filename;
+    // Nested promises to resolve different error conditions.
+    return json(file.data).then((parsed) => {
       logger.debug(`Validating ${name}.`);
+      return validate.p(parsed).then((result) => {
+        var version = result.version;
+        logger.debug(`${name} is a valid v${version} replay.`);
+        logger.debug("Applying necessary conversions...");
+        return convert.p({
+          data: parsed,
+          name: file.filename
+        }).then((converted) => {
+          logger.debug(`Converted ${name}`);
+          var converted_replay_data = converted.data;
+          return Data.saveReplay(converted_replay_data).then((info) => {
+            if (this._cancelled) return;
+            logger.debug(`Saved ${name}`);
+            this.emit('progress');
+          }).catch((err) => {
+            if (this._cancelled) return;
+            logger.error("Error saving replay: %o.", err);
+            this.emit('error', {
+              name: name,
+              reason: `could not be saved ${err}`
+            });
+          });
+        }).catch((err) => {
+          logger.error(err);
+          this.emit('error', {
+            name: name,
+            reason: `could not be converted: ${err.message}`
+          });
+        });
+      }).catch((err) => {
+        logger.error(`${name} could not be validated!`);
+        logger.error(err);
+        this.emit('error', {
+          name: name,
+          reason: `could not be validated: ${err}`
+        });
+      });
     }).catch((err) => {
       this.emit('error', {
-        name: file.name,
+        name: name,
         reason: err instanceof SyntaxError ? "could not be parsed"
                                            : "unknown JSON error"
       });
-    })
-    try {
-      var name = file.filename;
-      var replay = JSON.parse(file.data);
-    } catch (e) {
-      var err = {
-        name: name
-      };
-      if (e instanceof SyntaxError) {
-        err.reason = "could not be parsed: " + e;
-      } else {
-        err.reason = "unknown error: " + e;
-      }
-      Messaging.send("importError", err);
-      callback();
-      return;
-    }
-    
-    // Validate replay.
-    var result = validate(replay);
-    if (result.valid) {
-      var version = result.version;
-      logger.debug(`${file.filename} is a valid v${version} replay.`);
-      logger.debug("Applying necessary conversions...");
-      var data = {
-        data: replay,
-        name: name
-      };
-      try {
-        var converted = convert(data);
-        var converted_replay_data = converted.data;
-        Data.saveReplay(converted_replay_data).then((info) => {
-          if (!importing) { callback("cancelled"); return; }
-          Messaging.send("importProgress");
-          callback();
-        }).catch((err) => {
-          if (!importing) { callback("cancelled"); return; }
-          logger.error("Error saving replay: %o.", err);
-          Messaging.send("importError", {
-            name: name,
-            reason: 'could not be saved: ' + err
-          });
-          callback();
-        });
-      } catch (e) {
-        logger.error(e);
-        Messaging.send("importError", {
-          name: name,
-          reason: `could not be converted: ${e.message}`
-        });
-        callback();
-      }
-    } else {
-      logger.error(`${file.filename} could not be validated!`);
-      logger.error(err);
-      Messaging.send("importError", {
-        name: name,
-        reason: 'could not be validated: ' + err
-      });
-      callback();
-    }
-  }, (err) => {
-    if (err === null) {
-      logger.debug("Finished importing replay set.");
-    } else {
-      logger.error("Encountered error importing replays: %O", err);
-    }
-    // Send new replay notification to any tabs that may have menu open.
-    Messaging.send("replaysUpdated");
-    sendResponse();
+    });
+  })).then(() => {
+    logger.debug("Finished importing replay set.");
   });
 };
