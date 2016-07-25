@@ -22,23 +22,21 @@ module.exports = {
   },
   table: {
     checkbox:
-      `<label>
-         <i class="material-icons checked">check_box</i>
-         <i class="material-icons unchecked">check_box_outline_blank</i>
-         <input type="checkbox" class="selected-checkbox hidden">
-       </label>`,
+      `<paper-checkbox></paper-checkbox>`,
     select_all_checkbox:
-      `<label>
-         <i class="material-icons checked">check_box</i>
-         <i class="material-icons unchecked">check_box_outline_blank</i>
-         <input type="checkbox" class="select-all hidden">
-       </label>`,
+      `<paper-checkbox></paper-checkbox>`,
     spinner:
       `<div class="material-spinner"> 
          <svg class="spinner" width="35px" height="35px" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
            <circle class="path" fill="none" stroke-width="6" stroke-linecap="round" cx="33" cy="33" r="30"></circle>
          </svg>
-       </div>`
+       </div>`,
+    processing:
+      `<tr class="processing">
+         <th colspan="{{cols}}">
+           <paper-progress indeterminate role="progressbar" value="0"></paper-progress>
+         </th>
+       </tr>`
   },
   icons: {
     previous: '<i class="material-icons">chevron_left</i>',

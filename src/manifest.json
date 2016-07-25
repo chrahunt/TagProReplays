@@ -4,7 +4,7 @@
   "version": "",
   "minimum_chrome_version": "46",
   "description": "Save Replays from within TagPro Games",
-  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
+  "content_security_policy": "script-src 'self' 'unsafe-eval' 'sha256-uNaYvNbqceDXrfK/UyL1z5bgy31m0ahirB8RD98Fcdk='; object-src 'self'",
   "background": {
     "scripts": [
       "js/background.js"

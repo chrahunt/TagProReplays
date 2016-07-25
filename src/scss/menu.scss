@@ -107,10 +107,6 @@
     display: none;
 }
 
-/*#tpr-container #alert-message {
-    display: none;
-}*/
-
 /** All tables. **/
 // dataTables overrides.
 .dataTables_wrapper {
@@ -247,27 +243,6 @@ tbody {
     }
 }
 
-// Checkbox behavior.
-.table tr {
-    &.selected {
-        .checked {
-            display: inline-block;
-        }
-
-        .unchecked {
-            display: none;
-        }
-    }
-
-    .checked {
-        display: none;
-    }
-
-    .unchecked {
-        display: inline-block;
-    }
-}
-
 .footer {
     height: 56px;
     padding-right: 14px;
@@ -362,10 +337,6 @@ tr .actions {
 // Replay table.
 #replays {
     #replay-table {
-        .row-name {
-            // Greedy column.
-            width: 100% !important;
-        }
 
         /* Last cell leaves spacing to action icons. */
         td:last-child {

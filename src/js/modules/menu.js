@@ -303,7 +303,7 @@ Status.on("error.db", () => {
     description: getContact("A database error was encountered, please try to enable/disable the extension and see if the issue persists. If it continues", "TPR Database Error"),
     progress: false
   });
-    // In case it isn't showing already.
+  // In case it isn't showing already.
   overlay.show();
 });
 
@@ -313,7 +313,7 @@ Status.on("error.db", () => {
 
 var replay_table = new Table({
   id: "replay-table",
-    // Card header.
+  // Card header.
   header: {
     selector: "#replays .card-header",
     singular: "replay",

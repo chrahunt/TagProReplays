@@ -46,7 +46,9 @@ function intercept(after, interceptor) {
  * Data should set a row id for selection.
  */
 function Table(options) {
+  logger.info(`Initializing table for ${options.id}`);
   this.id = options.id;
+  this.options = options;
   this.all_selected = [];
   // Pass-thru, defined in options or not at all.
   var passthru = {
@@ -64,15 +66,17 @@ function Table(options) {
     processing: true,
     //scrollY: 'auto',
     pagingType: "simple",
+    autoWidth: false,
     /*
-    processing display element
     table
-    <div class="footer pull-right">
+    <div class="footer">
+    <div class="flex"></div>
     length input control
     Table info summary
     pagination control
+    </div>
     */
-    dom: 'rt<"footer pull-right"lip>',
+    dom: 't<"card-footer"<"flex">lip>',
     language: {
       paginate: {
         previous: Templates.icons.previous,
@@ -82,8 +86,7 @@ function Table(options) {
       infoEmpty: "",
       // TODO: Editable.
       lengthMenu: "Rows per page: _MENU_",
-      emptyTable: "No replays. Go record some!",
-      processing: Templates.table.spinner
+      emptyTable: "No replays. Go record some!"
     }
   };
 
@@ -127,7 +130,7 @@ function Table(options) {
             record.DT_RowData = {id: record.id};
           }
         }
-        
+
         if (mapped.recordsTotal > 0 &&
             mapped.data.length === 0) {
           // Go back a page.
@@ -149,16 +152,16 @@ function Table(options) {
     },
     rowCallback: intercept(options.rowCallback, (row, data) => {
       // Re-select items that were previously not selected.
-      if (self.all_selected.indexOf(data.id) !== -1) {
+      if (this.all_selected.includes(data.id)) {
         $(row).addClass('selected')
-                    .find('.selected-checkbox')
-                    .prop('checked', true);
+              .find('paper-checkbox')
+              .prop('checked', true);
       }
     }),
-    drawCallback: function (settings) {
+    drawCallback: (settings) => {
       // Update checked items.
       updateWhenChecked();
-      self.resize();
+      this.resize();
     }
   };
   // Additional column types.
@@ -192,9 +195,21 @@ function Table(options) {
     return new_cols;
   }
   Object.assign(init_options, intercepted, static, passthru);
+  this.table = $(`#${this.id}`).DataTable(init_options);
 
-  this.table = $("#" + this.id).DataTable(init_options);
-
+  $(`#${this.id}`).find('thead tr').after(
+    Mustache.render(Templates.table.processing, {
+      cols: init_options.columns.length
+    }));
+  // Processing indicator.
+  this.table.on("processing.dt", (e, settings, processing) => {
+    var $process = $(`#${this.id} .processing paper-progress`);
+    if (processing) {
+      $process.removeClass('active');
+    } else {
+      $process.addClass('active');
+    }
+  });
   // TODO: configurable based on checkbox column.
   // Add select-all checkbox to header.
   $(this.table.column(0).header())
@@ -202,35 +217,35 @@ function Table(options) {
         .addClass('cb-cell');
 
   // "Select all" checkbox.
-  $(`#${self.id}_wrapper .select-all`).change(function () {
-    $("#" + self.id + " tbody .selected-checkbox")
-            .prop("checked", this.checked)
-            .trigger("change");
+  $(`#${self.id}_wrapper th paper-checkbox`).change(function () {
+    $(`#${self.id} tbody paper-checkbox`)
+      .prop("checked", this.checked)
+      .trigger("change");
     updateWhenChecked();
   });
 
   // Track selected rows across all pages.
-  this.setRowClickListener("selected-checkbox", function (id) {
+  this.setRowClickListener("paper-checkbox", function (id) {
     var tr = $(this).closest("tr");
-    var idx = self.all_selected.indexOf(id);
-    if (this.checked && idx === -1) {
+    var position = self.all_selected.indexOf(id);
+    var known_checked = position === -1;
+    if (this.checked && !known_checked) {
       self.all_selected.push(id);
       tr.addClass('selected');
     } else if (!this.checked) {
-      self.all_selected.splice(idx, 1);
+      self.all_selected.splice(position, 1);
       tr.removeClass('selected');
     }
   });
 
   // Range selection when shift held.
-  this.setClickListener("selected-checkbox", function (e) {
-    var elt = $(this);
-    var numChecked = $(`#${self.id} .selected-checkbox:checked`).length;
-    if (elt.prop('checked') && e.shiftKey && numChecked > 1) {
-      var boxes = $(`#${self.id} .selected-checkbox`),
+  this.setClickListener("paper-checkbox", function (e) {
+    var numChecked = self.num_checked();
+    if (this.checked && e.shiftKey && numChecked > 1) {
+      var boxes = self._get_checkboxes(),
         closestBox,
         thisBox;
-      for (var i = 0; i < boxes.length; i++) {
+      for (let i = 0; i < boxes.length; i++) {
         if (this == boxes[i]) {
           thisBox = i;
           if (closestBox) break;
@@ -243,17 +258,17 @@ function Table(options) {
         return a - b;
       });
       boxes.slice(bounds[0], bounds[1])
-                .prop("checked", true)
-                .trigger("change");
+        .prop("checked", true)
+        .trigger("change");
     }
     updateWhenChecked();
   });
 
   // Update table when entry is checked.
   function updateWhenChecked() {
-    var header = $(options.header.selector);
-    var rows = $(`#${self.id} .selected-checkbox`).length;
-    var select_all = $(`#${self.id}_wrapper .select-all`);
+    var header = self._get_header();
+    var rows = self.num_rows();
+    var select_all = self._get_select_all();
     if (rows === 0) {
       // Select-all checkbox.
       select_all.prop("disabled", true);
@@ -264,10 +279,9 @@ function Table(options) {
       header.find(".actions").addClass("hidden");
       header.find(".title").text(options.header.title);
     } else {
-      var numChecked = $(`#${self.id} .selected-checkbox:checked`).length;
-
-      // Select-all checkbox.
       select_all.prop("disabled", false);
+
+      var numChecked = self.num_checked();
       if (numChecked === rows) {
         select_all.prop("checked", true);
         select_all.closest('tr').addClass('selected');
@@ -280,9 +294,9 @@ function Table(options) {
       if (numChecked > 0) {
         header.find(".actions").removeClass("hidden");
         if (numChecked === 1) {
-          header.find(".title").text(numChecked + " " + options.header.singular + " selected");
+          header.find(".title").text(`${numChecked} ${options.header.singular} selected`);
         } else {
-          header.find(".title").text(numChecked + " " + options.header.plural + " selected");
+          header.find(".title").text(`${numChecked} ${options.header.plural} selected`);
         }
       } else {
         header.find(".actions").addClass("hidden");
@@ -301,20 +315,7 @@ function Table(options) {
     this.recalcMaxHeight();
   });
 
-    // Reset min-height when no records.
-  this.table.on("xhr", function (evt, settings, json) {
-    var scrollBody = $("#" + this.id + "_wrapper .dataTables_scrollBody");
-    var row_height = 48;
-    if (json.data.length === 0) {
-      scrollBody.css("min-height", row_height);
-    } else if (json.data.length < 5) {
-      scrollBody.css("min-height", (row_height * json.data.length) + 'px');
-    } else {
-      scrollBody.css("min-height", (48 * 5) + 'px');
-    }
-  });
-
-    // Delegate eventemitter methods to DataTable.
+  // Delegate eventemitter methods to DataTable.
   ["on", "one", "off"].forEach((method) => {
     self[method] = self.table[method].bind(self.table);
   });
@@ -326,6 +327,8 @@ module.exports = Table;
 Table.prototype._init = function () {
 
 };
+
+// Selection behavior.
 /**
  * Get ids of entries selected on current page.
  * @return {Array.<integer>} - Array of ids of rows selected.
@@ -333,7 +336,7 @@ Table.prototype._init = function () {
 Table.prototype.selected = function () {
   var selected = [];
   var self = this;
-  $("#" + this.id + ' .selected-checkbox').each(function () {
+  $(`#${this.id} td paper-checkbox`).each(function () {
     if (this.checked) {
       var id = self.getRecordId(this);
       selected.push(id);
@@ -353,6 +356,31 @@ Table.prototype.deselect = function (ids) {
   this.all_selected = this.all_selected.filter(
     (id) => ids.indexOf(id) === -1);
 };
+
+// Number of current visible rows.
+Table.prototype.num_rows = function () {
+  return $(`#${this.id} td paper-checkbox`).length;
+};
+
+// Number of visible checked items.
+Table.prototype.num_checked = function () {
+  return $(`#${this.id} td paper-checkbox[checked]`).length;
+};
+
+// Get header element.
+Table.prototype._get_header = function () {
+  return $(this.options.header.selector);
+};
+
+Table.prototype._get_select_all = function () {
+  return $(`#${this.id} th paper-checkbox`);
+};
+
+// Get row checkboxes.
+Table.prototype._get_checkboxes = function () {
+  return $(`#${this.id} td paper-checkbox`);
+};
+
 
 /**
  * Given an element, get the corresponding record id.
@@ -407,17 +435,17 @@ Table.prototype.recalcMaxHeight = function () {
 };
 
 // Passes id of record to callback followed by anything else.
-Table.prototype.setRowClickListener = function (class_, callback) {
+Table.prototype.setRowClickListener = function (selector, callback) {
   var self = this;
-  this.setClickListener(class_, function () {
+  this.setClickListener(selector, function () {
     var id = self.getRecordId(this);
     callback.call(this, id, ...arguments);
   });
 };
 
 // For functions not interested in id so much.
-Table.prototype.setClickListener = function (class_, callback) {
-  $(`#${this.id} tbody`).on("click", `.${class_}`, callback);
+Table.prototype.setClickListener = function (selector, callback) {
+  $(`#${this.id} tbody`).on("click", selector, callback);
 };
 
 // ============================================================================
@@ -475,7 +503,7 @@ Editable._template =
 Editable.prototype._init = function () {
   var self = this;
   // Set editable cell behavior callback.
-  this._table.setRowClickListener("field-editable-control",
+  this._table.setRowClickListener(".field-editable-control",
     function (id) {
       var td = $(this).closest('td');
       td.find(".field-editable-static").hide();
@@ -565,11 +593,7 @@ Checkbox.applies = function (col) {
 };
 
 Checkbox._template =
-  `<label>
-     <i class="material-icons checked">check_box</i>
-     <i class="material-icons unchecked">check_box_outline_blank</i>
-     <input type="checkbox" class="selected-checkbox hidden">
-   </label>`;
+  `<paper-checkbox></paper-checkbox>`;
 
 Checkbox.prototype.render = function (data, type, row, meta) {
   // TODO: Implement enable/disable.
@@ -665,7 +689,7 @@ RowAction._template =
 
 // Set listeners on parent.
 RowAction.prototype._init = function () {
-  this._table.setRowClickListener(this._class, (id) => {
+  this._table.setRowClickListener(`.${this._class}`, (id) => {
     logger.debug(`RowAction ${this._name} clicked for item ${id}.`);
     this._callback(id).catch((err) => {
       logger.error("Error executing action callback: %O", err);

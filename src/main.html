@@ -23,6 +23,11 @@
   <!-- Material design icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href='https://fonts.googleapis.com/css?family=Roboto:400,500' rel='stylesheet' type='text/css'>
+  <!-- Web Components / Polymer -->
+  <script src="webcomponentsjs/webcomponents.js"></script>
+
+  <link href="polymer/polymer.html" rel="import">
+  <link href="paper-checkbox/paper-checkbox.html" rel="import">
   <title>TagProReplays</title>
 </head>
 
@@ -81,7 +86,7 @@
               </div>
             </div>
           </div>
-          <table id="replay-table" class="table table-condensed card-table" width="100%">
+          <table id="replay-table" class="card-table" width="100%">
             <thead>
               <tr>
                 <th><!-- Select-all checkbox --></th>
@@ -108,7 +113,7 @@
               </div>
             </div>
           </div>
-          <table id="render-table" class="table table-condensed card-table">
+          <table id="render-table" class="card-table">
             <thead>
               <tr>
                 <th>
@@ -141,7 +146,7 @@
               </div>
             </div>
           </div>
-          <table id="failed-replay-table" class="table table-condensed card-table">
+          <table id="failed-replay-table" class="card-table">
             <thead>
               <tr>
                 <th>

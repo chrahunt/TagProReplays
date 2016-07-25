@@ -1,13 +1,5 @@
 @import 'roboto';
 
-@mixin container($size) {
-    font: {
-        family: 'Roboto', sans-serif;
-        size: $size;
-        weight: 400;
-    }
-}
-
 // heights
 $card-table-header-height: 64px;
 $card-table-row-height: 48px;
@@ -35,7 +27,18 @@ $card-table-footer-height: 56px;
     }
 
     .card-footer {
+        @extend %text-medium;
+        @include roboto-regular(12px);
         height: $card-table-footer-height;
+        padding: 0px 6px;
+        align-items: center;
+        text-align: center;
+        flex-direction: row;
+        display: flex;
+
+        .flex {
+            flex: 1;
+        }
     }
 }
 
@@ -60,7 +63,7 @@ $card-table-footer-height: 56px;
 
     // content row styles
     tr {
-        height: $card-table-row-height;
+        //height: $card-table-row-height;
 
         // Checkbox.
         th:first-child, td:first-child {
@@ -81,6 +84,7 @@ $card-table-footer-height: 56px;
         th, td {
             padding: 6px 28px 6px 28px;
             box-sizing: border-box;
+            border-bottom: 1px solid #e0e0e0;
         }
 
         td {
@@ -92,8 +96,22 @@ $card-table-footer-height: 56px;
         }
 
         &.selected {
-            // @override DataTables
-            background-color: #F5F5F5 !important;
+            background-color: #F5F5F5;
+        }
+    }
+    // Processing
+    tr.processing {
+        th {
+            padding: 0px;
+            height: 1px;
+            border-bottom: 0px;
+        }
+        paper-progress {
+            height: 0px;
+            transition: linear .2s height;
+            &.active {
+                height: 3px;
+            }
         }
     }
     table-layout: fixed;

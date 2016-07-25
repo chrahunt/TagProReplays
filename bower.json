@@ -1,0 +1,26 @@
+{
+  "name": "tagproreplays",
+  "description": "Record yourself in TagPro!",
+  "main": "",
+  "authors": [
+    "Chris Hunt <chrahunt@gmail.com>"
+  ],
+  "license": "GPL-3.0",
+  "keywords": [
+    "tagpro"
+  ],
+  "homepage": "https://github.com/chrahunt/TagProReplays",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "polymer": "^1.6.0",
+    "paper-checkbox": "^1.3.0",
+    "paper-progress": "^1.0.9"
+  },
+  "overrides": {}
+}
