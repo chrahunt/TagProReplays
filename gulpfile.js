@@ -14,7 +14,9 @@ var gulp = require('gulp'),
   notify = require('gulp-notify'),
   bowerSrc = require('gulp-bower-src'),
   hashstream = require('hash-csp'),
-  filter = require('gulp-filter');
+  filter = require('gulp-filter'),
+  debug = require('gulp-debug'),
+  duration = require('gulp-duration');
 
 // Uncomment for shim debugging.
 //process.env.BROWSERIFYSHIM_DIAGNOSTICS=1;
@@ -47,13 +49,27 @@ var dirs = {
   beta: './build/beta'
 };
 
-var bower_filter = filter(['**/*.html']);
+var bower_filter = filter([
+  '**/*.html',
+  '!**/test/**',
+  '!**/test',
+  '!**/demo/**',
+  '!**/demo',
+  '!**/index.html'
+]);
+
+gulp.task('g', () => {
+  return bowerSrc()
+    .pipe(bower_filter)
+    .pipe(debug());
+});
 
 // Browserify js, move files.
 function build(dest, opts) {
   if (typeof opts == "undefined") opts = {};
   // Browserify.
   var bundle = glob(sources, (err, files) => {
+    var t = duration('bundle time');
     var streams = files.map((entry) => {
       var b_opts = {
         entries: entry
@@ -61,6 +77,7 @@ function build(dest, opts) {
       Object.assign(b_opts, opts.browserify);
       return browserify(b_opts)
         .bundle()
+        .pipe(t)
         .pipe(source(entry.replace(/^src\//, '')))
         .pipe(gulp.dest(dest));
     });
@@ -71,12 +88,15 @@ function build(dest, opts) {
     return gulp.src(asset).pipe(gulp.dest(dest));
   });
 
+  var hash_timer = duration('hash timer');
   // Bower assets + make extension manifest.
   var move_bower_assets = bowerSrc()
-    .pipe(gulp.dest(dest))
     // Only html.
     .pipe(bower_filter)
+    .pipe(gulp.dest(dest))
     .pipe(hashstream((hashes) => {
+      console.log(`Number of hashes: ${hashes.length}`);
+      hash_timer.emit('end');
       var shas = hashes.map((h) => `'${h}'`).join(" ");
       var csp = `script-src 'self' 'unsafe-eval' ${shas}; object-src 'self'`;
       var man_opts = Object.assign({}, opts.manifest, {
@@ -91,8 +111,10 @@ function build(dest, opts) {
 }
 
 function compileSass(dest) {
+  var t = duration('sass timer');
   return gulp.src(sass_sources)
     .pipe(sass().on('error', sass.logError))
+    .pipe(t)
     .pipe(gulp.dest(dest));
 }
 
@@ -196,6 +218,7 @@ gulp.task('watch', ['sass-dev', 'manifest-dev'], () => {
     return es.merge(streams);
   });
 
+
   assets.forEach((asset) => {
     gulp.src(asset)
         .pipe(watch(asset))
@@ -205,13 +228,19 @@ gulp.task('watch', ['sass-dev', 'manifest-dev'], () => {
           return `Updated ${file.path}`
         }));
   });
-  // Bower files.
-  var bower_root = "bower_components";
-  watch(`${bower_root}/**/*`, { ignoreInitial: false }, () => {
+
+  // Watch for changes later, e.g. packages added
+  watch(bower_sources, () => {
     bowerSrc()
+      .pipe(bower_filter)
       .pipe(gulp.dest(dirs.dev));
   });
+  // Initial population.
+  bowerSrc()
+    .pipe(bower_filter)
+    .pipe(gulp.dest(dirs.dev));
   gulp.watch(sass_sources, ['sass-dev']);
   gulp.watch([pkg, manifest, bower_sources], ['manifest-dev']);
+  // TODO: Merge all streams.
   return bundle;
 });

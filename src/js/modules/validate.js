@@ -1,6 +1,8 @@
 var $ = require('jquery');
 var imjv = require('is-my-json-valid');
 
+var logger = require('./logger')('validate');
+
 /**
  * Holds information for validating a replay. Replay validation is done
  * in two steps:

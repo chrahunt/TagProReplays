@@ -2,29 +2,26 @@ var EventEmitter = require('events').EventEmitter;
 var moment = require('moment');
 var page = require('page');
 var Mustache = require('mustache');
+var saveAs = require('file-saver');
 var util = require('util');
 var $ = require('jquery');
 require('jquery.actual');
 require('jquery-ui');
 require('bootstrap');
 require('bootstrap-material-design');
-require('snackbarjs');
 
-var sanitize = require('sanitize-filename');
-var saveAs = require('file-saver');
-
-var Data = require('./data');
+var CardTable = require('./card-table');
+var Constraints = require('./constraints');
+var Dialog = require('./dialog');
 var Messaging = require('./messaging');
 var NotificationList = require('./notification-list');
-var Overlay = require('./overlay');
 var Progress = require('./progress');
 var Replays = require('./replays');
 var Renders = require('./renders');
 var Status = require('./status');
-var Table = require('./card-table');
 var Templates = require('./templates');
+var Toast = require('./toast');
 var Viewer = require('./viewer');
-var Constraints = require('./constraints');
 var Upload = require('./upload');
 var Util = require('./util');
 
@@ -44,6 +41,47 @@ moment.updateLocale('en', {
 
 var viewer = new Viewer();
 var progress = new Progress('progress-dialog');
+var dialog = new Dialog('dialog');
+
+/*
+dialog.addEventListener('iron-overlay-closed', (e) => {
+  logger.debug('iron-overlay-closed');
+});
+
+dialog.addEventListener('iron-overlay-cancelled', (e) => {
+  logger.debug('iron-overlay-cancelled');
+});
+*/
+function ProgressTest(number, delay) {
+  EventEmitter.call(this);
+  this.progress = {
+    total: number,
+    current: 0
+  };
+  this.status = "pending";
+  this.cancellable = true;
+  var int = setInterval(() => {
+    if (++this.progress.current == this.progress.total) {
+      this.status = "fulfilled";
+      clearInterval(int);
+    }
+    this.emit('update');
+  }, delay);
+}
+util.inherits(ProgressTest, EventEmitter);
+
+$('#example-progress').click(() => {
+  progress.open(new ProgressTest(50, 500));
+});
+
+$('#example-toast').click(() => {
+  var toast = new Toast({
+    id: 'toast',
+    duration: 5000,
+    text: 'This is a test',
+    action: 'close'
+  });
+});
 
 // UI-specific code
 // Handling multiple modals
@@ -110,7 +148,7 @@ page('/failed', () => {
 
 page('/settings', () => {
   logger.info("Page: settings.");
-    //togglePanel(".nav-failed", "#failed-replays");
+  //togglePanel(".nav-failed", "#failed-replays");
 });
 
 page('*', () => {
@@ -167,11 +205,13 @@ function ImportActivityView(activity) {
   this._errors = [];
   this.progress = {
     total: 0,
-    progress: 0
+    current: 0
   };
   this._activity.on('update', () => {
+    logger.trace('Received import update.');
     this.progress.total = this._activity.progress.total;
-    this.progress.progress = this._activity.progress.current;
+    this.progress.current = this._activity.progress.current;
+    this.emit('update');
   });
 
   // Track upload errors.
@@ -191,25 +231,16 @@ function ImportActivityView(activity) {
         Templates.replay_list.import.error_result, {
           url: url
         });
-    }
-    if (this._activity.state == "fulfilled") {
-      if (errors) {
+      if (this._activity.state == "fulfilled") {
         text = `Replay import complete.\n${text}`;
-        this.message = text;
       } else {
-        progress.close();
-        return;
-      }
-    } else if (this._activity.state == "rejected") {
-      if (errors) {
         text = `Replay import cancelled.\n${text}`;
-        this.message = text;
-      } else {
-        progress.close();
-        return;
       }
+      this.message = text;
+      this.cancel_message = "close";
+      this.emit('update');
     } else {
-      logger.error("Error, activity was done but not fulfilled.");
+      this.emit('done');
     }
   });
 }
@@ -223,9 +254,17 @@ upload.on('files', (files) => {
   }).catch((err) => {
     // Errors that we can know about before upload.
     if (err.name == "db_full") {
-      alert(Templates.replay_list.full);
+      dialog.open({
+        type: "warning",
+        title: 'Database full',
+        message: Templates.replay_list.full
+      });
     } else {
-      logger.error("Uncaught error in import.");
+      dialog.open({
+        type: "error",
+        title: "Uncaught import error",
+        error: err
+      });
       logger.error(err);
     }
   });
@@ -284,7 +323,7 @@ Status.on("error.upgrade", () => {
     progress: false,
     message: getContact("Error upgrading database", "TPR Upgrade Error")
   });
-    // In case it isn't showing already.
+  // In case it isn't showing already.
   overlay.show();
 });
 
@@ -311,14 +350,103 @@ Status.on("error.db", () => {
 // Replay management.
 // ============================================================================
 
-var replay_table = new Table({
-  id: "replay-table",
+var replay_table = new CardTable({
+  id: "replays",
   // Card header.
   header: {
-    selector: "#replays .card-header",
-    singular: "replay",
-    plural: "replays",
-    title: "Replays"
+    language: {
+      title: "Replays",
+      singular: "replay",
+      plural: "replays"
+    },
+    // TODO: Deselect automatically?
+    actions: [{
+      name: "render",
+      icon: 'movie_creation',
+      title: 'render selected',
+      callback: (ids) => {
+        logger.info("Rendering replays.");
+        Replays.select(ids).render().catch((err) => {
+          // TODO: Handle error.
+          // tag:dialog
+          dialog.open({
+            type: 'error',
+            message: 'Error starting rendering',
+            error: err
+          });
+        });
+      }
+    }, {
+      name: "delete",
+      icon: 'delete',
+      title: 'delete selected',
+      callback: (ids) => {
+        logger.info("Deleting replays.");
+        Replays.select(ids).remove().then((task) => {
+          replay_table.reload();
+          var timeout = 10000;
+          var clear = setTimeout(() => {
+            task.do().catch((err) => {
+              dialog.open({
+                type: 'error',
+                title: 'Error removing replays',
+                error: err
+              })
+            })
+          }, timeout);
+          var toast = new Toast({
+            duration: timeout / 2,
+            id: 'toast',
+            text: 'Replays deleted',
+            action: 'undo',
+            action_fn: () => {
+              clearTimeout(clear);
+              task.undo().then(() => {
+                replay_table.reload();
+              }).catch((err) => {
+                // TODO: Dialog error.
+                // tag:dialog
+                dialog.open({
+                  type: 'error',
+                  message: 'Error restoring replays',
+                  error: err
+                });
+              });
+            }
+          });
+        }).catch((err) => {
+          // TODO: Handle error cases.
+          // tag:dialog
+          // internal error
+          // empty selection.
+          dialog.open({
+            type: 'error',
+            message: 'Error deleting replays',
+            error: err
+          });
+        });
+      }
+    }, {
+      name: "download",
+      icon: 'file_download',
+      title: 'download selected',
+      callback: (ids) => {
+        Replays.select(ids).download().then((activity) => {
+          // TODO: hook into progress for UI update.
+          // tag:progress
+          // tag:interface
+          progress.open(activity);
+        }).catch((err) => {
+          // TODO: Handle errors
+          // tag:dialog.
+          dialog.open({
+            type: "error",
+            message: "Error downloading replays",
+            error: err
+          });
+        });
+      }
+    }]
   },
   ajax: function (data) {
     return Replays.query(data).then((result) => {
@@ -327,14 +455,14 @@ var replay_table = new Table({
           name: replay.name,
           date: moment(replay.dateRecorded),
           duration: moment.utc(replay.duration)
-                                    .format('mm:ss'),
+                          .format('mm:ss'),
           rendered: replay.rendered,
           id: replay.id,
           rendering: replay.rendering,
           replay: replay
         };
       });
-            // TODO: Move this.
+      // TODO: Move this.
       $(".nav-home .badge").text(result.total);
       return {
         data: list,
@@ -342,7 +470,7 @@ var replay_table = new Table({
       };
     }).catch((err) => {
       logger.error("Could not retrieve list: %O", err);
-            // Rethrow.
+      // Rethrow.
       throw err;
     });
   },
@@ -352,7 +480,7 @@ var replay_table = new Table({
       data: "rendering",
       render: function (data, type, row, meta) {
         return data ? '<span class="glyphicon glyphicon-lock" title="This replay is rendering"></span>'
-                            : Templates.table.checkbox;
+                    : Templates.table.checkbox;
       }
     },
     { // Editable name.
@@ -457,9 +585,7 @@ var replay_table = new Table({
 $('#replays .card-header .actions .render').click(() => {
   var ids = replay_table.selected();
   replay_table.deselect(ids);
-  Replays.select(ids).render().catch((err) => {
-    // TODO: Handle error.
-  });
+  
 });
 
 // Deleting replays.
@@ -467,104 +593,14 @@ $('#replays .card-header .actions .delete').click(() => {
   var ids = replay_table.selected();
   logger.info("Deleting replays.");
   replay_table.deselect(ids);
-  Replays.select(ids).remove().then((task) => {
-    // TODO: create undo panel and associate undo with it.
-    $.snackbar({
-      content: "Replays deleted",
-      timeout: 5000,
-      onClose: () => {
-        task.complete().catch((err) => {
-          // TODO: Dialog error.
-        });
-      },
-      action_message: "undo",
-      action_function: () => {
-        task.undo().then(() => {
-          // TODO: Reload table.
-        }).catch((err) => {
-          // TODO: Dialog error.
-        });
-      }
-    });
-  }).catch((err) => {
-    // internal error
-    // empty selection.
-  });
+  
 });
 
 // Downloading raw replays.
 $('#replays .card-header .actions .download-raw').click(() => {
   var ids = replay_table.selected();
-  /*Replays.select(ids).download().then((progress) => {
-    // TODO: hook into progress for UI update.
-  }).catch((err) => {
-
-  });*/
-  // set up download progress dialog.
-  $("#progress").modal('show');
+  
   // dismissable
-});
-
-/////////////////////////////
-// Downloading raw replays //
-/////////////////////////////
-var download = {
-  error: null
-};
-
-Messaging.listen("zipProgress", (message) => {
-  overlay.update({
-    progress: message.current / message.total,
-    message: `Adding replays...`
-  });
-});
-
-Messaging.listen("intermediateZipDownload", () => {
-  overlay.update({
-    message: "Zip file reached capacity, downloading..."
-  });
-});
-
-Messaging.listen("finalZipDownload", () => {
-  overlay.update({
-    message: "Downloading final zip file..."
-  });
-});
-
-Messaging.listen("downloadError", (message) => {
-  download.error = message.reason;
-});
-
-// Display json downloading message.
-Status.on("json_downloading", () => {
-  overlay.set({
-    title: 'Downloading Raw Data',
-    description: 'Zip files are being generated containing your raw data.',
-    message: 'Initializing zip file generation...',
-    progress: true
-  });
-  overlay.show();
-});
-
-// Display finish message.
-Status.on("json_downloading->active", () => {
-  var error = download.error;
-  download.error = null;
-  if (error) {
-        // Change overlay to display error.
-        // add dismiss
-    overlay.set({
-      description: `There was an error downloading your replays: ${error}.`,
-      actions: [{
-        text: "dismiss",
-        action: function () {
-          overlay.hide();
-        }
-      }]
-    });
-  } else {
-    overlay.hide();
-  }
 });
 
 //////////////////////////////////////
@@ -583,11 +619,9 @@ replay_notification_list.addListener(() => {
 // Listen for updates.
 Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
 function () {
-    // Don't update if importing.
-  if (!paused) {
-    replay_table.reload();
-    updateFullNotifications();
-  }
+  // Don't update if importing.
+  replay_table.reload();
+  updateFullNotifications();
 });
 
 var notifications = {
@@ -638,13 +672,41 @@ Status.once("active", function () {
 // ============================================================================
 
 // Init table.
-var failed_replay_table = new Table({
-  id: "failed-replay-table",
+var failed_replay_table = new CardTable({
+  id: "failed",
   header: {
-    selector: "#failed-replays .card-header",
-    singular: "failed replay",
-    plural: "failed replays",
-    title: "Failed Replays"
+    language: {
+      singular: "failed replay",
+      plural: "failed replays",
+      title: "Failed Replays"
+    },
+    actions: [{
+      name: 'download',
+      icon: 'file_download',
+      title: 'download selected',
+      callback: (ids) => {
+        logger.info('Requesting raw json download for ' + ids + '.');
+        Messaging.send("downloadFailedReplays", {
+          ids: ids
+        }, (response) => {
+          if (response.failed) {
+            alert("Failed replay download failed: " + response.reason);
+          }
+        });
+      }
+    }, {
+      name: 'delete',
+      icon: 'delete',
+      title: 'delete selected',
+      callback: (ids) => {
+        if (confirm('Are you sure you want to delete these failed replays? This cannot be undone.')) {
+          logger.info(`Requesting deletion of ${ids}`);
+          Messaging.send("deleteFailedReplays", {
+            ids: ids
+          });
+        }
+      }
+    }]
   },
   ajax: function (data) {
     var args = {
@@ -692,36 +754,6 @@ var failed_replay_table = new Table({
   ],
     // Order by id.
   order: [[1, 'asc']]
-});
-
-// Headers should automatically have the associated table.
-// Download listener.
-$('#failed-replays .card-header .actions .download').click(function () {
-  var ids = failed_replay_table.selected();
-  if (ids.length > 0) {
-    logger.info('Requesting raw json download for ' + ids + '.');
-    Messaging.send("downloadFailedReplays", {
-      ids: ids
-    }, (response) => {
-      if (response.failed) {
-        alert("Failed replay download failed: " + response.reason);
-      }
-    });
-  }
-});
-
-$('#failed-replays .card-header .actions .delete').click(() => {
-  var ids = failed_replay_table.selected();
-  failed_replay_table.deselect(ids);
-
-  if (ids.length > 0) {
-    if (confirm('Are you sure you want to delete these failed replays? This cannot be undone.')) {
-      logger.info(`Requesting deletion of ${ids}`);
-      Messaging.send("deleteFailedReplays", {
-        ids: ids
-      });
-    }
-  }
 });
 
 function update() {
@@ -822,13 +854,23 @@ Status.on("failed.json_downloading->idle", () => {
 // ============================================================================
 // Render list card.
 // ============================================================================
-var render_table = new Table({
-  id: "render-table",
+var render_table = new CardTable({
+  id: "renders",
   header: {
-    selector: "#rendering .card-header",
-    singular: "task",
-    plural: "tasks",
-    title: "Render Tasks"
+    language: {
+      singular: "task",
+      plural: "tasks",
+      title: "Render Tasks"
+    },
+    actions: [{
+      name: 'cancel',
+      icon: 'cancel',
+      callback: (ids) => {
+        Messaging.send("cancelRenders", {
+          ids: ids
+        });
+      }
+    }]
   },
   ajax: function (data, callback) {
     var args = {
@@ -896,33 +938,22 @@ var render_table = new Table({
       orderable: false
     },
     { // Action buttons.
-      data: null,
-      defaultContent: '<div class="actions"><div class="cancel-render"><i class="material-icons">cancel</i></div></div>',
-      orderable: false
+      type: "actions",
+      actions: [{
+        name: 'cancel',
+        icon: 'cancel',
+        title: '',
+        enabled: true,
+        callback: (id) => {
+          logger.info(`Requesting render cancellation for replay ${id}.`);
+          Messaging.send("cancelRender", {
+            id: id
+          });
+        }
+      }]
     }
   ],
   order: [[1, 'asc']]
-});
-
-// Single cancellation buttons.
-$("#render-table tbody").on("click", ".cancel-render", function () {
-  var id = $(this).closest('tr').data("id");
-  render_table.deselect(id);
-  logger.info(`Requesting render cancellation for replay ${id}.`);
-  Messaging.send("cancelRender", {
-    id: id
-  });
-});
-
-// Multi-cancellation buttons.
-$('#rendering .card-header .actions .cancel').click(() => {
-  var ids = render_table.selected();
-  render_table.deselect(ids);
-  if (ids.length > 0) {
-    Messaging.send("cancelRenders", {
-      ids: ids
-    });
-  }
 });
 
 Status.on("active", () => {
@@ -937,10 +968,10 @@ Status.on("active", () => {
 Messaging.listen("replayRenderProgress", (message, sender) => {
   var id = message.id;
   logger.debug(`Received notice that ${id} is being rendered.`);
-    // Check that render row exists.
+  // Check that render row exists.
   var row = $(`#render-${id}`);
-    // TODO: Better progress bar.
-    // TODO: Estimated time remaining.
+  // TODO: Better progress bar.
+  // TODO: Estimated time remaining.
   if (row.length === 1) {
     var rendering = row.data("rendering");
     if (!rendering) {

@@ -4,6 +4,8 @@ var saveAs = require('file-saver');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
+var logger = require('./logger')('zip');
+
 // Handles zipping files.
 // events:
 // - file: when file is handled
@@ -28,6 +30,7 @@ module.exports = ZipFiles;
 // Takes object with filename, ext, contents properties. contents can
 // be blob/string.
 ZipFiles.prototype.addFile = function (file) {
+  logger.debug('Adding file.');
   var filename = sanitize(file.filename);
   if (filename === "") {
     filename =  this.default_name;
@@ -65,6 +68,7 @@ ZipFiles.prototype.done = function (download) {
 // Generate zip file and reset.
 // @private
 ZipFiles.prototype._zip = function () {
+  logger.debug('Generating zip.');
   var contents = this.zip.generate({
     type: "blob",
     compression: "STORE"

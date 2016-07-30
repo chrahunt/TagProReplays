@@ -107,8 +107,10 @@ $card-table-footer-height: 56px;
             border-bottom: 0px;
         }
         paper-progress {
+            // Default.
             height: 0px;
             transition: linear .2s height;
+            width: 100%;
             &.active {
                 height: 3px;
             }
@@ -116,6 +118,11 @@ $card-table-footer-height: 56px;
     }
     table-layout: fixed;
     margin-bottom: 0;
+
+    // empty
+    .dataTables_empty {
+        text-align: center;
+    }
 }
 
 /* bootstrap material design resets */
@@ -134,7 +141,6 @@ $card-table-footer-height: 56px;
 
 table.table {
     border-bottom: 1px solid #ddd;
-    //width: initial !important;
 }
 
 /* datatables css override auto */

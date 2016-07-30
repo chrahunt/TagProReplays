@@ -2,6 +2,8 @@ var $ = require('jquery');
 require('datatables.net')(global, $);
 var Mustache = require('mustache');
 var KeyCode = require('keycode-js');
+var EventEmitter = require('events').EventEmitter;
+var inherits = require('util').inherits;
 
 var Templates = require('./templates');
 var wrap = require('./util').wrap;
@@ -48,8 +50,11 @@ function intercept(after, interceptor) {
 function Table(options) {
   logger.info(`Initializing table for ${options.id}`);
   this.id = options.id;
+  this.$ = $(`#${this.id}`);
+  this.$table = this.$.find('table');
   this.options = options;
   this.all_selected = [];
+  /// DataTable initialization.
   // Pass-thru, defined in options or not at all.
   var passthru = {
     columnDefs: options.columnDefs,
@@ -119,20 +124,20 @@ function Table(options) {
         for (let record of mapped.data) {
           // Ensure all records have id.
           if (typeof record.id !== "number" &&
-                        typeof record.id !== "string") {
+            typeof record.id !== "string") {
             throw new Error("Record does not have valid " +
-                          "id.");
+              "id.");
           }
           // Set id so it can be retrieved in rows.
           if (typeof record.DT_RowData == "object") {
             record.DT_RowData.id = record.id;
           } else {
-            record.DT_RowData = {id: record.id};
+            record.DT_RowData = { id: record.id };
           }
         }
 
         if (mapped.recordsTotal > 0 &&
-            mapped.data.length === 0) {
+          mapped.data.length === 0) {
           // Go back a page.
           var current = self.table.page();
           if (current > 0) {
@@ -154,8 +159,8 @@ function Table(options) {
       // Re-select items that were previously not selected.
       if (this.all_selected.includes(data.id)) {
         $(row).addClass('selected')
-              .find('paper-checkbox')
-              .prop('checked', true);
+          .find('paper-checkbox')
+          .prop('checked', true);
       }
     }),
     drawCallback: (settings) => {
@@ -173,7 +178,6 @@ function Table(options) {
   var init_options = {
     columns: process_columns(options.columns)
   };
-
   function process_columns(cols) {
     var new_cols = cols.map((col) => {
       for (let Extension of extensions) {
@@ -190,35 +194,39 @@ function Table(options) {
     });
     if (index !== -1) {
       throw new Error(`Column ${index} of ${self.id} is ` +
-              `orderable, but has no data field set.`);
+        `orderable, but has no data field set.`);
     }
     return new_cols;
   }
   Object.assign(init_options, intercepted, static, passthru);
-  this.table = $(`#${this.id}`).DataTable(init_options);
+  this.table = this.$table.DataTable(init_options);
 
-  $(`#${this.id}`).find('thead tr').after(
+  /// Processing indicator.
+  this.$table.find('thead tr').after(
     Mustache.render(Templates.table.processing, {
       cols: init_options.columns.length
     }));
-  // Processing indicator.
+
   this.table.on("processing.dt", (e, settings, processing) => {
-    var $process = $(`#${this.id} .processing paper-progress`);
+    logger.trace(`Processing: ${processing}`);
+    var $process = this.$.find('.processing paper-progress');
     if (processing) {
-      $process.removeClass('active');
-    } else {
       $process.addClass('active');
+    } else {
+      $process.removeClass('active');
     }
   });
+
+  /// Checkboxes.
   // TODO: configurable based on checkbox column.
   // Add select-all checkbox to header.
   $(this.table.column(0).header())
-        .html(Templates.table.select_all_checkbox)
-        .addClass('cb-cell');
+    .html(Templates.table.select_all_checkbox)
+    .addClass('cb-cell');
 
   // "Select all" checkbox.
-  $(`#${self.id}_wrapper th paper-checkbox`).change(function () {
-    $(`#${self.id} tbody paper-checkbox`)
+  this.$table.find('th paper-checkbox').change(function () {
+    self.$table.find('tbody paper-checkbox')
       .prop("checked", this.checked)
       .trigger("change");
     updateWhenChecked();
@@ -228,7 +236,7 @@ function Table(options) {
   this.setRowClickListener("paper-checkbox", function (id) {
     var tr = $(this).closest("tr");
     var position = self.all_selected.indexOf(id);
-    var known_checked = position === -1;
+    var known_checked = position !== -1;
     if (this.checked && !known_checked) {
       self.all_selected.push(id);
       tr.addClass('selected');
@@ -266,7 +274,6 @@ function Table(options) {
 
   // Update table when entry is checked.
   function updateWhenChecked() {
-    var header = self._get_header();
     var rows = self.num_rows();
     var select_all = self._get_select_all();
     if (rows === 0) {
@@ -274,10 +281,6 @@ function Table(options) {
       select_all.prop("disabled", true);
       select_all.prop("checked", false);
       select_all.closest('tr').removeClass('selected');
-
-      // Card header.
-      header.find(".actions").addClass("hidden");
-      header.find(".title").text(options.header.title);
     } else {
       select_all.prop("disabled", false);
 
@@ -289,22 +292,11 @@ function Table(options) {
         select_all.prop("checked", false);
         select_all.closest('tr').removeClass('selected');
       }
-
-      // Card header.
-      if (numChecked > 0) {
-        header.find(".actions").removeClass("hidden");
-        if (numChecked === 1) {
-          header.find(".title").text(`${numChecked} ${options.header.singular} selected`);
-        } else {
-          header.find(".title").text(`${numChecked} ${options.header.plural} selected`);
-        }
-      } else {
-        header.find(".actions").addClass("hidden");
-        header.find(".title").text(options.header.title);
-      }
     }
+    self.emit('selection');
   }
 
+  /// Sorting.
   // Sorting icon.
   var orderable_columns = this.table.columns(":not(.sorting_disabled)").header().to$();
   orderable_columns.addClass("orderable");
@@ -315,18 +307,23 @@ function Table(options) {
     this.recalcMaxHeight();
   });
 
+  // fix for empty table colspan problem:
+  // https://datatables.net/forums/discussion/33203/no-data-datatables-empty-colspan-problem
+  this.$table.find('.dataTables_empty')
+    .attr('colspan', this.options.columns.length);
+
   // Delegate eventemitter methods to DataTable.
-  ["on", "one", "off"].forEach((method) => {
+  /*["on", "one", "off"].forEach((method) => {
     self[method] = self.table[method].bind(self.table);
-  });
+  });*/
+  EventEmitter.call(this);
+
+  // header
+  this.header = new CardHeader(this, this.options.header);
 }
+inherits(Table, EventEmitter);
 
 module.exports = Table;
-
-// Initialize selection behavior.
-Table.prototype._init = function () {
-
-};
 
 // Selection behavior.
 /**
@@ -334,15 +331,10 @@ Table.prototype._init = function () {
  * @return {Array.<integer>} - Array of ids of rows selected.
  */
 Table.prototype.selected = function () {
-  var selected = [];
-  var self = this;
-  $(`#${this.id} td paper-checkbox`).each(function () {
-    if (this.checked) {
-      var id = self.getRecordId(this);
-      selected.push(id);
-    }
-  });
-  return selected;
+  return this.$table
+    .find('td paper-checkbox[checked]')
+    .map((i, e) => this.getRecordId(e))
+    .get();
 };
 
 /**
@@ -359,26 +351,21 @@ Table.prototype.deselect = function (ids) {
 
 // Number of current visible rows.
 Table.prototype.num_rows = function () {
-  return $(`#${this.id} td paper-checkbox`).length;
+  return this.$table.find('td paper-checkbox').length;
 };
 
 // Number of visible checked items.
 Table.prototype.num_checked = function () {
-  return $(`#${this.id} td paper-checkbox[checked]`).length;
-};
-
-// Get header element.
-Table.prototype._get_header = function () {
-  return $(this.options.header.selector);
+  return this.$table.find('td paper-checkbox[checked]').length;
 };
 
 Table.prototype._get_select_all = function () {
-  return $(`#${this.id} th paper-checkbox`);
+  return this.$table.find('th paper-checkbox');
 };
 
 // Get row checkboxes.
 Table.prototype._get_checkboxes = function () {
-  return $(`#${this.id} td paper-checkbox`);
+  return this.$table.find('td paper-checkbox');
 };
 
 
@@ -445,7 +432,7 @@ Table.prototype.setRowClickListener = function (selector, callback) {
 
 // For functions not interested in id so much.
 Table.prototype.setClickListener = function (selector, callback) {
-  $(`#${this.id} tbody`).on("click", selector, callback);
+  this.$table.find('tbody').on("click", selector, callback);
 };
 
 // ============================================================================
@@ -521,11 +508,11 @@ Editable.prototype._init = function () {
       function save(id, text) {
         logger.debug(`Saving editable field ${self._name}`);
         self._callback(id, text)
-              .then(() => {
-                edited = true;
-                dismiss();
-              })
-              .catch(feedback);
+          .then(() => {
+            edited = true;
+            dismiss();
+          })
+          .catch(feedback);
       }
 
       function enter(evt) {
@@ -613,11 +600,18 @@ Checkbox.prototype.column = function () {
 }
 
 /**
- * Container for row actions, select with cell type "actions".
- * Cell must not be orderable.
- * Cell must have an array of actions in 'actions'
- * Each action must have 'name', 'icon', 'title', 'callback'
- * if a property is a function it will be called with the data
+ * Column type: "actions"
+ * Acts as a container for row-based actions, usually indicated with icon
+ * buttons.
+ *
+ * The column must not be orderable.
+ * Column definition must have an array of action specifications.
+ * Action specification has the properties:
+ * * name
+ * * icon
+ * * title
+ * * callback
+ * If a property is a function it will be called with the data
  * for the row.
  */
 function Actions(table, column) {
@@ -639,7 +633,7 @@ Actions._template =
 // Initialize actions.
 Actions.prototype._init = function () {
   this._actions = this._column.actions.map(
-        (a) => new RowAction(this._table, a));
+    (a) => new RowAction(this._table, a));
 };
 
 Actions.prototype.render = function (data, type, row, meta) {
@@ -711,12 +705,74 @@ RowAction.prototype.render = function (data, type, row, meta) {
     }
   }
   return Mustache.render(
-        RowAction._template, vars);
+    RowAction._template, vars);
+};
+
+function CardHeader(table, opts) {
+  this._table = table;
+  this._options = opts;
+  this._enabled = false;
+  this._init();
+}
+
+CardHeader._outer_template =
+  `<div class="header"></div>`;
+CardHeader._template =
+  `<div class="card-header">
+     <div>
+       <span class="title">{{title}}</span>
+     </div>
+     <div class="actions{{^enabled}} hidden{{/enabled}}">
+       {{#actions}}{{{render}}}{{/actions}}
+     </div>
+   </div>`;
+
+CardHeader.prototype._init = function () {
+  this._actions = this._options.actions.map((action) => {
+    return new CardAction(this._table, action);
+  });
+  this.$ = $(CardHeader._outer_template);
+  this._table.$.prepend(this.$);
+  this._actions.forEach((action) => {
+    action._init(this.$);
+  });
+  this._rendered_actions = this._actions.map((action) => {
+    return { render: action.render() };
+  });
+  // Listen for some selection event.
+  this._table.on("selection", () => {
+    var num = this._table.selected().length;
+    if (num > 0) {
+      this._enabled = true;
+      if (num === 1) {
+        this._title = `${num} ${this._options.language.singular} selected`
+      } else {
+        this._title = `${num} ${this._options.language.plural} selected`
+      }
+    } else {
+      this._title = this._options.language.title;
+    }
+    this._update();
+  });
+  this._update();
+};
+
+CardHeader.prototype._update = function () {
+  this.$.html(this.render());
+};
+
+CardHeader.prototype.render = function () {
+  return Mustache.render(CardHeader._template, {
+    actions: this._rendered_actions,
+    title: this._title,
+    enabled: this._enabled
+  });
 };
 
 // gets added directly, single-instance
-function CardAction(opts) {
-  this._id = ++CardAction.instances;
+function CardAction(table, opts) {
+  this._table = table;
+  this._id = ++CardAction._instances;
   this._callback = opts.callback;
   this._vars = {
     icon: opts.icon,
@@ -726,24 +782,22 @@ function CardAction(opts) {
 }
 
 CardAction._template =
-  `<div{{#title}} title="{{title}}"{{/title}}>
+  `<div class="{{class}}"{{#title}} title="{{title}}"{{/title}}>
      <i class="material-icons">{{icon}}</i>
    </div>`;
 
 CardAction._instances = 0;
 
 // Initialized with parent.
-CardAction.prototype.init = function (container) {
-  var self = this;
-  $(container).on("click", `.${this.vars.class}`, function () {
-    var id = self.table.getRecordId(this);
-    self.callback(id);
+CardAction.prototype._init = function (container) {
+  $(container).on("click", `.${this._vars.class}`, () => {
+    var ids = this._table.selected();
+    this._callback(ids);
   });
 };
 
 // Called by parent when ready to render.
 CardAction.prototype.render = function () {
   return Mustache.render(
-        CardAction.template, this.vars);
+    CardAction._template, this._vars);
 };
-

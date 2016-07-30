@@ -1,11 +1,14 @@
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
+var sanitize = require('sanitize-filename');
+var saveAs = require('file-saver');
 
 var Constraints = require('./constraints');
 var Data = require('./data');
 var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
 var ReplayImportStream = require('./replay-import-stream');
+var ZipFiles = require('./zip-files');
 
 var logger = require('./logger')('replays');
 
@@ -90,7 +93,10 @@ Selection.prototype.render = function () {
 };
 
 // replays + failed
-// TODO: undo-able.
+/**
+ * Puts selected items into removal db and
+ * returns a DestructiveTask for undoing if needed.
+ */
 Selection.prototype.remove = function () {
   logger.info("Selection#remove");
   // Cancel any in-progress renders.
@@ -100,22 +106,17 @@ Selection.prototype.remove = function () {
     // TODO: proper API between background page and us.
     if (err) throw err;
   }).then(() => {
-    return Data.deleteReplays(this.ids).catch((err) => {
-      logger.error("Error deleting replays: %O", err);
+    return Data.recycleReplays(this.ids).catch((err) => {
+      logger.error("Error recycling replays: %O", err);
       throw err;
     });
-  }).then(() => {
-    // Future interface for undo.
-    return new DestructiveTask(
-      () => Promise.resolve(),
-      () => Promise.reject());
+  }).then((ids) => {
+    return new DestructiveTask(() => {
+      return Data.emptyRecycled(ids);
+    }, () => {
+      return Data.restoreReplays(ids);
+    });
   });
-};
-
-// replays + failed
-// remove x oldest marked items
-Selection.prototype._clean = function () {
-
 };
 
 // replays
@@ -173,7 +174,7 @@ Replays.prototype.import = function (files) {
     var total = files.length;
     var current = 0;
     send.on('progress', () => {
-      activity.update(total, current);
+      activity.update(total, ++current);
     });
 
     fls.pipe(send);
@@ -190,17 +191,59 @@ Replays.prototype.import = function (files) {
 // replays + failed
 Selection.prototype.download = function () {
   logger.info("Selection#download");
-  return new Promise((resolve, reject) => {
-    // TODO: need an a progress id.
-    Messaging.send("downloadReplays", { ids: this.ids }, (response) => {
-      if (response.failed) {
-        reject(response.reason);
-      } else {
-        resolve(new Progress());
+  if (this.ids.length === 1) {
+    return Data.getReplay(this.ids[0]).then((data) => {
+      var blob = new Blob([JSON.stringify(data)],
+        { type: 'application/json' });
+      var filename = sanitize(data.info.name);
+      if (filename === "") {
+        filename = "replay";
       }
+      saveAs(blob, `${filename}.json`);
+    }).catch((err) => {
+      logger.error("Error retrieving replay: %o.", err);
+      throw err;
     });
-  });
-  // return progress
+  } else {
+    var activity = new Activity({
+      cancellable: false
+    });
+    var files = 0;
+    activity.update(this.ids.length, files);
+    var zipfiles = new ZipFiles({
+      default_name: "replay",
+      zip_name: "replays"
+    });
+    zipfiles.on("generating_int_zip", () => {
+      Messaging.send("intermediateZipDownload");
+    });
+    zipfiles.on("generating_final_zip", () => {
+      Messaging.send("finalZipDownload");
+    });
+    zipfiles.on("file", () => {
+      activity.update(this.ids.length, ++files);
+    });
+    // Reset download state.
+    zipfiles.on("end", () => {
+      activity.complete();
+    });
+    Data.forEachReplay(this.ids, (data) => {
+      zipfiles.addFile({
+        filename: data.info.name,
+        ext: "json",
+        contents: JSON.stringify(data)
+      });
+    }).then(() => {
+      zipfiles.done();
+    }).catch((err) => {
+      // TODO: Send message about failure.
+      Messaging.send("downloadError", err);
+      // err.message
+      logger.error("Error compiling raw replays into zip: %o.", err);
+      zipfiles.done(true);
+    });
+    return Promise.resolve(activity);
+  }
 };
 
 // ============================================================================
@@ -233,9 +276,6 @@ Replay.prototype.saveAs = function (name) {
 
 };
 
-//////////
-// ongoing action
-//////////
 /**
  * Activity represents an ongoing action.
  * Events:
@@ -276,6 +316,8 @@ Activity.prototype.cancel = function () {
 /**
  * Update activity progress.
  * @fires Activity#update
+ * @param {number} total The total number of items.
+ * @param {number} current The current item that has been processed.
  */
 Activity.prototype.update = function (total, current) {
   this.progress.total = total;
@@ -292,15 +334,6 @@ Activity.prototype.complete = function () {
   this.emit("done");
 };
 
-function Progress() {
-  // inherits eventemitter
-  // events:
-  // - done
-  // - progress
-  // - err
-
-}
-
 // Wrap a destructive task.
 function DestructiveTask(_do, undo) {
   this._do = _do;
@@ -314,7 +347,7 @@ DestructiveTask.prototype.undo = function () {
 };
 
 // Returns promise.
-DestructiveTask.prototype.complete = function () {
+DestructiveTask.prototype.do = function () {
   logger.info("Doing");
   return this._do();
 };

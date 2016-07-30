@@ -98,6 +98,12 @@
     }
 }
 
+#progress-dialog {
+    paper-progress {
+        width: 100%;
+    }
+}
+
 .progressbar {
     width: 100%;
 }
@@ -319,10 +325,6 @@ tr .actions {
     }
 }
 
-.dataTables_wrapper div.dataTables_processing {
-    top: 50px;
-}
-
 // Alerts.
 .header-alert {
     height: 64px;
@@ -332,22 +334,6 @@ tr .actions {
     }
     display: flex;
     align-items: center;
-}
-
-// Replay table.
-#replays {
-    #replay-table {
-
-        /* Last cell leaves spacing to action icons. */
-        td:last-child {
-            padding: 0px;
-        }
-
-        td > .material-icons {
-            vertical-align: middle;
-            font-size: 18px;
-        }
-    }
 }
 
 // Editable table field.

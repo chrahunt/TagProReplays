@@ -5,12 +5,9 @@
   <!-- copied from node modules -->
   <link rel="stylesheet" href="css/bootstrap.min.css" type="text/css"></link>
   <link rel="stylesheet" href="css/bootstrap-material-design.min.css" type="text/css"></link>
-  <link rel="stylesheet" href="css/ripples.min.css" type="text/css"></link>
   <!-- copied from vendor -->
   <link rel="stylesheet" href="css/jquery-ui.min.css" type="text/css"></link>
   <link rel="stylesheet" href="css/spinkit.css" type="text/css"></link>
-  <link rel="stylesheet" href="css/material-spinner.css" type="text/css"></link>
-  <link rel="stylesheet" href="css/mprogress.min.css" type="text/css"></link>
 
   <!-- project-specific -->
   <link rel="stylesheet" href="css/menu.css" type="text/css"></link>
@@ -24,10 +21,12 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href='https://fonts.googleapis.com/css?family=Roboto:400,500' rel='stylesheet' type='text/css'>
   <!-- Web Components / Polymer -->
-  <script src="webcomponentsjs/webcomponents.js"></script>
-
   <link href="polymer/polymer.html" rel="import">
   <link href="paper-checkbox/paper-checkbox.html" rel="import">
+  <link href="paper-progress/paper-progress.html" rel="import">
+  <link href="paper-toast/paper-toast.html" rel="import">
+  <link href="paper-dialog/paper-dialog.html" rel="import">
+  <link href="paper-button/paper-button.html" rel="import">
   <title>TagProReplays</title>
 </head>
 
@@ -61,6 +60,8 @@
               <li><a id="open-settings" href="#!/settings" data-toggle="modal" data-target="#settingsContainer">Settings</a></li>
               <li><a id="replay-import" href="#">Import...</a></li>
               <li><a id="open-help" href="#" data-toggle="modal" data-target="#helpContainer">Help</a></li>
+              <li><a id="example-progress" href="#">Progress</a></li>
+              <li><a id="example-toast" href="#">Toast</a></li>
             </ul>
           </li>
         </ul>
@@ -74,19 +75,7 @@
       <div id="replays" class="card">
         <div class="card-height-indicator"></div>
         <div class="card-content">
-          <div class="header">
-            <div class="card-header">
-              <div>
-                <span class="title"></span>
-              </div>
-              <div class="actions hidden">
-                <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
-                <div class="render" title="render selected"><i class="material-icons">movie_creation</i></div>
-                <div class="download-raw" title="download json"><i class="material-icons">file_download</i></div>
-              </div>
-            </div>
-          </div>
-          <table id="replay-table" class="card-table" width="100%">
+          <table class="card-table" width="100%">
             <thead>
               <tr>
                 <th><!-- Select-all checkbox --></th>
@@ -103,17 +92,7 @@
       <div id="renders" class="card">
         <div class="card-height-indicator"></div>
         <div class="card-content">
-          <div class="header">
-            <div class="card-header">
-              <div>
-                <span class="title"></span>
-              </div>
-              <div class="actions hidden">
-                <div class="cancel" title="cancel selected"><i class="material-icons">cancel</i></div>
-              </div>
-            </div>
-          </div>
-          <table id="render-table" class="card-table">
+          <table class="card-table">
             <thead>
               <tr>
                 <th>
@@ -135,18 +114,7 @@
       <div id="failed" class="card">
         <div class="card-height-indicator"></div>
         <div class="card-content">
-          <div class="header">
-            <div class="card-header">
-              <div>
-                <span class="title"></span>
-              </div>
-              <div class="actions hidden">
-                <div class="delete" title="delete selected"><i class="material-icons">delete</i></div>
-                <div class="download" title="download json"><i class="material-icons">file_download</i></div>
-              </div>
-            </div>
-          </div>
-          <table id="failed-replay-table" class="card-table">
+          <table class="card-table">
             <thead>
               <tr>
                 <th>
@@ -352,32 +320,22 @@
       </div>
     </div>
   </div>
-  <div id="error" class="modal fade">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-body">
-          <span class="message"></span>
-        </div>
-        <div class="modal-footer">
-
-        </div>
-      </div>
+  <paper-dialog id="progress-dialog">
+    <h2 class="title">Progress Test</h2>
+    <div class="message">Message</div>
+    <paper-progress></paper-progress>
+    <div class="buttons">
+      <paper-button>Cancel</paper-button>
     </div>
-
-  </div>
-  <div id="progress-dialog" class="modal fade">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-body">
-          <span class="message"></span>
-          <div class="progress"></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary"></button>
-        </div>
-      </div>
+  </paper-dialog>
+  <paper-dialog id="dialog">
+    <h2 class="title">Title</h2>
+    <div class="message">Message</div>
+    <paper-progress></paper-progress>
+    <div class="buttons">
+      <paper-button dialog-dismiss>Okay</paper-button>
     </div>
-  </div>
+  </paper-dialog>
   <script src="js/main.js" async></script>
 </body>
 </html>

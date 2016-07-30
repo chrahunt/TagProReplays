@@ -20,7 +20,10 @@
   "dependencies": {
     "polymer": "^1.6.0",
     "paper-checkbox": "^1.3.0",
-    "paper-progress": "^1.0.9"
+    "paper-progress": "^1.0.9",
+    "paper-toast": "^1.3.0",
+    "paper-dialog": "^1.1.0",
+    "paper-button": "^1.0.12"
   },
   "overrides": {}
 }

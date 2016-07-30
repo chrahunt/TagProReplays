@@ -3,12 +3,9 @@ require('source-map-support').install({
   handleUncaughtExceptions: false
 });
 
-var async = require('async');
 var cmp = require('semver-compare');
-var JSZip = require('jszip');
 var sanitize = require('sanitize-filename');
 var saveAs = require('file-saver');
-var logger = require('bragi-browser');
 
 var convert = require('./modules/convert');
 var Constraints = require('./modules/constraints');
@@ -23,6 +20,8 @@ var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
 var ZipFiles = require('./modules/zip-files');
 var Subsystems = require('./modules/subsystem');
+
+var logger = require('./modules/logger')('background');
 
 /**
  * Acts as the intermediary for content script and background page
@@ -119,7 +118,8 @@ Subsystems.add("textures", Textures.ready);
 
 Subsystems.init().catch((err) => {
   // TODO: persist somewhere.
-  logger.error("Error in initialization: %o", err);
+  logger.error("Error in initialization.");
+  logger.error(err);
   fsm.handle("subsystem-fail");
 }).then(() => {
   logger.info("Subsystems initialized.")
@@ -278,89 +278,6 @@ fsm.on("download-start", () => {
 
 fsm.on("download-end", () => {
   manager.resume();
-});
-
-/**
- * Initiates download of multiple replays as a zip file, or a single
- * replay as a json file.
- * @param {object} message - Object with either `ids` (array of integer
- *   ids) or `id` (single integer id)
- */
-Messaging.listen(["downloadReplay", "downloadReplays"],
-(message, sender, sendResponse) => {
-  var ids = message.id ? [message.id] : message.ids;
-  if (ids.length === 1) {
-    // Single JSON file.
-    var id = ids[0];
-    Data.getReplay(id).then((data) => {
-      var blob = new Blob([JSON.stringify(data)],
-                { type: 'application/json' });
-      var filename = sanitize(data.info.name);
-      if (filename === "") {
-        filename = "replay";
-      }
-      saveAs(blob, `${filename}.json`);
-    }).catch((err) => {
-      logger.error("Error retrieving replay: %o.", err);
-    });
-  } else {
-    fsm.try("download-start").then(() => {
-
-    }).catch(() => {
-      sendResponse({
-        failed: true,
-        reason: "busy"
-      });
-    });
-    lock.get("replay_download").then(() => {
-      Status.set("json_downloading").then(() => {
-        var zipfiles = new ZipFiles({
-          default_name: "replay",
-          zip_name: "replays"
-        });
-        zipfiles.on("generating_int_zip", () => {
-          Messaging.send("intermediateZipDownload");
-        });
-        zipfiles.on("generating_final_zip", () => {
-          Messaging.send("finalZipDownload");
-        });
-        var files = 0;
-        zipfiles.on("file", () => {
-          files++;
-          Messaging.send("zipProgress", {
-            total: ids.length,
-            current: files
-          });
-          // TODO: Alert about file processing.
-        });
-        // Reset download state.
-        zipfiles.on("end", () => {
-          manager.resume();
-          Status.reset().then(() => {
-            lock.release("replay_download");
-          }).catch((err) => {
-            logger.error("Error resetting status: %o.", err);
-          });
-        });
-        Data.forEachReplay(ids, (data) => {
-          zipfiles.addFile({
-            filename: data.info.name,
-            ext: "json",
-            contents: JSON.stringify(data)
-          });
-        }).then(() => {
-          zipfiles.done();
-        }).catch((err) => {
-          // TODO: Send message about failure.
-          Messaging.send("downloadError", err);
-          // err.message
-          logger.error("Error compiling raw replays into zip: %o.", err);
-          zipfiles.done(true);
-        });
-      });
-    })
-  }
-  return true;
 });
 
 /**

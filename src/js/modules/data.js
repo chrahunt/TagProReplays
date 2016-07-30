@@ -755,11 +755,11 @@ function deleteReplays(ids) {
     return Dexie.Promise.all(ids.map((id) => {
       return db.info.get(id).then((info) => {
         logger.trace(`Deleting replay ${id}.`);
-                // Errors here would bubble.
+        // Errors here would bubble.
         db.info.delete(id);
         db.replay.delete(info.replay_id);
         if (info.rendered) {
-          var movieId = info.renderId || info.render_id;
+          var movieId = info.render_id;
           return deleteMovie(movieId);
         }
       });
@@ -767,6 +767,74 @@ function deleteReplays(ids) {
   });
 }
 exports.deleteReplays = deleteReplays;
+
+/**
+ * Resolves to an array of ids for the deleted items, which
+ * can be used to restore them.
+ */
+function recycleReplays(ids) {
+  logger.info('Recycling replays');
+  return db.transaction('rw', db.info, db.deleted, () => {
+    return Dexie.Promise.all(ids.map((id) => {
+      return db.info.get(id).then((info) => {
+        return db.deleted.add({
+          info: info
+        });
+      }).then((delete_id) => {
+        db.info.delete(id);
+        return delete_id;
+      });
+    }));
+  });
+}
+exports.recycleReplays = recycleReplays;
+
+/**
+ * Takes array of ids as specified above and restores the info to
+ * the info db.
+ */
+function restoreReplays(ids) {
+  logger.info('Restoring replays');
+  return db.transaction('rw', db.info, db.deleted, () => {
+    return Dexie.Promise.all(ids.map((id) => {
+      return db.deleted.get(id).then((deleted) => {
+        logger.trace(`Restoring replay info for ${deleted.info.id}`);
+        return db.info
+                 .add(deleted.info);
+      }).then(() => {
+        return db.deleted
+                 .delete(id);
+      });
+    }));
+  });
+}
+exports.restoreReplays = restoreReplays;
+
+/**
+ * Carry out deletion of the actual replay data.
+ */
+function emptyRecycled(ids) {
+  logger.info('Emptying recycled replays');
+  return db.transaction('rw', db.deleted, db.replay, () => {
+    var collection = ids ? db.deleted.where(':id').anyOf(ids)
+                         : db.deleted;
+    return collection.each((deleted) => {
+      var info = deleted.info;
+      return db.replay
+               .delete(info.replay_id)
+      .then(() => {
+        if (info.rendered) {
+          var movieId = info.render_id;
+          return deleteMovie(movieId);
+        }
+      }).then(() => {
+        return db.deleted
+                 .delete(deleted.id);
+      });
+    })
+  });
+}
+exports.emptyRecycled = emptyRecycled;
 
 /**
  * Get movie for a replay.
