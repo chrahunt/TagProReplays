@@ -1,7 +1,10 @@
-var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
+var Chrome = require('./chrome');
+
 var logger = require('./logger')('messaging');
+
+logger.info('Starting Messaging');
 
 /**
  * Messenger interface for Content Script<->Background page
@@ -47,28 +50,28 @@ var logger = require('./logger')('messaging');
  */
 var listeners = {};
 
-// Callback management for content scripts.
-var callbacks = new Map();
-var callback_i = 1;
+// Promise response management for content scripts.
+var promises = new Map();
+var promise_i = 0;
 
-function setCallback(callback) {
-  var id = callback_i++;
-  callbacks.set(id, callback);
+function setPromise(id, resolve, reject) {
+  promises.set(id, {
+    resolve: resolve,
+    reject: reject
+  });
   return id;
 }
 
-function getCallback(id) {
-  var callback = callbacks.get(id);
-  if (callback) {
-    removeCallback(id);
-    return callback;
-  } else {
-    return false;
-  }
+function resolvePromise(id, ...args) {
+  var promise = promises.get(id);
+  promises.delete(id);
+  return promise.resolve(...args);
 }
 
-function removeCallback(id) {
-  delete callbacks.delete(id);
+function rejectPromise(id, ...args) {
+  var promise = promises.get(id);
+  promises.delete(id);
+  return promise.reject(...args);
 }
 
 /**
@@ -88,126 +91,183 @@ function removeCallback(id) {
  * @param {Function} callback - The callback
  * @return {[type]} [description]
  */
-function commonSend(name, message, callback) {
-  if (typeof message == "function") {
-    callback = message;
-    message = {};
-  }
 
+// Wrap outgoing foreground messages.
+function foregroundWrapper(name, message) {
   var data = {
-    type: "main",
+    type: 'main',
     name: name,
     data: message
   };
+  data.promise_id = ++promise_i;
 
-  if (callback) {
-    data.callback_id = setCallback(callback);
-  }
-  return data;
+  return {
+    wrapped: data,
+    promise: new Promise((resolve, reject) => {
+      setPromise(data.promise_id, resolve, reject);
+    })
+  };
 }
 
-var background = false;
+// Wrap outgoing background messages.
+function backgroundWrapper(name, message) {
+  return {
+    type: 'main',
+    name: name,
+    data: message
+  };
+}
 
-// Set listener for both sides of port.
-function listenPort(port) {
-    // Send callback message.
-  function sendCallback(data) {
-    port.postMessage({
-      type: "system",
-      name: "callback",
-      data: data
-    });
+/**
+ * Set listener for the background page.
+ *
+ * All messages are main, no callbacks.
+ */
+function backgroundListen(port) {
+  function serialize(data) {
+    if (data instanceof Error) {
+      return {
+        name: data.name,
+        message: data.message,
+        stack: data.stack
+      };
+    } else {
+      return data;
+    }
   }
 
-    // Listen for messages over port.
-  port.onMessage.addListener(function (message, sender) {
+  port.onMessage.addListener((message, sender) => {
+    logger.debug(`port#onMessage: [type:${message.type}], [name:${message.name}]`);
+    var method = message.name;
+    var data = message.data || {};
+    if (listeners.hasOwnProperty(method)) {
+      listeners[method].forEach((listener) => {
+        // There should always be a callback id.
+        var promise_id = message.promise_id;
+        var result = listener(data, sender);
+        if (result && result.then) {
+          result.then((result) => {
+            port.postMessage({
+              type: 'system',
+              name: 'promise',
+              id: promise_id,
+              status: 'fulfilled',
+              data: result
+            })
+          }).catch((err) => {
+            port.postMessage({
+              type: 'system',
+              name: 'promise',
+              id: promise_id,
+              status: 'rejected',
+              data: serialize(err)
+            });
+          });
+        } else {
+          port.postMessage({
+            type: 'system',
+            name: 'promise',
+            id: promise_id,
+            status: 'fulfilled',
+            data: null
+          });
+        }
+      });
+    }
+  });
+}
+
+function foregroundListen(port) {
+  // Listen for messages over port.
+  port.onMessage.addListener((message, sender) => {
     logger.debug(`port#onMessage: [type:${message.type}], [name:${message.name}]`);
     if (message.type == "main") {
       var method = message.name;
       var data = message.data || {};
       if (listeners.hasOwnProperty(method)) {
-        listeners[method].forEach(function (listener) {
-          if (background) {
-            var callback_id = message.callback_id;
-            if (callback_id) {
-              var sync = true;
-                            // Whether function was called.
-              var called = false;
-              var arg;
-                            // Listener function returns true if callback may
-                            // be called, false otherwise.
-              var mayCall = listener.call(null, data, sender, function (response) {
-                if (sync) {
-                                    // Callback was called synchronously.
-                  called = true;
-                  arg = response;
-                } else {
-                                    // Callback was called asynchronously.
-                  if (mayCall) {
-                    sendCallback({
-                      id: callback_id,
-                      called: true,
-                      response: response
-                    });
-                  } else {
-                                        // Error, calling callback without returning true.
-                    logger.error("Calling callback without " +
-                                            `returning 'true': ${method}`);
-                  }
-                }
-              });
-              if (mayCall && called) {
-                sendCallback({
-                  id: callback_id,
-                  called: true,
-                  response: arg
-                });
-              } else if (!mayCall) {
-                sendCallback({
-                  id: callback_id,
-                  called: false
-                });
-              }
-              sync = false;
-            } else {
-              listener.call(null, data, sender, () => {
-                logger.error("Listener called callback, " +
-                  `but none was defined with message: ${method}`);
-              });
-            }
-          } else {
-            listener.call(null, data, sender);
-          }
+        listeners[method].forEach((listener) => {
+          listener.call(null, data, sender);
         });
       }
-    } else if (message.type == "system") {
-      if (message.name == "callback") {
-        var callback_data = message.data;
-        if (callback_data.called) {
-          var callback = getCallback(callback_data.id);
-          if (callback) {
-            callback.call(null, callback_data.response);
-          } else {
-            logger.error(`Callback called, but doesn't exist. id: ${callback_data.id}`);
-          }
-        } else {
-          // Callback not called, remove.
-          removeCallback(callback_data.id);
+    } else if (message.type == 'system') {
+      if (message.name == 'promise') {
+        var promise_id = message.id;
+        if (message.status == 'fulfilled') {
+          resolvePromise(promise_id, message.data);
+        } else if (message.status == 'rejected') {
+          rejectPromise(promise_id, message.data);
         }
       }
     }
   });
 }
 
-function Messenger() {
-  EventEmitter.call(this);
-  this.queue = [];
-  this._send = (name, message, callback) => {
-    this.queue.push([name, message, callback]);
-  };
-  this._init();
+class Messenger extends EventEmitter {
+  constructor() {
+    super();
+    this.queue = [];
+    // For foreground page management.
+    this.port = null;
+    // For background page management.
+    this.ports = {};
+    // Be the foreground page unless we find out otherwise.
+    this._send = (name, message) => {
+      let {wrapped, promise} = foregroundWrapper(name, message);
+      this.queue.push(wrapped);
+      return promise;
+    };
+    this._init();
+  }
+
+  // Sets _send function.
+  _init() {
+    Chrome.isBackground().then((isbackground) => {
+      if (isbackground) {
+        // Background page port management.
+        // Listen for incoming page ports.
+        chrome.runtime.onConnect.addListener((port) => {
+          this.emit("connect", port.sender);
+          var id = getId(port.id, port.sender);
+          this.ports[id] = port;
+          backgroundListen(port);
+          // Action on port disconnection.
+          port.onDisconnect.addListener(() => {
+            this.emit("disconnect", port.sender);
+            delete this.ports[id];
+          });
+        });
+
+        // No callback on background page.
+        this._send = (name, message) => {
+          message = backgroundWrapper(name, message);
+          for (let id in this.ports) {
+            this.ports[id].postMessage(message);
+          }
+        };
+        // Discard queued.
+        this.queue = null;
+      } else {
+        // Non-background page, single port.
+        this.port = chrome.runtime.connect({
+          name: performance.now().toString()
+        });
+        foregroundListen(this.port);
+        this._send = (name, message) => {
+          let {wrapped, promise} = foregroundWrapper(name, message);
+          this.port.postMessage(wrapped);
+          return promise;
+        };
+
+        // Replay queued messages.
+        this.queue.forEach((wrapped) => {
+          this.port.postMessage(wrapped);
+        });
+        // don't keep it around.
+        this.queue = null;
+      }
+    });
+  }
 }
-util.inherits(Messenger, EventEmitter);
 
 var unmarked = 0;
 
@@ -218,60 +278,6 @@ function getId(id, sender) {
     return `${id}--${++unmarked}`;
   }
 }
-
-Messenger.prototype._init = function () {
-    // Sets `send` function.
-  onBackgroundPage().then((isbackground) => {
-    if (isbackground) {
-      background = true;
-            // Background page port management.
-      var ports = {};
-            // Listen for incoming page ports.
-      chrome.runtime.onConnect.addListener((port) => {
-        this.emit("connect", port.sender);
-        var id = getId(port.id, port.sender);
-        ports[id] = port;
-        listenPort(port);
-                // Action on port disconnection.
-        port.onDisconnect.addListener(() => {
-          this.emit("disconnect", port.sender);
-          delete ports[id];
-        });
-      });
-
-            // No callback on background page.
-      this._send = function (name, message) {
-        message = commonSend(name, message);
-        for (var id in ports) {
-          var port = ports[id];
-          port.postMessage(message);
-        }
-      };
-    } else {
-            // Non-background page, single port.
-      var port = chrome.runtime.connect({
-        name: performance.now().toString()
-      });
-      listenPort(port);
-      this._send = function (name, message, callback) {
-        return new Promise((resolve, reject) => {
-          message = commonSend(name, message, function () {
-            callback && callback(...arguments);
-            resolve(...arguments);
-          });
-          port.postMessage(message);
-        });
-      };
-    }
-
-        // Replay queued messages.
-    this.queue.forEach((args) => {
-      this._send.apply(null, args);
-    });
-        // don't keep it around.
-    this.queue = null;
-  });
-};
 
 /**
  * Callback that is called with the message sent from either the
@@ -317,25 +323,3 @@ Messenger.prototype.send = function (name, message, callback) {
 };
 
 module.exports = new Messenger();
-
-/**
- * Determine whether the script is running in a background page
- * context.
- * @return {Promise<boolean>} - Whether the script is running on the
- *   background page.
- */
-function onBackgroundPage() {
-  if (location.protocol != "chrome-extension:") {
-    return Promise.resolve(false);
-  } else {
-    return new Promise((resolve, reject) => {
-      chrome.runtime.getBackgroundPage((that) => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(that === global);
-        }
-      });
-    });
-  }
-}

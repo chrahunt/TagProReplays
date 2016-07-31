@@ -269,7 +269,7 @@ ReplayImportStream.prototype._save = function (files) {
             this.emit('progress');
           }).catch((err) => {
             if (this._cancelled) return;
-            logger.error("Error saving replay: %o.", err);
+            logger.error("Error saving replay: ", err);
             this.emit('error', {
               name: name,
               reason: `could not be saved ${err}`

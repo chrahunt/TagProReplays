@@ -80,12 +80,11 @@ fsm.on("transition", (e) => {
   });
 });
 
-Messaging.listen("_get_state", (message, sender, sendResponse) => {
+Messaging.listen("_get_state", () => {
   logger.info(`State requested, current state: ${fsm.state}`);
-  sendResponse({
+  return {
     state: fsm.state
-  });
-  return true;
+  };
 });
 
 module.exports = fsm;

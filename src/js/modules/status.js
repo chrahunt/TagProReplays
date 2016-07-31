@@ -32,7 +32,7 @@ Status.prototype.force = function () {
     logger.info(`Retrieved state: ${status}`);
     self.emit(status);
   }).catch((err) => {
-    logger.warn("Error retrieving status: %o.", err);
+    logger.warn("Error retrieving status: ", err);
   });
 };
 

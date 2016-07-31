@@ -233,7 +233,7 @@ function Table(options) {
   });
 
   // Track selected rows across all pages.
-  this.setRowClickListener("paper-checkbox", function (id) {
+  this.setRowChangeListener("paper-checkbox", function (id) {
     var tr = $(this).closest("tr");
     var position = self.all_selected.indexOf(id);
     var known_checked = position !== -1;
@@ -425,6 +425,15 @@ Table.prototype.recalcMaxHeight = function () {
 Table.prototype.setRowClickListener = function (selector, callback) {
   var self = this;
   this.setClickListener(selector, function () {
+    var id = self.getRecordId(this);
+    callback.call(this, id, ...arguments);
+  });
+};
+
+// Passes id of record to callback followed by anything else.
+Table.prototype.setRowChangeListener = function (selector, callback) {
+  var self = this;
+  this.$table.find('tbody').on('change', selector, function () {
     var id = self.getRecordId(this);
     callback.call(this, id, ...arguments);
   });
@@ -686,7 +695,7 @@ RowAction.prototype._init = function () {
   this._table.setRowClickListener(`.${this._class}`, (id) => {
     logger.debug(`RowAction ${this._name} clicked for item ${id}.`);
     this._callback(id).catch((err) => {
-      logger.error("Error executing action callback: %O", err);
+      logger.error("Error executing action callback: ", err);
     });
   });
 };
@@ -793,6 +802,7 @@ CardAction.prototype._init = function (container) {
   $(container).on("click", `.${this._vars.class}`, () => {
     var ids = this._table.selected();
     this._callback(ids);
+    this._table.deselect(ids);
   });
 };
 

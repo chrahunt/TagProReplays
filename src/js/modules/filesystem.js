@@ -195,7 +195,7 @@ function ready() {
       logger.debug("Saved movies directory exists.");
     }
   }).catch((err) => {
-    logger.error("Error creating saved movies directory: %o.", err);
+    logger.error("Error creating saved movies directory: ", err);
     throw err;
   });
 }

@@ -1,33 +1,56 @@
-var sanitize = require('sanitize-filename');
+var EventEmitter = require('events').EventEmitter;
 
 var Data = require('./data');
+var Messaging = require('./messaging');
 
 var logger = require('./logger')('renders');
 
-function Renders() {}
-module.exports = new Renders();
-Renders.prototype.get = function (id) {
-  return new Render(id);
-};
+logger.info('Starting Renders');
 
-function Render(id) {
-  this.id = id;
+class Renders extends EventEmitter {
+  constructor() {
+    super()
+    Messaging.listen('renders.update', () => {
+      this.emit('update');
+    });
+  }
+
+  select(ids) {
+    if (!Array.isArray(ids)) ids = [ids];
+    return new Selection(ids);
+  }
+
+  /**
+   * Query for renders to display in table.
+   */
+  query(args) {
+    return Messaging.send('renders.query', args).then((result) => {
+      if (result.error) {
+        throw result.error;
+      } else {
+        return result;
+      }
+    });
+  }
+
+  add(ids) {
+    return Messaging.send('renders.add', {
+      ids: ids
+    });
+  }
 }
 
-Render.prototype.remove = function () {};
+module.exports = new Renders();
 
-// might want to move this elsewhere.
-Render.prototype.download = function () {
-  return Data.getMovie(this.id).then((file) => {
-    var movie = new Blob([file.data], { type: 'video/webm' });
-    var filename = sanitize(file.name);
-    if (filename === "") {
-      filename = "replay";
-    }
-    return {
-      data: movie,
-      name: `${filename}.webm`
-    };
-  });
-};
+class Selection extends EventEmitter {
+  constructor(ids) {
+    super();
+    this.ids = ids;
+  }
 
+  cancel() {
+    return Messaging.send("renders.cancel", {
+      ids: this.ids
+    });
+  }
+}

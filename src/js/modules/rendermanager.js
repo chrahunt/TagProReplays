@@ -42,7 +42,7 @@ module.exports = RenderManager;
 RenderManager.prototype.start = function () {
   // Start loop and listen for errors.
   this._loop().catch((err) => {
-    logger.error("Rendering error: %o.", err);
+    logger.error("Rendering error: ", err);
   });
 };
 
@@ -241,7 +241,7 @@ RenderManager.prototype._loop = function () {
                  .equals(id)
                  .delete()
       }).then(() => {
-        Messaging.send("renderUpdated");
+        Messaging.send("renders.update");
         return this._loop();
       });
     }).catch((err) => {
@@ -249,7 +249,7 @@ RenderManager.prototype._loop = function () {
       if (err === "cancelled") {
         return this._loop();
       } else {
-        logger.error("Error in rendering: %o.", err);
+        logger.error("Error in rendering: ", err);
       }
     });
   });

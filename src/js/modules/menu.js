@@ -13,6 +13,7 @@ require('bootstrap-material-design');
 var CardTable = require('./card-table');
 var Constraints = require('./constraints');
 var Dialog = require('./dialog');
+var FailedReplays = require('./failed-replays');
 var Messaging = require('./messaging');
 var NotificationList = require('./notification-list');
 var Progress = require('./progress');
@@ -26,6 +27,8 @@ var Upload = require('./upload');
 var Util = require('./util');
 
 var logger = require('./logger')('menu');
+
+logger.info('Starting Menu');
 
 // Moment calendar customization for date display.
 moment.updateLocale('en', {
@@ -43,85 +46,17 @@ var viewer = new Viewer();
 var progress = new Progress('progress-dialog');
 var dialog = new Dialog('dialog');
 
-/*
-dialog.addEventListener('iron-overlay-closed', (e) => {
-  logger.debug('iron-overlay-closed');
-});
+// Testing.
 
-dialog.addEventListener('iron-overlay-cancelled', (e) => {
-  logger.debug('iron-overlay-cancelled');
-});
-*/
-function ProgressTest(number, delay) {
-  EventEmitter.call(this);
-  this.progress = {
-    total: number,
-    current: 0
-  };
-  this.status = "pending";
-  this.cancellable = true;
-  var int = setInterval(() => {
-    if (++this.progress.current == this.progress.total) {
-      this.status = "fulfilled";
-      clearInterval(int);
+$('#example-error-test').click(() => {
+  logger.info('Error test clicked.');
+  Messaging.send('test.error').then((err, result) => {
+    logger.info('Error test returned.');
+    if (err) {
+      logger.info(err);
     }
-    this.emit('update');
-  }, delay);
-}
-util.inherits(ProgressTest, EventEmitter);
-
-$('#example-progress').click(() => {
-  progress.open(new ProgressTest(50, 500));
-});
-
-$('#example-toast').click(() => {
-  var toast = new Toast({
-    id: 'toast',
-    duration: 5000,
-    text: 'This is a test',
-    action: 'close'
   });
-});
-
-// UI-specific code
-// Handling multiple modals
-// http://miles-by-motorcycle.com/fv-b-8-670/stacking-bootstrap-dialogs-using-event-callbacks
-$(() => {
-  $('.modal').on('hidden.bs.modal', function () {
-    $(this).removeClass('fv-modal-stack');
-    $('#tpr-container').data('open_modals',
-            $('#tpr-container').data('open_modals') - 1);
-  });
-
-  $('.modal').on('shown.bs.modal', (e) => {
-    // keep track of the number of open modals
-    if (typeof($('#tpr-container').data('open_modals')) == 'undefined') {
-      $('#tpr-container').data('open_modals', 0);
-    }
-
-    // if the z-index of this modal has been set, ignore.
-    if ($(this).hasClass('fv-modal-stack')) {
-      return;
-    }
-
-    $(this).addClass('fv-modal-stack');
-
-    $('#tpr-container').data('open_modals',
-            $('#tpr-container').data('open_modals') + 1);
-
-    $(this).css('z-index',
-            1040 + (10 * $('#tpr-container').data('open_modals')));
-
-    $('.modal-backdrop').not('.fv-modal-stack').css(
-            'z-index',
-            1039 + (10 * $('#tpr-container').data('open_modals'))
-        );
-
-    $('.modal-backdrop').not('fv-modal-stack')
-            .addClass('fv-modal-stack');
-  });
-});
-
+})
 // ============================================================================
 // Routing
 // ============================================================================
@@ -146,10 +81,10 @@ page('/failed', () => {
   cardSwitch("failed");
 });
 
-page('/settings', () => {
+/*page('/settings', () => {
   logger.info("Page: settings.");
   //togglePanel(".nav-failed", "#failed-replays");
-});
+});*/
 
 page('*', () => {
   logger.warn("Page: not found!");
@@ -173,6 +108,7 @@ function cardSwitch(name) {
 // ============================================================================
 // Replay import.
 // ============================================================================
+
 // TODO: pause table update while importing.
 // TODO: disable upload when full.
 var upload = new Upload("replay-import");
@@ -359,7 +295,6 @@ var replay_table = new CardTable({
       singular: "replay",
       plural: "replays"
     },
-    // TODO: Deselect automatically?
     actions: [{
       name: "render",
       icon: 'movie_creation',
@@ -367,8 +302,6 @@ var replay_table = new CardTable({
       callback: (ids) => {
         logger.info("Rendering replays.");
         Replays.select(ids).render().catch((err) => {
-          // TODO: Handle error.
-          // tag:dialog
           dialog.open({
             type: 'error',
             message: 'Error starting rendering',
@@ -404,8 +337,6 @@ var replay_table = new CardTable({
               task.undo().then(() => {
                 replay_table.reload();
               }).catch((err) => {
-                // TODO: Dialog error.
-                // tag:dialog
                 dialog.open({
                   type: 'error',
                   message: 'Error restoring replays',
@@ -415,10 +346,6 @@ var replay_table = new CardTable({
             }
           });
         }).catch((err) => {
-          // TODO: Handle error cases.
-          // tag:dialog
-          // internal error
-          // empty selection.
           dialog.open({
             type: 'error',
             message: 'Error deleting replays',
@@ -432,13 +359,8 @@ var replay_table = new CardTable({
       title: 'download selected',
       callback: (ids) => {
         Replays.select(ids).download().then((activity) => {
-          // TODO: hook into progress for UI update.
-          // tag:progress
-          // tag:interface
           progress.open(activity);
         }).catch((err) => {
-          // TODO: Handle errors
-          // tag:dialog.
           dialog.open({
             type: "error",
             message: "Error downloading replays",
@@ -462,14 +384,12 @@ var replay_table = new CardTable({
           replay: replay
         };
       });
-      // TODO: Move this.
-      $(".nav-home .badge").text(result.total);
       return {
         data: list,
         total: result.total
       };
     }).catch((err) => {
-      logger.error("Could not retrieve list: %O", err);
+      logger.error("Could not retrieve list: ", err);
       // Rethrow.
       throw err;
     });
@@ -578,31 +498,6 @@ var replay_table = new CardTable({
   }
 });
 
-////////////////////////////
-// Table header controls. //
-////////////////////////////
-// Rendering replays.
-$('#replays .card-header .actions .render').click(() => {
-  var ids = replay_table.selected();
-  replay_table.deselect(ids);
-  
-});
-
-// Deleting replays.
-$('#replays .card-header .actions .delete').click(() => {
-  var ids = replay_table.selected();
-  logger.info("Deleting replays.");
-  replay_table.deselect(ids);
-  
-});
-
-// Downloading raw replays.
-$('#replays .card-header .actions .download-raw').click(() => {
-  var ids = replay_table.selected();
-  
-  // dismissable
-});
-
 //////////////////////////////////////
 // Dynamic CSS and content updates. //
 //////////////////////////////////////
@@ -616,9 +511,7 @@ replay_notification_list.addListener(() => {
   replay_table.recalcMaxHeight();
 });
 
-// Listen for updates.
-Messaging.listen(["replayUpdated", "replaysUpdated", "renderUpdated", "rendersUpdated"],
-function () {
+Replays.on('update', () => {
   // Don't update if importing.
   replay_table.reload();
   updateFullNotifications();
@@ -685,13 +578,15 @@ var failed_replay_table = new CardTable({
       icon: 'file_download',
       title: 'download selected',
       callback: (ids) => {
-        logger.info('Requesting raw json download for ' + ids + '.');
-        Messaging.send("downloadFailedReplays", {
-          ids: ids
-        }, (response) => {
-          if (response.failed) {
-            alert("Failed replay download failed: " + response.reason);
-          }
+        logger.info(`Requesting raw json download for ${ids}`);
+        FailedReplays.select(ids).download().then((activity) => {
+          progress.open(activity);
+        }).catch((err) => {
+          dialog.open({
+            type: 'error',
+            title: 'Error downloading failed replays',
+            error: err
+          });
         });
       }
     }, {
@@ -713,12 +608,8 @@ var failed_replay_table = new CardTable({
       length: data.length,
       start: data.start
     };
-        // TODO: Transition to promise.
-    return Promise.resolve({
-      data: [],
-      total: 0
-    });
-    Messaging.send("getFailedReplayList", args, (response) => {
+
+    return FailedReplays.query(args).then((response) => {
       var list = response.data.map((info) => {
         return {
           id: info.id,
@@ -726,14 +617,13 @@ var failed_replay_table = new CardTable({
         };
       });
       if (response.total === 0) {
-                // Remove table.
-        self.failed_replay_table.table.destroy(true);
+        // Remove table.
+        failed_replay_table.table.destroy(true);
       } else {
-        $(".nav-failed .badge").text(response.total);
-        callback({
+        return {
           data: list,
           total: response.tota
-        });
+        };
       }
     });
   },
@@ -767,88 +657,12 @@ failed_replay_table.table.on("destroy", () => {
   if ($(".nav-failed").hasClass("active")) {
     $(".nav-home").click();
   }
-    // Remove nav.
+  // Remove nav.
   $(".nav-failed").remove();
 });
 
 Messaging.listen("failedReplaysUpdated", () => {
   failed_replay_table.reload();
-});
-
-// Download-relevant listeners.
-var download = {
-  error: null
-};
-
-Messaging.listen("failed.zipProgress", (message) => {
-  overlay.update({
-    progress: message.current / message.total,
-    message: "Adding failed replay " + message.current + " of " + message.total + "."
-  });
-});
-
-Messaging.listen("failed.intermediateZipDownload", () => {
-  overlay.update({
-    message: "Zip file reached capacity, downloading..."
-  });
-});
-
-Messaging.listen("failed.finalZipDownload", () => {
-  overlay.update({
-    message: "Downloading final zip file..."
-  });
-});
-
-var downloadError = false;
-Messaging.listen("failed.downloadError", (message) => {
-  download.error = message.reason;
-});
-
-// Display json downloading message.
-// TODO: new states for this.
-Status.on("failed.json_downloading", () => {
-  overlay.set({
-    title: 'Downloading Raw Data',
-    description: 'Zip files are being generated containing the data from your failed replays.',
-    message: 'Initializing zip file generation...',
-    progress: true
-  });
-  overlay.show();
-});
-
-// Display finish message.
-// TODO: new states for this.
-Status.on("failed.json_downloading->idle", () => {
-  var error = download.error;
-  download.error = null;
-  if (error) {
-    var reason = error;
-        // Change overlay to display error.
-        // add dismiss
-    overlay.set({
-      description: "There was an error downloading your replays: " + error + ".",
-      message: "",
-      actions: [{
-        text: "dismiss",
-        action: function () {
-          overlay.hide();
-        }
-      }]
-    });
-  } else {
-    overlay.set({
-      description: "Your failed replays will be downloading shortly (depending on file size). " +
-                "There is either an error with the replay itself or something unexpected was encountered. " +
-                "If you send me a message through one of the options on the Help menu, we can get it figured out!",
-      message: "",
-      actions: [{
-        text: "dismiss",
-        action: function () {
-          overlay.hide();
-        }
-      }]
-    });
-  }
 });
 
 // ============================================================================
@@ -866,42 +680,39 @@ var render_table = new CardTable({
       name: 'cancel',
       icon: 'cancel',
       callback: (ids) => {
-        Messaging.send("cancelRenders", {
-          ids: ids
+        Renders.select(ids).cancel().catch((err) => {
+          dialog.open({
+            type: 'error',
+            title: 'Error cancelling renders',
+            error: err
+          });
         });
       }
     }]
   },
-  ajax: function (data, callback) {
+  ajax: function (data) {
     var args = {
       length: data.length,
       dir: data.dir,
       start: data.start
     };
-        // TODO: Actual promise implementation.
-    return Promise.resolve({
-      data: [],
-      total: 0
-    });
-
-    Messaging.send("getRenderList", args, (response) => {
-      var list = response.data.map((task) => {
+    return Renders.query(args).then((result) => {
+      var list = result.data.map((task) => {
         return {
           name: task.data.name,
           date: moment(task.data.date),
-          id: task.replay_id,
-          DT_RowData: {
-            id: task.replay_id
-          },
-          DT_RowId: "render-" + task.replay_id
+          id: task.replay_id
         };
       });
-      $(".nav-render .badge").text(response.total);
-      callback({
+      return {
         data: list,
-        draw: data.draw,
-        recordsTotal: response.total,
-        recordsFiltered: response.filtered
+        total: result.total
+      };
+    }).catch((err) => {
+      dialog.open({
+        type: 'error',
+        title: 'Error retrieving render list',
+        error: err
       });
     });
   },
@@ -946,9 +757,13 @@ var render_table = new CardTable({
         enabled: true,
         callback: (id) => {
           logger.info(`Requesting render cancellation for replay ${id}.`);
-          Messaging.send("cancelRender", {
-            id: id
-          });
+          Renders.select(id).cancel().catch((err) => {
+            dialog.open({
+              type: 'error',
+              title: 'Error cancelling render',
+              error: err
+            });
+          })
         }
       }]
     }
@@ -984,7 +799,7 @@ Messaging.listen("replayRenderProgress", (message, sender) => {
   } // else render table not yet set up.
 });
 
-Messaging.listen(["renderUpdated", "rendersUpdated"], () => {
+Renders.on('update', () => {
   render_table.reload();
 });
 

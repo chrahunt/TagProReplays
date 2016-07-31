@@ -4,6 +4,7 @@ require('bootstrap');
 
 var Messaging = require('./messaging');
 var Renderer = require('./renderer');
+var Renders = require('./renders');
 var Replays = require('./replays');
 var Storage = require('./storage');
 var Textures = require('./textures');
@@ -212,9 +213,7 @@ Viewer.prototype.init = function () {
     if (confirm('Are you sure you want to render this replay?')) {
       this.close();
       logger.info(`Requesting render of replay ${this.id}.`);
-      Messaging.send("renderReplay", {
-        id: this.id
-      });
+      Renders.add(this.id);
     }
   });
 

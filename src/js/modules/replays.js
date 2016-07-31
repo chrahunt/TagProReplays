@@ -7,10 +7,13 @@ var Constraints = require('./constraints');
 var Data = require('./data');
 var FileListStream = require('./html5-filelist-stream');
 var Messaging = require('./messaging');
+var Renders = require('./renders');
 var ReplayImportStream = require('./replay-import-stream');
 var ZipFiles = require('./zip-files');
 
 var logger = require('./logger')('replays');
+
+logger.info('Starting Replays');
 
 // TODO: prevent upgrade occurring on foreground page.
 Data.init().then(() => {
@@ -22,6 +25,9 @@ function Replays() {
   // Listen for db changes
   // - emit full
   // - emit
+  Messaging.listen('replays.update', () => {
+    this.emit('update');
+  });
 }
 util.inherits(Replays, EventEmitter);
 
@@ -78,18 +84,7 @@ function Selection(ids) {
 // replays
 Selection.prototype.render = function () {
   // Check if rendering/rendered
-  // return progress
-  return new Promise((resolve, reject) => {
-    Messaging.send("renderReplays", {
-      ids: this.ids
-    }, function (response) {
-      // TODO: reject if bad.
-      // empty
-      // other error
-      // already rendering.
-      resolve();
-    });
-  });
+  return Renders.add(this.ids);
 };
 
 // replays + failed
@@ -100,14 +95,12 @@ Selection.prototype.render = function () {
 Selection.prototype.remove = function () {
   logger.info("Selection#remove");
   // Cancel any in-progress renders.
-  return Messaging.send("cancelRenders", {
-    ids: this.ids
-  }).then((err) => {
+  return Renders.select(this.ids).cancel().then((err) => {
     // TODO: proper API between background page and us.
     if (err) throw err;
   }).then(() => {
     return Data.recycleReplays(this.ids).catch((err) => {
-      logger.error("Error recycling replays: %O", err);
+      logger.error("Error recycling replays: ", err);
       throw err;
     });
   }).then((ids) => {
@@ -201,7 +194,7 @@ Selection.prototype.download = function () {
       }
       saveAs(blob, `${filename}.json`);
     }).catch((err) => {
-      logger.error("Error retrieving replay: %o.", err);
+      logger.error("Error retrieving replay: ", err);
       throw err;
     });
   } else {
@@ -215,10 +208,10 @@ Selection.prototype.download = function () {
       zip_name: "replays"
     });
     zipfiles.on("generating_int_zip", () => {
-      Messaging.send("intermediateZipDownload");
+      // TODO: Update message.
     });
     zipfiles.on("generating_final_zip", () => {
-      Messaging.send("finalZipDownload");
+      // TODO: Update message.
     });
     zipfiles.on("file", () => {
       activity.update(this.ids.length, ++files);
@@ -239,7 +232,7 @@ Selection.prototype.download = function () {
       // TODO: Send message about failure.
       Messaging.send("downloadError", err);
       // err.message
-      logger.error("Error compiling raw replays into zip: %o.", err);
+      logger.error("Error compiling raw replays into zip: ", err);
       zipfiles.done(true);
     });
     return Promise.resolve(activity);
@@ -264,16 +257,40 @@ Replay.prototype.data = function () {
   return Data.getReplay(this.id);
 };
 
+/**
+ * Request has id, start, end, name.
+ */
 Replay.prototype.crop = function () {
 
 };
 
 Replay.prototype.save = function () {
   // Check for render, remove if rendered.
+  // Check for rendering, remove task if so.
+  // emit update.
 };
 
+/**
+ * Save replay with a different name.
+ * 
+ * Returns the new replay?
+ */
 Replay.prototype.saveAs = function (name) {
 
+};
+
+Replay.prototype.downloadMovie = function () {
+  return Data.getMovie(this.id).then((file) => {
+    var movie = new Blob([file.data], { type: 'video/webm' });
+    var filename = sanitize(file.name);
+    if (filename === "") {
+      filename = "replay";
+    }
+    return {
+      data: movie,
+      name: `${filename}.webm`
+    };
+  });
 };
 
 /**

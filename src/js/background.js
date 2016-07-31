@@ -4,21 +4,15 @@ require('source-map-support').install({
 });
 
 var cmp = require('semver-compare');
-var sanitize = require('sanitize-filename');
-var saveAs = require('file-saver');
 
-var convert = require('./modules/convert');
-var Constraints = require('./modules/constraints');
 var Data = require('./modules/data');
 var fsm = require('./modules/state');
 var fs = require('./modules/filesystem');
 var Messaging = require('./modules/messaging');
 var RenderManager = require('./modules/rendermanager');
-var Status = require('./modules/status');
 var Storage = require('./modules/storage');
 var Textures = require('./modules/textures');
 var validate = require('./modules/validate');
-var ZipFiles = require('./modules/zip-files');
 var Subsystems = require('./modules/subsystem');
 
 var logger = require('./modules/logger')('background');
@@ -54,7 +48,7 @@ chrome.runtime.onInstalled.addListener((details) => {
       Storage.clear().then(() => {
         chrome.runtime.reload();
       }).catch((err) => {
-        logger.warn("Error clearing storage: %o.", err);
+        logger.warn("Error clearing storage: ", err);
         // TODO: handle.
       });
     }
@@ -68,6 +62,8 @@ Messaging.listen("openMenu", route);
 
 var menu_tab = null;
 // Set router for menu page.
+// TODO: Use this as an indicator that someone is trying to access
+// the main page and pause rendering in advance.
 function route() {
   if (menu_tab === null) {
     // Create new page and give it focus.
@@ -139,12 +135,12 @@ Data.events.on("db:open", () => {
 });
 
 Data.events.on("db:err", (e) => {
-  logger.error("DB error: %O", e);
+  logger.error("DB error: ", e);
   fsm.handle("db-error");
 });
 
 Data.events.on("db:err:upgrade", (e) => {
-  logger.error("DB upgrade error: %O", e);
+  logger.error("DB upgrade error: ", e);
   fsm.handle("db-migrate-err");
 });
 
@@ -166,45 +162,33 @@ Data.events.on("db:err:upgrade", (e) => {
  * @param {Function} callback - Callback takes boolean indicating
  *   error.
  */
-Messaging.listen("saveReplay", (message, sender, sendResponse) => {
+Messaging.listen("saveReplay", (message) => {
   var replay = JSON.parse(message.data);
   // TODO: Validate replay. If invalid, save to other object store.
   var startFrame = replay.data.time.findIndex(
     (t) => t !== null);
   if (startFrame == -1) {
     // No data captured.
-    sendResponse({
-      failed: true,
-      reason: "No replay data captured."
-    });
+    return Promise.reject(new Error("No replay data captured."));
   } else {
     // Get first player frame.
     var mainPlayer = replay.data.players[replay.info.player];
     var playerStartFrame = mainPlayer.draw.findIndex(
       (d) => d !== null);
     if (playerStartFrame == -1) {
-      sendResponse({
-        failed: true,
-        reason: "Error saving for specific player."
-      });
+      return Promise.reject(new Error("Error saving for specific player."));
     } else {
       startFrame = Math.max(startFrame, playerStartFrame);
       replay = Data.util.cropReplay(replay, startFrame, replay.data.time.length);
-      Data.saveReplay(replay).then((info) => {
-        sendResponse({
-          failed: false
-        });
+      return Data.saveReplay(replay).then((info) => {
         // Send new replay notification to any listening pages.
-        Messaging.send("replayUpdated");
+        Messaging.send("replays.update");
       }).catch((err) => {
-        logger.error("Error saving replay: %o.", err);
-        sendResponse({
-          failed: true
-        });
+        logger.error("Error saving replay: ", err);
+        throw err;
       });
     }
   }
-  return true;
 });
 
 // ============================================================================
@@ -234,9 +218,9 @@ Messaging.listen("cropAndReplaceReplay", (message, sender, sendResponse) => {
       data: replay,
       failed: false
     });
-    Messaging.send("replayUpdated");
+    Messaging.send("replays.update");
   }).catch((err) => {
-    logger.error("Error cropping and replacing replay: %o", err);
+    logger.error("Error cropping and replacing replay: ", err);
   });
   return true;
 });
@@ -265,154 +249,9 @@ Messaging.listen("cropReplay", (message, sender, sendResponse) => {
       data: replay,
       failed: false
     });
-    Messaging.send("replayUpdated");
+    Messaging.send("replays.update");
   }).catch((err) => {
-    logger.error("Error cropping and saving replay: %o", err);
-  });
-  return true;
-});
-
-fsm.on("download-start", () => {
-  manager.pause();
-});
-
-fsm.on("download-end", () => {
-  manager.resume();
-});
-
-/**
- * Get the number of replays currently saved.
- */
-Messaging.listen("getNumReplays",
-(message, sender, sendResponse) => {
-  Data.getDatabaseInfo().then((info) => {
-    sendResponse(info);
-  }).catch((err) => {
-    logger.error("Error retrieving movie for download: %o.", err);
-  });
-  return true;
-});
-
-// ============================================================================
-// Failed replays
-// ============================================================================
-
-Messaging.listen("failedReplaysExist",
-(message, sender, sendResponse) => {
-  Data.failedReplaysExist().then((b) => {
-    sendResponse(b);
-  }).catch((err) => {
-    logger.warn("Error retrieving failed replays: %o.", err);
-  });
-  return true;
-});
-
-Messaging.listen("getFailedReplayList",
-(message, sender, sendResponse) => {
-  Data.getFailedReplayInfoList(message).then((data) => {
-    sendResponse({
-      data: data[1],
-      total: data[0],
-      filtered: data[0]
-    });
-  }).catch((err) => {
-    logger.error("Error getting failed replay list: %o.", err);
-  });
-  return true;
-});
-
-Messaging.listen(["deleteFailedReplay", "deleteFailedReplays"],
-(message) => {
-  // Check if single or multiple replays and normalize.
-  var ids = message.id ? [message.id] : message.ids;
-
-  Data.deleteFailedReplays(ids).then(() => {
-    Messaging.send("failedReplaysUpdated");
-  }).catch((err) => {
-    logger.error("Error deleting failed replays: %o.", err);
-  });
-});
-
-Messaging.listen(["downloadFailedReplay", "downloadFailedReplays"],
-(message, sender, sendResponse) => {
-  logger.info("Attempted download of failed replays.");
-  // Validate the number of replays.
-  var ids = message.id ? [message.id] : message.ids;
-  lock.get("failed.replay_download").then(() => {
-    manager.pause();
-    Status.set("failed.json_downloading").then(() => {
-      var zipfiles = new ZipFiles({
-        default_name: "failed_replay",
-        zip_name: "failed_replays"
-      });
-
-      // Total file download counter.
-      var files = 0;
-      zipfiles.on("file", () => {
-        files++;
-        Messaging.send("failed.zipProgress", {
-          total: ids.length,
-          current: files
-        });
-        // TODO: Alert about file processing.
-      });
-      // Reset download state.
-      zipfiles.on("end", () => {
-        manager.resume();
-        Status.reset().then(() => {
-          lock.release("failed.replay_download");
-        }).catch((err) => {
-          logger.error("Error resetting status: %o.", err);
-        });
-      });
-
-      // Hold array of reasons for set of files.
-      var reasons = [];
-      function addReasons() {
-        var text = reasons.map((info) => {
-          return `${info.name} (${info.failure_type}) [${info.timestamp}]: ${info.message}`;
-        }).join("\n");
-        zipfiles.addFile({
-          filename: "failure_info",
-          ext: "txt",
-          contents: text
-        });
-        reasons = [];
-      }
-      zipfiles.on("generating_int_zip", () => {
-        Messaging.send("failed.intermediateZipDownload");
-        // Add text file with reasons to zip file.
-        addReasons();
-      });
-      zipfiles.on("generating_final_zip", () => {
-        Messaging.send("failed.finalZipDownload");
-        addReasons();
-      });
-      // Get information for each failed replay downloading.
-      return Data.getFailedReplayInfoById(ids).then((info) => {
-        return Data.forEachFailedReplay(ids, (data, id) => {
-          reasons.push(info[id]);
-          zipfiles.addFile({
-            filename: data.name,
-            ext: "json",
-            contents: data.data
-          });
-        });
-      }).then(() => {
-        zipfiles.done();
-      }).catch((err) => {
-        // TODO: Send message about failure.
-        Messaging.send("failed.downloadError", err);
-        // err.message
-        logger.error("Error compiling raw replays into zip: %o.", err);
-        zipfiles.done(true);
-      });
-    });
-  }).catch(() => {
-    sendResponse({
-      failed: true,
-      reason: "Background page busy."
-    });
+    logger.error("Error cropping and saving replay: ", err);
   });
   return true;
 });
@@ -424,48 +263,51 @@ Messaging.listen(["downloadFailedReplay", "downloadFailedReplays"],
 /**
  * Retrieve the queue of rendering replays.
  */
-Messaging.listen("getRenderList", (message, sender, sendResponse) => {
-  manager.getQueue(message).then((data) => {
-    sendResponse({
+Messaging.listen('renders.query', (message) => {
+  return manager.getQueue(message).then((data) => {
+    return {
       data: data[1],
-      total: data[0],
-      filtered: data[0]
-    });
+      total: data[0]
+    };
   }).catch((err) => {
-    logger.error("Error getting render list: %o.", err);
+    logger.error("Error getting render list: ", err);
+    // Re-throw, let the Messenger handle it.
+    throw err;
   });
-  return true;
 });
 
 /**
  * Initial request to render replay into a movie.
- * @param {object} message - object with a property `id` which
+ * @param {object} message - object with a property `ids` which
  *   is an integer id of the replay to render.
  */
-Messaging.listen(["renderReplay", "renderReplays"], (message) => {
-  var ids = message.id ? [message.id] : message.ids;
+Messaging.listen('renders.add', (message) => {
+  var ids = message.ids;
   logger.info('Received request to render replay(s) ' + ids + '.');
-  manager.add(ids).then(() => {
-    Messaging.send("renderUpdated");
-    Messaging.send("replayUpdated");
+  return manager.add(ids).then(() => {
+    Messaging.send("renders.update");
+    Messaging.send("replays.update");
   }).catch((err) => {
-    logger.error("Error adding replays to render queue: %o", err);
+    logger.error("Error adding replays to render queue: ", err);
+    throw err;
   });
 });
 
 /**
  * Cancel the rendering of one or more replays.
  */
-Messaging.listen(["cancelRender", "cancelRenders"],
-(message, sender, sendResponse) => {
-  var ids = message.id ? [message.id] : message.ids;
-  manager.cancel(ids).then(() => {
-    Messaging.send("rendersUpdated");
-    Messaging.send("replaysUpdated");
-    sendResponse();
+Messaging.listen('renders.cancel', (message) => {
+  var ids = message.ids;
+  return manager.cancel(ids).then(() => {
+    Messaging.send("renders.update");
+    Messaging.send("replays.update");
   }).catch((err) => {
-    logger.error("Error cancelling renders: %o.", err);
-    sendResponse(err);
+    logger.error("Error cancelling renders: ", err);
+    throw err;
   });
-  return true;
+});
+
+// Testing.
+Messaging.listen('test.error', () => {
+  return Promise.reject(new Error("Test"));
 });

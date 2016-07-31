@@ -61,10 +61,8 @@ $card-table-footer-height: 56px;
         }
     }
 
-    // content row styles
+    // Header and content row styles.
     tr {
-        //height: $card-table-row-height;
-
         // Checkbox.
         th:first-child, td:first-child {
             padding-left: 24px;
@@ -90,7 +88,10 @@ $card-table-footer-height: 56px;
         td {
             height: $card-table-row-height;
         }
+    }
 
+    // Content rows.
+    tbody tr {
         &:hover {
             background-color: #EEEEEE;
         }
@@ -99,6 +100,7 @@ $card-table-footer-height: 56px;
             background-color: #F5F5F5;
         }
     }
+
     // Processing
     tr.processing {
         th {
@@ -116,6 +118,7 @@ $card-table-footer-height: 56px;
             }
         }
     }
+
     table-layout: fixed;
     margin-bottom: 0;
 
