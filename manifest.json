@@ -1,18 +1,61 @@
 {
-   "background": {
-      "persistent": true,
-      "scripts": [ "background.js", "map_draw_functions.js", "createFileSystem.js", "whammy.js", "jquery.js", "jszip.min.js", "FileSaver.min.js", "drawPreview.js" ]
-   },
-   "content_scripts": [ {
-      "exclude_matches": [ "http://support.koalabeast.com/*" ],
-      "js": [ "jquery.js", "map_draw_functions.js", "TagProReplays.js", "in-page-preview.js", "loadTextures.js", "ui/bootstrap.min.js" ],
-      "matches": [ "http://*.koalabeast.com/*", "http://*.newcompte.fr/*", "http://tangent.jukejuice.com/*" ],
-      "run_at": "document_end"
-   } ],
-   "description": "Save Replays from within TagPro Games",
-   "manifest_version": 2,
-   "name": "TagProReplays",
-   "permissions": [ "storage", "unlimitedStorage" ],
-   "version": "1.2.28",
-   "web_accessible_resources": [ "replayRecording.js", "tiles.png", "portal.png", "speedpad.png", "speedpadred.png", "speedpadblue.png", "tagpro.png", "rollingbomb.png", "splats.png", "flair.png", "ui/menus.css", "ui/menus.html", "ui/menus.js", "ui/bootstrap.min.css", "ui/bootstrap.css", "ui/glyphicons-halflings-regular.eot", "ui/glyphicons-halflings-regular.svg", "ui/glyphicons-halflings-regular.ttf", "ui/glyphicons-halflings-regular.woff" ]
+  "manifest_version": 2,
+  "name": "TagProReplays",
+  "version": "1.2.29",
+  "description": "Save Replays from within TagPro Games",
+  "permissions": [
+    "storage",
+    "unlimitedStorage"
+  ],
+  "background": {
+    "persistent": true,
+    "scripts": [
+      "background.js",
+      "map_draw_functions.js",
+      "createFileSystem.js",
+      "whammy.js",
+      "jquery.js",
+      "jszip.min.js",
+      "FileSaver.min.js",
+      "drawPreview.js"
+    ]
+  },
+  "content_scripts": [{
+    "exclude_matches": [ "http://support.koalabeast.com/*" ],
+    "js": [
+      "jquery.js",
+      "map_draw_functions.js",
+      "TagProReplays.js",
+      "in-page-preview.js",
+      "loadTextures.js",
+      "ui/bootstrap.min.js"
+    ],
+    "matches": [
+      "http://*.koalabeast.com/*",
+      "http://*.newcompte.fr/*",
+      "http://tangent.jukejuice.com/*"
+    ],
+    "run_at": "document_end"
+  }],
+  "web_accessible_resources": [
+    "replayRecording.js",
+    "tiles.png",
+    "portal.png",
+    "speedpad.png",
+    "speedpadred.png",
+    "speedpadblue.png",
+    "tagpro.png",
+    "rollingbomb.png",
+    "splats.png",
+    "flair.png",
+    "ui/menus.css",
+    "ui/menus.html",
+    "ui/menus.js",
+    "ui/bootstrap.min.css",
+    "ui/bootstrap.css",
+    "ui/glyphicons-halflings-regular.eot",
+    "ui/glyphicons-halflings-regular.svg",
+    "ui/glyphicons-halflings-regular.ttf",
+    "ui/glyphicons-halflings-regular.woff"
+  ]
 }
