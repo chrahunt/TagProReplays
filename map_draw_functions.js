@@ -97,7 +97,7 @@ function drawChats(positions) {
 
 
 function drawPowerups(ball, ballx, bally, positions) {
-    if (positions[ball].tagpro[thisI] == true) {
+    if (positions[ball].tagpro[thisI] != false) {
         context.drawImage(tagproImg,
             0,
             0,
@@ -108,7 +108,7 @@ function drawPowerups(ball, ballx, bally, positions) {
             tileSize,
             tileSize)
     }
-    if (positions[ball].bomb[thisI] == true) {
+    if (positions[ball].bomb[thisI] != false) {
         if (Math.round(Math.random() * 4) == 1) {
             context.drawImage(rollingbombImg,
                 0,
@@ -121,7 +121,7 @@ function drawPowerups(ball, ballx, bally, positions) {
                 tileSize)
         }
     }
-    if (positions[ball].grip[thisI] == true) {
+    if (positions[ball].grip[thisI] != false) {
         context.drawImage(img,
             12 * tileSize,
             4 * tileSize,
