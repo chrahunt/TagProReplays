@@ -75,7 +75,7 @@ getRenderedMovieNames = function(fs, directory, secondArguments) {
 }
 
 // function that creates and fills a file
-function saveMovieFile(fs, directory, secondArguments) {
+saveMovieFile = function(fs, directory, secondArguments) {
     function errorHandler(err) {
         var msg = 'An error occured: ';
         switch (err.code) {
