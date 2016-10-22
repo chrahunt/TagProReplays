@@ -1,3 +1,7 @@
+(function() {
+var logger = Logger('loadTextures');
+logger.info('loadTextures');
+
 saveTextureSettings = function () {
     // read files values
     imageData = {}
@@ -73,3 +77,4 @@ saveTextureSettings = function () {
 		})
     }, 100)
 }
+})();

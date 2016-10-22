@@ -1,7 +1,7 @@
 ////////////////////////////////////////////
 //           Recording Section            //
 ////////////////////////////////////////////
-
+(function() {
 function createZeroArray(N) {
     return (Array.apply(null, {length: N}).map(Number.call, function () {
         return (0)
@@ -484,28 +484,17 @@ listen('positionDataConfirmation', function () {
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton() {
-    var recordButton = document.createElement("img")
-    recordButton.id = 'recordButton'
-    recordButton.src = 'http://i.imgur.com/oS1bPqR.png'
+    var recordButton = document.createElement("img");
+    recordButton.id = 'recordButton';
+    
     recordButton.onclick = function () {
         saveReplayData(positions)
     }
-    recordButton.style.position = "absolute"
-    recordButton.style.margin = "auto"
-    recordButton.style.right = "30px"
-    recordButton.style.top = "65px"
-    recordButton.style.cursor = "pointer"
     $('body').append(recordButton)
 
     var savedFeedback = document.createElement('a')
     savedFeedback.id = 'savedFeedback'
     savedFeedback.textContent = 'Saved!'
-    savedFeedback.style.right = '20px'
-    savedFeedback.style.top = '100px'
-    savedFeedback.style.position = "absolute"
-    savedFeedback.style.color = '#00CC00'
-    savedFeedback.style.fontSize = '20px'
-    savedFeedback.style.fontWeight = 'bold'
     $('body').append(savedFeedback)
     $(savedFeedback).hide()
 
@@ -532,4 +521,4 @@ if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
 		}, 1000);
 	})
 }
-
+})();

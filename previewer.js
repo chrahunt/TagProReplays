@@ -1,3 +1,4 @@
+(function() {
 function readCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
@@ -27,7 +28,7 @@ function assignTexture(imgElement, textureName) {
 }
 
 // Create and display UI for in-browser preview.
-function createReplay(positions) {
+createReplay = function(positions) {
     // Initialize values
     thisI = 0
     // Get player that corresponds to recording user ball.
@@ -736,3 +737,4 @@ function createReplay(positions) {
     can.style.opacity = 1
     showButtons()
 }
+})();

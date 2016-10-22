@@ -1,23 +1,6 @@
-// Cookie functions.
-function readCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-}
-
-function setCookie(name, value, domain) {
-    var now = new Date();
-    var time = now.getTime();
-    var expireTime = time + 1000 * 60 * 60 * 24 * 365;
-    now.setTime(expireTime);
-    document.cookie = name + '=' + value + ';expires=' + now.toGMTString() + ';path=/; domain=' + domain;
-    console.log('cookie: name=' + name + ' value=' + value + ' expires=' + now.toGMTString() + ' domain=' + domain);
-}
+(function() {
+var logger = Logger('menu');
+logger.info('TagProReplays');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
@@ -53,7 +36,7 @@ function createMenu() {
 
     // Retrieve html of all items
     $('#tpr-container').load(chrome.extension.getURL("ui/menus.html"), function () {
-        console.log("Loaded.");
+        logger.info("Loaded.");
            $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
 
         /* UI-specific code */
@@ -236,7 +219,7 @@ function createMenu() {
                 }
             });
             if (replaysToRender.length > 0) {
-                console.log(replaysToRender);
+                logger.info(replaysToRender);
                 if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
                     chrome.runtime.sendMessage({
                         method: 'renderAllInitial',
@@ -249,7 +232,7 @@ function createMenu() {
                         canvasWidth: isNaN($('#canvasWidthInput').val()) ? 1280 : Number($('#canvasWidthInput').val()),
                         canvasHeight: isNaN($('#canvasHeightInput').val()) ? 800 : Number($('#canvasHeightInput').val())
                     });
-                    console.log('sent request to render multiple replays: ' + replaysToRender);
+                    logger.info('sent request to render multiple replays: ' + replaysToRender);
                 }
             }
         }
@@ -267,7 +250,7 @@ function createMenu() {
 
             if (replaysToDelete.length > 0) {
                 if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-                    console.log('requesting to delete ' + replaysToDelete);
+                    logger.info('requesting to delete ' + replaysToDelete);
                     chrome.runtime.sendMessage({
                         method: 'requestDataDelete',
                         fileName: replaysToDelete
@@ -288,7 +271,7 @@ function createMenu() {
             });
             
             if (rawDataToDownload.length > 0) {
-                console.log('requesting to download raw data for ' + rawDataToDownload);
+                logger.info('requesting to download raw data for ' + rawDataToDownload);
                 chrome.runtime.sendMessage({
                     method: 'requestDataForDownload',
                     files: rawDataToDownload
@@ -505,7 +488,7 @@ function createMenu() {
                 $('#downloadRawButton').prop('disabled', true);
                 $('#replayList').hide();
             } else {
-                console.log("got replays");
+                logger.info("got replays");
                 // Enable buttons for interacting with multiple selections.
                 $('#renderSelectedButton').prop('disabled', false);
                 $('#deleteSelectedButton').prop('disabled', false);
@@ -522,7 +505,7 @@ function createMenu() {
                 // Template row that other rows will clone and populate with their own information.
                 var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
                 cloneRow.removeClass('clone');
-                console.log(replayList);
+                logger.info(replayList);
 
                 // Populate rows
                 for (dat in replayList) {
@@ -572,7 +555,7 @@ function createMenu() {
                     var replayId = getReplayId(this);
                     //$('#menuContainer').modal('hide');
                     $('#menuContainer').hide();
-                    console.log('sending data request for ' + replayId);
+                    logger.info('sending data request for ' + replayId);
                     sessionStorage.setItem('currentReplay', replayId);
                     chrome.runtime.sendMessage({
                         method: 'requestData',
@@ -584,7 +567,7 @@ function createMenu() {
                 $('.replayRow:not(.clone) .download-movie-button').click(function () {
                     var replayId = getReplayId(this);
                     fileNameToDownload = replayId;
-                    console.log('asking background script to download video for ' + fileNameToDownload)
+                    logger.info('asking background script to download video for ' + fileNameToDownload)
                     chrome.runtime.sendMessage({
                         method: 'downloadMovie',
                         name: fileNameToDownload
@@ -599,7 +582,7 @@ function createMenu() {
                     newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
                     if (newName != null) {
                         newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-                        console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+                        logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
                         chrome.runtime.sendMessage({
                             method: 'requestFileRename',
                             oldName: fileNameToRename,
@@ -680,8 +663,8 @@ function createMenu() {
         }
 
         $('#record-key-input-container').click(function (e) {
-            console.log("target: " + e.target);
-            console.log("test");
+            logger.info("target: " + e.target);
+            logger.info("test");
             $(this).addClass('focused');
             $(document).on("keypress", keyListener)
         });
@@ -728,7 +711,7 @@ function createMenu() {
                 if(typeof fileName !== 'undefined') message.newName = fileName;
 
                 chrome.runtime.sendMessage(message, function(response) {
-                    console.log('got "data added" response from background script')
+                    logger.info('got "data added" response from background script')
                     addRow(response.replayName, JSON.parse(response.metadata), response.preview, 'top');
                     sortReplays();
                     readImportedFile(files, i);
@@ -876,7 +859,7 @@ function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
         useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
         useChat: $('#useChatCheckbox')[0].checked
     });
-    console.log('sent request to render replay: ' + replaysToRender[replayI])
+    logger.info('sent request to render replay: ' + replaysToRender[replayI])
 }
 
 // this function stores custom texture files sent by the background script
@@ -971,10 +954,10 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
         // Set handler for in-browser-preview link.
         $('#'+replayName+' .playback-link').click(function () {
             var replayId = getReplayId(this);
-            console.log(replayId)
+            logger.info(replayId)
             //$('#menuContainer').modal('hide');
             $('#menuContainer').hide();
-            console.log('sending data request for ' + replayId);
+            logger.info('sending data request for ' + replayId);
             sessionStorage.setItem('currentReplay', replayId);
             chrome.runtime.sendMessage({
                 method: 'requestData',
@@ -986,7 +969,7 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
         $('#'+replayName+' .download-movie-button').click(function () {
             var replayId = getReplayId(this);
             fileNameToDownload = replayId;
-            console.log('asking background script to download video for ' + fileNameToDownload)
+            logger.info('asking background script to download video for ' + fileNameToDownload)
             chrome.runtime.sendMessage({
                 method: 'downloadMovie',
                 name: fileNameToDownload
@@ -1001,7 +984,7 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
             newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
             if (newName != null) {
                 newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-                console.log('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+                logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
                 chrome.runtime.sendMessage({
                     method: 'requestFileRename',
                     oldName: fileNameToRename,
@@ -1049,19 +1032,18 @@ var initiateAnimation
 var videofile
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.method == 'itemsList') {
-        console.log('got itemList message')
+        logger.info('got itemList message')
         storeTextures(message.textures);
         populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata), message.previews);
     } else if (message.method == 'positionData') {
-        console.log('got positionData message')
+        logger.info('got positionData message')
         localStorage.setItem('currentReplayName', message.movieName)
-        console.log(typeof message.title)
+        logger.info(typeof message.title)
         positions = JSON.parse(message.title)
-        console.log(positions)
+        logger.info(positions)
         createReplay(positions)
-        animateReplay(thisI, positions, mapImg)
     } else if (message.method == "dataSetConfirmationFromBG") {
-        console.log('got data set confirmation from background script. sending confirmation to injected script.')
+        logger.info('got data set confirmation from background script. sending confirmation to injected script.')
         //closeAndReopenMenu();
         if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
             addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
@@ -1069,10 +1051,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         }
         emit('positionDataConfirmation', true)
     } else if (message.method == "positionDataForDownload") {
-        console.log('got data for download - ' + message.fileName)
+        logger.info('got data for download - ' + message.fileName)
         saveData(message.fileName, message.title)
     } else if (message.method == 'dataDeleted') {
-        console.log('data were deleted')
+        logger.info('data were deleted')
         //closeAndReopenMenu();
         if(typeof message.newName !== 'undefined') {
             addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
@@ -1081,28 +1063,28 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
             deleteRows(message.deletedFiles);
         }
     } else if (message.method == "fileRenameSuccess") {
-        console.log('got confirmation of data file rename from background script')
+        logger.info('got confirmation of data file rename from background script')
         //closeAndReopenMenu();
         renameRow(message.oldName, message.newName);
         sortReplays();
     } else if (message.method == "picture") {
-        console.log('got picture file from background script')
+        logger.info('got picture file from background script')
         picture = message.file
     } else if (message.method == "movieRenderConfirmation") {
-        console.log('got movie render confirmation')
+        logger.info('got movie render confirmation')
         $('.replayRow').not('.clone').remove();
         getListData();
         //closeAndReopenMenu();
     } else if (message.method == "movieRenderFailure") {
         alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
     } else if (message.method == "movieDownloadConfirmation") {
-        console.log('got movie download confirmation')
+        logger.info('got movie download confirmation')
     } else if (message.method == "movieDownloadFailure") {
         alert('Download failed. Most likely you haven\'t rendered that movie yet.')
     } else if (message.method == "progressBarCreate") {
         // CREATE PROGRESS BAR AND GREY OUT BUTTONS
         $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-        console.log('got request to create progress Bar for ' + message.name)
+        logger.info('got request to create progress Bar for ' + message.name)
     } else if (message.method == "progressBarUpdate") {
         // UPDATE PROGRESS BAR
         if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
@@ -1110,7 +1092,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         }
     } else if (message.method == "movieRenderConfirmationNotLastOne") {
         if( message.failure ) {
-            console.log(message.name+' was a failure.');
+            logger.info(message.name+' was a failure.');
             $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
         }
         newReplayI = +message.replayI + 1
@@ -1158,7 +1140,7 @@ function listen(event, listener) {
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
 listen('setPositionData', function (data) {
-    console.log('got position data from injected script. sending to background script')
+    logger.info('got position data from injected script. sending to background script')
     chrome.runtime.sendMessage({
         method: 'setPositionData',
         positionData: data
@@ -1203,3 +1185,4 @@ if (document.URL.search(/\.\w+:/) >= 0) {
     var scripts = ["replayRecording.js"];
     scripts.forEach(injectScript);
 }
+})();

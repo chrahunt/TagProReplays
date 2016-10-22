@@ -1,5 +1,7 @@
+(function() {
+var logger = Logger('file_system');
 // create file system.
-function createFileSystem(thisDirectory, secondFunction, secondArguments) {
+createFileSystem = function(thisDirectory, secondFunction, secondArguments) {
 
 
     // Handle vendor prefixes.
@@ -7,11 +9,11 @@ function createFileSystem(thisDirectory, secondFunction, secondArguments) {
     window.webkitRequestFileSystem;
 
     function initFS(filesystem) {
-        console.log('FileSystem Loaded')
+        logger.info('FileSystem Loaded')
         fs = filesystem
         // create a directory to store videos
         fs.root.getDirectory(thisDirectory, {create: true}, function (dirEntry) {
-            console.log('You have just created the ' + dirEntry.name + ' directory.');
+            logger.info('You have just created the ' + dirEntry.name + ' directory.');
             secondFunction(fs, thisDirectory, secondArguments)
         }, errorHandler);
     }
@@ -36,14 +38,14 @@ function createFileSystem(thisDirectory, secondFunction, secondArguments) {
                 break;
         }
         ;
-        console.log(msg);
+        logger.info(msg);
     };
 
     window.requestFileSystem(window.PERSISTENT, 50 * 1024 * 1024 * 1024, initFS, errorHandler);
 }
 
 // function to get savedMovies directory contents
-function getRenderedMovieNames(fs, directory, secondArguments) {
+getRenderedMovieNames = function(fs, directory, secondArguments) {
     cont = []
     var allKeys = secondArguments[0];
     var textures = secondArguments[1];
@@ -63,12 +65,12 @@ function getRenderedMovieNames(fs, directory, secondArguments) {
             								 metadata: JSON.stringify(metadata),
             								 previews: previews
             })
-            console.log('sent reply: ' + allKeys)
+            logger.info('sent reply: ' + allKeys)
         }, function () {
-            console.log('error1')
+            logger.info('error1')
         });
     }, function () {
-        console.log('error2')
+        logger.info('error2')
     });
 }
 
@@ -94,7 +96,7 @@ function saveMovieFile(fs, directory, secondArguments) {
                 break;
         }
         ;
-        console.log(msg);
+        logger.info(msg);
     };
     fileName = secondArguments[0].replace(/.*DATE/, '').replace('replays', '')
     movie = secondArguments[1]
@@ -121,12 +123,12 @@ function dataURItoBlob(dataURI) {
 function getMovieFile(fs, directory, secondArguments) {
     function errorHandler(err) {
         chrome.tabs.sendMessage(tabNum, {method: "movieDownloadFailure"});
-        console.log('sent movie download failure notice');
+        logger.info('sent movie download failure notice');
     };
     delete(movie)
     name = secondArguments[0]
     fileName = name.replace(/.*DATE/, '').replace('replays', '')
-    console.log(fileName)
+    logger.info(fileName)
     fs.root.getFile(directory + '/' + fileName, {}, function (fileEntry) {
         fileEntry.file(function (file) {
             reader = new FileReader();
@@ -136,7 +138,7 @@ function getMovieFile(fs, directory, secondArguments) {
                 if (typeof movie !== "undefined") {
                     saveVideoData(name.replace(/DATE.*/, '') + '.webm', movie)
                     chrome.tabs.sendMessage(tabNum, {method: "movieDownloadConfirmation"})
-                    console.log('sent movie download confirmation')
+                    logger.info('sent movie download confirmation')
                 }
             };
             reader.readAsDataURL(file);
@@ -152,12 +154,12 @@ function getMovieFile(fs, directory, secondArguments) {
 // function to delete rendered movies from savedMovies filesystem directory
 function deleteMovieFile(fs, directory, name) {
     function errorHandler(err) {
-        console.log(err)
+        logger.info(err)
     }
 
     fs.root.getFile(directory + '/' + name, {}, function (fileEntry) {
             fileEntry.remove(function () {
-                console.log('deleted movie file ' + name)
+                logger.info('deleted movie file ' + name)
             })
         },
         errorHandler)
@@ -178,7 +180,7 @@ function fileInIndexedDB(movieName, indexedDBContents) {
 function cleanMovieFiles(fs, directory, secondArguments) {
     indexedDBContents = secondArguments[0]
     function errorHandler(err) {
-        console.log(err)
+        logger.info(err)
     }
 
     fs.root.getDirectory(directory, {}, function (dirEntry) {
@@ -191,10 +193,10 @@ function cleanMovieFiles(fs, directory, secondArguments) {
                 }
             }
         }, function () {
-            console.log('error1')
+            logger.info('error1')
         });
     }, function () {
-        console.log('error2')
+        logger.info('error2')
     });
-}		
-	    
+}
+})();

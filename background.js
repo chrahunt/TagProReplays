@@ -1,13 +1,7 @@
-function readCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-}
+(function() {
+var logger = Logger('background');
+
+logger.info('Starting background page.');
 
 tileSize = 40
 
@@ -140,8 +134,8 @@ function renderVideo(positions, name, useSplats, useSpin, useClockAndScore, useC
             	name:name
 	        })
     	}
-    	console.log(name+' was a bad positions file. Very bad boy.');
-    	return
+      logger.warn(`${name} was a bad replay.`);
+    	return;
     }
     
     mapImgData = drawMap(0, 0, positions)
@@ -263,7 +257,7 @@ function getPosData(dataFileName, tabNum) {
     request.onsuccess = function () {
         thisObj = request.result.value
         chrome.tabs.sendMessage(tabNum, {method: "positionData", title: request.result, movieName: dataFileName})
-        console.log('sent reply')
+        logger.info('sent reply')
     }
 }
 
@@ -279,7 +273,7 @@ function getPosDataForDownload(dataFileName, tabNum) {
             fileName: dataFileName,
             title: request.result
         })
-        console.log('sent reply - ' + dataFileName)
+        logger.info('sent reply - ' + dataFileName)
     }
 }
 
@@ -293,7 +287,7 @@ function getRawDataAndZip(files) {
     request.onsuccess = function () {
         if (request.result) {
         	if($.inArray(request.result.key, files) >= 0) {
-				//console.log(request.result.value)
+				//logger.info(request.result.value)
 				zip.file(request.result.key+'.txt', request.result.value);
 			}
             request.result.continue()
@@ -318,7 +312,7 @@ function deleteData(dataFileName, tabNum) {
     		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata, preview: preview});
     		localStorage.removeItem(dataFileName);
     		chrome.storage.local.remove(dataFileName);
-        	console.log('sent crop and replace reply');
+        	logger.info('sent crop and replace reply');
         	return;
     	}
     };
@@ -334,7 +328,7 @@ function deleteData(dataFileName, tabNum) {
                 deleted.push(fTD);
                 if (deleted.length == dataFileName.length) {
                     chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
-                    console.log('sent reply')
+                    logger.info('sent reply')
                 }
             }
         }
@@ -347,12 +341,12 @@ function deleteData(dataFileName, tabNum) {
         		localStorage.removeItem(dataFileName);
         		chrome.storage.local.remove(dataFileName);
         		chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName, newName: newName, metadata: metadata, preview: preview});
-        		console.log('sent crop and replace reply');
+        		logger.info('sent crop and replace reply');
         	} else {
         		localStorage.removeItem(dataFileName);
         		chrome.storage.local.remove(dataFileName);
             	chrome.tabs.sendMessage(tabNum, {method: 'dataDeleted', deletedFiles: dataFileName})
-            	console.log('sent single delete reply')
+            	logger.info('sent single delete reply')
             }
         }
     }
@@ -379,7 +373,7 @@ function renameData(oldName, newName, tabNum) {
                 								 oldName: oldName, 
                 								 newName: newName
                 });
-                console.log('sent rename reply');
+                logger.info('sent rename reply');
             }
         }
     }
@@ -440,7 +434,7 @@ function renderMovie(name, useTextures, useSplats, useSpin, useClockAndScore, us
                 }
             } else {
                 chrome.tabs.sendMessage(tabNum, {method: "movieRenderFailure"})
-                console.log('sent movie render failure notice')
+                logger.info('sent movie render failure notice')
             }
         }
     },2000)
@@ -580,36 +574,36 @@ function setHandlers(request) {
     request.onerror = function (e) {
         // Reset database and version.
         if (e.target.error.name == "VersionError") {
-            console.log("Resetting database.");
+            logger.info("Resetting database.");
             // Reset the database.
             var req = indexedDB.deleteDatabase("ReplayDatabase");
             req.onsuccess = function () {
-                console.log("Deleted database successfully");
+                logger.info("Deleted database successfully");
                 // Recreate the database.
                 var openRequest = indexedDB.open("ReplayDatabase", 1);
                 setHandlers(openRequest);
             };
             req.onerror = function () {
-                console.log("Couldn't delete database");
+                logger.info("Couldn't delete database");
             };
             req.onblocked = function () {
-                console.log("Couldn't delete database due to the operation being blocked");
+                logger.info("Couldn't delete database due to the operation being blocked");
             };
         } else {
-            console.error("Unforseen error opening database.");
-            console.dir(e);
+            logger.error("Unforseen error opening database.");
+            logger.dir(e);
         }
     }
     request.onupgradeneeded = function (e) {
-        console.log("running onupgradeneeded");
+        logger.info("running onupgradeneeded");
         var thisDb = e.target.result;
         //Create Object Store
         if (!thisDb.objectStoreNames.contains("positions")) {
-            console.log("I need to make the positions objectstore");
+            logger.info("I need to make the positions objectstore");
             var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
         }
         if (!thisDb.objectStoreNames.contains("savedMovies")) {
-            console.log("I need to make the savedMovies objectstore");
+            logger.info("I need to make the savedMovies objectstore");
             var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
         }
     }
@@ -618,8 +612,8 @@ function setHandlers(request) {
         db = e.target.result;
         db.onerror = function (e) {
             alert("Sorry, an unforseen error was thrown.");
-            console.log("***ERROR***");
-            console.dir(e.target);
+            logger.info("***ERROR***");
+            logger.dir(e.target);
         }
 
         if (!db.objectStoreNames.contains("positions")) {
@@ -627,15 +621,15 @@ function setHandlers(request) {
             db.close()
             secondRequest = indexedDB.open("ReplayDatabase", version + 1)
             secondRequest.onupgradeneeded = function (e) {
-                console.log("running onupgradeneeded");
+                logger.info("running onupgradeneeded");
                 var thisDb = e.target.result;
                 //Create Object Store
                 if (!thisDb.objectStoreNames.contains("positions")) {
-                    console.log("I need to make the positions objectstore");
+                    logger.info("I need to make the positions objectstore");
                     var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
                 }
                 if (!thisDb.objectStoreNames.contains("savedMovies")) {
-                    console.log("I need to make the savedMovies objectstore");
+                    logger.info("I need to make the savedMovies objectstore");
                     var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
                 }
             }
@@ -648,15 +642,15 @@ function setHandlers(request) {
             db.close()
             secondRequest = indexedDB.open("ReplayDatabase", version + 1)
             secondRequest.onupgradeneeded = function (e) {
-                console.log("running onupgradeneeded");
+                logger.info("running onupgradeneeded");
                 var thisDb = e.target.result;
                 //Create Object Store
                 if (!thisDb.objectStoreNames.contains("positions")) {
-                    console.log("I need to make the positions objectstore");
+                    logger.info("I need to make the positions objectstore");
                     var objectStore = thisDb.createObjectStore("positions", {autoIncrement: true});
                 }
                 if (!thisDb.objectStoreNames.contains("savedMovies")) {
-                    console.log("I need to make the savedMovies objectstore");
+                    logger.info("I need to make the savedMovies objectstore");
                     var objectStore = thisDb.createObjectStore("savedMovies", {autoIncrement: true});
                 }
             }
@@ -679,7 +673,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         var deleteTheseData = (message.oldName !== null && typeof message.oldName !== 'undefined') ? true : false;
         transaction = db.transaction(["positions"], "readwrite")
         objectStore = transaction.objectStore('positions')
-        console.log('got data from content script.')
+        logger.info('got data from content script.')
         positions = cleanPositionData(JSON.parse(message.positionData))
         var metadata = extractMetaData(positions);
         var thisPreview = drawPreview(positions);
@@ -691,7 +685,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         request = objectStore.put(JSON.stringify(positions), name)
         request.onsuccess = function () {
         	if(deleteTheseData) {
-        		console.log('new replay saved, deleting old replay...');
+        		logger.info('new replay saved, deleting old replay...');
         		deleteData({fileName: message.oldName, newName: message.newName, metadata: metadata, preview: thisPreview}, tabNum);
         	} else {
         		if(message.method === 'setPositionDataFromImport') {
@@ -703,42 +697,42 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
                 	                                 replayName: name, 
                 	                                 metadata: JSON.stringify(metadata), 
                 	                                 preview: thisPreview});
-                	console.log('sent confirmation');
+                	logger.info('sent confirmation');
                 }
             }
         }
         return true;
     } else if (message.method == 'requestData') {
     	tabNum = sender.tab.id;
-        console.log('got data request for ' + message.fileName);
+        logger.info('got data request for ' + message.fileName);
         getPosData(message.fileName, tabNum);
     } else if (message.method == 'requestList') {
     	tabNum = sender.tab.id;
-        console.log('got list request');
+        logger.info('got list request');
         listItems();
     } else if (message.method == 'requestDataForDownload') {
     	tabNum = sender.tab.id;
     	if(message.fileName || message.files.length == 1) { // old, single button
-        	console.log('got data request for download - ' + message.fileName || message.files[0]);
+        	logger.info('got data request for download - ' + message.fileName || message.files[0]);
         	getPosDataForDownload(message.fileName || message.files[0], tabNum);
         	return;
         }
         if(message.files) {
-        	console.log('got request to download raw data for: ' + message.files)
+        	logger.info('got request to download raw data for: ' + message.files)
         	getRawDataAndZip(message.files);
         }
         return true;
     } else if (message.method == 'requestDataDelete') {
     	tabNum = sender.tab.id;
-        console.log('got delete request for ' + message.fileName);
+        logger.info('got delete request for ' + message.fileName);
         deleteData(message.fileName, tabNum);
     } else if (message.method == 'requestFileRename') {
     	tabNum = sender.tab.id;
-        console.log('got rename request for ' + message.oldName + ' to ' + message.newName)
+        logger.info('got rename request for ' + message.oldName + ' to ' + message.newName)
         renameData(message.oldName, message.newName, tabNum);
     } else if (message.method == 'renderMovie') {
     	tabNum = sender.tab.id;
-        console.log('got request to render Movie for ' + message.name);
+        logger.info('got request to render Movie for ' + message.name);
         localStorage.setItem('canvasWidth', message.canvasWidth);
         localStorage.setItem('canvasHeight', message.canvasHeight);
         can.width = message.canvasWidth;
@@ -746,20 +740,20 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         renderMovie(message.name, message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, true);
     } else if (message.method == 'downloadMovie') {
     	tabNum = sender.tab.id;
-        console.log('got request to download Movie for ' + message.name);
+        logger.info('got request to download Movie for ' + message.name);
         downloadMovie(message.name);
     } else if (message.method == 'setTextureData') {
     	tabNum = sender.tab.id;
-        console.log('got request to save texture image files')
+        logger.info('got request to save texture image files')
         saveTextures(JSON.parse(message.textureData));
     } else if (message.method == 'cleanRenderedReplays') {
     	tabNum = sender.tab.id;
-        console.log('got request to clean rendered replays')
+        logger.info('got request to clean rendered replays')
         getCurrentReplaysForCleaning()
     } else if (message.method == 'renderAllInitial') {
     	tabNum = sender.tab.id;
-        console.log('got request to render these replays: ' + message.data)
-        console.log('rendering the first one: ' + message.data[0])
+        logger.info('got request to render these replays: ' + message.data)
+        logger.info('rendering the first one: ' + message.data[0])
         if (message.data.length == 1) {
             lastOne = true
         } else {
@@ -772,7 +766,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         renderMovie(message.data[0], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, lastOne, message.data, 0, tabNum);
     } else if (message.method == 'renderAllSubsequent') {
     	tabNum = sender.tab.id;
-        console.log('got request to render subsequent replay: ' + message.data[message.replayI])
+        logger.info('got request to render subsequent replay: ' + message.data[message.replayI])
         renderMovie(message.data[message.replayI], message.useTextures, message.useSplats, message.useSpin, message.useClockAndScore, message.useChat, message.lastOne, message.data, message.replayI, tabNum)
     }
 });
@@ -781,7 +775,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 /*
 (initialStart = function() {
 	if(typeof db !== 'undefined') {
-		console.log('starting up');
+		logger.info('starting up');
 		tabNum = 0;
 		listItems();
 	} else {
@@ -789,4 +783,4 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 	}
 })()
 */
-
+})();

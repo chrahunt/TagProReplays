@@ -10,25 +10,33 @@
   "background": {
     "persistent": true,
     "scripts": [
+      "debug.js",
+      "logger.js",
+      "cookies.js",
       "background.js",
-      "map_draw_functions.js",
-      "createFileSystem.js",
+      "renderer.js",
+      "file_system.js",
       "whammy.js",
       "jquery.js",
       "jszip.min.js",
-      "FileSaver.min.js",
-      "drawPreview.js"
+      "FileSaver.min.js"
     ]
   },
   "content_scripts": [{
     "exclude_matches": [ "http://support.koalabeast.com/*" ],
     "js": [
+      "debug.js",
+      "logger.js",
+      "cookies.js",
       "jquery.js",
-      "map_draw_functions.js",
-      "TagProReplays.js",
-      "in-page-preview.js",
+      "renderer.js",
+      "previewer.js",
+      "main.js",
       "loadTextures.js",
       "ui/bootstrap.min.js"
+    ],
+    "css": [
+      "ui/record.css"
     ],
     "matches": [
       "http://*.koalabeast.com/*",
@@ -41,6 +49,7 @@
     "replayRecording.js",
     "img/*.png",
     "ui/menus.css",
+    "ui/record.css",
     "ui/menus.html",
     "ui/bootstrap.min.css",
     "ui/bootstrap.css",
