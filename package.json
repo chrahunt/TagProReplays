@@ -1,0 +1,25 @@
+{
+  "name": "tagproreplays",
+  "version": "1.2.30",
+  "description": "Chrome extension for recording play in TagPro.",
+  "main": "TagProReplays.js",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-zip": "^3.2.0"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chrahunt/TagProReplays.git"
+  },
+  "keywords": [
+    "tagpro",
+    "chrome"
+  ],
+  "author": "",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/chrahunt/TagProReplays/issues"
+  },
+  "homepage": "https://github.com/chrahunt/TagProReplays#readme"
+}

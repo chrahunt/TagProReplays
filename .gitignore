@@ -8,4 +8,4 @@ tools
 vendor
 .vscode
 .eslintrc.js
-gulpfile.js
+*.zip
