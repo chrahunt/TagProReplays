@@ -1,69 +1,56 @@
 {
-  "name": "TagProReplays",
-  "description": "Save Replays from within TagPro Games",
-  "version": "1.2.25",
   "manifest_version": 2,
-  "background": {
-    "scripts": [
-      "indexedDBUtils.js",
-      "messaging.js",
-      "textures.js",
-      "background.js",
-      "map_draw_functions.js",
-      "filesystem.js",
-      "lib/whammy.js",
-      "lib/jquery.js",
-      "lib/jszip.min.js",
-      "lib/FileSaver.min.js"
-    ],
-    "persistent": true
-  },
+  "name": "TagProReplays",
+  "version": "1.2.30",
+  "description": "Save Replays from within TagPro Games",
   "permissions": [
     "storage",
     "unlimitedStorage"
   ],
-  "content_scripts": [
-    {
-      "matches": [
-        "http://*.koalabeast.com/*",
-        "http://*.newcompte.fr/*",
-        "http://tangent.jukejuice.com/*"
-      ],
-      "exclude_matches": [
-        "http://support.koalabeast.com/*"
-      ],
-      "js": [
-        "lib/jquery.js",
-        "lib/jquery.actual.min.js",
-        "cookies.js",
-        "messaging.js",
-        "textures.js",
-        "map_draw_functions.js",
-        "ui/viewer.js",
-        "menu.js",
-        "TagProReplays.js",
-        "ui/bootstrap.min.js"
-      ],
-      "run_at": "document_end"
-    }
-  ],
+  "background": {
+    "persistent": true,
+    "scripts": [
+      "debug.js",
+      "logger.js",
+      "cookies.js",
+      "background.js",
+      "renderer.js",
+      "file_system.js",
+      "whammy.js",
+      "jquery.js",
+      "jszip.min.js",
+      "FileSaver.min.js"
+    ]
+  },
+  "content_scripts": [{
+    "exclude_matches": [ "http://support.koalabeast.com/*" ],
+    "js": [
+      "debug.js",
+      "logger.js",
+      "cookies.js",
+      "jquery.js",
+      "renderer.js",
+      "previewer.js",
+      "main.js",
+      "loadTextures.js",
+      "ui/bootstrap.min.js"
+    ],
+    "css": [
+      "ui/record.css"
+    ],
+    "matches": [
+      "http://*.koalabeast.com/*",
+      "http://*.newcompte.fr/*",
+      "http://tangent.jukejuice.com/*"
+    ],
+    "run_at": "document_end"
+  }],
   "web_accessible_resources": [
     "replayRecording.js",
-    "img/tiles.png",
-    "img/portal.png",
-    "img/speedpad.png",
-    "img/speedpadred.png",
-    "img/speedpadblue.png",
-    "img/tagpro.png",
-    "img/rollingbomb.png",
-    "img/splats.png",
-    "img/flair.png",
-    "ui/spinkit.css",
+    "img/*.png",
     "ui/menus.css",
+    "ui/record.css",
     "ui/menus.html",
-    "ui/menus.js",
-    "ui/viewer.html",
-    "ui/viewer.css",
     "ui/bootstrap.min.css",
     "ui/bootstrap.css",
     "ui/glyphicons-halflings-regular.eot",

@@ -2,6 +2,31 @@
     color: #333;
 }
 
+/* start resets for redesign page */
+#tpr-container {
+    font-size: 14px;
+}
+
+#tpr-previewer {
+    /* reset for redesign page */
+    color: black;
+}
+
+#tpr-container thead {
+    background-color: white;
+}
+
+#tpr-container tr {
+    background-color: white;
+}
+
+.play-now #ReplayMenuButton {
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+/* end redesign resets */
+
 #tpr-container #replays table {
     table-layout: fixed;
     margin-bottom: 0;
@@ -59,7 +84,7 @@
 }
 
 #tpr-container .duration {
-    text-align: center;
+	text-align: center;
 }
 
 #tpr-container .progressbar {
@@ -91,40 +116,6 @@
 }
 
 #tpr-container .popover {
-    max-width: 800px;
-    width: auto;
-}
-
-#tpr-container .list-header {
-    cursor: pointer;
-}
-
-#tpr-container .modal-body {
-    padding-bottom: 0px;
-}
-
-#tpr-container #noReplays {
-    height: 36px;
-}
-
-#tpr-container #noReplays p {
-    line-height: 36px;
-    margin: 0px;
-}
-
-#tpr-container #replaysLoading {
-    height: 36px;
-    padding-top: 3px;
-}
-
-/* Vertically center spinner for animation */
-#tpr-container .replayRow .popover .sk-spinner {
-    position: relative;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/* Static height for vertical centering. */
-#tpr-container .popover-content {
-    height: 100%;
+	  max-width: 800px;
+	  width: auto;
 }

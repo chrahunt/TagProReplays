@@ -1,14 +1,7 @@
-/**
- * Functions for reading and writing cookies.
- * 
- * This file is included as a content script.
- */
-(function(window, document, undefined) {
+(function() {
+var logger = Logger('cookies');
 
-// Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
-var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
-
-window.readCookie = function(name) {
+readCookie = function(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
     for (var i = 0; i < ca.length; i++) {
@@ -19,17 +12,12 @@ window.readCookie = function(name) {
     return null;
 }
 
-function setCookieInternal(name, value, domain) {
+setCookie = function(name, value, domain) {
     var now = new Date();
     var time = now.getTime();
     var expireTime = time + 1000 * 60 * 60 * 24 * 365;
     now.setTime(expireTime);
     document.cookie = name + '=' + value + ';expires=' + now.toGMTString() + ';path=/; domain=' + domain;
-    //console.log('cookie: name=' + name + ' value=' + value + ' expires=' + now.toGMTString() + ' domain=' + domain);
+    logger.info('cookie: name=' + name + ' value=' + value + ' expires=' + now.toGMTString() + ' domain=' + domain);
 }
-
-window.setCookie = function(name, value) {
-    return setCookieInternal(name, value, cookieDomain);
-}
-
-})(window, document);
+})();

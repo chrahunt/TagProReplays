@@ -2,11 +2,11 @@
  * Record and save the state of the game, emitting an event to the
  * window with the replay data.
  * 
- * This file is injected into the page by the content script
- * TagProReplays. This is necessary in order to listen to the game
- * socket which provides game state information.
+ * This file is injected into the page by the content script. This
+ * is necessary in order to listen to the game socket which provides
+ * game state information.
  */
-(function(window, document, undefined) {
+(function() {
 
 /**
  * Create an array of size N filled with zeros.
@@ -37,61 +37,10 @@ function readCookie(name) {
     return null;
 }
 
-/**
- * @typedef Options
- * @type {object}
- * @property {integer} fps - The FPS at which the replay should be
- *   recorded at.
- * @property {integer} duration - The duration (in seconds) of the
- *   replay.
- * @property {boolean} record_key_enabled - Whether or not the record
- *   hotkey should function.
- * @property {integer} record_key - The KeyCode for the hotkey that can
- *   be used to save a replay.
- * @property {boolean} record - Whether or not recording should occur.
- * @property {??} treter - ??
- */
-/**
- * Get set options from cookies, or default options if no cookies are
- * set.
- * @return {Options} - The options to use when recording.
- */
-function getOptions() {
-    function getBooleanCookie(name, defaultValue) {
-        var cookie = readCookie(name);
-        if (cookie) {
-            return cookie == "true";
-        } else {
-            return defaultValue;
-        }
-    }
-
-    var fps = +readCookie('fps') || 60;
-    var duration = +readCookie('duration') || 30;
-    var record_key_enabled = getBooleanCookie('useRecordKey', true);
-    var record_key = +readCookie('replayRecordKey') || 47;
-    var record = getBooleanCookie('record', true);
-    // What is this for?
-    var treter = getBooleanCookie('treter', false);
-
-    var options = {
-        fps: fps,
-        duration: duration,
-        record_key_enabled: record_key_enabled,
-        record_key: record_key,
-        record: record,
-        treter: treter
-    };
-    return options;
-}
-
-// Initially retrieve options.
-var options = getOptions();
-
 function recordReplayData() {
     var savingIndex = 0;
-    var fps = options.fps;
-    var saveDuration = options.duration;
+    var fps = +readCookie('fps');
+    var saveDuration = +readCookie('duration');
 
     // set up map data
     positions.chat = [];
@@ -119,7 +68,7 @@ function recordReplayData() {
 
     // set up listener for chats, splats, and bombs
     tagpro.socket.on('chat', function (CHAT) {
-        CHAT.removeAt = Date.now()+30000;
+    	CHAT.removeAt = Date.now()+30000;
         positions.chat.push(CHAT);
     });
 
@@ -559,8 +508,6 @@ var mapElements = {
     22: {tile: "gravitywell", coordinates: {x: 13, y: 0}, tileSize: 40, drawTileFirst: true}
 };
 
-
-
 function emit(event, data) {
     var e = new CustomEvent(event, {detail: data});
     window.dispatchEvent(e);
@@ -569,9 +516,9 @@ function emit(event, data) {
 
 // send position data to content script
 function saveReplayData(positions) {
-    var data = JSON.stringify(positions);
-    console.log('Sending replay data from injected script to content script.');
-    emit('saveReplay', data);
+    var data = JSON.stringify(positions)
+    console.log('sending position data from injected script to content script.')
+    emit('setPositionData', data)
 }
 
 // this function sets up a listener wrapper
@@ -581,63 +528,50 @@ function listen(event, listener) {
     });
 }
 
-// TODO: Handle possible failure alert from content script.
-listen('replaySaved', function() {
-    console.log('Got message confirming data save.')
-    $(savedFeedback).fadeIn(300);
-    $(savedFeedback).fadeOut(900);
-});
+listen('positionDataConfirmation', function () {
+    console.log('got message confirming data save')
+    $(savedFeedback).fadeIn(300)
+    $(savedFeedback).fadeOut(900)
+})
 
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton() {
-    var recordButton = document.createElement("img")
-    recordButton.id = 'recordButton'
-    recordButton.src = 'http://i.imgur.com/oS1bPqR.png'
+    var recordButton = document.createElement("img");
+    recordButton.id = 'recordButton';
+    
     recordButton.onclick = function () {
         saveReplayData(positions)
     }
-    recordButton.style.position = "absolute"
-    recordButton.style.margin = "auto"
-    recordButton.style.right = "30px"
-    recordButton.style.top = "65px"
-    recordButton.style.cursor = "pointer"
     $('body').append(recordButton)
 
     var savedFeedback = document.createElement('a')
     savedFeedback.id = 'savedFeedback'
     savedFeedback.textContent = 'Saved!'
-    savedFeedback.style.right = '20px'
-    savedFeedback.style.top = '100px'
-    savedFeedback.style.position = "absolute"
-    savedFeedback.style.color = '#00CC00'
-    savedFeedback.style.fontSize = '20px'
-    savedFeedback.style.fontWeight = 'bold'
     $('body').append(savedFeedback)
     $(savedFeedback).hide()
 
-    if (options.record_key_enabled) {
+    if (readCookie('useRecordKey') == "true") {
         $(document).on("keypress", function (e) {
-            if (e.which == options.record_key) {
+            if (e.which == readCookie('replayRecordKey')) {
                 saveReplayData(positions)
             }
         })
     }
 }
 
-if(options.record && !options.treter) {
-    tagpro.ready(function() {
-        var startInterval = setInterval(function() {
-            //console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
-            //console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
-            if(tagpro.map && tagpro.wallMap) {
-                clearInterval(startInterval);
-                positions = {};
-                recordButton();
-                recordReplayData();
-            }
-        }, 1000);
-    });
+if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
+	tagpro.ready(function() {
+		var startInterval = setInterval(function() {
+			console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
+			console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
+			if(tagpro.map && tagpro.wallMap) {
+				clearInterval(startInterval);
+				positions = {};
+				recordButton();
+				recordReplayData();
+			}
+		}, 1000);
+	})
 }
-
-})(window, document);
+})();
