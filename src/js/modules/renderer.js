@@ -1,845 +1,848 @@
-(function() {
-var logger = Logger('map_draw_functions');
-logger.info('Loading map_draw_functions.');
+const loadImage = require('image-promise');
+const moment = require('moment');
+require('moment-duration-format');
 
+const logger = require('./logger')('renderer');
+const Textures = require('./textures');
+logger.info('Loading renderer.');
+
+/*
+ * Renderer relies heavily on the format of the replay.
+ * For replay format information, see the schemas available in
+ * https://github.com/chrahunt/TagProReplays/tree/dev/src/schemas
+ * This renderer handles v1 replays.
+ */
 // Renderer-global frame.
-var frame;
+var frame, context, textures, options, replay_data;
+
+const TILE_SIZE = 40;
+
+/**
+ * Interface for replay rendering. Some async setup is required, so
+ * before trying to draw, make sure to wait on Renderer#ready.
+ */
+class Renderer {
+  /**
+   * 
+   * Takes a canvas to render onto.
+   */
+  constructor(canvas, replay, these_options={}) {
+    // Set globals.
+    context = canvas.getContext('2d');
+    options = these_options;
+    this.canvas = canvas;
+    this.replay = replay;
+    this.options = these_options;
+    
+    this.ready_promise = Textures.get(options.custom_textures).then((result) => {
+      textures = result;
+    }).then(() => loadImage(drawMap(this.replay))).then((image) => {
+      this.map = image;
+    });
+    this._extract_replay_data();
+  }
+
+  ready() {
+    return this.ready_promise;
+  }
+
+  draw(frame) {
+    animateReplay(frame, this.replay, this.map, this.options.spin,
+      this.options.splats, this.options.ui, this.options.chats);
+  }
+
+  _extract_replay_data() {
+    let id = Object.keys(this.replay).find(
+      k => k.startsWith('player') && this.replay[k].me == 'me');
+    replay_data = {
+      fps: this.replay[id].fps
+    };
+  }
+};
+
+module.exports = Renderer;
 
 function drawText(ballname, namex, namey, auth, degree) {
-    context.textAlign = 'left'
-    context.fillStyle = (auth == true) ? "#BFFF00" : "#ffffff"
-    context.strokeStyle = "#000000"
-    context.shadowColor = "#000000"
-    context.shadowOffsetX = 0
-    context.shadowOffsetY = 0
-    context.lineWidth = 2
-    context.font = "bold 8pt Arial"
-    context.shadowBlur = 10
-    context.strokeText(ballname, namex + 3, namey)
-    if (typeof degree != "undefined" && degree != 0) {
-        context.strokeText(degree + "°", namex + 10, namey + 12)
-    }
-    context.shadowBlur = 0
-    context.fillText(ballname, namex + 3, namey)
-    if (typeof degree != "undefined" && degree != 0) {
-        context.fillStyle = "#ffffff"
-        context.fillText(degree + "°", namex + 10, namey + 12)
-    }
+  context.textAlign = 'left';
+  context.fillStyle = (auth == true) ? "#BFFF00"
+                                     : "#ffffff";
+  context.strokeStyle = "#000000";
+  context.shadowColor = "#000000";
+  context.shadowOffsetX = 0;
+  context.shadowOffsetY = 0;
+  context.lineWidth = 2;
+  context.font = "bold 8pt Arial";
+  context.shadowBlur = 10;
+  context.strokeText(ballname, namex + 3, namey);
+  if (typeof degree != "undefined" && degree != 0) {
+    context.strokeText(degree + "°", namex + 10, namey + 12);
+  }
+  context.shadowBlur = 0;
+  context.fillText(ballname, namex + 3, namey);
+  if (typeof degree != "undefined" && degree != 0) {
+    context.fillStyle = "#ffffff";
+    context.fillText(degree + "°", namex + 10, namey + 12);
+  }
 }
 
 function drawFlair(ballFlair, flairx, flairy) {
-    if (ballFlair !== null) {
-        context.drawImage(flairImg,
-            ballFlair.x * 16,
-            ballFlair.y * 16,
-            16,
-            16,
-            flairx,
-            flairy,
-            16,
-            16)
-    }
+  if (ballFlair !== null) {
+    context.drawImage(textures.flair,
+      ballFlair.x * 16, ballFlair.y * 16,
+      16, 16,
+      flairx, flairy,
+      16, 16);
+  }
 }
 
-
 function prettyText(text, textx, texty, color) {
-    context.textAlign = 'left'
-    context.fillStyle = color
-    context.strokeStyle = "#000000"
-    context.shadowColor = "#000000"
-    context.shadowOffsetX = 0
-    context.shadowOffsetY = 0
-    context.lineWidth = 2
-    context.font = "bold 8pt Arial"
-    context.shadowBlur = 10
-    context.strokeText(text, textx, texty)
-    context.shadowBlur = 0
-    context.fillText(text, textx, texty)
-    return (context.measureText(text).width)
+  context.textAlign = 'left';
+  context.fillStyle = color;
+  context.strokeStyle = "#000000";
+  context.shadowColor = "#000000";
+  context.shadowOffsetX = 0;
+  context.shadowOffsetY = 0;
+  context.lineWidth = 2;
+  context.font = "bold 8pt Arial";
+  context.shadowBlur = 10;
+  context.strokeText(text, textx, texty);
+  context.shadowBlur = 0;
+  context.fillText(text, textx, texty);
+  return context.measureText(text).width;
 }
 
 function drawChats(positions) {
-    if (positions.chat) {
-        chats = positions.chat
-        thisTime = new Date(positions.clock[frame]).getTime()
-        currentChats = new Array(10)
-        for (chatI in chats) {
-            if (chats[chatI].removeAt - 30000 < thisTime & chats[chatI].removeAt > thisTime) {
-                currentChats.shift()
-                currentChats.push(chats[chatI])
-            }
-        }
-        for (chatI = 0; chatI < currentChats.length; chatI++) {
-            if (typeof currentChats[0] == 'undefined') {
-                currentChats.shift()
-                chatI--
-            }
-        }
-
-        for (chatI in currentChats) {
-            thisChat = currentChats[chatI]
-            chatLeft = 10
-            chatTop = context.canvas.height - 175 + chatI * 12
-            if (typeof thisChat.from == 'number') {
-                if (positions['player' + thisChat.from].auth[frame]) {
-                    chatLeft += prettyText("✓ ", chatLeft, chatTop, "#BFFF00")
-                }
-                chatName = (typeof positions['player' + thisChat.from].name === "string") ? positions['player' + thisChat.from].name : positions['player' + thisChat.from].name[frame]
-                chatLeft += prettyText(chatName + ': ',
-                    chatLeft,
-                    chatTop,
-                    positions['player' + thisChat.from].team[frame] == 1 ? "#FFB5BD" : "#CFCFFF")
-            }
-            if (thisChat.to == 'team') {
-                chatColor = positions['player' + thisChat.from].team[frame] == 1 ? "#FFB5BD" : "#CFCFFF"
-            } else if (thisChat.to == 'group') {
-                chatColor = "#E7E700"
-            } else {
-                chatColor = 'white'
-            }
-            prettyText(thisChat.message, chatLeft, chatTop, chatColor)
-        }
+  if (!positions.chat) return;
+  let chats = positions.chat;
+  let thisTime = new Date(positions.clock[frame]).getTime()
+  var end;
+  for (let i = chats.length - 1; i > 0; i++) {
+    let chat = chats[i];
+    if (thisTime - 30000 < chat.removeAt && chat.removeAt < thisTime) {
+      var end = i;
+      break;
     }
+  }
+
+  // No chats.
+  if (typeof end == 'undefined') return;
+
+  let num_chats = 10;
+  
+  for (let i = Math.max(end - num_chats, 0); i < end; i++) {
+    let chat = chats[i];
+    let left_pos = 10;  
+    let top_pos = context.canvas.height - 175 + i * 12;
+    let chat_color;
+    if (typeof thisChat.from == 'number') {
+      let player = positions[`player${chat.from}`];
+      if (player.auth[frame]) {
+        left_pos += prettyText("✓ ", left_pos, top_pos, "#BFFF00")
+      }
+      var name = (typeof player.name === "string") ? player.name
+                                                   : player.name[frame];
+      let team_color = player.team[frame] == 1 ? "#FFB5BD"
+                                               : "#CFCFFF";
+      chatLeft += prettyText(`${name}: `, left_pos, top_pos, team_color);
+      if (chat.to == 'team') {
+        chat_color = team_color;
+      }
+    }
+    if (chat.to == 'group') {
+      chat_color = "#E7E700";
+    } else {
+      chat_color = 'white';
+    }
+    prettyText(chat.message, left_pos, top_pos, chat_color);
+  }
 }
 
-
 function drawPowerups(ball, ballx, bally, positions) {
-    if (positions[ball].tagpro[frame] != false) {
-        context.drawImage(tagproImg,
-            0,
-            0,
-            tileSize,
-            tileSize,
-            ballx,
-            bally,
-            tileSize,
-            tileSize)
+  if (positions[ball].tagpro[frame] != false) {
+    context.save();
+    context.beginPath();
+    context.arc(ballx + TILE_SIZE/2, bally + TILE_SIZE/2, TILE_SIZE/2, 0, 2*Math.PI);
+    context.lineWidth = 3;
+    context.strokeStyle = "rgb(0, 255, 0)";
+    context.fillStyle = "rgba(0, 255, 0, 0.25)";
+    context.stroke();
+    context.fill();
+    context.restore();
+  }
+  if (positions[ball].bomb[frame] != false) {
+    if (Math.round(Math.random() * 4) == 1) {
+      context.save();
+      context.beginPath();
+      context.arc(ballx + TILE_SIZE/2, bally + TILE_SIZE/2, TILE_SIZE/2, 0, 2*Math.PI);
+      context.fillStyle = "rgba(255, 255, 0, 0.75)";
+      context.fill();
+      context.restore();
     }
-    if (positions[ball].bomb[frame] != false) {
-        if (Math.round(Math.random() * 4) == 1) {
-            context.drawImage(rollingbombImg,
-                0,
-                0,
-                tileSize,
-                tileSize,
-                ballx,
-                bally,
-                tileSize,
-                tileSize)
-        }
-    }
-    if (positions[ball].grip[frame] != false) {
-        context.drawImage(img,
-            12 * tileSize,
-            4 * tileSize,
-            tileSize,
-            tileSize,
-            ballx,
-            bally + 20,
-            tileSize / 2,
-            tileSize / 2)
-    }
+  }
+  if (positions[ball].grip[frame] != false) {
+    context.drawImage(textures.tiles,
+      12 * TILE_SIZE, 4 * TILE_SIZE,
+      TILE_SIZE, TILE_SIZE,
+      ballx, bally + 20,
+      TILE_SIZE / 2, TILE_SIZE / 2);
+  }
 }
 
 function drawClock(positions) {
-    if (!positions.end || new Date(positions.end.time).getTime() > new Date(positions.clock[frame]).getTime()) {
-        if (!$.isArray(positions.gameEndsAt)) {
-            if (new Date(positions.gameEndsAt).getTime() <= new Date(positions.clock[frame]).getTime()) {
-                curTimeMilli = new Date(positions.gameEndsAt).getTime() + 12 * 60 * 1000 - new Date(positions.clock[frame]).getTime()
-            } else {
-                curTimeMilli = new Date(positions.gameEndsAt) - new Date(positions.clock[frame])
-            }
-        } else {
-            if (positions.gameEndsAt.length < 2) {
-                curTimeMilli = new Date(positions.gameEndsAt[0]).getTime() - new Date(positions.clock[frame]).getTime()
-            } else {
-                if (new Date(positions.clock[frame]).getTime() >= new Date(positions.gameEndsAt[1].startTime).getTime()) {
-                    curTimeMilli = new Date(positions.gameEndsAt[1].startTime).getTime() + positions.gameEndsAt[1].time - new Date(positions.clock[frame]).getTime()
-                } else {
-                    curTimeMilli = new Date(positions.gameEndsAt[0]).getTime() - new Date(positions.clock[frame]).getTime()
-                }
-            }
-        }
-        minute = ('0' + Math.floor(curTimeMilli / 1000 / 60)).slice(-2)
-        seconds = ('0' + Math.floor(curTimeMilli / 1000 % 60)).slice(-2)
-        seconds = (seconds == '60' ? '00' : seconds)
-        curTime = minute + ':' + seconds
-    }
-    context.fillStyle = "rgba(255, 255, 255, 1)";
-    context.strokeStyle = "rgba(0, 0, 0, .75)";
-    context.font = "bold 30pt Arial";
-    context.textAlign = 'center'
-    context.lineWidth = 4;
-    context.strokeText(curTime, context.canvas.width / 2, context.canvas.height - 25);
-    context.fillText(curTime, context.canvas.width / 2, context.canvas.height - 25);
+  // YYYY-MM-DDTHH:mm:ss.SSSZ
+  let current_time = moment(positions.clock[frame], 'YYYY-MM-DDTHH:mm:ss.SSSZ');
+  let game_end = positions.end && moment(positions.end.time, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
+  // End of current game state interval.
+  let end_time, start_time;
+  let default_duration = 720000;
+  if (!Array.isArray(positions.gameEndsAt)) {
+    end_time = moment(positions.gameEndsAt, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
+  } else if (positions.gameEndsAt.length == 1) {
+    end_time = moment(positions.gameEndsAt[0], 'x');
+  } else if (positions.gameEndsAt.length == 2) {
+    end_time = moment(positions.gameEndsAt[1].startTime, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
+    if (current_time.isAfter(end_time)) {
+      start_time = moment(end_time);
+      end_time.add(positions.gameEndsAt[1].time, 'ms');
+    } 
+  }
+  if (!end_time) {
+    logger.warning('Error parsing game time.');
+    return;
+  }
+  // Default start time.
+  if (!start_time) {
+    start_time = moment(end_time).subtract(default_duration, 'ms');
+  }
+  let clock_text;
+  if (game_end && current_time.isAfter(game_end)) {
+    clock_text = moment.duration(end_time.diff(game_end)).format('mm:ss', { trim: false });
+  } else if (current_time.isAfter(end_time)) {
+    clock_text = '00:00';
+  } else {
+    clock_text = moment.duration(end_time.diff(current_time)).format('mm:ss', { trim: false });
+  }
+  context.fillStyle = "rgba(255, 255, 255, 1)";
+  context.strokeStyle = "rgba(0, 0, 0, .75)";
+  context.font = "bold 30pt Arial";
+  context.textAlign = 'center';
+  context.lineWidth = 4;
+  context.strokeText(clock_text, context.canvas.width / 2, context.canvas.height - 25);
+  context.fillText(clock_text, context.canvas.width / 2, context.canvas.height - 25);
 }
 
 function drawScore(positions) {
-    thisScore = positions.score[frame]
-    context.textAlign = "center"
-    context.fillStyle = "rgba(255, 0, 0, .5)"
-    context.font = "bold 40pt Arial"
-    context.fillText(thisScore.r, context.canvas.width / 2 - 120, context.canvas.height - 50)
-    context.fillStyle = "rgba(0, 0, 255, .5)",
-        context.fillText(thisScore.b, context.canvas.width / 2 + 120, context.canvas.height - 50)
+  var thisScore = positions.score[frame];
+  context.textAlign = "center";
+  context.fillStyle = "rgba(255, 0, 0, .5)";
+  context.font = "bold 40pt Arial";
+  context.fillText(thisScore.r, context.canvas.width / 2 - 120, context.canvas.height - 50);
+  context.fillStyle = "rgba(0, 0, 255, .5)";
+  context.fillText(thisScore.b, context.canvas.width / 2 + 120, context.canvas.height - 50);
 }
 
 function drawScoreFlag(positions) {
-    for (j in positions) {
-        delete(flagCoords)
-        if (typeof positions[j].flag != 'undefined') {
-            if (positions[j].flag[frame] != null) {
-                if (positions[j].flag[frame] == '3') {
-                    flagCoords = {x: 13, y: 1}
-                } else if (positions[j].flag[frame] == '1') {
-                    flagCoords = {x: 14, y: 1}
-                } else if (positions[j].flag[frame] == '2') {
-                    flagCoords = {x: 15, y: 1}
-                }
-                if (typeof flagCoords != 'undefined') {
-                    flagTeam = typeof positions[j].team.length === 'undefined' ? positions[j].team : positions[j].team[frame]
-                    flagPos = {
-                        x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
-                        y: context.canvas.height - 50
-                    }
-                    context.globalAlpha = 0.5
-                    context.drawImage(img,
-                        flagCoords.x * tileSize,
-                        1 * tileSize,
-                        tileSize,
-                        tileSize,
-                        flagPos.x,
-                        flagPos.y,
-                        tileSize * .8,
-                        tileSize * .8)
-                    context.globalAlpha = 1
-                }
-            }
+  for (var j in positions) {
+    if (typeof positions[j].flag != 'undefined') {
+      if (positions[j].flag[frame] != null) {
+        var flagCoords;
+        if (positions[j].flag[frame] == '3') {
+          flagCoords = { x: 13, y: 1 };
+        } else if (positions[j].flag[frame] == '1') {
+          flagCoords = { x: 14, y: 1 };
+        } else if (positions[j].flag[frame] == '2') {
+          flagCoords = { x: 15, y: 1 };
         }
+        if (typeof flagCoords != 'undefined') {
+          flagTeam = typeof positions[j].team.length === 'undefined' ? positions[j].team
+                                                                     : positions[j].team[frame];
+          flagPos = {
+            x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
+            y: context.canvas.height - 50
+          };
+          context.globalAlpha = 0.;
+          context.drawImage(textures.tiles,
+            flagCoords.x * TILE_SIZE, 1 * TILE_SIZE,
+            TILE_SIZE, TILE_SIZE,
+            flagPos.x, flagPos.y,
+            TILE_SIZE * .8, TILE_SIZE * .8);
+          context.globalAlpha = 1;
+        }
+      }
     }
+  }
 }
 
-
 function drawFlag(ball, ballx, bally, positions) {
-    flagCodes = {
-        1: {x: 14, y: 1},
-        2: {x: 15, y: 1},
-        3: {x: 13, y: 1}
-    }
-    if (positions[ball].flag[frame] != null) {
-        flagCoords = flagCodes[positions[ball].flag[frame]]
-        context.drawImage(img,
-            flagCoords.x * tileSize,
-            flagCoords.y * tileSize,
-            tileSize,
-            tileSize,
-            ballx + 10,
-            bally - 30,
-            tileSize,
-            tileSize)
-    }
+  var flagCodes = {
+    1: { x: 14, y: 1 },
+    2: { x: 15, y: 1 },
+    3: { x: 13, y: 1 }
+  };
+  // null, 0, 1, 2, 3
+  if (positions[ball].flag[frame]) {
+    var flagCoords = flagCodes[positions[ball].flag[frame]];
+    context.drawImage(textures.tiles,
+      flagCoords.x * TILE_SIZE, flagCoords.y * TILE_SIZE,
+      TILE_SIZE, TILE_SIZE,
+      ballx + 10, bally - 30,
+      TILE_SIZE, TILE_SIZE);
+  }
 }
 
 /**
  * Takes in the replay data and returns a DataURL (png) representing the map.
- * posx - offset of actual map image from left side of generated image
- * posy - offset of actual map image from top of generated image
  * positions - replay data
  */
-drawMap = function(posx, posy, positions) {
-    newcan = document.createElement('canvas')
-    newcan.id = 'newCanvas'
-    newcan.style.display = 'none'
-    document.body.appendChild(newcan)
-    newcan = document.getElementById('newCanvas')
-    newcan.width = positions.map.length * tileSize
-    newcan.height = positions.map[0].length * tileSize
-    newcan.style.zIndex = 200
-    newcan.style.position = 'absolute'
-    newcan.style.top = 0
-    newcan.style.left = 0
-    newcontext = newcan.getContext('2d')
-    
-    var specialTiles = ['11', '12', '17', '18'];
-    var specialTileElements = {
-	    11: {tile: "redtile", coordinates: {x: 14, y: 4}, tileSize: 40, drawTileFirst: false},
-    	12: {tile: "bluetile", coordinates: {x: 15, y: 4}, tileSize: 40, drawTileFirst: false},
-	    17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
-    	18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false}
-    }
-    
-    function drawSpecialTile(col, row, type) {
-    	if ( type == '1.1' && col != positions.tiles.length-1 && row != 0 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	} else if ( type == '1.2' && col != positions.tiles.length-1 && row != positions.tiles[col].length-1 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col + 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	} else if ( type == '1.3' && col != 0 && row != positions.tiles[col].length-1 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row + 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	} else if ( type == '1.4' && col != 0 && row != 0 ) {
-    		var test = specialTiles.map(function(tile) {
-    			if (positions.tiles[+col - 1][row].tile == specialTileElements[tile].tile && positions.tiles[col][+row - 1].tile == specialTileElements[tile].tile) 
-    				return ({test:true,tile:tile});
-    		});
-    	};
-    	if(typeof test === 'undefined' || $.map(test, function(obj, index){if(typeof obj === 'object') return(index)})[0] < 0) return false;
-    	var specialTile = $.map(test, function(obj, index){if(typeof obj === 'object') return(obj.tile)})[0]
-    	return specialTile;
-    }
+function drawMap(positions) {
+  var newcan = document.createElement('canvas');
+  newcan.id = 'newCanvas';
+  newcan.style.display = 'none';
+  document.body.appendChild(newcan);
+  newcan = document.getElementById('newCanvas');
+  newcan.width = positions.map.length * TILE_SIZE;
+  newcan.height = positions.map[0].length * TILE_SIZE;
+  newcan.style.zIndex = 200;
+  newcan.style.position = 'absolute';
+  newcan.style.top = 0;
+  newcan.style.left = 0;
+  newcontext = newcan.getContext('2d');
 
-    for (col in positions.tiles) {
-        for (row in positions.tiles[col]) {
-            // draw floor tile underneath certain tiles
-            // but don't draw tile outside bounds of the map
-            // also whether to draw team tiles / end zones instead of regular tile
-            if (positions.tiles[col][row].tile == 'diagonalWall') {
-            	positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(col, row, positions.map[col][row]);
-                positions.tiles[col][row].drawTileFirst = true
-                if (positions.map[col][row] == '1.1') {
-                    if (col != positions.map.length - 1) {
-                        if (positions.map[+col + 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != 0) {
-                        if (positions.map[col][+row - 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row == 0 && col == positions.map.length - 1)
-                    	positions.tiles[col][row].drawTileFirst = false;
-                } else if (positions.map[col][row] == '1.2') {
-                    if (col != positions.map.length - 1) {
-                        if (positions.map[+col + 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != positions.map[col].length - 1) {
-                        if (positions.map[col][+row + 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (col == positions.map.length - 1 && row == positions.map[col].length - 1)
-                    	positions.tiles[col][row].drawTileFirst = false
-                } else if (positions.map[col][row] == '1.3') {
-                    if (col != 0) {
-                        if (positions.map[+col - 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != positions.map[col].length - 1) {
-                        if (positions.map[col][+row + 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (col == 0 && row == positions.map[col].length - 1)
-                    	positions.tiles[col][row].drawTileFirst = false;
-                } else if (positions.map[col][row] == '1.4') {
-                    if (col != 0) {
-                        if (positions.map[+col - 1][row] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row != 0) {
-                        if (positions.map[col][+row - 1] == '0') {
-                            positions.tiles[col][row].drawTileFirst = false
-                        }
-                    }
-                    if (row == 0 && col == 0) 
-                    	positions.tiles[col][row].drawTileFirst = false;
-                }
+  var specialTiles = ['11', '12', '17', '18'];
+  var specialTileElements = {
+    11: { tile: "redtile", coordinates: { x: 14, y: 4 }, tileSize: 40, drawTileFirst: false },
+    12: { tile: "bluetile", coordinates: { x: 15, y: 4 }, tileSize: 40, drawTileFirst: false },
+    17: { tile: "redgoal", coordinates: { x: 14, y: 5 }, tileSize: 40, drawTileFirst: false },
+    18: { tile: "bluegoal", coordinates: { x: 15, y: 5 }, tileSize: 40, drawTileFirst: false }
+  };
+
+  var width = positions.tiles.length - 1;
+  var height = positions.tiles[0].length - 1;
+
+  // offsets to look for special tiles.
+  var walls = {
+    '1.1': [1, -1],
+    '1.2': [1, 1],
+    '1.3': [-1, 1],
+    '1.4': [-1, -1]
+  };
+
+  // Draw exposed floor under diagonal wall tile.
+  function drawSpecialTile(col, row, type) {
+    if (!walls[type]) return false;
+
+    let [x_offset, y_offset] = walls[type];
+    let [x, y] = [col + x_offset, row + y_offset];
+
+    if (x > width || 0 > x || y > height || 0 > y) return false;
+    let id = specialTiles.find((id) => {
+      let tile = specialTileElements[id].tile;
+      return positions.tiles[x][row].tile == tile && positions.tiles[col][y].tile == tile;
+    });
+    return id;
+  }
+
+  for (let col in positions.tiles) {
+    for (let row in positions.tiles[col]) {
+      // draw floor tile underneath certain tiles
+      // but don't draw tile outside bounds of the map
+      // also whether to draw team tiles / end zones instead of regular tile
+      if (positions.tiles[col][row].tile == 'diagonalWall') {
+        positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(+col, +row, positions.map[col][row]);
+        positions.tiles[col][row].drawTileFirst = true;
+        if (positions.map[col][row] == '1.1') {
+          if (col != positions.map.length - 1) {
+            if (positions.map[+col + 1][row] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
             }
-            if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
-                tileSize = 40
-                newcontext.drawImage(img, 										// image
-                    13 * tileSize, 									// x coordinate of image
-                    4 * tileSize,									// y coordinate of image
-                    tileSize,										// width of image
-                    tileSize,										// height of image
-                    col * tileSize + posx,							// destination x coordinate
-                    row * tileSize + posy,							// destination y coordinate
-                    tileSize,										// width of destination
-                    tileSize) 									// height of destination
+          }
+          if (row != 0) {
+            if (positions.map[col][+row - 1] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
             }
-            if (positions.tiles[col][row].drawSpecialTileFirst) {
-            	newcontext.drawImage(img,
-            		specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * tileSize,
-            		specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * tileSize,
-            		tileSize,
-            		tileSize,
-            		col * tileSize + posx,
-            		row * tileSize + posy,
-            		tileSize,
-            		tileSize)
+          }
+          if (row == 0 && col == positions.map.length - 1) {
+            positions.tiles[col][row].drawTileFirst = false;
+          }
+        } else if (positions.map[col][row] == '1.2') {
+          if (col != positions.map.length - 1) {
+            if (positions.map[+col + 1][row] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
             }
-            if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
-                tileSize = positions.tiles[col][row].tileSize
-                newcontext.drawImage(img, 											// image
-                    positions.tiles[col][row].coordinates.x * tileSize, 		// x coordinate of image
-                    positions.tiles[col][row].coordinates.y * tileSize,		// y coordinate of image
-                    tileSize,										// width of image
-                    tileSize,										// height of image
-                    col * tileSize + posx,							// destination x coordinate
-                    row * tileSize + posy,							// destination y coordinate
-                    tileSize,										// width of destination
-                    tileSize) 									// height of destination
+          }
+          if (row != positions.map[col].length - 1) {
+            if (positions.map[col][+row + 1] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
             }
-            if (positions.tiles[col][row].tile == 'wall' | positions.tiles[col][row].tile == 'diagonalWall') {
-                thisTileSize = positions.tiles[col][row].tileSize
-                for (quadrant in positions.tiles[col][row].coordinates) {
-                    offset = {}
-                    if (quadrant == 0) {
-                        offset.x = 0
-                        offset.y = 0
-                    } else if (quadrant == 1) {
-                        offset.x = thisTileSize
-                        offset.y = 0
-                    } else if (quadrant == 2) {
-                        offset.x = thisTileSize
-                        offset.y = thisTileSize
-                    } else if (quadrant == 3) {
-                        offset.x = 0
-                        offset.y = thisTileSize
-                    } else {
-                        continue
-                    }
-                    newcontext.drawImage(img,
-                        positions.tiles[col][row].coordinates[quadrant][0] * thisTileSize * 2,
-                        positions.tiles[col][row].coordinates[quadrant][1] * thisTileSize * 2,
-                        thisTileSize,
-                        thisTileSize,
-                        col * thisTileSize * 2 + offset.x + posx,
-                        row * thisTileSize * 2 + offset.y + posy,
-                        thisTileSize,
-                        thisTileSize)
-                }
+          }
+          if (col == positions.map.length - 1 && row == positions.map[col].length - 1) {
+            positions.tiles[col][row].drawTileFirst = false;
+          }
+        } else if (positions.map[col][row] == '1.3') {
+          if (col != 0) {
+            if (positions.map[+col - 1][row] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
             }
+          }
+          if (row != positions.map[col].length - 1) {
+            if (positions.map[col][+row + 1] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
+            }
+          }
+          if (col == 0 && row == positions.map[col].length - 1)
+            positions.tiles[col][row].drawTileFirst = false;
+        } else if (positions.map[col][row] == '1.4') {
+          if (col != 0) {
+            if (positions.map[+col - 1][row] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
+            }
+          }
+          if (row != 0) {
+            if (positions.map[col][+row - 1] == '0') {
+              positions.tiles[col][row].drawTileFirst = false;
+            }
+          }
+          if (row == 0 && col == 0) {
+            positions.tiles[col][row].drawTileFirst = false;
+          }
         }
+      }
+      if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
+        newcontext.drawImage(textures.tiles,
+          13 * TILE_SIZE, 4 * TILE_SIZE,
+          TILE_SIZE, TILE_SIZE,
+          col * TILE_SIZE, row * TILE_SIZE,
+          TILE_SIZE, TILE_SIZE);
+      }
+      if (positions.tiles[col][row].drawSpecialTileFirst) {
+        newcontext.drawImage(textures.tiles,
+          specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * TILE_SIZE,
+          specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * TILE_SIZE,
+          TILE_SIZE, TILE_SIZE,
+          col * TILE_SIZE, row * TILE_SIZE,
+          TILE_SIZE, TILE_SIZE);
+      }
+      if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
+        let tileSize = positions.tiles[col][row].tileSize
+        newcontext.drawImage(textures.tiles,
+          positions.tiles[col][row].coordinates.x * tileSize,
+          positions.tiles[col][row].coordinates.y * tileSize,
+          tileSize, tileSize,
+          col * tileSize, row * tileSize,
+          tileSize, tileSize);
+      }
+      if (positions.tiles[col][row].tile == 'wall' | positions.tiles[col][row].tile == 'diagonalWall') {
+        let thisTileSize = positions.tiles[col][row].tileSize
+        for (quadrant in positions.tiles[col][row].coordinates) {
+          offset = {};
+          if (quadrant == 0) {
+            offset.x = 0;
+            offset.y = 0;
+          } else if (quadrant == 1) {
+            offset.x = thisTileSize;
+            offset.y = 0;
+          } else if (quadrant == 2) {
+            offset.x = thisTileSize;
+            offset.y = thisTileSize;
+          } else if (quadrant == 3) {
+            offset.x = 0;
+            offset.y = thisTileSize;
+          } else {
+            continue;
+          }
+          newcontext.drawImage(textures.tiles,
+            positions.tiles[col][row].coordinates[quadrant][0] * thisTileSize * 2,
+            positions.tiles[col][row].coordinates[quadrant][1] * thisTileSize * 2,
+            thisTileSize, thisTileSize,
+            col * thisTileSize * 2 + offset.x,
+            row * thisTileSize * 2 + offset.y,
+            thisTileSize, thisTileSize)
+        }
+      }
     }
-    return (newcontext.canvas.toDataURL())
+  }
+  return newcontext.canvas.toDataURL();
 }
 
 function drawFloorTiles(positions) {
-    floorTileElements = {
-        3: {tile: "redflag", coordinates: {x: 14, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        3.1: {tile: "redflagtaken", coordinates: {x: 14, y: 2}, tileSize: 40, tilesImg: "tiles"},
-        4: {tile: "blueflag", coordinates: {x: 15, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        4.1: {tile: "blueflagtaken", coordinates: {x: 15, y: 2}, tileSize: 40, tilesImg: "tiles"},
-        5: {tile: "speedpad", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "speedpad"},
-        5.1: {tile: "emptyspeedpad", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "speedpad"},
-        6: {tile: "emptypowerup", coordinates: {x: 12, y: 8}, tileSize: 40, tilesImg: "tiles"},
-        6.1: {tile: "jukejuice", coordinates: {x: 12, y: 4}, tileSize: 40, tilesImg: "tiles"},
-        6.2: {tile: "rollingbomb", coordinates: {x: 12, y: 5}, tileSize: 40, tilesImg: "tiles"},
-        6.3: {tile: "tagpro", coordinates: {x: 12, y: 6}, tileSize: 40, tilesImg: "tiles"},
-        6.4: {tile: "speed", coordinates: {x: 12, y: 7}, tileSize: 40, tilesImg: "tiles"},
-        9: {tile: "gate", coordinates: {x: 12, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        9.1: {tile: "greengate", coordinates: {x: 13, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        9.2: {tile: "redgate", coordinates: {x: 14, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        9.3: {tile: "bluegate", coordinates: {x: 15, y: 3}, tileSize: 40, tilesImg: "tiles"},
-        10: {tile: "bomb", coordinates: {x: 12, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        10.1: {tile: "emptybomb", coordinates: {x: 12, y: 2}, tileSize: 40, tilesImg: "tiles"},
-        13: {tile: "portal", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "portal"},
-        13.1: {tile: "emptyportal", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "portal"},
-        14: {tile: "speedpadred", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "speedpadred"},
-        14.1: {tile: "emptyspeedpadred", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "speedpadred"},
-        15: {tile: "speedpadblue", coordinates: {x: 0, y: 0}, tileSize: 40, tilesImg: "speedpadblue"},
-        15.1: {tile: "emptyspeedpadblue", coordinates: {x: 4, y: 0}, tileSize: 40, tilesImg: "speedpadblue"},
-        16: {tile: "yellowflag", coordinates: {x: 13, y: 1}, tileSize: 40, tilesImg: "tiles"},
-        16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 2}, tileSize: 40, tilesImg: "tiles"}
-    }
-    for (floorTile in positions.floorTiles) {
-        mod = frame % (positions[me].fps * 2 / 3)
-        fourth = (positions[me].fps * 2 / 3) / 4
-        if (mod < fourth) {
-            animationTile = 0
-        } else if (mod < fourth * 2) {
-            animationTile = 1
-        } else if (mod < fourth * 3) {
-            animationTile = 2
-        } else {
-            animationTile = 3
-        }
+  var floorTileElements = {
+    3:    { tile: "redflag", coordinates: { x: 14, y: 1 }, tileSize: 40, tilesImg: "tiles" },
+    3.1:  { tile: "redflagtaken", coordinates: { x: 14, y: 2 }, tileSize: 40, tilesImg: "tiles" },
+    4:    { tile: "blueflag", coordinates: { x: 15, y: 1 }, tileSize: 40, tilesImg: "tiles" },
+    4.1:  { tile: "blueflagtaken", coordinates: { x: 15, y: 2 }, tileSize: 40, tilesImg: "tiles" },
+    5:    { tile: "speedpad", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "speedpad", animated: true },
+    5.1:  { tile: "emptyspeedpad", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "speedpad" },
+    6:    { tile: "emptypowerup", coordinates: { x: 12, y: 8 }, tileSize: 40, tilesImg: "tiles" },
+    6.1:  { tile: "jukejuice", coordinates: { x: 12, y: 4 }, tileSize: 40, tilesImg: "tiles" },
+    6.2:  { tile: "rollingbomb", coordinates: { x: 12, y: 5 }, tileSize: 40, tilesImg: "tiles" },
+    6.3:  { tile: "tagpro", coordinates: { x: 12, y: 6 }, tileSize: 40, tilesImg: "tiles" },
+    6.4:  { tile: "speed", coordinates: { x: 12, y: 7 }, tileSize: 40, tilesImg: "tiles" },
+    9:    { tile: "gate", coordinates: { x: 12, y: 3 }, tileSize: 40, tilesImg: "tiles" },
+    9.1:  { tile: "greengate", coordinates: { x: 13, y: 3 }, tileSize: 40, tilesImg: "tiles" },
+    9.2:  { tile: "redgate", coordinates: { x: 14, y: 3 }, tileSize: 40, tilesImg: "tiles" },
+    9.3:  { tile: "bluegate", coordinates: { x: 15, y: 3 }, tileSize: 40, tilesImg: "tiles" },
+    10:   { tile: "bomb", coordinates: { x: 12, y: 1 }, tileSize: 40, tilesImg: "tiles" },
+    10.1: { tile: "emptybomb", coordinates: { x: 12, y: 2 }, tileSize: 40, tilesImg: "tiles" },
+    13:   { tile: "portal", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "portal", animated: true },
+    13.1: { tile: "emptyportal", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "portal" },
+    14:   { tile: "speedpadred", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "speedpadred", animated: true },
+    14.1: { tile: "emptyspeedpadred", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "speedpadred" },
+    15:   { tile: "speedpadblue", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "speedpadblue", animated: true },
+    15.1: { tile: "emptyspeedpadblue", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "speedpadblue" },
+    16:   { tile: "yellowflag", coordinates: { x: 13, y: 1 }, tileSize: 40, tilesImg: "tiles" },
+    16.1: { tile: "yellowflagtaken", coordinates: { x: 13, y: 2 }, tileSize: 40, tilesImg: "tiles" }
+  };
 
-        thisFloorTile = floorTileElements[positions.floorTiles[floorTile].value[frame]]
-        if (typeof thisFloorTile === 'undefined') {
-            return (null)
-        } else {
-            if (thisFloorTile.tilesImg == 'tiles') {
-                framemg = img
-            } else if (thisFloorTile.tilesImg == 'speedpad') {
-                framemg = speedpadImg
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            } else if (thisFloorTile.tilesImg == 'portal') {
-                framemg = portalImg
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            } else if (thisFloorTile.tilesImg == 'speedpadred') {
-                framemg = speedpadredImg
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            } else if (thisFloorTile.tilesImg == 'speedpadblue') {
-                framemg = speedpadblueImg
-                if (thisFloorTile.coordinates.x != 4) {
-                    thisFloorTile.coordinates.x = animationTile
-                }
-            }
-
-            context.drawImage(framemg,								// image
-                thisFloorTile.coordinates.x * tileSize, 				// x coordinate of image
-                thisFloorTile.coordinates.y * tileSize,				// y coordinate of image
-                tileSize,											// width of image
-                tileSize,											// height of image
-                positions.floorTiles[floorTile].x * tileSize + posx,	// destination x coordinate
-                positions.floorTiles[floorTile].y * tileSize + posy,	// destination y coordinate
-                tileSize,											// width of destination
-                tileSize) 											// height of destination
-        }
+  let mod = frame % (replay_data.fps * 2 / 3);
+  let fourth = (replay_data.fps * 2 / 3) / 4;
+  if (mod < fourth) {
+    animationTile = 0;
+  } else if (mod < fourth * 2) {
+    animationTile = 1;
+  } else if (mod < fourth * 3) {
+    animationTile = 2;
+  } else {
+    animationTile = 3;
+  }
+  for (let floor_tile of positions.floorTiles) {
+    let tile_spec = floorTileElements[floor_tile.value[frame]];
+    if (!tile_spec) {
+      logger.error(`Error locating floor tile description for ${floor_tile.value[frame]}`);
+      return;
     }
+    let x = tile_spec.animated ? animationTile
+                               : tile_spec.coordinates.x;
+    context.drawImage(textures[tile_spec.tilesImg],
+      x * TILE_SIZE,
+      tile_spec.coordinates.y * TILE_SIZE,
+      TILE_SIZE, TILE_SIZE,
+      floor_tile.x * TILE_SIZE + posx,
+      floor_tile.y * TILE_SIZE + posy,
+      TILE_SIZE, TILE_SIZE);
+  }
 }
 
 function bombPop(positions) {
-    positions.bombs.forEach(function (bmb) {
-        for (j in positions) {
-            if (positions[j].me == 'me') {
-                me = j
-            }
+  positions.bombs.forEach(function (bmb) {
+    for (j in positions) {
+      if (positions[j].me == 'me') {
+        me = j
+      }
+    }
+    var bTime = new Date(bmb.time).getTime();
+    var cTime = new Date(positions.clock[frame]).getTime();
+    if (bTime <= cTime && cTime - bTime < 200 && bmb.type === 2) {
+      if (typeof bmb.bombAnimation === 'undefined') {
+        bmb.bombAnimation = {
+          length: Math.round(replay_data.fps / 10),
+          frame: 0
         }
-        var bTime = new Date(bmb.time).getTime();
-        var cTime = new Date(positions.clock[frame]).getTime();
-        if(bTime <= cTime && cTime - bTime < 200 && bmb.type === 2) {
-        	if(typeof bmb.bombAnimation === 'undefined') {
-        		bmb.bombAnimation = {
-        			length: Math.round(positions[me].fps / 10),
-        			frame: 0
-        		}
-        	}
-        	
-        	if(bmb.bombAnimation.frame < bmb.bombAnimation.length) {
-        		bmb.bombAnimation.frame++
-        		bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length))
-            	bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length
-            	context.fillStyle = "#FF8000"
-            	context.globalAlpha = bombOpacity
-            	context.beginPath()
-            	bombX = bmb.x + posx + tileSize / 2 //- context.canvas.width/2 + 60
-            	bombY = bmb.y + posy + tileSize / 2 //- context.canvas.height/2 - 20
-            	context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, !0)
-            	context.closePath()
-            	context.fill()
-            	context.globalAlpha = 1
-            	context.fillStyle = "#ffffff"
-            } 
-        } else {
-            delete bmb.bombAnimation;
-        }
-    })
+      }
+
+      if (bmb.bombAnimation.frame < bmb.bombAnimation.length) {
+        bmb.bombAnimation.frame++;
+        bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length));
+        bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length;
+        context.fillStyle = "#FF8000";
+        context.globalAlpha = bombOpacity;
+        context.beginPath();
+        bombX = bmb.x + posx + TILE_SIZE / 2; //- context.canvas.width/2 + 60
+        bombY = bmb.y + posy + TILE_SIZE / 2; //- context.canvas.height/2 - 20
+        context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, true);
+        context.closePath();
+        context.fill();
+        context.globalAlpha = 1;
+        context.fillStyle = "#ffffff";
+      }
+    } else {
+      delete bmb.bombAnimation;
+    }
+  });
 }
-        		
 
 function ballCollision(positions, ball) {
-    for (j in positions) {
-        if (j.search('player') == 0 & j != ball) {
-            if ((Math.abs(positions[j].x[frame - 1] - positions[ball].x[frame - 1]) < (45) & Math.abs(positions[j].y[frame - 1] - positions[ball].y[frame - 1]) < (45)) | (Math.abs(positions[j].x[frame] - positions[ball].x[frame]) < (45) & Math.abs(positions[j].y[frame] - positions[ball].y[frame]) < (45))) {
-                return (true)
-            }
-        }
+  let last_frame = frame - 1;
+  let this_ball = positions[ball];
+  for (let key in positions) {
+    if (key.startsWith('player') && key != ball) {
+      let other_ball = positions[key];
+      if ((Math.abs(other_ball.x[frame - 1] - this_ball.x[frame - 1]) < 45 &&
+           Math.abs(other_ball.y[frame - 1] - this_ball.y[frame - 1]) < 45) ||
+          (Math.abs(other_ball.x[frame]     - this_ball.x[frame]) < 45 &&
+           Math.abs(other_ball.y[frame]     - this_ball.y[frame]) < 45)) {
+        return true;
+      }
     }
-    return (false)
+  }
+  return false;
 }
 
 function rollingBombPop(positions, ball) {
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j
-        }
+  for (j in positions) {
+    if (positions[j].me == 'me') {
+      me = j
     }
-    // determine if we need to start a rolling bomb animation: ball has no bomb now, but had bomb one frame ago
-    if (!positions[ball].bomb[frame] & positions[ball].bomb[frame - 1] & ballCollision(positions, ball)) {
-        positions[ball].rollingBombAnimation = {
-            length: Math.round(positions[ball].fps / 10),
-            frame: 0
-        }
+  }
+  // determine if we need to start a rolling bomb animation: ball has no bomb now, but had bomb one frame ago
+  if (!positions[ball].bomb[frame] & positions[ball].bomb[frame - 1] & ballCollision(positions, ball)) {
+    positions[ball].rollingBombAnimation = {
+      length: Math.round(replay_data.fps / 10),
+      frame: 0
     }
-    // if an animation should be in progress, draw it
-    if (typeof positions[ball].rollingBombAnimation != 'undefined') {
-        positions[ball].rollingBombAnimation.frame++
-        rollingBombSize = 40 + (200 * (positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length))
-        rollingBombOpacity = 1 - positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length
+  }
+  // if an animation should be in progress, draw it
+  if (typeof positions[ball].rollingBombAnimation != 'undefined') {
+    positions[ball].rollingBombAnimation.frame++
+    rollingBombSize = 40 + (200 * (positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length))
+    rollingBombOpacity = 1 - positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length
 
-        context.fillStyle = "#FFFF00"
-        context.globalAlpha = rollingBombOpacity
-        context.beginPath()
-        rollingBombX = positions[ball].x[frame] - positions[me].x[frame] + context.canvas.width / 2 //- tileSize/2
-        rollingBombY = positions[ball].y[frame] - positions[me].y[frame] + context.canvas.height / 2  //- tileSize/2
-        context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0)
-        context.closePath()
-        context.fill()
-        context.globalAlpha = 1
-        context.fillStyle = "#ffffff"
-        if (positions[ball].rollingBombAnimation.frame >= positions[ball].rollingBombAnimation.length) {
-            delete(positions[ball].rollingBombAnimation)
-        }
+    context.fillStyle = "#FFFF00"
+    context.globalAlpha = rollingBombOpacity
+    context.beginPath()
+    rollingBombX = positions[ball].x[frame] - positions[me].x[frame] + context.canvas.width / 2 //- TILE_SIZE/2
+    rollingBombY = positions[ball].y[frame] - positions[me].y[frame] + context.canvas.height / 2  //- TILE_SIZE/2
+    context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 1
+    context.fillStyle = "#ffffff"
+    if (positions[ball].rollingBombAnimation.frame >= positions[ball].rollingBombAnimation.length) {
+      delete (positions[ball].rollingBombAnimation)
     }
+  }
 }
 
 function ballPop(positions, ball) {
-    if (ball.search('player') != 0) {
-        return
-    }
+  if (ball.search('player') != 0) {
+    return
+  }
 
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j
-        }
+  for (j in positions) {
+    if (positions[j].me == 'me') {
+      me = j
     }
-    // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
-    if (positions[ball].dead[frame] & !positions[ball].dead[frame - 1] & positions[ball].draw[frame - 1]) {
-        positions[ball].popAnimation = {
-            length: Math.round(positions[ball].fps / 10),
-            frame: 0
-        }
+  }
+  // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
+  if (positions[ball].dead[frame] & !positions[ball].dead[frame - 1] & positions[ball].draw[frame - 1]) {
+    positions[ball].popAnimation = {
+      length: Math.round(replay_data.fps / 10),
+      frame: 0
     }
-    // if an animation should be in progress, draw it
-    if (typeof positions[ball].popAnimation != 'undefined') {
-        positions[ball].popAnimation.frame++
-        popSize = 40 + (80 * (positions[ball].popAnimation.frame / positions[ball].popAnimation.length))
-        popOpacity = 1 - positions[ball].popAnimation.frame / positions[ball].popAnimation.length
+  }
+  // if an animation should be in progress, draw it
+  if (typeof positions[ball].popAnimation != 'undefined') {
+    positions[ball].popAnimation.frame++
+    popSize = 40 + (80 * (positions[ball].popAnimation.frame / positions[ball].popAnimation.length))
+    popOpacity = 1 - positions[ball].popAnimation.frame / positions[ball].popAnimation.length
 
-        context.globalAlpha = popOpacity
-        context.drawImage(img,
-            (positions[ball].team[frame] == 1 ? 14 : 15) * tileSize,
-            0,
-            tileSize,
-            tileSize,
-            positions[ball].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - popSize / 2,
-            positions[ball].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - popSize / 2,
-            popSize,
-            popSize)
-        context.globalAlpha = 1
-        if (positions[ball].popAnimation.frame >= positions[ball].popAnimation.length) {
-            delete(positions[ball].popAnimation)
-        }
+    context.globalAlpha = popOpacity
+    context.drawImage(textures.tiles,
+      (positions[ball].team[frame] == 1 ? 14 : 15) * TILE_SIZE,
+      0,
+      TILE_SIZE,
+      TILE_SIZE,
+      positions[ball].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - popSize / 2,
+      positions[ball].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - popSize / 2,
+      popSize,
+      popSize)
+    context.globalAlpha = 1
+    if (positions[ball].popAnimation.frame >= positions[ball].popAnimation.length) {
+      delete (positions[ball].popAnimation)
     }
+  }
 }
 
 function drawSplats(positions) {
-    if (positions.splats) {
-        for (splatI in positions.splats) {
-            if (!positions.splats[splatI].img) {
-                positions.splats[splatI].img = Math.floor(Math.random() * 7)
-            }
-            thisSplat = positions.splats[splatI]
-            thisTime = new Date(positions.clock[frame]).getTime()
-            thisSplatTime = new Date(thisSplat.time).getTime()
-            if (thisSplatTime <= thisTime) {
-                context.drawImage(splatsImg,
-                    thisSplat.img * 120,
-                    (thisSplat.t - 1) * 120,
-                    120,
-                    120,
-                    thisSplat.x + posx - 60 + 20,
-                    thisSplat.y + posy - 60 + 20,
-                    120,
-                    120)
-            }
-        }
+  if (positions.splats) {
+    let now = new Date(positions.clock[frame]).getTime();
+    for (let splat of positions.splats) {
+      if (!splat.img) {
+        // TODO: dynamic based on splat sprite width.
+        splat.img = Math.floor(Math.random() * 7);
+      }
+      let splat_time = new Date(splat.time).getTime();
+      if (splat_time <= now) {
+        context.drawImage(textures.splats,
+          splat.img * 120,
+          (splat.t - 1) * 120,
+          120, 120,
+          splat.x + posx - 60 + 20,
+          splat.y + posy - 60 + 20,
+          120, 120);
+      }
     }
+  }
 }
 
 function drawSpawns(positions) {
-    if (positions.spawns) {
-        context.globalAlpha = .25
-        for (spawnI in positions.spawns) {
-            thisSpawn = positions.spawns[spawnI]
-            thisTime = new Date(positions.clock[frame]).getTime()
-            thisSpawnTime = new Date(thisSpawn.time).getTime()
-            timeDiff = thisTime - thisSpawnTime // positive if spawn has already happened
-            if (timeDiff >= 0 & timeDiff <= thisSpawn.w) {
-                context.drawImage(img,
-                    (thisSpawn.t == 1 ? 14 : 15) * tileSize,
-                    0,
-                    40,
-                    40,
-                    thisSpawn.x + posx,
-                    thisSpawn.y + posy,
-                    40,
-                    40)
-            }
-        }
-        context.globalAlpha = 1
+  if (positions.spawns) {
+    context.globalAlpha = .25;
+    let now = new Date(positions.clock[frame]).getTime();
+    for (let spawn of positions.spawns) {
+      let spawn_time = new Date(spawn.time).getTime();
+      let diff = now - spawn_time;
+      if (diff >= 0 && diff <= spawn.w) {
+        context.drawImage(textures.tiles,
+          (spawn.t == 1 ? 14 : 15) * TILE_SIZE, 0,
+          40, 40,
+          spawn.x + posx, spawn.y + posy,
+          40, 40);
+      }
     }
+    context.globalAlpha = 1;
+  }
 }
 
 function drawEndText(positions) {
-    if (positions.end) {
-        endTime = new Date(positions.end.time).getTime()
-        thisTime = new Date(positions.clock[frame]).getTime()
-        if (endTime <= thisTime) {
-            positions.end.winner == 'red' ? endColor = "#ff0000" : positions.end.winner == 'blue' ? endColor = "#0000ff" : endColor = "#ffffff"
-            switch(positions.end.winner) {
-    			case 'red':
-        			endText = "Red Wins!";
-        			break;
-    			case 'blue':
-        			endText = "Blue Wins!";
-        			break;
-        		case 'tie':
-        			endText = "It's a Tie!";
-        			break;
-    			default:
-        			endText = positions.end.winner;
-			}
-            context.save()
-            context.textAlign = "center"
-            context.font = "bold 48pt Arial"
-            context.fillStyle = endColor
-            context.strokeStyle = "#000000"
-            context.strokeText(endText, context.canvas.width / 2, 100)
-            context.fillText(endText, context.canvas.width / 2, 100)
-            context.restore()
-        }
+  if (positions.end) {
+    var endTime = new Date(positions.end.time).getTime();
+    var thisTime = new Date(positions.clock[frame]).getTime();
+    var endColor, endText;
+    if (endTime <= thisTime) {
+      switch (positions.end.winner) {
+        case 'red':
+          endColor = "#ff0000";
+          endText = "Red Wins!";
+          break;
+        case 'blue':
+          endColor = "#0000ff";
+          endText = "Blue Wins!";
+          break;
+        case 'tie':
+          endColor = "#ffffff";
+          endText = "It's a Tie!";
+          break;
+        default:
+          endColor = "#ffffff";
+          endText = positions.end.winner;
+      }
+      context.save();
+      context.textAlign = "center";
+      context.font = "bold 48pt Arial";
+      context.fillStyle = endColor;
+      context.strokeStyle = "#000000";
+      context.strokeText(endText, context.canvas.width / 2, 100);
+      context.fillText(endText, context.canvas.width / 2, 100);
+      context.restore();
     }
+  }
 }
 
 function drawBalls(positions) {
-	spin = (localStorage.getItem('useSpin') == 'true' || readCookie('useSpin') == 'true') 
-
-    // draw 'me'
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j
-        }
+  // draw 'me'
+  for (let j in positions) {
+    if (positions[j].me == 'me') {
+      var me = j;
+      break;
     }
-    // what team?
-    if (typeof positions[me].team.length === 'undefined') {
-        meTeam = positions[me].team
+  }
+  let player = positions[me];
+  // what team?
+  if (!Array.isArray(player.team)) {
+    var meTeam = player.team;
+  } else {
+    var meTeam = player.team[frame];
+  }
+  if (!player.dead[frame]) {
+    // draw own ball with or without spin
+    if (!options.spin || typeof player.angle === 'undefined') {
+      context.drawImage(textures.tiles,
+        (meTeam == 1 ? 14 : 15) * TILE_SIZE, 0,
+        TILE_SIZE, TILE_SIZE,
+        context.canvas.width / 2 - TILE_SIZE / 2,
+        context.canvas.height / 2 - TILE_SIZE / 2,
+        TILE_SIZE, TILE_SIZE);
     } else {
-        meTeam = positions[me].team[frame]
+      context.translate(context.canvas.width / 2, context.canvas.height / 2);
+      context.rotate(player.angle[frame]);
+      context.drawImage(textures.tiles,
+        (meTeam == 1 ? 14 : 15) * TILE_SIZE, 0,
+        TILE_SIZE, TILE_SIZE,
+        -20, -20,
+        TILE_SIZE,
+        TILE_SIZE);
+      context.rotate(-player.angle[frame]);
+      context.translate(-context.canvas.width / 2, -context.canvas.height / 2);
     }
-    if (positions[me].dead[frame] == false) {
-    
-    	// draw own ball with or without spin
-    	if(spin === false || typeof positions[me].angle === 'undefined') {
-        	context.drawImage(img, 								// image
-            	(meTeam == 1 ? 14 : 15) * tileSize,				 	// x coordinate of image
-            	0,												// y coordinate of image
-            	tileSize,										// width of image
-            	tileSize,										// height of image
-            	context.canvas.width / 2 - tileSize / 2,			// destination x coordinate
-            	context.canvas.height / 2 - tileSize / 2,			// destination y coordinate
-            	tileSize,										// width of destination
-            	tileSize) 										// height of destination
-        } else {
-        	context.translate(context.canvas.width/2, context.canvas.height/2);
-        	context.rotate(positions[me].angle[frame]);
-        	context.drawImage(img,
-        		(meTeam == 1 ? 14 : 15) * tileSize,	
-        		0,
-        		tileSize,
-        		tileSize,
-        		-20,
-        		-20,
-        		tileSize,
-        		tileSize);
-        	context.rotate(-positions[me].angle[frame]);
-        	context.translate(-context.canvas.width/2, -context.canvas.height/2);		
-        }
 
-        drawPowerups(me, context.canvas.width / 2 - tileSize / 2, context.canvas.height / 2 - tileSize / 2, positions)
-        drawFlag(me, context.canvas.width / 2 - tileSize / 2, context.canvas.height / 2 - tileSize / 2, positions)
-        thisName = (typeof positions[me].name == 'string') ? positions[me].name : positions[me].name[frame]
-        drawText(thisName,
-            context.canvas.width / 2 - tileSize / 2 + 30,
-            context.canvas.height / 2 - tileSize / 2 - 5,
-            (typeof positions[me].auth != 'undefined') ? positions[me].auth[frame] : undefined,
-            (typeof positions[me].degree != 'undefined') ? positions[me].degree[frame] : undefined)
-        if (typeof positions[me].flair !== 'undefined') {
-            drawFlair(positions[me].flair[frame],
-                context.canvas.width / 2 - 16 / 2,
-                context.canvas.height / 2 - tileSize / 2 - 17)
-        }
+    drawPowerups(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
+    drawFlag(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
+    thisName = (typeof positions[me].name == 'string') ? positions[me].name : positions[me].name[frame]
+    drawText(thisName,
+      context.canvas.width / 2 - TILE_SIZE / 2 + 30,
+      context.canvas.height / 2 - TILE_SIZE / 2 - 5,
+      (typeof positions[me].auth != 'undefined') ? positions[me].auth[frame] : undefined,
+      (typeof positions[me].degree != 'undefined') ? positions[me].degree[frame] : undefined)
+    if (typeof positions[me].flair !== 'undefined') {
+      drawFlair(positions[me].flair[frame],
+        context.canvas.width / 2 - 16 / 2,
+        context.canvas.height / 2 - TILE_SIZE / 2 - 17)
     }
-    ballPop(positions, me)
-    rollingBombPop(positions, me)
+  }
+  ballPop(positions, me)
+  rollingBombPop(positions, me)
 
-    // draw other balls
-    for (j in positions) {
-        if (typeof positions[j].me != undefined & positions[j].me == 'other') {
-            if (positions[j].dead[frame] == false) {
-                if (positions[j].draw[frame] == true) {
-                    if (frame == 0 || positions[j].draw[frame - 1] == true) {
-                        if ((positions[j].dead[frame - 1] == true & positions[j].x[frame] != positions[j].x[frame - positions[j].fps]) | positions[j].dead[frame - 1] != true) {
-                            // what team?
-                            if (typeof positions[j].team.length === 'undefined') {
-                                thisTeam = positions[j].team
-                            } else {
-                                thisTeam = positions[j].team[frame]
-                            }
-                            
-                            // draw with or without spin
-                            if(spin === false || typeof positions[j].angle === 'undefined') {
-                            	context.drawImage(img,																		// image
-                                	(thisTeam == 1 ? 14 : 15) * tileSize,														// x coordinate of image
-                                	0,																						// y coordinate of image
-                                	tileSize,																				// width of image
-                                	tileSize,																				// height of image
-                                	positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - tileSize / 2,	// destination x coordinate
-                                	positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - tileSize / 2,	// destination y coordinate
-                                	tileSize,																				// width of destination
-                                	tileSize)																				// height of destination
-                            } else {
-                            	context.translate(positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2, 
-                            					  positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2);
-        						context.rotate(positions[j].angle[frame]);
-        						context.drawImage(img,
-        							(thisTeam == 1 ? 14 : 15) * tileSize,	
-        							0,
-        							tileSize,
-        							tileSize,
-        							-20,
-        							-20,
-        							tileSize,
-        							tileSize);
-        						context.rotate(-positions[j].angle[frame]);
-        						context.translate(-(positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2), 
-                            					  -(positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2));	
-                            }
+  // draw other balls
+  for (let j in positions) {
+    if (!j.startsWith('player')) continue;
+    if (j == me) continue;
+    let player = positions[j];
+    if (!player.dead[frame] && player.draw[frame]) {
+      if (frame == 0 || player.draw[frame - 1] == true) {
+        if ((player.dead[frame - 1] &&
+             player.x[frame] != player.x[frame - replay_data.fps]) ||
+             !player.dead[frame - 1]) {
+          let team = Array.isArray(player.team) ? player.team[frame]
+                                                : player.team;
 
-                            drawPowerups(j, positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - tileSize / 2,
-                                positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - tileSize / 2, positions)
-                            drawFlag(j, positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - tileSize / 2,
-                                positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - tileSize / 2, positions)
-                            thisName = (typeof positions[j].name === 'string') ? positions[j].name : positions[j].name[frame]
-                            drawText(thisName,
-                                positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - tileSize / 2 + 30,
-                                positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - tileSize / 2 - 5,
-                                (typeof positions[j].auth != 'undefined') ? positions[j].auth[frame] : undefined,
-                                (typeof positions[j].degree != 'undefined') ? positions[j].degree[frame] : undefined)
-                            if (typeof positions[j].flair !== 'undefined') {
-                                drawFlair(positions[j].flair[frame],
-                                    positions[j].x[frame] - positions[me].x[frame] + context.canvas.width / 2 - 16 / 2,
-                                    positions[j].y[frame] - positions[me].y[frame] + context.canvas.height / 2 - tileSize / 2 - 20)
-                            }
-                            rollingBombPop(positions, j)
-                        }
-                    }
-                }
-            }
-            ballPop(positions, j)
+          // draw with or without spin
+          if (!options.spin || typeof player.angle === 'undefined') {
+            context.drawImage(textures.tiles,
+              (team == 1 ? 14 : 15) * TILE_SIZE, 0,
+              TILE_SIZE, TILE_SIZE,
+              player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2,
+              player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2,
+              TILE_SIZE, TILE_SIZE);
+          } else {
+            context.translate(
+              player.x[frame] - positions[me].x[frame] + context.canvas.width / 2,
+              player.y[frame] - positions[me].y[frame] + context.canvas.height / 2);
+            context.rotate(player.angle[frame]);
+            context.drawImage(textures.tiles,
+              (team == 1 ? 14 : 15) * TILE_SIZE, 0,
+              TILE_SIZE, TILE_SIZE,
+              -20, -20,
+              TILE_SIZE, TILE_SIZE);
+            context.rotate(-player.angle[frame]);
+            context.translate(
+              -(player.x[frame] - positions[me].x[frame] + context.canvas.width / 2),
+              -(player.y[frame] - positions[me].y[frame] + context.canvas.height / 2));
+          }
+
+          drawPowerups(j,
+            player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2,
+            player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2, positions)
+          drawFlag(j,
+            player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2,
+            player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2, positions)
+          let name = Array.isArray(player.name) ? player.name[frame]
+                                                : player.name;
+          drawText(name,
+            player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2 + 30,
+            player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2 - 5,
+            (typeof player.auth != 'undefined') ? player.auth[frame] : undefined,
+            (typeof player.degree != 'undefined') ? player.degree[frame] : undefined)
+          if (typeof player.flair !== 'undefined') {
+            drawFlair(player.flair[frame],
+              player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - 16 / 2,
+              player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2 - 20);
+          }
+          rollingBombPop(positions, j);
         }
+      }
     }
+    ballPop(positions, j);
+  }
 }
 
 /**
@@ -848,128 +851,36 @@ function drawBalls(positions) {
  * positions - replay data
  * mapImg - html img element reflecting the image of the map
  */
-animateReplay = function(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
-    frame = frame_n;
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j
-        }
+function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
+  frame = frame_n;
+  for (let j in positions) {
+    if (positions[j].me == 'me') {
+      var me = j;
+      break;
     }
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height)
-    posx = -(positions[me].x[frame] - context.canvas.width / 2 + tileSize / 2)
-    posy = -(positions[me].y[frame] - context.canvas.height / 2 + tileSize / 2)
-    context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
-        posx,
-        posy,
-        mapImg.width, mapImg.height)
-    if (showSplats) {
-        drawSplats(positions)
-    }
-    drawFloorTiles(positions)
-    drawSpawns(positions)
-    drawBalls(positions)
-    if (showClockAndScore) {
-    	drawClock(positions)
-    	drawScore(positions)
-    	drawScoreFlag(positions)
-    }
-    if (showChat) {
-	    drawChats(positions)
-	}
-    bombPop(positions)
-    drawEndText(positions)
+  }
+  context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  posx = -(positions[me].x[frame] - context.canvas.width / 2 + TILE_SIZE / 2);
+  posy = -(positions[me].y[frame] - context.canvas.height / 2 + TILE_SIZE / 2);
+  context.drawImage(mapImg,
+    0, 0,
+    mapImg.width, mapImg.height,
+    posx, posy,
+    mapImg.width, mapImg.height);
+  if (showSplats) {
+    drawSplats(positions);
+  }
+  drawFloorTiles(positions);
+  drawSpawns(positions);
+  drawBalls(positions);
+  if (showClockAndScore) {
+    drawClock(positions);
+    drawScore(positions);
+    drawScoreFlag(positions);
+  }
+  if (showChat) {
+    drawChats(positions);
+  }
+  bombPop(positions);
+  drawEndText(positions);
 }
-
-
-// Preview creation.
-getPosData2 = function getPosData(dataFileName) {
-    positionData = []
-    var transaction = db.transaction(["positions"], "readonly");
-    var store = transaction.objectStore("positions");
-    var request = store.get(dataFileName);
-    request.onsuccess = function () {
-        hh=request.result
-    }
-}
-
-// create two canvases - one to draw full size preview, one to draw the half size one.
-fullPreviewCanvas = document.createElement('canvas');
-fullPreviewCanvas.width = 1280;
-fullPreviewCanvas.height = 800;
-fullPreviewContext = fullPreviewCanvas.getContext('2d');
-
-smallPreviewCanvas = document.createElement('canvas');
-smallPreviewCanvas.width = fullPreviewCanvas.width / 2;
-smallPreviewCanvas.height = fullPreviewCanvas.height / 2;
-smallPreviewContext = smallPreviewCanvas.getContext('2d');
-
-// function to draw stuff onto the canvas
-function drawReplay(thisI, positions, mapImg, thisContext) {
-  frame = thisI;
-	tileSize = 40;
-    for (j in positions) {
-        if (positions[j].me == 'me') {
-            me = j;
-        }
-    }
-    context = thisContext;
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height)
-    posx = -(positions[me].x[frame] - context.canvas.width / 2 + tileSize / 2)
-    posy = -(positions[me].y[frame] - context.canvas.height / 2 + tileSize / 2)
-    context.drawImage(mapImg, 0, 0, mapImg.width, mapImg.height,
-        posx,
-        posy,
-        mapImg.width, mapImg.height)
-    drawSplats(positions)
-    drawFloorTiles(positions)
-    drawSpawns(positions)
-    drawBalls(positions)
-    drawClock(positions)
-    drawScore(positions)
-    drawScoreFlag(positions)
-	drawChats(positions)
-    bombPop(positions)
-    drawEndText(positions)
-    return (context.canvas.toDataURL());
-}
-
-// function that takes positions file and draws the frame 75% of the way through the 
-// replay at full size. then redraws that at reduced size.
-// returns a dataURL of the resulting image
-drawPreview = function(positions) {
-	$('#tiles')[0].src = defaultTextures.tiles
-    $('#portal')[0].src = defaultTextures.portal
-    $('#speedpad')[0].src = defaultTextures.speedpad
-    $('#speedpadred')[0].src = defaultTextures.speedpadred
-    $('#speedpadblue')[0].src = defaultTextures.speedpadblue
-    $('#splats')[0].src = defaultTextures.splats
-	smallPreviewContext.rect(0, 0, smallPreviewCanvas.width, smallPreviewCanvas.height);
-	smallPreviewContext.fillStyle = 'black';
-	smallPreviewContext.fill();
-	
-	var replayLength = positions.clock.length;
-	thisI = Math.round(replayLength * 0.75);
-	
-	var previewMapData = drawMap(0,0,positions);
-	var previewMap = document.createElement('img');
-	previewMap.src = previewMapData;
-
-	var fullImageData = drawReplay(thisI, positions, previewMap, fullPreviewContext);
-	var img = document.createElement('img');
-	img.src = fullImageData;
-	smallPreviewContext.drawImage(img,
-	                              0, 
-	                              0,
-	                              fullPreviewCanvas.width,
-	                              fullPreviewCanvas.height,
-	                              0,
-	                              0,
-	                              smallPreviewCanvas.width,
-	                              smallPreviewCanvas.height);
-	var result = smallPreviewCanvas.toDataURL();
-	previewMap.remove();
-	img.remove();
-	return(result);
-}
-
-})();

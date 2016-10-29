@@ -1,3 +1,5 @@
+var logger = require('./modules/logger')('recording');
+
 /**
  * Record and save the state of the game, emitting an event to the
  * window with the replay data.
@@ -6,7 +8,6 @@
  * is necessary in order to listen to the game socket which provides
  * game state information.
  */
-(function() {
 
 /**
  * Create an array of size N filled with zeros.
@@ -127,7 +128,7 @@ function recordReplayData() {
             if (player.search('player') === 0) {
                 for (var prop in positions[player]) {
                     // Only apply to properties tracked over time.
-                    if ($.isArray(positions[player][prop])) {
+                    if (Array.isArray(positions[player][prop])) {
                         var frames = positions[player][prop];
                         var playerId = player.replace('player', '');
 
@@ -574,4 +575,3 @@ if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
 		}, 1000);
 	})
 }
-})();

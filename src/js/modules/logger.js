@@ -1,6 +1,4 @@
-var Logger = (function (global) {
-
-var debug = window.debug;
+var debug = require('debug');
 debug.enable("*");
 
 var top = "tpr";
@@ -18,7 +16,7 @@ var loggers = {
   error: console.error.bind(console)
 };
 
-return function getLogger(name) {
+module.exports = function getLogger(name) {
   var levels = ["trace", "debug", "info", "warn", "error"];
   var debugs = {};
   for (let level of levels) {
@@ -27,4 +25,3 @@ return function getLogger(name) {
   }
   return debugs;
 };
-})(window);

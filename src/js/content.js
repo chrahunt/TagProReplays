@@ -1,9 +1,31 @@
-(function() {
-var logger = Logger('menu');
-logger.info('TagProReplays');
+const $ = require('jquery');
+// Set global since bootstrap assumes it.
+window.$ = window.jQuery = $;
+require('bootstrap');
+// Relinquish control back to existing version if needed.
+$.noConflict(true);
+
+const reader = require('promise-file-reader');
+
+const logger = require('./modules/logger')('content');
+const Cookies = require('./modules/cookies');
+const Preview = require('./modules/previewer');
+const Textures = require('./modules/textures');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
+
+function get_options() {
+  return Promise.resolve({
+    spin: Cookies.read('useSpin') == 'true',
+    splats: Cookies.read('useSplats') == 'true',
+    ui: Cookies.read('useClockAndScore') == 'true',
+    chats: Cookies.read('useChat') == 'true',
+    custom_textures: Cookies.read('useTextures') == 'true',
+    width: Cookies.read('canvasWidth') || 1280,
+    height: Cookies.read('canvasHeight') || 800
+  });
+}
 
 // Inserts Replay button in main page
 function createReplayPageButton() {
@@ -35,7 +57,7 @@ function createMenu() {
     insert_point.append('<div id="tpr-container" class="bootstrap-container">');
 
     // Retrieve html of all items
-    $('#tpr-container').load(chrome.extension.getURL("ui/menus.html"), function () {
+    $('#tpr-container').load(chrome.extension.getURL("html/menus.html"), function () {
         logger.info("Loaded.");
            $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
 
@@ -115,26 +137,26 @@ function createMenu() {
             
             // Set cookies for replayRecording
             if (!isNaN(fpsInputValue) && fpsInputValue != "") {
-                setCookie('fps', $('#fpsInput')[0].value, cookieDomain)
+                Cookies.set('fps', $('#fpsInput')[0].value, cookieDomain)
             }
             if (!isNaN(durationInputValue) && durationInputValue != "") {
-                setCookie('duration', $('#durationInput')[0].value, cookieDomain);
+                Cookies.set('duration', $('#durationInput')[0].value, cookieDomain);
             }
-            setCookie('record', recordInputValue, cookieDomain);
-            setCookie('useTextures', useTexturesInputValue, cookieDomain);
-            setCookie('useRecordKey', useRecordKeyValue, cookieDomain);
+            Cookies.set('record', recordInputValue, cookieDomain);
+            Cookies.set('useTextures', useTexturesInputValue, cookieDomain);
+            Cookies.set('useRecordKey', useRecordKeyValue, cookieDomain);
             if (currentRecordKey !== 'None') {
-                setCookie('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain);
+                Cookies.set('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain);
             }
-            setCookie('useSplats', useSplatsValue, cookieDomain);
-            setCookie('useSpin', useSpinValue, cookieDomain);
-            setCookie('useClockAndScore', useClockAndScoreValue, cookieDomain);
-            setCookie('useChat', useChatValue, cookieDomain);
+            Cookies.set('useSplats', useSplatsValue, cookieDomain);
+            Cookies.set('useSpin', useSpinValue, cookieDomain);
+            Cookies.set('useClockAndScore', useClockAndScoreValue, cookieDomain);
+            Cookies.set('useChat', useChatValue, cookieDomain);
             if (!isNaN(canvasWidthValue) && canvasWidthValue !== "") {
-                setCookie('canvasWidth', canvasWidthValue, cookieDomain);
+                Cookies.set('canvasWidth', canvasWidthValue, cookieDomain);
             }
             if (!isNaN(canvasHeightValue) && canvasHeightValue !== "") {
-                setCookie('canvasHeight', canvasHeightValue, cookieDomain);
+                Cookies.set('canvasHeight', canvasHeightValue, cookieDomain);
             } 
 
             chrome.runtime.sendMessage({
@@ -148,19 +170,19 @@ function createMenu() {
         // Set value of settings when dialog opened, using default values if
         // none have yet been set.
         setSettings = function () {
-            var fpsValue = readCookie('fps') || "60",
-                durationValue = readCookie('duration') || "30",
-                recordValue = readCookie('record') || 'true',
+            var fpsValue = Cookies.read('fps') || "60",
+                durationValue = Cookies.read('duration') || "30",
+                recordValue = Cookies.read('record') || 'true',
                 // Record key default is '/'
-                replayRecordKey = readCookie('replayRecordKey') || 47,
-                useTexturesValue = readCookie('useTextures') || 'true',
+                replayRecordKey = Cookies.read('replayRecordKey') || 47,
+                useTexturesValue = Cookies.read('useTextures') || 'true',
                 useRecordKeyValue = 'true',
-                useSplatsValue = readCookie('useSplats') || 'true',
-                useSpinValue = readCookie('useSpin') || 'true',
-                useClockAndScoreValue = readCookie('useClockAndScore') || 'true',
-                useChatValue = readCookie('useChat') || 'true', 
-                canvasWidthValue = readCookie('canvasWidth') || 1280,
-                canvasHeightValue = readCookie('canvasHeight') || 800;
+                useSplatsValue = Cookies.read('useSplats') || 'true',
+                useSpinValue = Cookies.read('useSpin') || 'true',
+                useClockAndScoreValue = Cookies.read('useClockAndScore') || 'true',
+                useChatValue = Cookies.read('useChat') || 'true', 
+                canvasWidthValue = Cookies.read('canvasWidth') || 1280,
+                canvasHeightValue = Cookies.read('canvasHeight') || 800;
 
             $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 60;
             $('#durationInput')[0].value = (!isNaN(durationValue) & durationValue != "") ? durationValue : 30;
@@ -212,7 +234,7 @@ function createMenu() {
         // function that initially sends list of replays to background script for mass rendering
         // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
         function renderSelectedInitial() {
-            replaysToRender = []
+            let replaysToRender = [];
             $('.selected-checkbox').each(function () {
                 if (this.checked) {
                     replaysToRender.push(getReplayId(this));
@@ -221,25 +243,23 @@ function createMenu() {
             if (replaysToRender.length > 0) {
                 logger.info(replaysToRender);
                 if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
+                  get_options().then((options) => {
                     chrome.runtime.sendMessage({
                         method: 'renderAllInitial',
                         data: replaysToRender,
-                        useTextures: $('#useTextureCheckbox')[0].checked,
-                        useSplats: $('#useSplatsCheckbox')[0].checked,
-                        useSpin: $('#useSpinCheckbox')[0].checked,
-                        useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
-                        useChat: $('#useChatCheckbox')[0].checked,
-                        canvasWidth: isNaN($('#canvasWidthInput').val()) ? 1280 : Number($('#canvasWidthInput').val()),
-                        canvasHeight: isNaN($('#canvasHeightInput').val()) ? 800 : Number($('#canvasHeightInput').val())
+                        options: options
                     });
                     logger.info('sent request to render multiple replays: ' + replaysToRender);
+                  }).catch((err) => {
+                    logger.error('Error retrieving options: ', err);
+                  });
                 }
             }
         }
 
         // function to delete multiple files at once
         function deleteSelected() {
-            replaysToDelete = []
+            var replaysToDelete = [];
             $('.selected-checkbox').each(function () {
                 if (this.checked) {
                     var row = $(this).closest('tr');
@@ -307,29 +327,29 @@ function createMenu() {
         
         // function for toggling sorting - name (alphabetical)
         function nameSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
+            var curSortMethod = Cookies.read('sortMethod');
+            Cookies.set('sortMethod', (curSortMethod === 'alphaD') ? "alphaA" : "alphaD", cookieDomain);
             sortReplays();
         }                
         
         // function for toggling sorting - date (chronological) 
         function dateSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
+            var curSortMethod = Cookies.read('sortMethod');
+            Cookies.set('sortMethod', (curSortMethod === 'chronoD') ? "chronoA" : "chronoD", cookieDomain);
             sortReplays();
         }
         
         // function for toggling sorting - duration 
         function durationSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'durD') ? "durA" : "durD", cookieDomain);
+            var curSortMethod = Cookies.read('sortMethod');
+            Cookies.set('sortMethod', (curSortMethod === 'durD') ? "durA" : "durD", cookieDomain);
             sortReplays();
         }
         
         // function for toggling sorting - rendered status
         function renderedSortToggle() {
-            var curSortMethod = readCookie('sortMethod');
-            setCookie('sortMethod', (curSortMethod === 'renD') ? "renA" : "renD", cookieDomain);
+            var curSortMethod = Cookies.read('sortMethod');
+            Cookies.set('sortMethod', (curSortMethod === 'renD') ? "renA" : "renD", cookieDomain);
             sortReplays();
         }
         
@@ -344,8 +364,8 @@ function createMenu() {
         $('#renderedHeader')[0].style.cursor = 'pointer';
         
         // if no sortmethod cookie exists, default is chronoD
-        if(!readCookie('sortMethod')) {
-            setCookie('sortMethod', 'chronoD', cookieDomain);
+        if(!Cookies.read('sortMethod')) {
+            Cookies.set('sortMethod', 'chronoD', cookieDomain);
         }
         
         // this function grabs ids, dates, and durations and calls the doSorting function with 
@@ -364,7 +384,7 @@ function createMenu() {
                     rendered: thisRendered
                 });
             });
-            var sortedEntries = doSorting(entries, readCookie('sortMethod'));
+            var sortedEntries = doSorting(entries, Cookies.read('sortMethod'));
             for(var entry in sortedEntries) {
                 var thisEntry = $('#replayList #'+sortedEntries[entry].replay);
                 if(entry === 0) {
@@ -474,10 +494,10 @@ function createMenu() {
 
 
         // This puts the current replays into the menu
-        populateList = function (storageData, movieNames, metadata, previews) {
+        populateList = function (storageData, movieNames, metadata) {
             replayList = [];
             for (dat in storageData) {
-                replayList.push({replay:storageData[dat], metadata:metadata[dat], preview:previews[dat]});
+                replayList.push({replay:storageData[dat], metadata:metadata[dat]});
             }
 
             if (!(replayList.length > 0)) {
@@ -495,7 +515,7 @@ function createMenu() {
                 $('#downloadRawButton').prop('disabled', false);
 
                 // sort the results
-                replayList = doSorting(replayList, readCookie('sortMethod'));
+                replayList = doSorting(replayList, Cookies.read('sortMethod'));
 
                 // Display list of replays.
                 $('#replayList').show();
@@ -513,21 +533,11 @@ function createMenu() {
                     var metadata = $.isPlainObject(replayList[dat].metadata) ? replayList[dat].metadata : JSON.parse(replayList[dat].metadata);
                     thisDuration = metadata.duration;
                     var titleText = formatMetaDataTitle(metadata);
-                    var thisPreview = replayList[dat].preview;
                     var newRow = cloneRow.clone(true);
                     newRow.data("replay", thisReplay);
                     newRow.attr("id", thisReplay);
                     // Set playback link text
                     newRow.find('a.playback-link').text(thisReplay.replace(/DATE.*/, ''));
-                    newRow.find('a.playback-link').data('preview', thisPreview);
-                    newRow.find('a.playback-link').popover({
-                          html: true,
-                          trigger: 'hover',
-                           placement : 'right',
-                          content: function () {
-                            return '<img src="'+$(this).data('preview') + '"/>';
-                          }
-                    });
 
                     ms = +thisReplay.replace('replays', '').replace(/.*DATE/, '');
                     date = new Date(ms);
@@ -644,8 +654,33 @@ function createMenu() {
         /* end populateList */
 
         $('#textureSaveButton').click(function () {
-            saveTextureSettings();
+          // Load image files, if available, from file fields.
+          let imageSources = {
+            tilesInput: "tiles",
+            portalInput: "portal",
+            speedpadInput: "speedpad",
+            speedpadredInput: "speedpadred",
+            speedpadblueInput: "speedpadblue",
+            splatsInput: "splats"
+          };
+          let textures = {};
+          Promise.all(Object.keys(imageSources).map((id) => {
+            let input = document.getElementById(id);
+            if (!input) {
+              return Promise.reject(`Could not find input with id: ${id}`);
+            }
+            let file = input.files[0];
+            if (!file) return;
+            return reader.readAsDataURL(file).then((data) => {
+              textures[imageSources[id]] = data;
+            });
+          })).then(() => {
+            return Textures.set(textures);
+          }).then(() => {
             $('#textureContainer').modal('hide');
+          }).catch((err) => {
+            logger.error('Error saving textures: ', err);
+          });
         });
 
         // Record key functionality.
@@ -678,7 +713,7 @@ function createMenu() {
         });
 
         $(document).click(function (e) {
-            if (!$(e.target).parents().andSelf().is('#record-key-input-container')) {
+            if (!$(e.target).parents().addBack().is('#record-key-input-container')) {
                 stopInputting();
             }
         });
@@ -712,7 +747,7 @@ function createMenu() {
 
                 chrome.runtime.sendMessage(message, function(response) {
                     logger.info('got "data added" response from background script')
-                    addRow(response.replayName, JSON.parse(response.metadata), response.preview, 'top');
+                    addRow(response.replayName, JSON.parse(response.metadata), 'top');
                     sortReplays();
                     readImportedFile(files, i);
                 });
@@ -848,34 +883,23 @@ function emit(event, data) {
 
 // this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
 function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
+  return get_options((options) => {
     chrome.runtime.sendMessage({
         method: 'renderAllSubsequent',
         data: replaysToRender,
         replayI: replayI,
         lastOne: lastOne,
-        useTextures: $('#useTextureCheckbox')[0].checked,
-        useSplats: $('#useSplatsCheckbox')[0].checked,
-        useSpin: $('#useSpinCheckbox')[0].checked,
-        useClockAndScore: $('#useClockAndScoreCheckbox')[0].checked,
-        useChat: $('#useChatCheckbox')[0].checked
+        options: options
     });
     logger.info('sent request to render replay: ' + replaysToRender[replayI])
-}
-
-// this function stores custom texture files sent by the background script
-function storeTextures(textures) {
-    Object.keys(textures).forEach(function(key){
-        if(textures[key] != undefined) {
-            localStorage.setItem(key, textures[key]);
-        }
-    })
+  });
 }
 
 // function to delete replays from menu after their data are deleted from IndexedDB    
 // this gets called in reponse to a message from the background script confirming a
 // data deletion    
 function deleteRows(deletedFiles) {
-    if(!$.isArray(deletedFiles)) {
+    if(!Array.isArray(deletedFiles)) {
         $('#'+deletedFiles).remove();
         return
     }
@@ -914,7 +938,8 @@ function formatMetaDataTitle(metadata) {
 // the second argument tells the function where to put the new row
 // if it equals "top", then the row goes at the top
 // if it is a replay name, it will go before that replay 
-function addRow(replayName, metadata, thisPreview, insertionPoint) {
+function addRow(replayName, metadata, insertionPoint) {
+  logger.debug(`Adding row for ${replayName}`);
     var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
     var date = new Date(ms);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
@@ -931,15 +956,6 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
         newRow.attr("id", replayName);
         // Set playback link text
         newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
-        newRow.find('a.playback-link').data('preview', thisPreview);
-        newRow.find('a.playback-link').popover({
-                          html: true,
-                          trigger: 'hover',
-                           placement : 'right',
-                          content: function () {
-                            return '<img src="'+$(this).data('preview') + '"/>';
-                          }
-                    });
         newRow.find('.download-movie-button').prop('disabled', true);
         newRow.find('.replay-date').text(datevalue);
         newRow.find('.duration').text(durationFormatted);
@@ -1025,39 +1041,32 @@ function addRow(replayName, metadata, thisPreview, insertionPoint) {
 
 // set global scope for some variables and functions
 // then set up listeners for info from background script
-var positions
-var savePlayerPositions
-var populateList
-var initiateAnimation
-var videofile
+var positions;
+var savePlayerPositions;
+var populateList;
+var initiateAnimation;
+var videofile;
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  logger.info(`Received message: ${message.method}`);
     if (message.method == 'itemsList') {
-        logger.info('got itemList message')
-        storeTextures(message.textures);
-        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata), message.previews);
+        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
     } else if (message.method == 'positionData') {
-        logger.info('got positionData message')
         localStorage.setItem('currentReplayName', message.movieName)
-        logger.info(typeof message.title)
-        positions = JSON.parse(message.title)
-        logger.info(positions)
-        createReplay(positions)
+        logger.info(typeof message.title);
+        positions = JSON.parse(message.title);
+        Preview(positions);
     } else if (message.method == "dataSetConfirmationFromBG") {
-        logger.info('got data set confirmation from background script. sending confirmation to injected script.')
-        //closeAndReopenMenu();
         if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-            addRow(message.replayName, JSON.parse(message.metadata), message.preview, 'top');
-            sortReplays()
+            addRow(message.replayName, JSON.parse(message.metadata), 'top');
+            sortReplays();
         }
-        emit('positionDataConfirmation', true)
+        emit('positionDataConfirmation', true);
     } else if (message.method == "positionDataForDownload") {
-        logger.info('got data for download - ' + message.fileName)
-        saveData(message.fileName, message.title)
+        logger.info('got data for download - ' + message.fileName);
+        saveData(message.fileName, message.title);
     } else if (message.method == 'dataDeleted') {
-        logger.info('data were deleted')
-        //closeAndReopenMenu();
-        if(typeof message.newName !== 'undefined') {
-            addRow(message.newName, message.metadata, message.preview, message.deletedFiles)
+        if (typeof message.newName !== 'undefined') {
+            addRow(message.newName, message.metadata, message.deletedFiles)
             sortReplays()
         } else {
             deleteRows(message.deletedFiles);
@@ -1067,9 +1076,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         //closeAndReopenMenu();
         renameRow(message.oldName, message.newName);
         sortReplays();
-    } else if (message.method == "picture") {
-        logger.info('got picture file from background script')
-        picture = message.file
     } else if (message.method == "movieRenderConfirmation") {
         logger.info('got movie render confirmation')
         $('.replayRow').not('.clone').remove();
@@ -1091,7 +1097,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
             $('#' + message.name + ' .progressbar')[0].value = message.progress
         }
     } else if (message.method == "movieRenderConfirmationNotLastOne") {
-        if( message.failure ) {
+        if (message.failure) {
             logger.info(message.name+' was a failure.');
             $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
         }
@@ -1105,29 +1111,32 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 });
 
 // set fps and duration if they're not already
-if (!readCookie('fps')) {
-    setCookie('fps', 60, cookieDomain)
+if (!Cookies.read('fps')) {
+    Cookies.set('fps', 60, cookieDomain);
 }
-if (!readCookie('duration')) {
-    setCookie('duration', 30, cookieDomain)
+if (!Cookies.read('duration')) {
+    Cookies.set('duration', 30, cookieDomain);
 }
-if (!readCookie('useSplats')) {
-    setCookie('useSplats', true, cookieDomain)
+if (!Cookies.read('useSplats')) {
+    Cookies.set('useSplats', true, cookieDomain);
 }
-if (!readCookie('useSpin')) {
-    setCookie('useSpin', true, cookieDomain)
+if (!Cookies.read('useSpin')) {
+    Cookies.set('useSpin', true, cookieDomain);
 }
-if (!readCookie('useClockAndScore')) {
-    setCookie('useClockAndScore', true, cookieDomain)
+if (!Cookies.read('useClockAndScore')) {
+    Cookies.set('useClockAndScore', true, cookieDomain);
 }
-if (!readCookie('canvasWidth')) {
-    setCookie('canvasWidth', 1280, cookieDomain)
+if (!Cookies.read('canvasWidth')) {
+    Cookies.set('canvasWidth', 1280, cookieDomain);
 }
-if (!readCookie('canvasHeight')) {
-    setCookie('canvasHeight', 800, cookieDomain)
+if (!Cookies.read('canvasHeight')) {
+    Cookies.set('canvasHeight', 800, cookieDomain);
 }
-if (!readCookie('useChat')) {
-    setCookie('useChat', true, cookieDomain)
+if (!Cookies.read('useChat')) {
+    Cookies.set('useChat', true, cookieDomain);
+}
+if (!Cookies.read('useTextures')) {
+    Cookies.set('useTextures', true, cookieDomain);
 }
 
 // this function sets up a listener wrapper
@@ -1175,14 +1184,13 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     createReplayPageButton();
     createMenu();
     // Include custom bootstrap.css scoped to #tpr-container
-    injectStyleSheet("ui/bootstrap.css");
-    injectStyleSheet("ui/menus.css");
+    injectStyleSheet("css/bootstrap.css");
+    injectStyleSheet("css/menu.css");
 }
 
 
 // if we're in a game, as evidenced by there being a port number, inject the replayRecording.js script
 if (document.URL.search(/\.\w+:/) >= 0) {
-    var scripts = ["replayRecording.js"];
+    var scripts = ["js/recording.js"];
     scripts.forEach(injectScript);
 }
-})();
