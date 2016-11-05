@@ -20,13 +20,13 @@ function get_options() {
 // Create and display UI for in-browser preview.
 function createReplay(positions) {
   // Initialize values
-  var thisI = 0;
+  let frame = 0;
   var playing = false;
   // Get player that corresponds to recording user ball.
+  let fps;
   for (let j in positions) {
     if (positions[j].me == 'me') {
-      let me = j;
-      var fps = positions[me].fps;
+      fps = positions[j].fps;
       break;
     }
   }
@@ -63,7 +63,7 @@ function createReplay(positions) {
     return renderer.ready();
   }).then(() => {
     logger.info('Renderer loaded.');
-    renderer.draw(thisI);
+    renderer.draw(frame);
   });
 
   ////////////////////////////////
@@ -123,53 +123,67 @@ function createReplay(positions) {
   sliderBar.style.backgroundColor = 'transparent'
   preview_holder.appendChild(sliderBar)
 
-  // create slider
-
-  $('#sliderBar').append('<input type="range" id="slider">')
+  // Play/seek slider.
+  $('#sliderBar').append('<input type="range" id="slider">');
   slider = document.getElementById('slider')
-  slider.style.width = $('#sliderBar')[0].style.width
-  slider.style.transition = "opacity 0.25s linear"
-  slider.style.zIndex = 1300
-  slider.value = 0
-  slider.min = 0
-  slider.max = positions.clock.length - 1
-  slider.onmousedown = function () {
-    pauseReplay()
-  }
+  slider.style.width = $('#sliderBar')[0].style.width;
+  slider.style.transition = "opacity 0.25s linear";
+  slider.style.zIndex = 1300;
+  slider.value = 0;
+  slider.min = 0;
+  slider.max = positions.clock.length - 1;
+  slider.onmousedown = () => {
+    pause();
+  };
   slider.onchange = function () {
-    thisI = this.value
-    renderer.draw(thisI);
-  }
+    logger.debug('slider onchange()');
+    frame = parseInt(this.value);
+    renderer.draw(frame);
+    pause();
+  };
 
   ////////////////////////////////////
   /////     Playback buttons     /////
   ////////////////////////////////////
   let playInterval;
-  let current_frame = 0;
-  let frame = 0;
   function play(start, end) {
     logger.info(`Playing from frame ${start} to frame ${end}.`);
     if (playing) {
-      window.cancelAnimationFrame(playInterval);
+      clearInterval(playInterval);
     }
-    playing = true;
-    frame = start;
-    let time = Date.now();
-    playInterval = window.requestAnimationFrame(function animate() {
-      if (frame >= end) return;
-      renderer.draw(frame);
-      let now = Date.now();
-      let dt = now - time;
-      let skip_frames = Math.round(dt / (1000 / fps));
-      if (skip_frames > 0) {
-        time = now;
+
+    // Source for frames.
+    function* frames() {
+      let frame = start;
+      let frame_time = new Date(positions.clock[frame]).getTime();
+      while (frame < end) {
+        let next_frame_time = new Date(positions.clock[frame + 1]).getTime();
+        let frame_duration = next_frame_time - frame_time;
+        yield [frame, frame_duration];
+        frame_time = next_frame_time;
+        frame++;
       }
-      frame = Math.min(frame + skip_frames, end);
-      current_frame = frame;
+      yield [frame, 0];
+    }
+
+    playing = true;
+
+    let reel = frames();
+    playInterval = setTimeout(function animate() {
+      let {value, done} = reel.next();
+      if (done) return;
+      let duration;
+      [frame, duration] = value;
+      renderer.draw(frame);
       slider.value = frame;
 
-      playInterval = window.requestAnimationFrame(animate);
+      playInterval = setTimeout(animate, duration);
     });
+  }
+
+  function pause() {
+    clearTimeout(playInterval);
+    playing = false;
   }
 
   // functions to show, hide, and remove buttons
@@ -188,13 +202,15 @@ function createReplay(positions) {
 
   // functions to control replay playback
   function resetReplay() {
+    logger.info('resetReplay()');
+    pause();
     frame = 0;
-    renderer.draw(thisI);
+    renderer.draw(frame);
     slider.value = 0;
-    playing = false;
   }
 
   function stopReplay(doNotReopen) {
+    logger.info('stopReplay()');
     if (playing) {
       window.cancelAnimationFrame(playInterval);
       playing = false;
@@ -211,6 +227,7 @@ function createReplay(positions) {
   }
 
   function playReplay() {
+    logger.info('playReplay()');
     let end = positions.clock.length - 1;
     let start = frame >= end ? 0
                              : frame;
@@ -218,8 +235,8 @@ function createReplay(positions) {
   }
 
   function pauseReplay() {
-    window.cancelAnimationFrame(playInterval);
-    playing = false;
+    logger.info('pauseReplay()');
+    pause();
   }
 
   // cropping functions

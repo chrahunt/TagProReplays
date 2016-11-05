@@ -5,6 +5,7 @@ const logger = require('./modules/logger')('background');
 const fs = require('./modules/filesystem');
 const Renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
+const Whammy = require('./modules/whammy');
 
 logger.info('Starting background page.');
 
@@ -44,23 +45,17 @@ function saveVideoData(name, data) {
 // Returns false if a vital piece is missing, true if no problems were found
 // Currently does not do a very thorough test
 function checkData(positions) {
-  var obs = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
-  obs.forEach(function (ob) {
-    if (!positions[ob]) {
-      return (false);
+  const props = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
+  for (let prop of props) {
+    if (!positions[prop]) {
+      return false;
     }
-  })
-  if (positions.map.length == 0 || positions.wallMap.length == 0 || positions.clock.length == 0) {
-    return (false);
   }
-  var val = false;
-  Object.keys(positions).forEach(function (key) {
-    if (key.search('player') == 0) {
-      val = true;
-    }
-  })
+  if (positions.map.length == 0 || positions.wallMap.length == 0 || positions.clock.length == 0) {
+    return false;
+  }
 
-  return val;
+  return Object.keys(positions).some(k => k.startsWith('player'));
 }
 
 // Actually does the rendering of the movie 
@@ -85,9 +80,11 @@ function renderVideo(positions, name, options, lastOne, replaysToRender, replayI
     logger.warn(`${name} was a bad replay.`);
     return;
   }
-
+  
   let renderer = new Renderer(can, positions, options);
-  var encoder = new Whammy.Video(positions[me].fps);
+  let me = Object.keys(positions).find(k => positions[k].me == 'me');
+  let fps = positions[me].fps;
+  var encoder = new Whammy.Video(fps);
 
   renderer.ready().then(() => {
     chrome.tabs.sendMessage(tabNum, {

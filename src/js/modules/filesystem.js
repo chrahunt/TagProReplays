@@ -52,6 +52,24 @@ function getDirectoryAsPromise(entry, path) {
   });
 }
 
+function mapEntriesAsPromise(entry, mapFn) {
+  return new Promise((resolve, reject) => {
+    let result = [];
+    let reader = entry.createReader();
+    let doBatch = () => {
+      reader.readEntries(entries => {
+        if (entries.length > 0) {
+          entries.forEach(e => result.push(mapFn(e)));
+          doBatch();
+        } else {
+          resolve(result);
+        }
+      }, reject);
+    };
+    doBatch();
+  });
+}
+
 function errorHandler(err) {
   var msg = 'An error occured: ';
   switch (err.code) {
@@ -91,19 +109,7 @@ function getDirectory(dir_name) {
 // Get names of child entries.
 function getEntryNames(entry) {
   logger.info('getEntryNames()');
-  return new Promise((resolve, reject) => {
-    var names = [];
-    var reader = entry.createReader();
-    reader.readEntries((entries) => {
-      if (entries.length === 0) {
-        resolve(names);
-      } else {
-        for (let entry of entries) {
-          names.push(entry.name);
-        }
-      }
-    }, reject);
-  });
+  return mapEntriesAsPromise(entry, e => e.name); 
 }
 
 /**

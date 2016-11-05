@@ -55,7 +55,8 @@ class Renderer {
     let id = Object.keys(this.replay).find(
       k => k.startsWith('player') && this.replay[k].me == 'me');
     replay_data = {
-      fps: this.replay[id].fps
+      fps: this.replay[id].fps,
+      me: id
     };
   }
 };
@@ -274,14 +275,15 @@ function drawScoreFlag(positions) {
 }
 
 function drawFlag(ball, ballx, bally, positions) {
-  var flagCodes = {
+  let flagCodes = {
     1: { x: 14, y: 1 },
     2: { x: 15, y: 1 },
     3: { x: 13, y: 1 }
   };
+  let player = positions[ball];
   // null, 0, 1, 2, 3
-  if (positions[ball].flag[frame]) {
-    var flagCoords = flagCodes[positions[ball].flag[frame]];
+  if (player.flag[frame]) {
+    var flagCoords = flagCodes[player.flag[frame]];
     context.drawImage(textures.tiles,
       flagCoords.x * TILE_SIZE, flagCoords.y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
@@ -464,35 +466,35 @@ function drawMap(positions) {
   return newcontext.canvas.toDataURL();
 }
 
-function drawFloorTiles(positions) {
-  var floorTileElements = {
-    3:    { tile: "redflag", coordinates: { x: 14, y: 1 }, tileSize: 40, tilesImg: "tiles" },
-    3.1:  { tile: "redflagtaken", coordinates: { x: 14, y: 2 }, tileSize: 40, tilesImg: "tiles" },
-    4:    { tile: "blueflag", coordinates: { x: 15, y: 1 }, tileSize: 40, tilesImg: "tiles" },
-    4.1:  { tile: "blueflagtaken", coordinates: { x: 15, y: 2 }, tileSize: 40, tilesImg: "tiles" },
-    5:    { tile: "speedpad", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "speedpad", animated: true },
-    5.1:  { tile: "emptyspeedpad", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "speedpad" },
-    6:    { tile: "emptypowerup", coordinates: { x: 12, y: 8 }, tileSize: 40, tilesImg: "tiles" },
-    6.1:  { tile: "jukejuice", coordinates: { x: 12, y: 4 }, tileSize: 40, tilesImg: "tiles" },
-    6.2:  { tile: "rollingbomb", coordinates: { x: 12, y: 5 }, tileSize: 40, tilesImg: "tiles" },
-    6.3:  { tile: "tagpro", coordinates: { x: 12, y: 6 }, tileSize: 40, tilesImg: "tiles" },
-    6.4:  { tile: "speed", coordinates: { x: 12, y: 7 }, tileSize: 40, tilesImg: "tiles" },
-    9:    { tile: "gate", coordinates: { x: 12, y: 3 }, tileSize: 40, tilesImg: "tiles" },
-    9.1:  { tile: "greengate", coordinates: { x: 13, y: 3 }, tileSize: 40, tilesImg: "tiles" },
-    9.2:  { tile: "redgate", coordinates: { x: 14, y: 3 }, tileSize: 40, tilesImg: "tiles" },
-    9.3:  { tile: "bluegate", coordinates: { x: 15, y: 3 }, tileSize: 40, tilesImg: "tiles" },
-    10:   { tile: "bomb", coordinates: { x: 12, y: 1 }, tileSize: 40, tilesImg: "tiles" },
-    10.1: { tile: "emptybomb", coordinates: { x: 12, y: 2 }, tileSize: 40, tilesImg: "tiles" },
-    13:   { tile: "portal", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "portal", animated: true },
-    13.1: { tile: "emptyportal", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "portal" },
-    14:   { tile: "speedpadred", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "speedpadred", animated: true },
-    14.1: { tile: "emptyspeedpadred", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "speedpadred" },
-    15:   { tile: "speedpadblue", coordinates: { x: 0, y: 0 }, tileSize: 40, tilesImg: "speedpadblue", animated: true },
-    15.1: { tile: "emptyspeedpadblue", coordinates: { x: 4, y: 0 }, tileSize: 40, tilesImg: "speedpadblue" },
-    16:   { tile: "yellowflag", coordinates: { x: 13, y: 1 }, tileSize: 40, tilesImg: "tiles" },
-    16.1: { tile: "yellowflagtaken", coordinates: { x: 13, y: 2 }, tileSize: 40, tilesImg: "tiles" }
-  };
+const floor_tiles = {
+  3:    { tile: "redflag",           coordinates: { x: 14, y: 1 }, tileSize: 40, img: "tiles" },
+  3.1:  { tile: "redflagtaken",      coordinates: { x: 14, y: 2 }, tileSize: 40, img: "tiles" },
+  4:    { tile: "blueflag",          coordinates: { x: 15, y: 1 }, tileSize: 40, img: "tiles" },
+  4.1:  { tile: "blueflagtaken",     coordinates: { x: 15, y: 2 }, tileSize: 40, img: "tiles" },
+  5:    { tile: "speedpad",          coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpad", animated: true },
+  5.1:  { tile: "emptyspeedpad",     coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpad" },
+  6:    { tile: "emptypowerup",      coordinates: { x: 12, y: 8 }, tileSize: 40, img: "tiles" },
+  6.1:  { tile: "jukejuice",         coordinates: { x: 12, y: 4 }, tileSize: 40, img: "tiles" },
+  6.2:  { tile: "rollingbomb",       coordinates: { x: 12, y: 5 }, tileSize: 40, img: "tiles" },
+  6.3:  { tile: "tagpro",            coordinates: { x: 12, y: 6 }, tileSize: 40, img: "tiles" },
+  6.4:  { tile: "speed",             coordinates: { x: 12, y: 7 }, tileSize: 40, img: "tiles" },
+  9:    { tile: "gate",              coordinates: { x: 12, y: 3 }, tileSize: 40, img: "tiles" },
+  9.1:  { tile: "greengate",         coordinates: { x: 13, y: 3 }, tileSize: 40, img: "tiles" },
+  9.2:  { tile: "redgate",           coordinates: { x: 14, y: 3 }, tileSize: 40, img: "tiles" },
+  9.3:  { tile: "bluegate",          coordinates: { x: 15, y: 3 }, tileSize: 40, img: "tiles" },
+  10:   { tile: "bomb",              coordinates: { x: 12, y: 1 }, tileSize: 40, img: "tiles" },
+  10.1: { tile: "emptybomb",         coordinates: { x: 12, y: 2 }, tileSize: 40, img: "tiles" },
+  13:   { tile: "portal",            coordinates: { x:  0, y: 0 }, tileSize: 40, img: "portal", animated: true },
+  13.1: { tile: "emptyportal",       coordinates: { x:  4, y: 0 }, tileSize: 40, img: "portal" },
+  14:   { tile: "speedpadred",       coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpadred", animated: true },
+  14.1: { tile: "emptyspeedpadred",  coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpadred" },
+  15:   { tile: "speedpadblue",      coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpadblue", animated: true },
+  15.1: { tile: "emptyspeedpadblue", coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpadblue" },
+  16:   { tile: "yellowflag",        coordinates: { x: 13, y: 1 }, tileSize: 40, img: "tiles" },
+  16.1: { tile: "yellowflagtaken",   coordinates: { x: 13, y: 2 }, tileSize: 40, img: "tiles" }
+};
 
+function drawFloorTiles(positions) {
   let mod = frame % (replay_data.fps * 2 / 3);
   let fourth = (replay_data.fps * 2 / 3) / 4;
   if (mod < fourth) {
@@ -505,14 +507,14 @@ function drawFloorTiles(positions) {
     animationTile = 3;
   }
   for (let floor_tile of positions.floorTiles) {
-    let tile_spec = floorTileElements[floor_tile.value[frame]];
+    let tile_spec = floor_tiles[floor_tile.value[frame]];
     if (!tile_spec) {
       logger.error(`Error locating floor tile description for ${floor_tile.value[frame]}`);
       return;
     }
     let x = tile_spec.animated ? animationTile
                                : tile_spec.coordinates.x;
-    context.drawImage(textures[tile_spec.tilesImg],
+    context.drawImage(textures[tile_spec.img],
       x * TILE_SIZE,
       tile_spec.coordinates.y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
@@ -523,31 +525,27 @@ function drawFloorTiles(positions) {
 }
 
 function bombPop(positions) {
-  positions.bombs.forEach(function (bmb) {
-    for (j in positions) {
-      if (positions[j].me == 'me') {
-        me = j
-      }
-    }
-    var bTime = new Date(bmb.time).getTime();
-    var cTime = new Date(positions.clock[frame]).getTime();
-    if (bTime <= cTime && cTime - bTime < 200 && bmb.type === 2) {
-      if (typeof bmb.bombAnimation === 'undefined') {
-        bmb.bombAnimation = {
+  let now = new Date(positions.clock[frame]).getTime();
+  for (let bomb of positions.bombs) {
+    if (bomb.type != 2) continue;
+    let bTime = new Date(bomb.time).getTime();
+    if (bTime <= now && now - bTime < 200) {
+      if (typeof bomb.bombAnimation === 'undefined') {
+        bomb.bombAnimation = {
           length: Math.round(replay_data.fps / 10),
           frame: 0
-        }
+        };
       }
 
-      if (bmb.bombAnimation.frame < bmb.bombAnimation.length) {
-        bmb.bombAnimation.frame++;
-        bombSize = 40 + (280 * (bmb.bombAnimation.frame / bmb.bombAnimation.length));
-        bombOpacity = 1 - bmb.bombAnimation.frame / bmb.bombAnimation.length;
+      if (bomb.bombAnimation.frame < bomb.bombAnimation.length) {
+        bomb.bombAnimation.frame++;
+        let bombSize = 40 + (280 * (bomb.bombAnimation.frame / bomb.bombAnimation.length));
+        let bombOpacity = 1 - bomb.bombAnimation.frame / bomb.bombAnimation.length;
         context.fillStyle = "#FF8000";
         context.globalAlpha = bombOpacity;
         context.beginPath();
-        bombX = bmb.x + posx + TILE_SIZE / 2; //- context.canvas.width/2 + 60
-        bombY = bmb.y + posy + TILE_SIZE / 2; //- context.canvas.height/2 - 20
+        let bombX = bomb.x + posx + TILE_SIZE / 2;
+        let bombY = bomb.y + posy + TILE_SIZE / 2;
         context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, true);
         context.closePath();
         context.fill();
@@ -555,9 +553,9 @@ function bombPop(positions) {
         context.fillStyle = "#ffffff";
       }
     } else {
-      delete bmb.bombAnimation;
+      delete bomb.bombAnimation;
     }
-  });
+  }
 }
 
 function ballCollision(positions, ball) {
@@ -578,52 +576,43 @@ function ballCollision(positions, ball) {
 }
 
 function rollingBombPop(positions, ball) {
-  for (j in positions) {
-    if (positions[j].me == 'me') {
-      me = j
-    }
-  }
+  let me = replay_data.me;
+  let player = positions[ball];
   // determine if we need to start a rolling bomb animation: ball has no bomb now, but had bomb one frame ago
-  if (!positions[ball].bomb[frame] & positions[ball].bomb[frame - 1] & ballCollision(positions, ball)) {
-    positions[ball].rollingBombAnimation = {
+  if (!player.bomb[frame] && player.bomb[frame - 1] && ballCollision(positions, ball)) {
+    player.rollingBombAnimation = {
       length: Math.round(replay_data.fps / 10),
       frame: 0
-    }
+    };
   }
   // if an animation should be in progress, draw it
-  if (typeof positions[ball].rollingBombAnimation != 'undefined') {
-    positions[ball].rollingBombAnimation.frame++
-    rollingBombSize = 40 + (200 * (positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length))
-    rollingBombOpacity = 1 - positions[ball].rollingBombAnimation.frame / positions[ball].rollingBombAnimation.length
+  if (player.rollingBombAnimation) {
+    player.rollingBombAnimation.frame++;
+    let rollingBombSize = 40 + (200 * (player.rollingBombAnimation.frame / player.rollingBombAnimation.length))
+    let rollingBombOpacity = 1 - player.rollingBombAnimation.frame / player.rollingBombAnimation.length
 
-    context.fillStyle = "#FFFF00"
-    context.globalAlpha = rollingBombOpacity
-    context.beginPath()
-    rollingBombX = positions[ball].x[frame] - positions[me].x[frame] + context.canvas.width / 2 //- TILE_SIZE/2
-    rollingBombY = positions[ball].y[frame] - positions[me].y[frame] + context.canvas.height / 2  //- TILE_SIZE/2
-    context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0)
-    context.closePath()
-    context.fill()
-    context.globalAlpha = 1
-    context.fillStyle = "#ffffff"
-    if (positions[ball].rollingBombAnimation.frame >= positions[ball].rollingBombAnimation.length) {
-      delete (positions[ball].rollingBombAnimation)
+    context.fillStyle = "#FFFF00";
+    context.globalAlpha = rollingBombOpacity;
+    context.beginPath();
+    let rollingBombX = player.x[frame] - positions[me].x[frame] + context.canvas.width / 2;
+    let rollingBombY = player.y[frame] - positions[me].y[frame] + context.canvas.height / 2;
+    context.arc(rollingBombX, rollingBombY, Math.round(rollingBombSize), 0, 2 * Math.PI, !0);
+    context.closePath();
+    context.fill();
+    context.globalAlpha = 1;
+    context.fillStyle = "#ffffff";
+    if (player.rollingBombAnimation.frame >= player.rollingBombAnimation.length) {
+      delete player.rollingBombAnimation;
     }
   }
 }
 
 function ballPop(positions, ball) {
-  if (ball.search('player') != 0) {
-    return
-  }
+  if (!ball.startsWith('player')) return;
 
-  for (j in positions) {
-    if (positions[j].me == 'me') {
-      me = j
-    }
-  }
+  let me = replay_data.me;
   // determine if we need to start a pop animation: ball is dead now, but was not dead one frame ago
-  if (positions[ball].dead[frame] & !positions[ball].dead[frame - 1] & positions[ball].draw[frame - 1]) {
+  if (positions[ball].dead[frame] && !positions[ball].dead[frame - 1] && positions[ball].draw[frame - 1]) {
     positions[ball].popAnimation = {
       length: Math.round(replay_data.fps / 10),
       frame: 0
@@ -647,7 +636,7 @@ function ballPop(positions, ball) {
       popSize)
     context.globalAlpha = 1
     if (positions[ball].popAnimation.frame >= positions[ball].popAnimation.length) {
-      delete (positions[ball].popAnimation)
+      delete positions[ball].popAnimation;
     }
   }
 }
@@ -730,24 +719,16 @@ function drawEndText(positions) {
 
 function drawBalls(positions) {
   // draw 'me'
-  for (let j in positions) {
-    if (positions[j].me == 'me') {
-      var me = j;
-      break;
-    }
-  }
+  let me = replay_data.me;
   let player = positions[me];
   // what team?
-  if (!Array.isArray(player.team)) {
-    var meTeam = player.team;
-  } else {
-    var meTeam = player.team[frame];
-  }
+  let team = Array.isArray(player.team) ? player.team[frame]
+                                        : player.team;
   if (!player.dead[frame]) {
     // draw own ball with or without spin
     if (!options.spin || typeof player.angle === 'undefined') {
       context.drawImage(textures.tiles,
-        (meTeam == 1 ? 14 : 15) * TILE_SIZE, 0,
+        (team == 1 ? 14 : 15) * TILE_SIZE, 0,
         TILE_SIZE, TILE_SIZE,
         context.canvas.width / 2 - TILE_SIZE / 2,
         context.canvas.height / 2 - TILE_SIZE / 2,
@@ -756,7 +737,7 @@ function drawBalls(positions) {
       context.translate(context.canvas.width / 2, context.canvas.height / 2);
       context.rotate(player.angle[frame]);
       context.drawImage(textures.tiles,
-        (meTeam == 1 ? 14 : 15) * TILE_SIZE, 0,
+        (team == 1 ? 14 : 15) * TILE_SIZE, 0,
         TILE_SIZE, TILE_SIZE,
         -20, -20,
         TILE_SIZE,
@@ -767,13 +748,14 @@ function drawBalls(positions) {
 
     drawPowerups(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
     drawFlag(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
-    thisName = (typeof positions[me].name == 'string') ? positions[me].name : positions[me].name[frame]
-    drawText(thisName,
+    let name = Array.isArray(player.name) ? player.name[frame]
+                                          : player.name;
+    drawText(name,
       context.canvas.width / 2 - TILE_SIZE / 2 + 30,
       context.canvas.height / 2 - TILE_SIZE / 2 - 5,
-      (typeof positions[me].auth != 'undefined') ? positions[me].auth[frame] : undefined,
-      (typeof positions[me].degree != 'undefined') ? positions[me].degree[frame] : undefined)
-    if (typeof positions[me].flair !== 'undefined') {
+      (typeof player.auth != 'undefined') ? player.auth[frame] : undefined,
+      (typeof player.degree != 'undefined') ? player.degree[frame] : undefined)
+    if (typeof player.flair !== 'undefined') {
       drawFlair(positions[me].flair[frame],
         context.canvas.width / 2 - 16 / 2,
         context.canvas.height / 2 - TILE_SIZE / 2 - 17)
@@ -811,7 +793,7 @@ function drawBalls(positions) {
             context.drawImage(textures.tiles,
               (team == 1 ? 14 : 15) * TILE_SIZE, 0,
               TILE_SIZE, TILE_SIZE,
-              -20, -20,
+              -TILE_SIZE / 2, -TILE_SIZE / 2,
               TILE_SIZE, TILE_SIZE);
             context.rotate(-player.angle[frame]);
             context.translate(
@@ -853,12 +835,8 @@ function drawBalls(positions) {
  */
 function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
   frame = frame_n;
-  for (let j in positions) {
-    if (positions[j].me == 'me') {
-      var me = j;
-      break;
-    }
-  }
+  let me = replay_data.me;
+
   context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   posx = -(positions[me].x[frame] - context.canvas.width / 2 + TILE_SIZE / 2);
   posy = -(positions[me].y[frame] - context.canvas.height / 2 + TILE_SIZE / 2);

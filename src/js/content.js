@@ -906,7 +906,7 @@ function deleteRows(deletedFiles) {
     deletedFiles.map(function(deletedFile){
         $('#'+deletedFile).remove()
     });
-};
+}
 
 // function to change the name text and id of a replay when a user renames the replay
 // this gets called in response to a message from the background script confirming a 
@@ -916,7 +916,7 @@ function renameRow(oldName, newName) {
     $('#'+oldName + ' .playback-link').text(newName.replace(/DATE.*/, ''));
     oldRow.data("replay", newName);
     oldRow[0].id = newName;
-};
+}
 
 //Get replay id for row, given an element in it.
 function getReplayId(elt) {
@@ -1037,7 +1037,6 @@ function addRow(replayName, metadata, insertionPoint) {
         oldRow.find('.duration').text(durationFormatted);
     }
 }
-
 
 // set global scope for some variables and functions
 // then set up listeners for info from background script
