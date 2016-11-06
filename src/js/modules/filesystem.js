@@ -31,10 +31,10 @@ function deleteFileAsPromise(entry, path) {
 }
 
 function writeFileAsPromise(entry, data) {
-  logger.info('writeEntryAsPromise()');
+  logger.info('writeFileAsPromise()');
   return new Promise((resolve, reject) => {
     entry.createWriter((writer) => {
-      writer.onloadend = () => {
+      writer.onwriteend = () => {
         if (!writer.error) {
           resolve();
         } else {

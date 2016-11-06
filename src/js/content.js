@@ -217,7 +217,7 @@ function createMenu() {
         });
 
         // these buttons allow rendering/deleting multiple replays
-        $('#renderSelectedButton').click(renderSelectedInitial);
+        $('#renderSelectedButton').click(renderSelected);
         $('#deleteSelectedButton').click(deleteSelected);
         $('#downloadRawButton').click(downloadRawData);
 
@@ -231,25 +231,50 @@ function createMenu() {
             return (false);
         }
 
-        // function that initially sends list of replays to background script for mass rendering
-        // the function that deals with subsequent renderings ("renderSelectedSubsequent") is defined below in the global scope
-        function renderSelectedInitial() {
-            let replaysToRender = [];
+        /**
+         * Callback for Render button. Sends replays to background page
+         * consecutively on completion of previous replay.
+         */
+        function renderSelected() {
+            let ids = [];
             $('.selected-checkbox').each(function () {
                 if (this.checked) {
-                    replaysToRender.push(getReplayId(this));
+                    ids.push(getReplayId(this));
                 }
             });
-            if (replaysToRender.length > 0) {
-                logger.info(replaysToRender);
+            if (ids.length > 0) {
                 if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
-                  get_options().then((options) => {
+                  logger.info('Starting rendering of replays.');
+                  let i = 0;
+                  get_options().then(function render_loop(options) {
+                    if (i === ids.length) {
+                        logger.info('Rendering complete.');
+                        return;
+                    }
+                    let id = ids[i];
+                    $(`#${id} .rendered-check`).html('<progress class="progressbar">');
                     chrome.runtime.sendMessage({
-                        method: 'renderAllInitial',
-                        data: replaysToRender,
+                        method: 'replay.render',
+                        id: id,
                         options: options
+                    }, (result) => {
+                        logger.info(`Received render confirmation for replay: ${i}`);
+                        if (result.failed) {
+                            logger.info(`Rendering of ${i} failed, reason: ${result.reason}`);
+                            if (result.severity == 'fatal') {
+                                alert(`Rendering failed: ${result.reason}`);
+                                return;
+                            } else {
+                                // Some transient error, we can continue to send replays.
+                                $(`#${id} .rendered-check`).html('<span style="color:red">ERROR');
+                            }
+                        } else {
+                            $(`#${id} .rendered-check`).text('✓');
+                            $(`#${id} .download-movie-button`).prop('disabled', false);
+                        }
+                        i++;
+                        render_loop(options);
                     });
-                    logger.info('sent request to render multiple replays: ' + replaysToRender);
                   }).catch((err) => {
                     logger.error('Error retrieving options: ', err);
                   });
@@ -259,21 +284,21 @@ function createMenu() {
 
         // function to delete multiple files at once
         function deleteSelected() {
-            var replaysToDelete = [];
+            let ids = [];
             $('.selected-checkbox').each(function () {
                 if (this.checked) {
                     var row = $(this).closest('tr');
                     var replayId = row.data("replay");
-                    replaysToDelete.push(replayId);
+                    ids.push(replayId);
                 }
             });
 
-            if (replaysToDelete.length > 0) {
+            if (ids.length > 0) {
                 if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-                    logger.info('requesting to delete ' + replaysToDelete);
+                    logger.info(`Requesting deletion of: ${ids}`);
                     chrome.runtime.sendMessage({
-                        method: 'requestDataDelete',
-                        fileName: replaysToDelete
+                        method: 'replay.delete',
+                        ids: ids
                     });
                 }
             }
@@ -281,20 +306,20 @@ function createMenu() {
         
         //function to download multiple raw data at once
         function downloadRawData() {
-            var rawDataToDownload = [];
+            var ids = [];
             $('.selected-checkbox').each(function () {
                 if (this.checked) {
                     var row = $(this).closest('tr');
                     var replayId = row.data('replay');
-                    rawDataToDownload.push(replayId);
+                    ids.push(replayId);
                 }
             });
             
-            if (rawDataToDownload.length > 0) {
-                logger.info('requesting to download raw data for ' + rawDataToDownload);
+            if (ids.length > 0) {
+                logger.info(`Requestion download for: ${ids}`);
                 chrome.runtime.sendMessage({
-                    method: 'requestDataForDownload',
-                    files: rawDataToDownload
+                    method: 'replay.download',
+                    ids: ids
                 });
             }
         }
@@ -492,6 +517,67 @@ function createMenu() {
         **
         */
 
+        // Replay data row listeners.
+        $('#replayList').on('click', '.playback-link', (e) => {
+            var replayId = getReplayId(e.target);
+            logger.info(`Playback link clicked for ${replayId}`);
+            $('#menuContainer').hide();
+            Preview(replayId);
+        });
+
+        $('#replayList').on('click', '.download-movie-button', (e) => {
+            let replayId = getReplayId(e.target);
+            logger.info(`Movie download button clicked for ${replayId}`);
+            chrome.runtime.sendMessage({
+                method: 'movie.download',
+                id: replayId
+            }, (result) => {
+                if (result.failed) {
+                    alert(`Download failed. Most likely you haven't rendered that movie yet.\nReason: ${result.reason}`);
+                } else {
+                    logger.debug('Movie download completed.');
+                }
+            });
+        });
+
+        $('#replayList').on('click', '.rename-button', (e) => {
+            let replayId = getReplayId(e.target);
+            logger.info(`Rename button clicked for ${replayId}`);
+            let fileNameToRename = replayId;
+            let datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
+            let newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
+            if (newName != null) {
+                newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
+                logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+                chrome.runtime.sendMessage({
+                    method: 'requestFileRename',
+                    oldName: fileNameToRename,
+                    newName: newName
+                });
+            }
+        });
+
+        $('#replayList').on('click', '.selected-checkbox', (e) => {
+            let self = e.target;
+            if( self.checked && e.shiftKey && $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1 ) {
+                var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
+                    closestBox = null,
+                    thisBox = null;
+                for (let i = 0; i < boxes.length; i++) {
+                    if ( self == boxes[i] ) { 
+                        thisBox = i; 
+                        if (closestBox !== null) break;
+                        continue;
+                    }
+                    if (boxes[i].checked) closestBox = i;
+                    if (thisBox !== null && closestBox !== null) break;
+                }
+                var bounds = [closestBox, thisBox].sort((a, b) => a - b);
+                boxes.map(function(num, box) { 
+                    box.checked = num > bounds[0] && num < bounds[1];
+                });
+            }
+        });
 
         // This puts the current replays into the menu
         populateList = function (storageData, movieNames, metadata) {
@@ -558,71 +644,7 @@ function createMenu() {
                     newRow[0].title = titleText;
                     $('#replayList tbody').append(newRow);
                 }
-
-                // Set replay row element click handlers.
-                // Set handler for in-browser-preview link.
-                $('.replayRow:not(.clone) .playback-link').click(function () {
-                    var replayId = getReplayId(this);
-                    //$('#menuContainer').modal('hide');
-                    $('#menuContainer').hide();
-                    logger.info('sending data request for ' + replayId);
-                    sessionStorage.setItem('currentReplay', replayId);
-                    chrome.runtime.sendMessage({
-                        method: 'requestData',
-                        fileName: replayId
-                    });
-                });
-
-                // Set handler for movie download button.
-                $('.replayRow:not(.clone) .download-movie-button').click(function () {
-                    var replayId = getReplayId(this);
-                    fileNameToDownload = replayId;
-                    logger.info('asking background script to download video for ' + fileNameToDownload)
-                    chrome.runtime.sendMessage({
-                        method: 'downloadMovie',
-                        name: fileNameToDownload
-                    });
-                });
                 
-                // Set handler for rename button.
-                $('.replayRow:not(.clone) .rename-button').click(function () {
-                    var replayId = getReplayId(this);
-                    fileNameToRename = replayId;
-                    datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-                    newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-                    if (newName != null) {
-                        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-                        logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
-                        chrome.runtime.sendMessage({
-                            method: 'requestFileRename',
-                            oldName: fileNameToRename,
-                            newName: newName
-                        });
-                    }
-                });
-                
-                // Set handler for checkbox.
-                $('.replayRow:not(.clone) .selected-checkbox').click(function(e) {
-                    if( this.checked && e.shiftKey && $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1 ) {
-                        var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
-                            closestBox = undefined,
-                            thisBox = undefined;
-                        for(var i = 0; i < boxes.length; i++) {
-                            if ( this == boxes[i] ) { 
-                                var thisBox = i; 
-                                if ( closestBox ) break;
-                                continue
-                            }
-                            if (boxes[i].checked) var closestBox = i;
-                            if ( thisBox && closestBox ) break;
-                        }
-                        var bounds = [closestBox, thisBox].sort(function(a,b){return(a-b)});
-                        boxes.map(function(num, box) { 
-                            if(num > bounds[0] && num < bounds[1]) box.checked = true;
-                        });
-                    }
-                });
-
                 $('#replayList').height('auto');
                 // Automatic height adjustment for replay list.
                 $('#menuContainer .modal-dialog').data(
@@ -656,12 +678,12 @@ function createMenu() {
         $('#textureSaveButton').click(function () {
           // Load image files, if available, from file fields.
           let imageSources = {
-            tilesInput: "tiles",
-            portalInput: "portal",
-            speedpadInput: "speedpad",
-            speedpadredInput: "speedpadred",
+            tilesInput:        "tiles",
+            portalInput:       "portal",
+            speedpadInput:     "speedpad",
+            speedpadredInput:  "speedpadred",
             speedpadblueInput: "speedpadblue",
-            splatsInput: "splats"
+            splatsInput:       "splats"
           };
           let textures = {};
           Promise.all(Object.keys(imageSources).map((id) => {
@@ -723,8 +745,7 @@ function createMenu() {
          * Test a raw TagPro Replays data file for integrity and add to
          * replays.
          * fileData  the file data as read from the file input
-         * fileName  [optional]  the name of the file as it will appear in
-         *   the replay list.
+         * fileName  
          */
         rawParse = function (fileData, fileName, i, files) {
             i++;
@@ -739,33 +760,28 @@ function createMenu() {
             if (!parsedData.tiles | !parsedData.clock | !parsedData.floorTiles | !parsedData.map | !parsedData.wallMap) {
                 alert('The file you uploaded was not a valid TagPro Replays raw file.');
             } else {
-                var message = {
-                    method: 'setPositionDataFromImport',
-                    positionData: fileData
-                }
-                if(typeof fileName !== 'undefined') message.newName = fileName;
-
-                chrome.runtime.sendMessage(message, function(response) {
-                    logger.info('got "data added" response from background script')
-                    addRow(response.replayName, JSON.parse(response.metadata), 'top');
-                    sortReplays();
+                chrome.runtime.sendMessage({
+                    method: 'replay.import',
+                    name: fileName,
+                    data: parsedData
+                }, function (response) {
+                    logger.info(`Replay ${name} imported.`);
                     readImportedFile(files, i);
                 });
             }
-        }
+        };
         
         // function for preparing a file to be read by the rawParse function
         readImportedFile = function(files, i) {
-            if(i==files.length) return
-            var rawFileReader = new FileReader();
-            var newFileName = files[i].name.replace(/\.txt$/, '');
-            if (newFileName.search('DATE') < 0 && newFileName.search('replays') != 0) {
-                newFileName += 'DATE' + new Date().getTime()
+            if (i == files.length) return;
+            // Get file name from file or create.
+            var file_name = files[i].name.replace(/\.txt$/, '');
+            if (!file_name.includes('DATE') && !file_name.startsWith('replays')) {
+                file_name += 'DATE' + Date.now();
             }
-            rawFileReader.onload = function (e) {
-                rawParse(e.target.result, newFileName, i, files);
-            }
-            rawFileReader.readAsText(files[i]);
+            reader.readAsText(files[i]).then((text) => {
+                rawParse(text, file_name, i, files);
+            });
         };
         
         // Visible button invokes the actual file input.
@@ -846,53 +862,10 @@ function openReplayMenu() {
     }
 }
 
-// Function to close and reopen the TagPro Replays menu.
-// THIS FUNCTION IS NO LONGER USED - IT REMAINS HERE IN CASE I NEED IT LATER FOR SOME REASON
-function closeAndReopenMenu() {
-    // first, clear out saved rendered replays whose raw files have been deleted
-    chrome.runtime.sendMessage({
-        method: 'cleanRenderedReplays'
-    });
-
-    $('#menuContainer').modal('hide');
-    // A delay here is necessary otherwise there is an issue with the
-    // modal not re-appearing.
-    setTimeout(function () {
-        $('#menuContainer').modal('show');
-    }, 500);
-}
-
-// This is in case we want the user to download something 
-function saveData(name, data) {
-    var file = new Blob([data], {type: "data:text/txt;charset=utf-8"});
-    var a = document.createElement('a');
-    a.download = name + '.txt';
-    a.href = (window.URL || window.webkitURL).createObjectURL(file);
-    var event = document.createEvent('MouseEvents');
-    event.initEvent('click', true, false);
-    // trigger download
-    a.dispatchEvent(event);
-    (window.URL || window.webkitURL).revokeObjectURL(a.href);
-}
-
 // This is an easy method wrapper to dispatch events
 function emit(event, data) {
     var e = new CustomEvent(event, {detail: data});
     window.dispatchEvent(e);
-}
-
-// this function is run upon receipt of confirmation from the background script that one of the selected replays has been rendered
-function renderSelectedSubsequent(replaysToRender, replayI, lastOne) {
-  return get_options((options) => {
-    chrome.runtime.sendMessage({
-        method: 'renderAllSubsequent',
-        data: replaysToRender,
-        replayI: replayI,
-        lastOne: lastOne,
-        options: options
-    });
-    logger.info('sent request to render replay: ' + replaysToRender[replayI])
-  });
 }
 
 // function to delete replays from menu after their data are deleted from IndexedDB    
@@ -934,108 +907,45 @@ function formatMetaDataTitle(metadata) {
     return(title)
 }
 
-// function to add a row to the replay list
-// the second argument tells the function where to put the new row
-// if it equals "top", then the row goes at the top
-// if it is a replay name, it will go before that replay 
-function addRow(replayName, metadata, insertionPoint) {
-  logger.debug(`Adding row for ${replayName}`);
-    var ms = +replayName.replace('replays', '').replace(/.*DATE/, '');
+/**
+ * Make row for new replay.
+ */
+function make_row(name, metadata) {
+    var ms = +name.replace('replays', '').replace(/.*DATE/, '');
     var date = new Date(ms);
     var datevalue = date.toDateString() + ' ' + date.toLocaleTimeString().replace(/:.?.? /g, ' ');
     var duration = metadata.duration;
     var durationDate = new Date(duration * 1000);
-    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2)
+    var durationFormatted = durationDate.getUTCMinutes()+':'+('0'+durationDate.getUTCSeconds()).slice(-2);
     var titleText = formatMetaDataTitle(metadata);
     
-    if(insertionPoint === 'top' || insertionPoint !== replayName) {
-        var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
-        cloneRow.removeClass('clone');
-        var newRow = cloneRow.clone(true);
-        newRow.data("replay", replayName);
-        newRow.attr("id", replayName);
-        // Set playback link text
-        newRow.find('a.playback-link').text(replayName.replace(/DATE.*/, ''));
-        newRow.find('.download-movie-button').prop('disabled', true);
-        newRow.find('.replay-date').text(datevalue);
-        newRow.find('.duration').text(durationFormatted);
-        newRow[0].title = titleText;
-        if(insertionPoint === 'top') {
-            $('#replayList tbody').prepend(newRow);
-        } else {
-            $('#'+insertionPoint).replaceWith(newRow);
-        }
-    
-        // Set replay row element click handlers.
-        // Set handler for in-browser-preview link.
-        $('#'+replayName+' .playback-link').click(function () {
-            var replayId = getReplayId(this);
-            logger.info(replayId)
-            //$('#menuContainer').modal('hide');
-            $('#menuContainer').hide();
-            logger.info('sending data request for ' + replayId);
-            sessionStorage.setItem('currentReplay', replayId);
-            chrome.runtime.sendMessage({
-                method: 'requestData',
-                fileName: replayId
-            });
-        });
+    var row = $('#replayList .replayRow.clone:first').clone(true);
+    row.removeClass('clone');
+    row.data("replay", name);
+    row.attr("id", name);
+    // Set playback link text
+    row.find('a.playback-link').text(name.replace(/DATE.*/, ''));
+    row.find('.download-movie-button').prop('disabled', true);
+    row.find('.replay-date').text(datevalue);
+    row.find('.duration').text(durationFormatted);
+    row[0].title = titleText;
+    return row;
+}
 
-        // Set handler for movie download button.
-        $('#'+replayName+' .download-movie-button').click(function () {
-            var replayId = getReplayId(this);
-            fileNameToDownload = replayId;
-            logger.info('asking background script to download video for ' + fileNameToDownload)
-            chrome.runtime.sendMessage({
-                method: 'downloadMovie',
-                name: fileNameToDownload
-            });
-        });
+// function to add a row to the replay list
+// the second argument tells the function where to put the new row
+// if it equals "top", then the row goes at the top
+// if it is a replay name, it will go before that replay 
+function addRow(replayName, metadata) {
+    logger.debug(`Adding row for ${replayName}`);
+    let row = make_row(replayName, metadata);
+    $('#replayList tbody').prepend(row);
+}
 
-        // Set handler for rename button.
-        $('#'+replayName+' .rename-button').click(function () {
-            var replayId = getReplayId(this);
-            fileNameToRename = replayId;
-            datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-            newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-            if (newName != null) {
-                newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-                logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
-                chrome.runtime.sendMessage({
-                    method: 'requestFileRename',
-                    oldName: fileNameToRename,
-                    newName: newName
-                });
-            }
-        });
-        
-        // Set handler for checkbox.
-        $('#'+replayName+' .selected-checkbox').click(function(e) {
-            if( this.checked && e.shiftKey && $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1 ) {
-                var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
-                    closestBox = undefined,
-                    thisBox = undefined;
-                for(var i = 0; i < boxes.length; i++) {
-                    if ( this == boxes[i] ) { 
-                        var thisBox = i; 
-                        if ( closestBox ) break;
-                        continue
-                    }
-                    if (boxes[i].checked) var closestBox = i;
-                    if ( thisBox && closestBox ) break;
-                }
-                var bounds = [closestBox, thisBox].sort(function(a,b){return(a-b)});
-                boxes.map(function(num, box) { 
-                    if(num > bounds[0] && num < bounds[1]) box.checked = true;
-                });
-            }
-        });
-    } else {
-        var oldRow = $('#'+insertionPoint);
-        oldRow.find('.rendered-check').text('');
-        oldRow.find('.download-movie-button').prop('disabled', true);
-        oldRow.find('.duration').text(durationFormatted);
-    }
+function replaceRow(id, new_id, metadata) {
+    logger.debug(`Replacing row ${id} with ${new_id}.`);
+    let row = make_row(new_id, metadata);
+    $(`#${id}`).replaceWith(row);
 }
 
 // set global scope for some variables and functions
@@ -1046,66 +956,36 @@ var populateList;
 var initiateAnimation;
 var videofile;
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-  logger.info(`Received message: ${message.method}`);
-    if (message.method == 'itemsList') {
-        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
-    } else if (message.method == 'positionData') {
-        localStorage.setItem('currentReplayName', message.movieName)
-        logger.info(typeof message.title);
-        positions = JSON.parse(message.title);
-        Preview(positions);
-    } else if (message.method == "dataSetConfirmationFromBG") {
-        if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
-            addRow(message.replayName, JSON.parse(message.metadata), 'top');
-            sortReplays();
-        }
-        emit('positionDataConfirmation', true);
-    } else if (message.method == "positionDataForDownload") {
-        logger.info('got data for download - ' + message.fileName);
-        saveData(message.fileName, message.title);
-    } else if (message.method == 'dataDeleted') {
-        if (typeof message.newName !== 'undefined') {
-            addRow(message.newName, message.metadata, message.deletedFiles)
-            sortReplays()
-        } else {
-            deleteRows(message.deletedFiles);
-        }
-    } else if (message.method == "fileRenameSuccess") {
-        logger.info('got confirmation of data file rename from background script')
-        //closeAndReopenMenu();
-        renameRow(message.oldName, message.newName);
+    let method = message.method;
+    logger.info(`Received message: ${method}`);
+
+    if (method == 'replay.added') {
+        addRow(message.id, message.metadata);
         sortReplays();
-    } else if (message.method == "movieRenderConfirmation") {
-        logger.info('got movie render confirmation')
-        $('.replayRow').not('.clone').remove();
-        getListData();
-        //closeAndReopenMenu();
-    } else if (message.method == "movieRenderFailure") {
-        alert('pls. That replay is too old to replay. Don\'t delete it yet though, because I\'ll eventually add in replay functions for old replays.')
-    } else if (message.method == "movieDownloadConfirmation") {
-        logger.info('got movie download confirmation')
-    } else if (message.method == "movieDownloadFailure") {
-        alert('Download failed. Most likely you haven\'t rendered that movie yet.')
-    } else if (message.method == "progressBarCreate") {
-        // CREATE PROGRESS BAR AND GREY OUT BUTTONS
-        $('#' + message.name + ' .rendered-check').html('<progress class="progressbar">')
-        logger.info('got request to create progress Bar for ' + message.name)
-    } else if (message.method == "progressBarUpdate") {
-        // UPDATE PROGRESS BAR
-        if (typeof $('#' + message.name + ' .progressbar')[0] !== 'undefined') {
-            $('#' + message.name + ' .progressbar')[0].value = message.progress
-        }
-    } else if (message.method == "movieRenderConfirmationNotLastOne") {
-        if (message.failure) {
-            logger.info(message.name+' was a failure.');
-            $('#' + message.name + ' .rendered-check').html('<txt style="color:red">ERROR');
-        }
-        newReplayI = +message.replayI + 1
-        lastOne = false
-        if (newReplayI == message.replaysToRender.length - 1) {
-            lastOne = true
-        }
-        renderSelectedSubsequent(message.replaysToRender, newReplayI, lastOne)
+
+    } else if (method == 'replay.deleted') {
+        deleteRows(message.ids);
+
+    } else if (method == 'replay.replaced') {
+        replaceRow(message.id, message.new_id, metadata);
+        sortReplays();
+
+    } else if (method == 'itemsList') {
+        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
+
+    } else if (method == "replay.renamed") {
+        logger.info(`Replay renamed from ${message.old_name} to ${message.new_name}.`)
+        renameRow(message.old_name, message.new_name);
+        sortReplays();
+
+    } else if (method == "render.update") {
+        let id = message.id;
+        let progress = message.progress;
+        let progress_bar = $(`#${id} .progressbar`)[0];
+        progress_bar.value = progress;
+
+    } else {
+        logger.error(`Message type not recognized: ${method}`);
     }
 });
 
@@ -1147,13 +1027,18 @@ function listen(event, listener) {
 
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
-listen('setPositionData', function (data) {
+listen('replay.save', function (info) {
     logger.info('got position data from injected script. sending to background script')
     chrome.runtime.sendMessage({
-        method: 'setPositionData',
-        positionData: data
-    })
-})
+        method: 'replay.save_record',
+        data: info.data,
+        name: info.name
+    }, (result) => {
+        emit('replay.saved', {
+            failed: result
+        })
+    });
+});
 
 function injectScript(path) {
     var script = document.createElement('script');

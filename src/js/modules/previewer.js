@@ -17,8 +17,33 @@ function get_options() {
   });
 }
 
+// Retrieve replay from background page.
+function get_replay(id) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      method: 'replay.get',
+      id: id
+    }, (replay) => {
+      if (!replay) {
+        reject('Replay not retrieved.');
+      } else if (chrome.runtime.lastError) {
+        reject(`Chrome error: ${chrome.runtime.lastError.message}`);
+      } else {
+        resolve(replay);
+      }
+    });
+  });
+}
+
+module.exports = (id) => {
+  get_replay(id).then((replay) => {
+    createReplay(id, replay);
+  });
+};
+
 // Create and display UI for in-browser preview.
-function createReplay(positions) {
+function createReplay(id, positions) {
+  let replay_name = id;
   // Initialize values
   let frame = 0;
   var playing = false;
@@ -72,7 +97,7 @@ function createReplay(positions) {
 
   // create area to hold buttons and slider bar
 
-  playbackBarDiv = document.createElement('div')
+  var playbackBarDiv = document.createElement('div')
   playbackBarDiv.style.position = 'absolute'
   playbackBarDiv.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
   playbackBarDiv.style.left = can.style.left
@@ -85,7 +110,7 @@ function createReplay(positions) {
   preview_holder.appendChild(playbackBarDiv)
 
   // create white bar showing area that will be cropped
-  whiteBar = document.createElement('div')
+  var whiteBar = document.createElement('div')
   whiteBar.style.position = 'absolute'
   whiteBar.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
   whiteBar.style.left = can.style.left
@@ -98,7 +123,7 @@ function createReplay(positions) {
   preview_holder.appendChild(whiteBar)
 
   // create grey bar showing area that will be kept
-  greyBar = document.createElement('div')
+  var greyBar = document.createElement('div')
   greyBar.style.position = 'absolute'
   greyBar.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
   greyBar.style.left = can.style.left
@@ -111,7 +136,7 @@ function createReplay(positions) {
   preview_holder.appendChild(greyBar)
 
   // create slider bar to hold slider
-  sliderBar = document.createElement('div')
+  var sliderBar = document.createElement('div')
   sliderBar.style.position = 'absolute'
   sliderBar.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
   sliderBar.style.left = can.style.left
@@ -125,7 +150,7 @@ function createReplay(positions) {
 
   // Play/seek slider.
   $('#sliderBar').append('<input type="range" id="slider">');
-  slider = document.getElementById('slider')
+  var slider = document.getElementById('slider')
   slider.style.width = $('#sliderBar')[0].style.width;
   slider.style.transition = "opacity 0.25s linear";
   slider.style.zIndex = 1300;
@@ -212,7 +237,7 @@ function createReplay(positions) {
   function stopReplay(doNotReopen) {
     logger.info('stopReplay()');
     if (playing) {
-      window.cancelAnimationFrame(playInterval);
+      clearTimeout(playInterval);
       playing = false;
     }
     frame = 0;
@@ -264,107 +289,45 @@ function createReplay(positions) {
     $('#greyBar').width(greyBarEnd - greyBarStart + +$('#whiteBar')[0].style.left.replace('px', '')) + 'px';
   }
 
-  function playCroppedMovie() {
+  function getCropRange() {
     let total = positions.clock.length - 1;
     let start = Math.floor(crop_start * total);
     let end = Math.floor(crop_end * total);
-    play(start, end);
+    return [start, end];
   }
 
-  // this function actually crops the position data
-  // TODO: replace with trimReplay function from background page.
-  function cropPositionData(positionDAT, cropStart, cropEnd) {
-    var popFromEnd = positionDAT.clock.length - cropEnd - 1;
-    var shiftFromStart = cropStart;
-    // first crop from the front
-    for (cropI = 0; cropI < shiftFromStart; cropI++) {
-      for (positionStat in positionDAT) {
-        if (positionStat.search('player') == 0) {
-          for (playerStat in positionDAT[positionStat]) {
-            if (Array.isArray(positionDAT[positionStat][playerStat])) {
-              positionDAT[positionStat][playerStat].shift()
-            }
-          }
-        }
-      }
-      for (cropFloorTile in positionDAT.floorTiles) {
-        positionDAT.floorTiles[cropFloorTile].value.shift()
-      }
-      positionDAT.clock.shift()
-      positionDAT.score.shift()
-    }
-    // now crop from the back
-    for (cropI = 0; cropI < popFromEnd; cropI++) {
-      for (positionStat in positionDAT) {
-        if (positionStat.search('player') == 0) {
-          for (playerStat in positionDAT[positionStat]) {
-            if (Array.isArray(positionDAT[positionStat][playerStat])) {
-              positionDAT[positionStat][playerStat].pop()
-            }
-          }
-        }
-      }
-      for (cropFloorTile in positionDAT.floorTiles) {
-        positionDAT.floorTiles[cropFloorTile].value.pop()
-      }
-      positionDAT.clock.pop()
-      positionDAT.score.pop()
-    }
-    return positionDAT;
+  function playCroppedMovie() {
+    let [start, end] = getCropRange();
+    play(start, end);
   }
 
   // delete, render, and rename functions
 
   // delete this replay
-  deleteThisReplay = function () {
+  function deleteThisReplay() {
     logger.info('deleteThisReplay()');
-    replayToDelete = sessionStorage.getItem('currentReplay')
+    let replayToDelete = id;
     if (replayToDelete != null) {
       if (confirm('Are you sure you want to delete this replay?')) {
-        stopReplay(false)
-        setTimeout(function () {
-          console.log('requesting to delete ' + replayToDelete)
+        stopReplay(false);
+        setTimeout(() => {
+          logger.info(`Sending request to delete: ${replayToDelete}`);
           chrome.runtime.sendMessage({
-            method: 'requestDataDelete',
-            fileName: [replayToDelete]
+            method:   'replay.delete',
+            ids: [replayToDelete]
           });
         }, 500);
       }
     }
   }
 
-  // render this replay
-  renderThisReplay = function () {
-    logger.info('renderThisReplay()');
-    replayToRender = sessionStorage.getItem('currentReplay');
-    if (replayToRender != null) {
-      if (confirm('Are you sure you want to render this replay?')) {
-        stopReplay(false)
-        setTimeout(function () {
-          console.log('requesting to render ' + replayToRender)
-          chrome.runtime.sendMessage({
-            method: 'renderAllInitial',
-            data: [replayToRender],
-            useTextures: readCookie('useTextures'),
-            useSplats: readCookie('useSplats'),
-            useSpin: readCookie('useSpin'),
-            useClockAndScore: readCookie('useClockAndScore'),
-            useChat: readCookie('useChat'),
-            canvasWidth: readCookie('canvasWidth') || 1280,
-            canvasHeight: readCookie('canvasHeight') || 800
-          });
-        }, 1000);
-      }
-    }
-  }
-
   // rename this replay
-  renameThisReplay = function () {
+  function renameThisReplay() {
     logger.info('renameThisReplay()');
-    replayToRename = sessionStorage.getItem('currentReplay')
+    let replayToRename = id;
     if (replayToRename != null) {
-      datePortion = replayToRename.replace(/.*DATE/, '').replace('replays', '')
-      newName = prompt('How would you like to rename ' + replayToRename.replace(/DATE.*/, '') + '?')
+      let datePortion = replayToRename.replace(/.*DATE/, '').replace('replays', '')
+      let newName = prompt('How would you like to rename ' + replayToRename.replace(/DATE.*/, '') + '?')
       if (newName != null) {
         stopReplay(false)
         newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion
@@ -378,18 +341,17 @@ function createReplay(positions) {
     }
   }
 
-
   // playback control buttons
-  buttonURLs = {
-    'stop': 'http://i.imgur.com/G32WYvH.png',
-    'play': 'http://i.imgur.com/KvSKqpI.png',
-    'pause': 'http://i.imgur.com/aSpd4cK.png',
+  var buttonURLs = {
+    'stop':    'http://i.imgur.com/G32WYvH.png',
+    'play':    'http://i.imgur.com/KvSKqpI.png',
+    'pause':   'http://i.imgur.com/aSpd4cK.png',
     'forward': 'http://i.imgur.com/TVtAO69.png',
-    'reset': 'http://i.imgur.com/vs3jWpc.png'
+    'reset':   'http://i.imgur.com/vs3jWpc.png'
   };
 
   // stop button
-  stopButton = new Image()
+  var stopButton = new Image()
   stopButton.id = 'stopButton'
   stopButton.src = buttonURLs['stop']
   stopButton.onclick = function () {
@@ -444,7 +406,7 @@ function createReplay(positions) {
 
   // crop start button
   $('#pauseButton').after('<button id="cropStartButton">Crop Start')
-  cropStartButton = document.getElementById('cropStartButton')
+  var cropStartButton = document.getElementById('cropStartButton')
   cropStartButton.style.position = 'absolute'
   cropStartButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
   cropStartButton.style.left = +pauseButton.style.left.replace('px', '') + 70 + 'px'
@@ -459,7 +421,7 @@ function createReplay(positions) {
 
   // crop End button
   $('#cropStartButton').after('<button id="cropEndButton">Crop End')
-  cropEndButton = document.getElementById('cropEndButton')
+  var cropEndButton = document.getElementById('cropEndButton')
   cropEndButton.style.position = 'absolute'
   cropEndButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
   cropEndButton.style.left = +cropStartButton.style.left.replace('px', '') + $('#cropStartButton').width() + 20 + 'px'
@@ -474,7 +436,7 @@ function createReplay(positions) {
 
   // play cropped movie button
   $('#cropEndButton').after('<button id="playCroppedMovieButton">Play Cropped')
-  playCroppedMovieButton = document.getElementById('playCroppedMovieButton')
+  var playCroppedMovieButton = document.getElementById('playCroppedMovieButton')
   playCroppedMovieButton.style.position = 'absolute'
   playCroppedMovieButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
   playCroppedMovieButton.style.left = +cropEndButton.style.left.replace('px', '') + $('#cropEndButton').width() + 20 + 'px'
@@ -489,7 +451,7 @@ function createReplay(positions) {
 
   // crop button
   $('#playCroppedMovieButton').after('<button id="cropButton">Crop')
-  cropButton = document.getElementById('cropButton')
+  var cropButton = document.getElementById('cropButton')
   cropButton.style.position = 'absolute'
   cropButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
   cropButton.style.left = +playCroppedMovieButton.style.left.replace('px', '') + $('#playCroppedMovieButton').width() + 20 + 'px'
@@ -500,9 +462,7 @@ function createReplay(positions) {
   cropButton.style.zIndex = 1300
   cropButton.style.cursor = "pointer"
   cropButton.onclick = function () {
-    let start = Math.floor(crop_start * positions.clock.length - 1);
-    let end = Math.floor(crop_end * positions.clock.length - 1);
-    let positions2 = cropPositionData(positions, start, end);
+    let [start, end] = getCropRange();
     let newName = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
     if (newName === null) return;
     if (newName === '') {
@@ -513,18 +473,18 @@ function createReplay(positions) {
     }
     stopReplay(false);
     chrome.runtime.sendMessage({
-      method: 'setPositionData',
-      positionData: JSON.stringify(positions2),
-      newName: newName
-    })
-    delete currentCropStart;
-    delete currentCropEnd;
+      method: 'replay.crop',
+      start: start,
+      end: end,
+      id: id,
+      new_name: newName
+    });
   }
   cropButton.title = 'This actually crops the replay. It leaves the original replay intact, though, and saves a new cropped replay.'
 
   // crop and replace button
   $('#cropButton').after('<button id="cropAndReplaceButton">Crop and Replace')
-  cropAndReplaceButton = document.getElementById('cropAndReplaceButton')
+  var cropAndReplaceButton = document.getElementById('cropAndReplaceButton')
   cropAndReplaceButton.style.position = 'absolute'
   cropAndReplaceButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
   cropAndReplaceButton.style.left = +cropButton.style.left.replace('px', '') + $('#cropButton').width() + 20 + 'px'
@@ -535,36 +495,31 @@ function createReplay(positions) {
   cropAndReplaceButton.style.zIndex = 1300
   cropAndReplaceButton.style.cursor = "pointer"
   cropAndReplaceButton.onclick = function () {
-    cropStart = typeof currentCropStart === 'undefined' ? 0 : Math.floor(currentCropStart * (positions.clock.length - 1))
-    cropEnd = typeof currentCropEnd === 'undefined' ? positions.clock.length - 1 : Math.floor(currentCropEnd * (positions.clock.length - 1))
-    positions2 = cropPositionData(positions, cropStart, cropEnd)
+    let [start, end] = getCropRange();
     var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
     if (newName === null) return;
     if (newName === '') {
-      var oldName = localStorage.getItem('currentReplayName');
-      newName = localStorage.getItem('currentReplayName');
-      var replaceName = false;
+      var oldName = replay_name;
+      newName = replay_name;
     } else {
-      var oldName = localStorage.getItem('currentReplayName');
+      var oldName = replay_name;
       newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
       newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
-      var replaceName = true;
     }
-    stopReplay(false)
+    stopReplay(false);
     chrome.runtime.sendMessage({
-      method: 'setPositionData',
-      positionData: JSON.stringify(positions2),
-      newName: newName,
-      oldName: oldName
-    })
-    delete currentCropStart
-    delete currentCropEnd
+      method: 'replay.crop_and_replace',
+      id: id,
+      start: start,
+      end: end,
+      new_name: newName,
+    });
   }
   cropAndReplaceButton.title = 'This also actually crops the replay, but it replaces the original replay with the cropped one.'
 
   // delete button
   $('#cropAndReplaceButton').after('<button id="deleteButton">Delete')
-  deleteButton = document.getElementById('deleteButton')
+  var deleteButton = document.getElementById('deleteButton')
   deleteButton.style.position = 'absolute'
   deleteButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
   deleteButton.style.left = +cropAndReplaceButton.style.left.replace('px', '') + $('#cropAndReplaceButton').width() + 20 + 'px'
@@ -577,27 +532,12 @@ function createReplay(positions) {
   deleteButton.onclick = deleteThisReplay;
   deleteButton.title = 'This deletes the current replay.'
 
-  // render button
-  $('#deleteButton').after('<button id="renderButton">Render')
-  renderButton = document.getElementById('renderButton')
-  renderButton.style.position = 'absolute'
-  renderButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  renderButton.style.left = +deleteButton.style.left.replace('px', '') + $('#deleteButton').width() + 20 + 'px'
-  renderButton.style.height = '40px'
-  renderButton.style.fontSize = '20px'
-  renderButton.style.fontWeight = 'bold'
-  renderButton.style.transition = "opacity 0.25s linear"
-  renderButton.style.zIndex = 1300
-  renderButton.style.cursor = "pointer"
-  renderButton.onclick = renderThisReplay
-  renderButton.title = 'This renders the current replay.'
-
   // rename button
-  $('#renderButton').after('<button id="renameButton">Rename')
-  renameButton = document.getElementById('renameButton')
+  $('#deleteButton').after('<button id="renameButton">Rename')
+  var renameButton = document.getElementById('renameButton')
   renameButton.style.position = 'absolute'
   renameButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  renameButton.style.left = +renderButton.style.left.replace('px', '') + $('#renderButton').width() + 20 + 'px'
+  renameButton.style.left = +deleteButton.style.left.replace('px', '') + $('#deleteButton').width() + 20 + 'px'
   renameButton.style.height = '40px'
   renameButton.style.fontSize = '20px'
   renameButton.style.fontWeight = 'bold'
@@ -610,5 +550,3 @@ function createReplay(positions) {
   can.style.opacity = 1;
   showButtons();
 }
-
-module.exports = createReplay;
