@@ -1,20 +1,22 @@
 /*eslint no-sync: "off" */
-var gulp = require('gulp'),
-  browserify = require('browserify'),
-  watchify = require('watchify'),
-  es = require('event-stream'),
-  glob = require('glob'),
-  gutil = require('gulp-util'),
-  source = require('vinyl-source-stream'),
-  watch = require('gulp-watch'),
-  plumber = require('gulp-plumber'),
-  sass = require('gulp-sass'),
-  jeditor = require('gulp-json-editor'),
-  jsonfile = require('jsonfile'),
-  notify = require('gulp-notify'),
-  filter = require('gulp-filter'),
-  debug = require('gulp-debug'),
-  duration = require('gulp-duration');
+const browserify = require('browserify'),
+      concat     = require('concat-stream'),
+      duration   = require('gulp-duration'),
+      es         = require('event-stream'),
+      glob       = require('glob'),
+      gulp       = require('gulp'),
+      gutil      = require('gulp-util'),
+      jeditor    = require('gulp-json-editor'),
+      jsonfile   = require('jsonfile'),
+      notify     = require('gulp-notify'),
+      plumber    = require('gulp-plumber'),
+      rename     = require('gulp-rename'),
+      rimraf     = require('rimraf'),
+      sass       = require('gulp-sass'),
+      source     = require('vinyl-source-stream'),
+      through    = require('through2'),
+      watch      = require('gulp-watch'),
+      watchify   = require('watchify');
 
 // Uncomment for shim debugging.
 //process.env.BROWSERIFYSHIM_DIAGNOSTICS=1;
@@ -30,6 +32,7 @@ var assets = [
 
 // Top-level source files which get browserified.
 var sources = 'src/js/*.js';
+var source_base = 'src/';
 
 var sass_sources = './src/scss/**/*.scss';
 
@@ -41,25 +44,46 @@ var dirs = {
   release: './dist'
 };
 
+// Returns duplex stream to browserify and emit vinyl files.
+const browserified = (opts) => {
+  // Takes vinyl file and spits out a new file browserified.
+  return through.obj(function (file, enc, next) {
+    let src = file.path;
+    let b_opts = {
+      entries: src
+    };
+    Object.assign(b_opts, opts);
+    browserify(b_opts)
+      .bundle()
+      .pipe(concat((contents) => {
+        let new_file = file.clone();
+        new_file.contents = contents;
+        this.push(new_file);
+        next();
+      }));
+  });
+};
+
 // Browserify js, move files.
 function build(dest, opts) {
   if (typeof opts == "undefined") opts = {};
+
   // Browserify.
-  var bundle = glob(sources, (err, files) => {
-    var t = duration('bundle time');
-    var streams = files.map((entry) => {
-      var b_opts = {
-        entries: entry
-      };
-      Object.assign(b_opts, opts.browserify);
-      return browserify(b_opts)
-        .bundle()
-        .pipe(t)
-        .pipe(source(entry.replace(/^src\//, '')))
-        .pipe(gulp.dest(dest));
-    });
-    return es.merge(streams);
-  });
+  let bundle = gulp.src(sources, { base: source_base })
+    .pipe(browserified(opts.browserify))
+    .pipe(rename((path) => {
+      path.dirname = path.dirname.replace(/^src(\/|\\\\)/, '');
+    }))
+    .pipe(gulp.dest(dest))
+    .pipe(through.obj(function(file, enc, next) {
+      gutil.log(`Filename: ${file.path}`);
+      gutil.log(`File size: ${file.contents.length}`);
+      this.push(file);
+      next();
+    }))
+    .pipe(notify((file) => {
+      return `Built ${file.path}`;
+    }));
 
   var move_assets = assets.map((asset) => {
     return gulp.src(asset).pipe(gulp.dest(dest));
@@ -67,9 +91,8 @@ function build(dest, opts) {
 
   // Sass.
   var compile_sass = compileSass(dest + '/css');
-  makeManifest(dest, opts.manifest);
-  // TODO: merge all streams.
-  return es.merge(...move_assets, compile_sass);
+  var man_str = makeManifest(dest, opts.manifest);
+  return es.merge(bundle, ...move_assets, compile_sass, man_str);
 }
 
 function compileSass(dest) {
@@ -112,8 +135,12 @@ function watchifyFile(src, dest) {
   return bundle();
 }
 
-// dev build
-gulp.task('build', () => {
+gulp.task('clean', (cb) => {
+  rimraf(dirs.dev, cb);
+});
+
+// Implicitly a dev build.
+gulp.task('build', ['clean'], () => {
   var p = jsonfile.readFileSync(pkg);
   return build(dirs.dev, {
     browserify: {
@@ -125,7 +152,11 @@ gulp.task('build', () => {
   });
 });
 
-gulp.task('build-prod', () => {
+gulp.task('clean-release', (cb) => {
+  rimraf(dirs.release, cb);
+});
+
+gulp.task('build-release', ['clean-release'], () => {
   var p = jsonfile.readFileSync(pkg);
   return build(dirs.release, {
     manifest: {
@@ -152,7 +183,7 @@ gulp.task('manifest-dev', () => {
   });
 });
 
-gulp.task('watch', ['sass-dev', 'manifest-dev'], () => {
+gulp.task('watch', ['clean', 'sass-dev', 'manifest-dev'], () => {
   var bundle = glob(sources, (err, files) => {
     var streams = files.map((entry) => {
       return watchifyFile(entry, dirs.dev);
