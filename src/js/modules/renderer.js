@@ -137,7 +137,7 @@ function drawChats(positions) {
     let chat = chats[i];
     let left_pos = 10;  
     let top_pos = top_offset + (i - start) * 12;
-    let chat_color;
+    let chat_color = 'white';
     if (typeof chat.from == 'number') {
       let player = positions[`player${chat.from}`];
       if (player.auth[frame]) {
@@ -154,8 +154,6 @@ function drawChats(positions) {
     }
     if (chat.to == 'group') {
       chat_color = "#E7E700";
-    } else {
-      chat_color = 'white';
     }
     prettyText(chat.message, left_pos, top_pos, chat_color);
   }
