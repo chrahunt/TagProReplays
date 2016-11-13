@@ -1,9 +1,17 @@
+# Package manager folders
 node_modules
 bower_components
-test
+
+# Packaging folders
 build
+dist
+
+# Yet-merged items from dev branch
 karma.conf.js
-.vscode
 .eslintrc.js
-*.zip
+
+# OS
 .DS_Store
+
+# Editor
+.vscode
