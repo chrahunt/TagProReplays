@@ -1,0 +1,41 @@
+{
+  "manifest_version": 2,
+  "name": "TagProReplays",
+  "version": "{{filled by build script}}",
+  "description": "Save Replays from within TagPro Games",
+  "minimum_chrome_version": "49",
+  "permissions": [
+    "storage",
+    "unlimitedStorage"
+  ],
+  "background": {
+    "persistent": true,
+    "scripts": [
+      "js/background.js"
+    ]
+  },
+  "content_scripts": [{
+    "exclude_matches": [ "http://support.koalabeast.com/*" ],
+    "js": [
+      "js/content.js"
+    ],
+    "css": [
+      "css/record.css",
+      "css/menu.css",
+      "css/previewer.css"
+    ],
+    "matches": [
+      "http://*.koalabeast.com/*",
+      "http://*.newcompte.fr/*",
+      "http://tangent.jukejuice.com/*"
+    ],
+    "run_at": "document_end"
+  }],
+  "web_accessible_resources": [
+    "js/recording.js",
+    "images/*.png",
+    "html/*.html",
+    "css/*.css",
+    "fonts/*"
+  ]
+}

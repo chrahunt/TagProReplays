@@ -3,9 +3,7 @@ bower_components
 test
 build
 karma.conf.js
-src
-tools
-vendor
 .vscode
 .eslintrc.js
 *.zip
+.DS_Store

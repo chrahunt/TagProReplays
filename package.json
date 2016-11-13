@@ -4,8 +4,25 @@
   "description": "Chrome extension for recording play in TagPro.",
   "main": "TagProReplays.js",
   "devDependencies": {
+    "browserify": "^13.1.1",
+    "concat-stream": "^1.5.2",
+    "event-stream": "^3.3.4",
     "gulp": "^3.9.1",
-    "gulp-zip": "^3.2.0"
+    "gulp-debug": "^2.1.2",
+    "gulp-duration": "0.0.0",
+    "gulp-filter": "^4.0.0",
+    "gulp-json-editor": "^2.2.1",
+    "gulp-notify": "^2.2.0",
+    "gulp-plumber": "^1.1.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-sass": "^2.3.2",
+    "gulp-util": "^3.0.7",
+    "gulp-watch": "^4.3.10",
+    "gulp-zip": "^3.2.0",
+    "jsonfile": "^2.4.0",
+    "rimraf": "^2.5.4",
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.7.0"
   },
   "scripts": {},
   "repository": {
@@ -21,5 +38,18 @@
   "bugs": {
     "url": "https://github.com/chrahunt/TagProReplays/issues"
   },
-  "homepage": "https://github.com/chrahunt/TagProReplays#readme"
+  "homepage": "https://github.com/chrahunt/TagProReplays#readme",
+  "dependencies": {
+    "bootstrap": "^3.3.7",
+    "chrome-storage-promise": "^0.1.0",
+    "debug": "^2.2.0",
+    "file-saver": "^1.3.3",
+    "image-promise": "^4.0.1",
+    "jquery": "^3.1.1",
+    "jszip": "^3.1.3",
+    "moment": "^2.15.2",
+    "moment-duration-format": "^1.3.0",
+    "promise-file-reader": "^0.3.0",
+    "semver": "^5.3.0"
+  }
 }

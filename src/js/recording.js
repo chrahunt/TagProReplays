@@ -1,3 +1,5 @@
+var logger = require('./modules/logger')('recording');
+
 /**
  * Record and save the state of the game, emitting an event to the
  * window with the replay data.
@@ -5,8 +7,15 @@
  * This file is injected into the page by the content script. This
  * is necessary in order to listen to the game socket which provides
  * game state information.
+ * 
+ * Communication with the content script is done through custom events.
+ * 
+ *   script  -- replay.save  --> content script
+ * {data, name} - the JSON replay data and the name to use when saving.
+ * 
+ * script <-- replay.saved --  content script
+ * {failed} - the result of the operation.
  */
-(function() {
 
 /**
  * Create an array of size N filled with zeros.
@@ -127,7 +136,7 @@ function recordReplayData() {
             if (player.search('player') === 0) {
                 for (var prop in positions[player]) {
                     // Only apply to properties tracked over time.
-                    if ($.isArray(positions[player][prop])) {
+                    if (Array.isArray(positions[player][prop])) {
                         var frames = positions[player][prop];
                         var playerId = player.replace('player', '');
 
@@ -178,7 +187,6 @@ function recordReplayData() {
  */
 function decipherMapdata(mapData, mapElements) {
     var result = [];
-    console.log(mapData);
     for (var col in mapData) {
         result.push([]);
         for (var row in mapData[col]) {
@@ -230,7 +238,6 @@ function translateWallTiles(decipheredData, wallData, quadrantCoords) {
     });
     return decipheredData;
 }
-
 
 // TL, TR, BR, BL
 var quadrantCoords = {
@@ -470,7 +477,6 @@ var quadrantCoords = {
     "200d": [5.5, 10]
 };
 
-
 var mapElements = {
     0: {tile: "blank", coordinates: {x: 15, y: 10}, tileSize: 40, drawTileFirst: false},
     2: {tile: "tile", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
@@ -513,12 +519,14 @@ function emit(event, data) {
     window.dispatchEvent(e);
 }
 
-
 // send position data to content script
 function saveReplayData(positions) {
-    var data = JSON.stringify(positions)
-    console.log('sending position data from injected script to content script.')
-    emit('setPositionData', data)
+    var data = JSON.stringify(positions);
+    logger.info('Sending replay to content script.');
+    emit('replay.save', {
+        data: data,
+        name: `replays${Date.now()}`
+    });
 }
 
 // this function sets up a listener wrapper
@@ -528,12 +536,12 @@ function listen(event, listener) {
     });
 }
 
-listen('positionDataConfirmation', function () {
-    console.log('got message confirming data save')
-    $(savedFeedback).fadeIn(300)
-    $(savedFeedback).fadeOut(900)
-})
-
+// TODO: Check result.failed
+listen('replay.saved', function (result) {
+    logger.info('Replay save confirmed.');
+    $(savedFeedback).fadeIn(300);
+    $(savedFeedback).fadeOut(900);
+});
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton() {
@@ -541,9 +549,9 @@ function recordButton() {
     recordButton.id = 'recordButton';
     
     recordButton.onclick = function () {
-        saveReplayData(positions)
+        saveReplayData(positions);
     }
-    $('body').append(recordButton)
+    $('body').append(recordButton);
 
     var savedFeedback = document.createElement('a')
     savedFeedback.id = 'savedFeedback'
@@ -554,24 +562,21 @@ function recordButton() {
     if (readCookie('useRecordKey') == "true") {
         $(document).on("keypress", function (e) {
             if (e.which == readCookie('replayRecordKey')) {
-                saveReplayData(positions)
+                saveReplayData(positions);
             }
-        })
+        });
     }
 }
 
-if(readCookie('record') != 'false' && readCookie('treter') !== 'true') {
+if (readCookie('record') != 'false') {
 	tagpro.ready(function() {
 		var startInterval = setInterval(function() {
-			console.log('map: '+(typeof tagpro.map == "undefined" ? 'undefined' : 'defined'))
-			console.log('wallMap: '+(typeof tagpro.wallMap == "undefined" ? 'undefined' : 'defined'))
-			if(tagpro.map && tagpro.wallMap) {
+			if (tagpro.map && tagpro.wallMap) {
 				clearInterval(startInterval);
 				positions = {};
 				recordButton();
 				recordReplayData();
 			}
 		}, 1000);
-	})
+	});
 }
-})();
