@@ -116,11 +116,12 @@ function drawChats(positions) {
   if (!positions.chat) return;
   let chats = positions.chat;
   let thisTime = new Date(positions.clock[frame]).getTime()
-  var end;
-  for (let i = chats.length - 1; i > 0; i++) {
+  // Index of last applicable chat for this frame.
+  let end;
+  for (let i = chats.length - 1; i > 0; i--) {
     let chat = chats[i];
     if (thisTime - 30000 < chat.removeAt && chat.removeAt < thisTime) {
-      var end = i;
+      end = i;
       break;
     }
   }
@@ -129,13 +130,15 @@ function drawChats(positions) {
   if (typeof end == 'undefined') return;
 
   let num_chats = 10;
-  
-  for (let i = Math.max(end - num_chats, 0); i < end; i++) {
+
+  let start = Math.max(end - num_chats, 0);
+  let top_offset = context.canvas.height - 175;
+  for (let i = start; i < end; i++) {
     let chat = chats[i];
     let left_pos = 10;  
-    let top_pos = context.canvas.height - 175 + i * 12;
+    let top_pos = top_offset + (i - start) * 12;
     let chat_color;
-    if (typeof thisChat.from == 'number') {
+    if (typeof chat.from == 'number') {
       let player = positions[`player${chat.from}`];
       if (player.auth[frame]) {
         left_pos += prettyText("✓ ", left_pos, top_pos, "#BFFF00")
@@ -144,7 +147,7 @@ function drawChats(positions) {
                                                    : player.name[frame];
       let team_color = player.team[frame] == 1 ? "#FFB5BD"
                                                : "#CFCFFF";
-      chatLeft += prettyText(`${name}: `, left_pos, top_pos, team_color);
+      left_pos += prettyText(`${name}: `, left_pos, top_pos, team_color);
       if (chat.to == 'team') {
         chat_color = team_color;
       }

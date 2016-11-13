@@ -44,9 +44,9 @@ var dirs = {
   release: './dist'
 };
 
-// Returns duplex stream to browserify and emit vinyl files.
+// Returns duplex stream that takes vinyl files, browserifies them, and
+// emits the browserified versions.
 const browserified = (opts) => {
-  // Takes vinyl file and spits out a new file browserified.
   return through.obj(function (file, enc, next) {
     let src = file.path;
     let b_opts = {
@@ -85,6 +85,7 @@ function build(dest, opts) {
       return `Built ${file.path}`;
     }));
 
+  // Move assets.
   var move_assets = assets.map((asset) => {
     return gulp.src(asset).pipe(gulp.dest(dest));
   });
@@ -170,16 +171,10 @@ gulp.task('sass-dev', () => {
 });
 
 gulp.task('manifest-dev', () => {
+  // Pull version from package.json.
   var p = jsonfile.readFileSync(pkg);
-  var opts = {
-    manifest: {
-      version: p.version
-    }
-  };
-  jsonfile.readFile(pkg, (err, data) => {
-    makeManifest(dirs.dev, {
-      version: data.version
-    });
+  return makeManifest(dirs.dev, {
+    version: p.version
   });
 });
 

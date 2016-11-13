@@ -349,27 +349,24 @@ function getRawDataAndZip(files) {
 }
 
 // this renames data in the object store
-function renameData(oldName, newName, tabNum) {
-  let trans = db.transaction(["positions"], "readonly");
-  let store = trans.objectStore("positions");
-  let request = store.get(oldName);
-  request.onsuccess = function (e) {
-    let thisObj = e.target.result;
-    let request = store.delete(oldName)
-    request.onsuccess = function () {
-      let request = objectStore.add(thisObj, newName)
+function renameData(oldName, newName) {
+  return new Promise((resolve, reject) => {
+    let trans = db.transaction(["positions"], "readwrite");
+    let store = trans.objectStore("positions");
+    let request = store.get(oldName);
+    request.onsuccess = function (e) {
+      let replay_data = e.target.result;
+      let request = store.delete(oldName);
       request.onsuccess = function () {
-        localStorage.removeItem(oldName);
-        chrome.storage.local.remove(oldName);
-        chrome.tabs.sendMessage(tabNum, {
-          method: "replay.renamed",
-          old_name: oldName,
-          new_name: newName
-        });
-        logger.info('sent rename reply');
+        let request = store.add(replay_data, newName);
+        request.onsuccess = function () {
+          // Remove metadata.
+          localStorage.removeItem(oldName);
+          resolve();
+        }
       }
     }
-  }
+  });
 }
 
 // this downloads a rendered movie (found in the FileSystem) to disk
@@ -673,7 +670,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   } else if (method == 'replay.crop') {
     get_replay(message.id).then((replay) => {
-      let cropped_replay = cropReplay(replay, message.start, message.end);
+      let {start, end} = message;
+      logger.debug(`Cropping ${message.id} from ${start} to ${end}.`);
+      let cropped_replay = cropReplay(replay, start, end);
       return save_replay(message.new_name, cropped_replay);
     }).then((id) => {
       chrome.tabs.sendMessage(tab, {
@@ -685,10 +684,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   } else if (method == 'replay.crop_and_replace') {
     get_replay(message.id).then((replay) => {
-      let cropped_replay = cropReplay(replay, message.start, message.end);
-      return save_replay(message.new_name, replay);
+      let {start, end} = message;
+      logger.debug(`Cropping ${message.id} from ${start} to ${end}.`);
+      let cropped_replay = cropReplay(replay, start, end);
+      return save_replay(message.new_name, cropped_replay);
     }).then((id) => {
-      if (message.new_name == message.old_name) {
+      if (id == message.id) {
+        // Original replay was replaced in database.
         chrome.tabs.sendMessage(tab, {
           method: 'replay.replaced',
           id: message.id,
@@ -696,14 +698,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           metadata: get_metadata(id)
         });
       } else {
-        chrome.tabs.sendMessage(tab, {
-          method: 'replay.deleted',
-          ids: [message.id]
-        });
-        chrome.tabs.sendMessage(tab, {
-          method: 'replay.added',
-          id: id,
-          metadata: get_metadata(message.new_name)
+        // Remove old replay.
+        delete_replays([message.id], () => {
+          localStorage.removeItem(message.id);
+        }).then(() => {
+          chrome.tabs.sendMessage(tab, {
+            method: 'replay.deleted',
+            ids: [message.id]
+          });
+          chrome.tabs.sendMessage(tab, {
+            method: 'replay.added',
+            id: id,
+            metadata: get_metadata(message.new_name)
+          });
         });
       }
     });
@@ -711,6 +718,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (method == 'replay.delete') {
     let ids = message.ids;
     delete_replays(ids, (index) => {
+      // Remove metadata.
       localStorage.removeItem(ids[index]);
     }).then(() => {
       logger.info('Finished deleting replays.');
@@ -772,10 +780,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       getRawDataAndZip(ids);
     }
 
-  } else if (method == 'requestFileRename') {
-    tabNum = sender.tab.id;
-    logger.info('got rename request for ' + message.oldName + ' to ' + message.newName)
-    renameData(message.oldName, message.newName, tabNum);
+  } else if (method == 'replay.rename') {
+    let id = message.id;
+    let new_name = message.newName;
+    logger.info(`Received replay rename request for: ${id} to ${new_name}.`);
+    renameData(id, new_name).then(() => {
+      logger.info(`Renaming complete for ${id}, sending reply.`);
+      chrome.tabs.sendMessage(tab, {
+        method: "replay.renamed",
+        id: id,
+        new_name: new_name
+      });
+    }).catch((err) => {
+      logger.error('Error renaming replay: ', err);
+    });
 
   } else if (method == 'movie.download') {
     logger.info(`Received request to download movie for: ${message.id}.`);

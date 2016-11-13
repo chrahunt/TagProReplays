@@ -329,12 +329,12 @@ function createReplay(id, positions) {
       let datePortion = replayToRename.replace(/.*DATE/, '').replace('replays', '')
       let newName = prompt('How would you like to rename ' + replayToRename.replace(/DATE.*/, '') + '?')
       if (newName != null) {
-        stopReplay(false)
-        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion
-        console.log('requesting to rename from ' + replayToRename + ' to ' + newName)
+        stopReplay(false);
+        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
+        logger.info(`Requesting replay rename for ${replayToRename} to ${newName}.`);
         chrome.runtime.sendMessage({
-          method: 'requestFileRename',
-          oldName: replayToRename,
+          method: 'replay.rename',
+          id: replayToRename,
           newName: newName
         });
       }

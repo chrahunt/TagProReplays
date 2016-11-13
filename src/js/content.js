@@ -550,8 +550,8 @@ function createMenu() {
                 newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
                 logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
                 chrome.runtime.sendMessage({
-                    method: 'requestFileRename',
-                    oldName: fileNameToRename,
+                    method: 'replay.rename',
+                    id: fileNameToRename,
                     newName: newName
                 });
             }
@@ -559,12 +559,13 @@ function createMenu() {
 
         $('#replayList').on('click', '.selected-checkbox', (e) => {
             let self = e.target;
-            if( self.checked && e.shiftKey && $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1 ) {
-                var boxes = $('.replayRow:not(.clone) .selected-checkbox'),
+            if (self.checked && e.shiftKey &&
+                $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1) {
+                let boxes = $('.replayRow:not(.clone) .selected-checkbox'),
                     closestBox = null,
                     thisBox = null;
                 for (let i = 0; i < boxes.length; i++) {
-                    if ( self == boxes[i] ) { 
+                    if (self == boxes[i]) { 
                         thisBox = i; 
                         if (closestBox !== null) break;
                         continue;
@@ -573,19 +574,23 @@ function createMenu() {
                     if (thisBox !== null && closestBox !== null) break;
                 }
                 var bounds = [closestBox, thisBox].sort((a, b) => a - b);
-                boxes.map(function(num, box) { 
-                    box.checked = num > bounds[0] && num < bounds[1];
+                boxes.map((num, box) => {
+                    box.checked = bounds[0] <= num && num <= bounds[1];
                 });
             }
         });
 
         // This puts the current replays into the menu
         populateList = function (storageData, movieNames, metadata) {
-            replayList = [];
-            for (dat in storageData) {
-                replayList.push({replay:storageData[dat], metadata:metadata[dat]});
+            let replayList = [];
+            for (let index in storageData) {
+                replayList.push({
+                    replay:   storageData[index],
+                    metadata: metadata[index]
+                });
             }
 
+            logger.info(`Received ${replayList.length} replay(s).`);
             if (!(replayList.length > 0)) {
                 // Show "No replays" message.
                 $('#noReplays').show();
@@ -594,7 +599,6 @@ function createMenu() {
                 $('#downloadRawButton').prop('disabled', true);
                 $('#replayList').hide();
             } else {
-                logger.info("got replays");
                 // Enable buttons for interacting with multiple selections.
                 $('#renderSelectedButton').prop('disabled', false);
                 $('#deleteSelectedButton').prop('disabled', false);
@@ -611,7 +615,6 @@ function createMenu() {
                 // Template row that other rows will clone and populate with their own information.
                 var cloneRow = $('#replayList .replayRow.clone:first').clone(true);
                 cloneRow.removeClass('clone');
-                logger.info(replayList);
 
                 // Populate rows
                 for (dat in replayList) {
@@ -807,13 +810,13 @@ function createMenu() {
 function setFormTitles() {
     fpsTitle = 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
     'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
-    'or if your replays are sped up, try reducing this value.';
+    ' or if your replays are sped up, try reducing this value.';
     $('#fpsTxt').prop('title', fpsTitle);
     $('#fpsInput').prop('title', fpsTitle);
 
-    durationTitle = 'Use this to set how long the replay will be in seconds. Values greater than 60 ' +
-    'seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
-    'replays that have already been recorded';
+    durationTitle = 'Use this to set how long the replay will be in seconds. Values greater than 60' +
+    ' seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
+    ' replays that have already been recorded';
     $('#durationText').prop('title', durationTitle);
     $('#durationInput').prop('title', durationTitle);
 
@@ -830,20 +833,20 @@ function setFormTitles() {
     textureMenuButtonTitle = 'This button allows you to upload your custom texture files';
     $('#textureMenuButton').prop('title', textureMenuButtonTitle);
 
-    recordKeyTitle = 'This allows you to designate a key that acts exactly like clicking ' +
-    'the record button with the mouse.\n\nDon\'t use keys that have other uses in the ' +
-    'game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all, ' +
-    'because the extension will listen for that key even if you are typing in chat.';
+    recordKeyTitle = 'This allows you to designate a key that acts exactly like clicking' +
+    ' the record button with the mouse.\n\nDon\'t use keys that have other uses in the' +
+    ' game, such as w, a, s, d, t, or g.\n\nActually, don\'t use a letter key at all,' +
+    ' because the extension will listen for that key even if you are typing in chat.';
     $('#recordKeyTxt').prop('title', recordKeyTitle);
     $('#recordKeyCheckbox').prop('title', recordKeyTitle);
 
-    useSplatsTitle = 'This toggles whether to show splats or not.\n\nCheck the box if you ' +
-    'want to show splats in the replay';
+    useSplatsTitle = 'This toggles whether to show splats or not.\n\nCheck the box if you' +
+    ' want to show splats in the replay';
     $('#useSplatsTxt').prop('title', useSplatsTitle);
     $('#useSplatsCheckbox').prop('title', useSplatsTitle);
     
-    canvasWidthAndHeightTitle = 'Set the width and height of the .webm movie file. The default is 1280 by 800, ' +
-    'but set it to 1280 by 720 for true 720p resolution';
+    canvasWidthAndHeightTitle = 'Set the width and height of the .webm movie file. The default is 1280 by 800,' +
+    ' but set it to 1280 by 720 for true 720p resolution';
     $('#canvasWidthInput').prop('title', canvasWidthAndHeightTitle);
     $('#canvasHeightInput').prop('title', canvasWidthAndHeightTitle);
 }
@@ -967,15 +970,15 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         deleteRows(message.ids);
 
     } else if (method == 'replay.replaced') {
-        replaceRow(message.id, message.new_id, metadata);
+        replaceRow(message.id, message.new_id, message.metadata);
         sortReplays();
 
     } else if (method == 'itemsList') {
         populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
 
     } else if (method == "replay.renamed") {
-        logger.info(`Replay renamed from ${message.old_name} to ${message.new_name}.`)
-        renameRow(message.old_name, message.new_name);
+        logger.info(`Replay ${message.id} renamed to ${message.new_name}.`)
+        renameRow(message.id, message.new_name);
         sortReplays();
 
     } else if (method == "render.update") {
