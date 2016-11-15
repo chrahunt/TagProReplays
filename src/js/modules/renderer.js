@@ -33,6 +33,9 @@ class Renderer {
     this.canvas = canvas;
     this.replay = replay;
     this.options = these_options;
+
+    this.total_render_time = 0;
+    this.rendered_frames = 0;
     
     this.ready_promise = Textures.get(options.custom_textures).then((result) => {
       textures = result;
@@ -47,8 +50,12 @@ class Renderer {
   }
 
   draw(frame) {
+    let t0 = performance.now();
     animateReplay(frame, this.replay, this.map, this.options.spin,
       this.options.splats, this.options.ui, this.options.chats);
+    let t1 = performance.now();
+    this.total_render_time += t1 - t0;
+    this.rendered_frames++;
   }
 
   _extract_replay_data() {
