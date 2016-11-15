@@ -201,8 +201,8 @@ function createReplay(id, positions) {
       [frame, duration] = value;
       renderer.draw(frame);
       slider.value = frame;
-
-      playInterval = setTimeout(animate, duration);
+      let average_render_time = (renderer.total_render_time / renderer.rendered_frames);
+      playInterval = setTimeout(animate, duration - average_render_time);
     });
   }
 
