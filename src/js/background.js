@@ -459,9 +459,11 @@ function cropReplay(replay, start, end) {
   }
 
   function cropChats(chats) {
+    let chat_duration = 30000;
     return chats.filter((chat) => {
-      let time = chat.removeAt;
-      return time && start_time < time && time < end_time;
+      let display_time = chat.removeAt - chat_duration;
+      let remove_time = chat.removeAt;
+      return display_time && (start_time < remove_time && display_time < end_time);
     });
   }
 
