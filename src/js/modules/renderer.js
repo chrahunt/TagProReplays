@@ -121,26 +121,19 @@ function prettyText(text, textx, texty, color) {
 
 function drawChats(positions) {
   if (!positions.chat) return;
+  let chat_duration = 30000;
   let chats = positions.chat;
-  let thisTime = new Date(positions.clock[frame]).getTime()
-  // Index of last applicable chat for this frame.
-  let end;
-  for (let i = chats.length - 1; i > 0; i--) {
-    let chat = chats[i];
-    if (thisTime - 30000 < chat.removeAt && chat.removeAt < thisTime) {
-      end = i;
-      break;
-    }
-  }
+  let thisTime = Date.parse(positions.clock[frame]);
+  let visible_chats = chats.filter((chat) => {
+    let display_time = chat.removeAt - chat_duration;
+    return display_time < thisTime && thisTime < chat.removeAt;
+  });
 
-  // No chats.
-  if (typeof end == 'undefined') return;
+  let max_visible_chats = 10;
 
-  let num_chats = 10;
-
-  let start = Math.max(end - num_chats, 0);
+  let start = Math.max(visible_chats.length - max_visible_chats, 0);
   let top_offset = context.canvas.height - 175;
-  for (let i = start; i < end; i++) {
+  for (let i = start; i < visible_chats.length; i++) {
     let chat = chats[i];
     let left_pos = 10;  
     let top_pos = top_offset + (i - start) * 12;
