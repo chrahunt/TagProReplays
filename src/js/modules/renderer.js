@@ -137,25 +137,50 @@ function drawChats(positions) {
     let chat = visible_chats[i];
     let left_pos = 10;  
     let top_pos = top_offset + (i - start) * 12;
-    let chat_color = 'white';
+    // Determine chat attributes.
+    let name = null;
+    let name_color = 'white';
+    let auth = null;
+    // Player chat.
     if (typeof chat.from == 'number') {
       let player = positions[`player${chat.from}`];
       if (player.auth[frame]) {
-        left_pos += prettyText("✓ ", left_pos, top_pos, "#BFFF00")
+        auth = true;
       }
-      var name = (typeof player.name === "string") ? player.name
-                                                   : player.name[frame];
-      let team_color = player.team[frame] == 1 ? "#FFB5BD"
-                                               : "#CFCFFF";
-      left_pos += prettyText(`${name}: `, left_pos, top_pos, team_color);
+      name = (typeof player.name === "string") ? player.name
+                                               : player.name[frame];
+      name_color = player.team[frame] == 1 ? "#FFB5BD"
+                                           : "#CFCFFF";
       if (chat.to == 'team') {
-        chat_color = team_color;
+        text_color = team_color;
+      }
+    } else if (typeof chat.from == 'string') {
+      // Mod/announcement chat.
+      name = chat.from;
+      if (chat.to == 'group') {
+        name_color = '#E7E700';
+      } else if (chat.from == "ADMIN_GLOBAL_BROADCAST") {
+        name = 'ANNOUNCEMENT';
+        name_color = '#FF0000';
+      } else if (chat.mod) {
+        name_color = '#00B900';
       }
     }
-    if (chat.to == 'group') {
-      chat_color = "#E7E700";
+    let text_color = name_color;
+    // Custom color.
+    if (chat.to == 'all') {
+      text_color = chat.c || 'white';
     }
-    prettyText(chat.message, left_pos, top_pos, chat_color);
+    if (chat.to == 'group' && !chat.from) {
+      text_color = "#E7E700";
+    }
+    if (auth) {
+      left_pos += prettyText("✓ ", left_pos, top_pos, "#BFFF00")
+    }
+    if (name) {
+      left_pos += prettyText(`${name}: `, left_pos, top_pos, name_color);
+    }
+    prettyText(chat.message, left_pos, top_pos, text_color);
   }
 }
 

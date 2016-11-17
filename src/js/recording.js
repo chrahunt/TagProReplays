@@ -75,9 +75,19 @@ function recordReplayData() {
         }
     }
 
+    let chat_duration = 30000;
+    // Group chat listener.
+    if (tagpro.group && tagpro.group.socket) {
+        tagpro.group.socket.on('chat', (chat) => {
+            let o = Object.assign({}, chat);
+            o.removeAt = Date.now() + chat_duration;
+            positions.chat.push(o);
+        });
+    }
+
     // set up listener for chats, splats, and bombs
     tagpro.socket.on('chat', function (CHAT) {
-    	CHAT.removeAt = Date.now()+30000;
+    	CHAT.removeAt = Date.now() + chat_duration;
         positions.chat.push(CHAT);
     });
 
