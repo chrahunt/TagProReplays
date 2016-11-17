@@ -134,7 +134,7 @@ function drawChats(positions) {
   let start = Math.max(visible_chats.length - max_visible_chats, 0);
   let top_offset = context.canvas.height - 175;
   for (let i = start; i < visible_chats.length; i++) {
-    let chat = chats[i];
+    let chat = visible_chats[i];
     let left_pos = 10;  
     let top_pos = top_offset + (i - start) * 12;
     let chat_color = 'white';
