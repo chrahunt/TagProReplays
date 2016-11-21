@@ -12,8 +12,8 @@ logger.info('Loading renderer.');
  * https://github.com/chrahunt/TagProReplays/tree/dev/src/schemas
  * This renderer handles v1 replays.
  */
-// Renderer-global frame.
-var frame, context, textures, options, replay_data;
+// Renderer-global variables.
+var frame, context, textures, options, replay_data, render_state;
 
 const TILE_SIZE = 40;
 
@@ -30,6 +30,9 @@ class Renderer {
     // Set globals.
     context = canvas.getContext('2d');
     options = these_options;
+    render_state = {
+      splats: {}
+    };
     this.canvas = canvas;
     this.replay = replay;
     this.options = these_options;
@@ -663,26 +666,45 @@ function ballPop(positions, ball) {
   }
 }
 
+let splat_size = 120;
+let splat_fade_duration = 5000;
 function drawSplats(positions) {
-  if (positions.splats) {
-    let now = new Date(positions.clock[frame]).getTime();
-    for (let splat of positions.splats) {
-      if (!splat.img) {
-        // TODO: dynamic based on splat sprite width.
-        splat.img = Math.floor(Math.random() * 7);
-      }
-      let splat_time = new Date(splat.time).getTime();
-      if (splat_time <= now) {
-        context.drawImage(textures.splats,
-          splat.img * 120,
-          (splat.t - 1) * 120,
-          120, 120,
-          splat.x + posx - 60 + 20,
-          splat.y + posy - 60 + 20,
-          120, 120);
-      }
+  if (!positions.splats) return;
+  let splats = positions.splats;
+  let now = Date.parse(positions.clock[frame]);
+  let states = render_state.splats;
+  let num_splat_images = textures.splats.width / splat_size;
+  for (let i = 0; i < splats.length; i++) {
+    let splat = splats[i];
+    let splat_time = Date.parse(splat.time);
+    if (splat_time > now) break;
+    let state;
+    if (!states[i]) {
+      state = {
+        img: Math.floor(Math.random() * num_splat_images)
+      };
+      states[i] = state;
+    } else {
+      state = states[i];
     }
+    if (splat.temp) {
+      let splat_time_alive = now - splat_time;
+      // Skip faded splats.
+      if (splat_time_alive >= splat_fade_duration) continue;
+      context.globalAlpha = 1 - (splat_time_alive / splat_fade_duration);
+    } else {
+      context.globalAlpha = 1;
+    }
+    context.drawImage(textures.splats,
+      state.img * splat_size,
+      (splat.t - 1) * 120,
+      splat_size, splat_size,
+      splat.x + posx - 60 + 20,
+      splat.y + posy - 60 + 20,
+      splat_size, splat_size);
   }
+  // Reset alpha.
+  context.globalAlpha = 1;
 }
 
 function drawSpawns(positions) {
