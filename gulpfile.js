@@ -166,11 +166,11 @@ gulp.task('build-release', ['clean-release'], () => {
   });
 });
 
-gulp.task('sass-dev', () => {
+gulp.task('sass-dev', ['clean'], () => {
   return compileSass(dirs.dev + '/css');
 });
 
-gulp.task('manifest-dev', () => {
+gulp.task('manifest-dev', ['clean'], () => {
   // Pull version from package.json.
   var p = jsonfile.readFileSync(pkg);
   return makeManifest(dirs.dev, {
