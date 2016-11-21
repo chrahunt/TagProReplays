@@ -151,9 +151,6 @@ function drawChats(positions) {
                                                : player.name[frame];
       name_color = player.team[frame] == 1 ? "#FFB5BD"
                                            : "#CFCFFF";
-      if (chat.to == 'team') {
-        text_color = team_color;
-      }
     } else if (typeof chat.from == 'string') {
       // Mod/announcement chat.
       name = chat.from;
@@ -197,14 +194,13 @@ function drawPowerups(ball, ballx, bally, positions) {
     context.restore();
   }
   if (positions[ball].bomb[frame] != false) {
-    if (Math.round(Math.random() * 4) == 1) {
-      context.save();
-      context.beginPath();
-      context.arc(ballx + TILE_SIZE/2, bally + TILE_SIZE/2, TILE_SIZE/2, 0, 2*Math.PI);
-      context.fillStyle = "rgba(255, 255, 0, 0.75)";
-      context.fill();
-      context.restore();
-    }
+    context.save();
+    context.beginPath();
+    context.arc(ballx + TILE_SIZE/2, bally + TILE_SIZE/2, TILE_SIZE/2, 0, 2*Math.PI);
+    let intensity = Math.abs(0.75 * Math.cos(frame * 20 / (3 * replay_data.fps)));
+    context.fillStyle = `rgba(255, 255, 0, ${intensity})`;
+    context.fill();
+    context.restore();
   }
   if (positions[ball].grip[frame] != false) {
     context.drawImage(textures.tiles,
@@ -287,7 +283,7 @@ function drawScoreFlag(positions) {
             x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
             y: context.canvas.height - 50
           };
-          context.globalAlpha = 0.;
+          context.globalAlpha = 0.5;
           context.drawImage(textures.tiles,
             flagCoords.x * TILE_SIZE, 1 * TILE_SIZE,
             TILE_SIZE, TILE_SIZE,
@@ -313,7 +309,7 @@ function drawFlag(ball, ballx, bally, positions) {
     context.drawImage(textures.tiles,
       flagCoords.x * TILE_SIZE, flagCoords.y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
-      ballx + 10, bally - 30,
+      ballx + 13, bally - 32,
       TILE_SIZE, TILE_SIZE);
   }
 }
@@ -736,6 +732,7 @@ function drawEndText(positions) {
       context.font = "bold 48pt Arial";
       context.fillStyle = endColor;
       context.strokeStyle = "#000000";
+      context.lineWidth = 2;
       context.strokeText(endText, context.canvas.width / 2, 100);
       context.fillText(endText, context.canvas.width / 2, 100);
       context.restore();
