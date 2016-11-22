@@ -883,6 +883,9 @@ function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAn
   let me = replay_data.me;
 
   context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  // Fix for Whammy not handling transparency nicely. See #81.
+  context.fillStyle = 'black';
+  context.fillRect(0, 0, context.canvas.width, context.canvas.height);
   posx = -(positions[me].x[frame] - context.canvas.width / 2 + TILE_SIZE / 2);
   posy = -(positions[me].y[frame] - context.canvas.height / 2 + TILE_SIZE / 2);
   context.drawImage(mapImg,
