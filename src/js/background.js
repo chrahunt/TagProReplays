@@ -467,6 +467,17 @@ function cropReplay(replay, start, end) {
     });
   }
 
+  function cropSplats(splats) {
+    let splat_duration = 5000;
+    return splats.filter((splat) => {
+      let time = Date.parse(splat.time);
+      if (end_time < time) return false;
+      // Keep all permanent splats.
+      if (!splat.temp) return true;
+      return !(time + splat_duration < start_time);
+    });
+  }
+
   let new_replay = {
     bombs:      cropBombs(replay.bombs),
     chat:       cropChats(replay.chat),
@@ -477,7 +488,7 @@ function cropReplay(replay, start, end) {
     map:        replay.map,
     score:      cropFrameArray(replay.score),
     spawns:     cropSpawns(replay.spawns),
-    splats:     replay.splats,
+    splats:     cropSplats(replay.splats),
     tiles:      replay.tiles,
     wallMap:    replay.wallMap
   };
