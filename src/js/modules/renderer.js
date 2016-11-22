@@ -12,8 +12,8 @@ logger.info('Loading renderer.');
  * https://github.com/chrahunt/TagProReplays/tree/dev/src/schemas
  * This renderer handles v1 replays.
  */
-// Renderer-global frame.
-var frame, context, textures, options, replay_data;
+// Renderer-global variables.
+var frame, context, textures, options, replay_data, render_state;
 
 const TILE_SIZE = 40;
 
@@ -30,6 +30,9 @@ class Renderer {
     // Set globals.
     context = canvas.getContext('2d');
     options = these_options;
+    render_state = {
+      splats: {}
+    };
     this.canvas = canvas;
     this.replay = replay;
     this.options = these_options;
@@ -137,25 +140,47 @@ function drawChats(positions) {
     let chat = visible_chats[i];
     let left_pos = 10;  
     let top_pos = top_offset + (i - start) * 12;
-    let chat_color = 'white';
+    // Determine chat attributes.
+    let name = null;
+    let name_color = 'white';
+    let auth = null;
+    // Player chat.
     if (typeof chat.from == 'number') {
       let player = positions[`player${chat.from}`];
       if (player.auth[frame]) {
-        left_pos += prettyText("✓ ", left_pos, top_pos, "#BFFF00")
+        auth = true;
       }
-      var name = (typeof player.name === "string") ? player.name
-                                                   : player.name[frame];
-      let team_color = player.team[frame] == 1 ? "#FFB5BD"
-                                               : "#CFCFFF";
-      left_pos += prettyText(`${name}: `, left_pos, top_pos, team_color);
-      if (chat.to == 'team') {
-        chat_color = team_color;
+      name = (typeof player.name === "string") ? player.name
+                                               : player.name[frame];
+      name_color = player.team[frame] == 1 ? "#FFB5BD"
+                                           : "#CFCFFF";
+    } else if (typeof chat.from == 'string') {
+      // Mod/announcement chat.
+      name = chat.from;
+      if (chat.to == 'group') {
+        name_color = '#E7E700';
+      } else if (chat.from == "ADMIN_GLOBAL_BROADCAST") {
+        name = 'ANNOUNCEMENT';
+        name_color = '#FF0000';
+      } else if (chat.mod) {
+        name_color = '#00B900';
       }
     }
-    if (chat.to == 'group') {
-      chat_color = "#E7E700";
+    let text_color = name_color;
+    // Custom color.
+    if (chat.to == 'all') {
+      text_color = chat.c || 'white';
     }
-    prettyText(chat.message, left_pos, top_pos, chat_color);
+    if (chat.to == 'group' && !chat.from) {
+      text_color = "#E7E700";
+    }
+    if (auth) {
+      left_pos += prettyText("✓ ", left_pos, top_pos, "#BFFF00")
+    }
+    if (name) {
+      left_pos += prettyText(`${name}: `, left_pos, top_pos, name_color);
+    }
+    prettyText(chat.message, left_pos, top_pos, text_color);
   }
 }
 
@@ -172,14 +197,13 @@ function drawPowerups(ball, ballx, bally, positions) {
     context.restore();
   }
   if (positions[ball].bomb[frame] != false) {
-    if (Math.round(Math.random() * 4) == 1) {
-      context.save();
-      context.beginPath();
-      context.arc(ballx + TILE_SIZE/2, bally + TILE_SIZE/2, TILE_SIZE/2, 0, 2*Math.PI);
-      context.fillStyle = "rgba(255, 255, 0, 0.75)";
-      context.fill();
-      context.restore();
-    }
+    context.save();
+    context.beginPath();
+    context.arc(ballx + TILE_SIZE/2, bally + TILE_SIZE/2, TILE_SIZE/2, 0, 2*Math.PI);
+    let intensity = Math.abs(0.75 * Math.cos(frame * 20 / (3 * replay_data.fps)));
+    context.fillStyle = `rgba(255, 255, 0, ${intensity})`;
+    context.fill();
+    context.restore();
   }
   if (positions[ball].grip[frame] != false) {
     context.drawImage(textures.tiles,
@@ -262,7 +286,7 @@ function drawScoreFlag(positions) {
             x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
             y: context.canvas.height - 50
           };
-          context.globalAlpha = 0.;
+          context.globalAlpha = 0.5;
           context.drawImage(textures.tiles,
             flagCoords.x * TILE_SIZE, 1 * TILE_SIZE,
             TILE_SIZE, TILE_SIZE,
@@ -288,7 +312,7 @@ function drawFlag(ball, ballx, bally, positions) {
     context.drawImage(textures.tiles,
       flagCoords.x * TILE_SIZE, flagCoords.y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
-      ballx + 10, bally - 30,
+      ballx + 13, bally - 32,
       TILE_SIZE, TILE_SIZE);
   }
 }
@@ -642,26 +666,45 @@ function ballPop(positions, ball) {
   }
 }
 
+let splat_size = 120;
+let splat_fade_duration = 5000;
 function drawSplats(positions) {
-  if (positions.splats) {
-    let now = new Date(positions.clock[frame]).getTime();
-    for (let splat of positions.splats) {
-      if (!splat.img) {
-        // TODO: dynamic based on splat sprite width.
-        splat.img = Math.floor(Math.random() * 7);
-      }
-      let splat_time = new Date(splat.time).getTime();
-      if (splat_time <= now) {
-        context.drawImage(textures.splats,
-          splat.img * 120,
-          (splat.t - 1) * 120,
-          120, 120,
-          splat.x + posx - 60 + 20,
-          splat.y + posy - 60 + 20,
-          120, 120);
-      }
+  if (!positions.splats) return;
+  let splats = positions.splats;
+  let now = Date.parse(positions.clock[frame]);
+  let states = render_state.splats;
+  let num_splat_images = textures.splats.width / splat_size;
+  for (let i = 0; i < splats.length; i++) {
+    let splat = splats[i];
+    let splat_time = Date.parse(splat.time);
+    if (splat_time > now) break;
+    let state;
+    if (!states[i]) {
+      state = {
+        img: Math.floor(Math.random() * num_splat_images)
+      };
+      states[i] = state;
+    } else {
+      state = states[i];
     }
+    if (splat.temp) {
+      let splat_time_alive = now - splat_time;
+      // Skip faded splats.
+      if (splat_time_alive >= splat_fade_duration) continue;
+      context.globalAlpha = 1 - (splat_time_alive / splat_fade_duration);
+    } else {
+      context.globalAlpha = 1;
+    }
+    context.drawImage(textures.splats,
+      state.img * splat_size,
+      (splat.t - 1) * 120,
+      splat_size, splat_size,
+      splat.x + posx - 60 + 20,
+      splat.y + posy - 60 + 20,
+      splat_size, splat_size);
   }
+  // Reset alpha.
+  context.globalAlpha = 1;
 }
 
 function drawSpawns(positions) {
@@ -711,6 +754,7 @@ function drawEndText(positions) {
       context.font = "bold 48pt Arial";
       context.fillStyle = endColor;
       context.strokeStyle = "#000000";
+      context.lineWidth = 2;
       context.strokeText(endText, context.canvas.width / 2, 100);
       context.fillText(endText, context.canvas.width / 2, 100);
       context.restore();
