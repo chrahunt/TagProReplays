@@ -11,6 +11,7 @@ const logger = require('./modules/logger')('content');
 const Cookies = require('./modules/cookies');
 const Preview = require('./modules/previewer');
 const Textures = require('./modules/textures');
+const track = require('./modules/track');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
@@ -210,10 +211,20 @@ function createMenu() {
         // elements will work properly.
         setSettings();
 
+        let menu_opened = false;
         // Update list of replays when menu is opened.
         $('#menuContainer').on('show.bs.modal', function () {
+            if (!menu_opened) {
+                menu_opened = true;
+                track("Menu Opened");
+            }
             $('.replayRow').not('.clone').remove();
-            getListData();
+            start_menu_request = performance.now();
+            chrome.runtime.sendMessage({
+                method: 'replay.list'
+            }, (result) => {
+                populateList(result.replay_ids, result.movie_names, result.metadata);
+            });
         });
 
         // these buttons allow rendering/deleting multiple replays
@@ -581,7 +592,7 @@ function createMenu() {
         });
 
         // This puts the current replays into the menu
-        populateList = function (storageData, movieNames, metadata) {
+        function populateList(storageData, movieNames, metadata) {
             let replayList = [];
             for (let index in storageData) {
                 replayList.push({
@@ -851,14 +862,6 @@ function setFormTitles() {
     $('#canvasHeightInput').prop('title', canvasWidthAndHeightTitle);
 }
 
-// function for requesting indexdb datastore contents from background script.
-// Response from background script initiates population of replays into menu.
-function getListData() {
-    chrome.runtime.sendMessage({
-        method: 'requestList'
-    });
-}
-
 function openReplayMenu() {
     if ($('#menuContainer').length) {
         $('#menuContainer').modal('show');
@@ -951,13 +954,7 @@ function replaceRow(id, new_id, metadata) {
     $(`#${id}`).replaceWith(row);
 }
 
-// set global scope for some variables and functions
 // then set up listeners for info from background script
-var positions;
-var savePlayerPositions;
-var populateList;
-var initiateAnimation;
-var videofile;
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     let method = message.method;
     logger.info(`Received message: ${method}`);
@@ -972,9 +969,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     } else if (method == 'replay.replaced') {
         replaceRow(message.id, message.new_id, message.metadata);
         sortReplays();
-
-    } else if (method == 'itemsList') {
-        populateList(message.positionKeys, message.movieNames, JSON.parse(message.metadata));
 
     } else if (method == "replay.renamed") {
         logger.info(`Replay ${message.id} renamed to ${message.new_name}.`)

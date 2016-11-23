@@ -7,6 +7,7 @@ const logger = require('./modules/logger')('background');
 const fs = require('./modules/filesystem');
 const Renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
+const track = require('./modules/track');
 const Whammy = require('./modules/whammy');
 
 logger.info('Starting background page.');
@@ -158,73 +159,15 @@ function renderVideo(replay, id, options) {
   });
 }
 
-// this is a function to get all the keys in the object store
-//   It also gets the list of names of rendered movies
-//   It sends a message to the content script once it gets the keys and movie names
-//   It also sends custom texture files as well.
-function listItems() {
-  var allKeys = [];
-  var allMetaData = [];
-  var transaction = db.transaction(["positions"], "readonly");
-  var store = transaction.objectStore("positions");
-  var request = store.openCursor(null);
-  request.onsuccess = function () {
-    if (request.result) {
-      var metadata = localStorage.getItem(request.result.key);
-      if (!metadata || !JSON.parse(metadata) || typeof JSON.parse(metadata).map === 'undefined') {
-        if (request.result.value === undefined || request.result.value === "undefined") {
-          var metadata = extractMetaData(null);
-        } else {
-          try {
-            var data = JSON.parse(request.result.value);
-            var metadata = extractMetaData(data);
-          } catch (err) {
-            var metadata = extractMetaData(null);
-          }
-        }
-        localStorage.setItem(request.result.key, JSON.stringify(metadata));
-      }
-      allMetaData.push(metadata);
-      allKeys.push(request.result.key);
-      request.result.continue();
-    } else {
-      fs.getDirectory('savedMovies').then(fs.getEntryNames)
-        .then((names) => {
-          logger.info('Sending listItems response.');
-          chrome.tabs.sendMessage(tabNum, {
-            method: "itemsList",
-            positionKeys: allKeys,
-            movieNames: names,
-            metadata: JSON.stringify(allMetaData)
-          });
-        }).catch((err) => {
-          logger.error('Error getting savedMovies directory: ', err);
-        });
-    }
-  }
-}
-
-function getAllKeys(store_name) {
-  return new Promise((resolve, reject) => {
-    var trans = db.transaction([store_name], "readonly");
-    var store = trans.objectStore(store_name);
-    var req = store.openCursor(null);
-    var keys = [];
-    req.onsuccess = () => {
-      if (req.result) {
-        keys.push(req.result.key);
-        req.result.continue();
-      }
-    };
-  });
-}
-
 // Remove any movie files that don't have a corresponding replay in
 // indexedDB.
 function getCurrentReplaysForCleaning() {
-  getAllKeys("positions").then((keys) => {
+  let keys = [];
+  each_replay((id) => {
+    keys.push(id);
+  }).then(() => {
     // Make set for movie file name lookup.
-    var ids = new Set(keys.map(
+    let ids = new Set(keys.map(
       k => k.replace(/.*DATE/, '').replace('replays', '')));
     return fs.getDirectory('savedMovies').then(fs.getEntryNames)
       .then((names) => {
@@ -256,6 +199,17 @@ function get_replay(id) {
   });
 }
 
+function get_replay_count() {
+  return new Promise((resolve, reject) => {
+    let trans = db.transaction(['positions'], 'readonly');
+    let store = trans.objectStore('positions');
+    let request = store.count();
+    request.onsuccess = (e) => {
+      resolve(e.target.result);
+    };
+  });
+}
+
 function delete_replay(id) {
   logger.info(`Deleting replay: ${id}.`);
   return new Promise((resolve, reject) => {
@@ -265,6 +219,22 @@ function delete_replay(id) {
     request.onsuccess = () => {
       resolve();
     };
+  });
+}
+
+function each_replay(iteratee) {
+  return new Promise((resolve, reject) => {
+    let trans = db.transaction(['positions'], 'readonly');
+    let store = trans.objectStore('positions');
+    let req = store.openCursor(null);
+    req.onsuccess = (e) => {
+      if (e.target.result) {
+        iteratee(e.target.result.key, e.target.result.value);
+        e.target.result.continue();
+      } else {
+        resolve();
+      }
+    }
   });
 }
 
@@ -294,6 +264,36 @@ function save_replay(id, replay) {
 
 function get_metadata(id) {
   return JSON.parse(localStorage.getItem(id));
+}
+
+function get_or_make_metadata(id, replay) {
+  if (!replay) {
+    logger.warn(`Replay with id ${id} does not have a valid replay.`);
+    return extractMetaData(null);
+  }
+  let metadata = localStorage.getItem(id);
+  if (metadata) {
+    try {
+      let result = JSON.parse(metadata);
+      if (typeof result.map != 'undefined') {
+        return result;
+      }
+    } catch (err) {
+      // pass, we make new metadata below.
+    }
+    // the existing metadata is no good, so we remove it.
+    localStorage.removeItem(id);
+  }
+  // At this point, metadata needs to be generated.
+  try {
+    let parsed_replay = JSON.parse(replay);
+    metadata = extractMetaData(parsed_replay);
+    localStorage.setItem(id, JSON.stringify(metadata));
+  } catch (err) {
+    logger.warn(`Replay with id ${id} could not be parsed.`);
+    metadata = extractMetaData(null);
+  }
+  return metadata;
 }
 
 /**
@@ -616,6 +616,14 @@ function setHandlers(request) {
 
   request.onsuccess = function (e) {
     db = e.target.result;
+    // Will help figure out if the below code has actually increased
+    // the version.
+    get_replay_count().then((n) => {
+      track('DB Load', {
+        'DB Version': db.version,
+        'Total Replays': n
+      });
+    });
     db.onerror = function (e) {
       alert("Sorry, an unforseen error was thrown.");
       logger.info("***ERROR***");
@@ -757,6 +765,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       let data = JSON.parse(message.data);
       data = trimReplay(data);
       save_replay(message.name, data).then((id) => {
+        get_replay_count().then((n) => {
+          track("Recorded Replay", {
+            'Total Replays': n
+          });
+        });
         sendResponse({
           failed: false
         });
@@ -774,10 +787,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return true;
 
-  } else if (method == 'requestList') {
-    tabNum = sender.tab.id;
-    logger.info('got list request');
-    listItems();
+  } else if (method == 'replay.list') {
+    logger.info('Received request for the replay list.');
+    let ids = [];
+    let metadata = [];
+    each_replay((id, replay) => {
+      ids.push(id);
+      metadata.push(get_or_make_metadata(id, replay));
+    }).then(() => {
+      return fs.getDirectory('savedMovies').then(fs.getEntryNames);
+    }).then((movie_names) => {
+      logger.info('Sending replay.list response.');
+      sendResponse({
+        replay_ids: ids,
+        movie_names: movie_names,
+        metadata: metadata
+      });
+    }).catch((err) => {
+      logger.error('Error retrieving replays: ', err);
+      sendResponse({
+        error: true,
+        reason: err
+      });
+    });
+    return true;
 
   } else if (method == 'replay.download') {
     let ids = message.ids;
@@ -874,7 +907,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else {
-    logger.error(`Message type not recognized: ${method}.`);
+    logger.warn(`Message type not recognized: ${method}.`);
 
   }
 });
@@ -892,6 +925,10 @@ chrome.runtime.onInstalled.addListener((details) => {
       if (last_version == version) {
         logger.info('Reloaded in dev mode.');
       } else {
+        track('Update', {
+          from: last_version,
+          to:   version
+        });
         logger.info(`Upgrade from ${last_version} to ${version}.`);
         // Clear preview from versions prior to 1.3.
         if (semver.satisfies(last_version, '<1.3.0')) {
@@ -902,6 +939,8 @@ chrome.runtime.onInstalled.addListener((details) => {
           });
         }
       }
+    } else {
+      track('Install');
     }
   }
 });
