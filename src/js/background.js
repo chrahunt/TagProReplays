@@ -918,29 +918,27 @@ chrome.runtime.onInstalled.addListener((details) => {
   let version = chrome.runtime.getManifest().version;
   if (reason == 'install') {
     logger.info('onInstalled: install');
+    track('Install');
   } else if (reason == 'update') {
     logger.info('onInstalled: update');
     let last_version = details.previousVersion;
-    if (last_version) {
-      if (last_version == version) {
-        logger.info('Reloaded in dev mode.');
-      } else {
-        track('Update', {
-          from: last_version,
-          to:   version
-        });
-        logger.info(`Upgrade from ${last_version} to ${version}.`);
-        // Clear preview from versions prior to 1.3.
-        if (semver.satisfies(last_version, '<1.3.0')) {
-          chrome.storage.promise.local.clear().then(() => {
-            chrome.runtime.reload();
-          }).catch((err) => {
-            logger.error('Error clearing chrome.storage.local: ', err);
-          });
-        }
-      }
+    if (!last_version) return;
+    if (last_version == version) {
+      logger.info('Reloaded in dev mode.');
     } else {
-      track('Install');
+      logger.info(`Upgrade from ${last_version} to ${version}.`);
+      track('Update', {
+        from: last_version,
+        to:   version
+      });
+      // Clear preview from versions prior to 1.3.
+      if (semver.satisfies(last_version, '<1.3.0')) {
+        chrome.storage.promise.local.clear().then(() => {
+          chrome.runtime.reload();
+        }).catch((err) => {
+          logger.error('Error clearing chrome.storage.local: ', err);
+        });
+      }
     }
   }
 });
