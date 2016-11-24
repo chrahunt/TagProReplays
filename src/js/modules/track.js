@@ -56,6 +56,8 @@ if (isBackground()) {
           error: err
         });
       });
+
+      return true;
     }
   });
 } else {
