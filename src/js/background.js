@@ -9,6 +9,7 @@ const Renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
 const Whammy = require('./modules/whammy');
+const Groover = require('./modules/groover');
 
 logger.info('Starting background page.');
 
@@ -127,7 +128,7 @@ function renderVideo(replay, id, options) {
     let renderer = new Renderer(can, replay, options);
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
-    let encoder = new Whammy.Video(fps);
+    let encoder = new Groover.Video(fps);
     let frames = replay.clock.length;
     // Fraction of completion that warrants progress notification.
     let notification_freq = 0.05;
@@ -137,7 +138,7 @@ function renderVideo(replay, id, options) {
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
-        encoder.add(context);
+        encoder.addFrame(context);
         let amount_complete = frame / frames;
         if (Math.floor(amount_complete / notification_freq) != portions_complete) {
           portions_complete++;
@@ -147,7 +148,8 @@ function renderVideo(replay, id, options) {
         }
       }
 
-      let output = encoder.compile();
+      let output = encoder.toBlob();
+      logger.debug(output);
       let filename = id.replace(/.*DATE/, '').replace('replays', '');
       return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
         logger.debug('File saved.');
