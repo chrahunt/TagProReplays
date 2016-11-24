@@ -8,7 +8,6 @@ const fs = require('./modules/filesystem');
 const Renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
-const Whammy = require('./modules/whammy');
 const Groover = require('./modules/groover');
 
 logger.info('Starting background page.');
@@ -147,9 +146,8 @@ function renderVideo(replay, id, options) {
           return PromiseTimeout(() => render(++frame));
         }
       }
-
+      
       let output = encoder.toBlob();
-      logger.debug(output);
       let filename = id.replace(/.*DATE/, '').replace('replays', '');
       return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
         logger.debug('File saved.');

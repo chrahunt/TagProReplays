@@ -139,8 +139,8 @@ module.exports = (function(){
         header[3][2][3] = name;
         header[3][2][5] = name;
         header[3][2][7] =  dataTypes.double2Str(frameDelay);
-        header[3][3][1][15][1] =  height;
-        header[3][3][1][15][3] =  width;
+        header[3][3][1][15][1] =  width;
+        header[3][3][1][15][3] =  height;
         function create(dat){
             var i,kv,data;
             data = [];
