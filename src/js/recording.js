@@ -86,9 +86,18 @@ function recordReplayData() {
   }
 
   // set up listener for chats, splats, and bombs
-  tagpro.socket.on('chat', function (CHAT) {
-    CHAT.removeAt = Date.now() + chat_duration;
-    positions.chat.push(CHAT);
+  tagpro.socket.on('chat', function (chat) {
+    let attributes = {};
+    if (typeof chat.from == 'number') {
+      // Preserve player attributes at time chat was made.
+      let player = tagpro.players[chat.from];
+      attributes.name = player.name;
+      attributes.auth = player.auth;
+      attributes.team = player.team;
+    }
+    let chat_info = Object.assign(attributes, chat);
+    chat_info.removeAt = Date.now() + chat_duration;
+    positions.chat.push(chat);
   });
 
   tagpro.socket.on('splat', function (SPLAT) {
