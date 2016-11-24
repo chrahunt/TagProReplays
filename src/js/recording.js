@@ -97,7 +97,7 @@ function recordReplayData() {
     }
     let chat_info = Object.assign(attributes, chat);
     chat_info.removeAt = Date.now() + chat_duration;
-    positions.chat.push(chat);
+    positions.chat.push(chat_info);
   });
 
   tagpro.socket.on('splat', function (SPLAT) {
