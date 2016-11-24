@@ -5,6 +5,7 @@
   "main": "TagProReplays.js",
   "devDependencies": {
     "browserify": "^13.1.1",
+    "chai": "^3.5.0",
     "concat-stream": "^1.5.2",
     "event-stream": "^3.3.4",
     "gulp": "^3.9.1",
@@ -20,11 +21,14 @@
     "gulp-watch": "^4.3.10",
     "gulp-zip": "^3.2.0",
     "jsonfile": "^2.4.0",
+    "mocha": "^3.1.2",
     "rimraf": "^2.5.4",
     "vinyl-source-stream": "^1.1.0",
     "watchify": "^3.7.0"
   },
-  "scripts": {},
+  "scripts": {
+    "test": "node_modules/.bin/mocha"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chrahunt/TagProReplays.git"
