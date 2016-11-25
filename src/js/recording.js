@@ -52,13 +52,15 @@ function recordReplayData() {
   decipheredData = decipherMapdata(positions.map, mapElements);
   positions.tiles = translateWallTiles(decipheredData, positions.wallMap, quadrantCoords);
 
-  for (let tilecol in positions.map) {
-    for (let tilerow in positions.map[tilecol]) {
-      thisTile = positions.map[tilecol][tilerow];
-      if (thisTile >= 3 & thisTile < 7 | thisTile >= 9 & thisTile < 11 | thisTile >= 13 & thisTile < 17) {
+  // Set up dynamic tiles.
+  const dynamic_tile_ids = [3, 4, 5, 6, 9, 10, 13, 14, 15, 16, 19, 20, 21];
+  for (let x in positions.map) {
+    for (let y in positions.map[x]) {
+      let tile = positions.map[x][y];
+      if (dynamic_tile_ids.includes(tile)) {
         positions.floorTiles.push({
-          x: tilecol,
-          y: tilerow,
+          x: x,
+          y: y,
           value: createZeroArray(saveDuration * fps)
         });
       }
