@@ -1,4 +1,6 @@
-var logger = require('./modules/logger')('recording');
+// $ is implicit, we get injected into the page where it is available.
+const logger = require('./modules/logger')('recording');
+const Cookies = require('./modules/cookies');
 
 /**
  * Record and save the state of the game, emitting an event to the
@@ -17,6 +19,8 @@ var logger = require('./modules/logger')('recording');
  * {failed} - the result of the operation.
  */
 
+let positions;
+
 /**
  * Create an array of size N filled with zeros.
  * @param {integer} N - The size of the array to create.
@@ -28,28 +32,10 @@ function createZeroArray(N) {
   });
 }
 
-/**
- * Read cookie with given name, returning its value if found. If no
- * cookie with the name is found, returns `null`.
- * @param {string} name - The name of the cookie to retrieve the value
- *   for.
- * @return {?string} - The value of the cookie, or null if not found.
- */
-function readCookie(name) {
-  var nameEQ = name + "=";
-  var ca = document.cookie.split(';');
-  for (var i = 0; i < ca.length; i++) {
-    var c = ca[i];
-    while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-  }
-  return null;
-}
-
 function recordReplayData() {
   var savingIndex = 0;
-  var fps = +readCookie('fps');
-  var saveDuration = +readCookie('duration');
+  var fps = +Cookies.read('fps');
+  var saveDuration = +Cookies.read('duration');
 
   // set up map data
   positions.chat = [];
@@ -66,11 +52,15 @@ function recordReplayData() {
   decipheredData = decipherMapdata(positions.map, mapElements);
   positions.tiles = translateWallTiles(decipheredData, positions.wallMap, quadrantCoords);
 
-  for (tilecol in positions.map) {
-    for (tilerow in positions.map[tilecol]) {
+  for (let tilecol in positions.map) {
+    for (let tilerow in positions.map[tilecol]) {
       thisTile = positions.map[tilecol][tilerow];
       if (thisTile >= 3 & thisTile < 7 | thisTile >= 9 & thisTile < 11 | thisTile >= 13 & thisTile < 17) {
-        positions.floorTiles.push({x: tilecol, y: tilerow, value: createZeroArray(saveDuration * fps)});
+        positions.floorTiles.push({
+          x: tilecol,
+          y: tilerow,
+          value: createZeroArray(saveDuration * fps)
+        });
       }
     }
   }
@@ -568,28 +558,41 @@ function recordButton() {
   recordButton.id = 'recordButton';
 
   recordButton.onclick = function () {
+    logger.info('Record button clicked.');
     saveReplayData(positions);
   }
   $('body').append(recordButton);
 
-  var savedFeedback = document.createElement('a')
-  savedFeedback.id = 'savedFeedback'
-  savedFeedback.textContent = 'Saved!'
-  $('body').append(savedFeedback)
-  $(savedFeedback).hide()
+  var savedFeedback = document.createElement('a');
+  savedFeedback.id = 'savedFeedback';
+  savedFeedback.textContent = 'Saved!';
+  $('body').append(savedFeedback);
+  $(savedFeedback).hide();
 
-  if (readCookie('useRecordKey') == "true") {
-    $(document).on("keypress", function (e) {
-      if (e.which == readCookie('replayRecordKey')) {
+  if (Cookies.read('useRecordKey') == "true") {
+    let last_key = null;
+    let pressing = false;
+    $(document).on('keypress', (e) => {
+      let record_key = Cookies.read('replayRecordKey');
+      if (e.which == record_key && !(last_key == e.key && pressing)) {
+        logger.info('Record hotkey pressed.');
+        pressing = true;
+        last_key = e.key;
         saveReplayData(positions);
+      }
+    });
+
+    $(document).on('keyup', (e) => {
+      if (e.key == last_key) {
+        pressing = false;
       }
     });
   }
 }
 
-if (readCookie('record') != 'false') {
-  tagpro.ready(function() {
-    var startInterval = setInterval(function() {
+if (Cookies.read('record') != 'false') {
+  tagpro.ready(() => {
+    var startInterval = setInterval(() => {
       if (tagpro.map && tagpro.wallMap) {
         clearInterval(startInterval);
         positions = {};
@@ -598,4 +601,6 @@ if (readCookie('record') != 'false') {
       }
     }, 1000);
   });
+} else {
+  logger.info('Extension disabled.');
 }
