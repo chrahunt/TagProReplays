@@ -26,7 +26,7 @@ class Renderer {
    * 
    * Takes a canvas to render onto.
    */
-  constructor(canvas, replay, these_options={}) {
+  constructor(canvas, replay, these_options = {}) {
     // Set globals.
     context = canvas.getContext('2d');
     options = these_options;
@@ -46,6 +46,7 @@ class Renderer {
       this.map = image;
     });
     this._extract_replay_data();
+    this._preprocess_replay();
   }
 
   ready() {
@@ -69,9 +70,51 @@ class Renderer {
       me: id
     };
   }
+
+  // Preprocess the replay, simplifying other areas of rendering.
+  _preprocess_replay() {
+    // Factor out pre-processing from replay cropping and this function
+    // later.
+    let clock = this.replay.clock.map(Date.parse);
+    let start = clock[0];
+    let end = clock[1];
+    // Chat normalization, using frame in which chat was created
+    // instead of one that we're rendering for player information.
+    if (this.replay.chat) {
+      let chat_duration = 30000;
+      this.replay.chat = this.replay.chat.map((chat) => {
+        let display_time = chat.removeAt - chat_duration;
+        let remove_time = chat.removeAt;
+        // Omit chats outside replay timeframe.
+        if (remove_time < start || end < display_time) return false;
+        // Only apply changes to player-originating replays.
+        if (typeof chat.from != 'number') return chat;
+        // Keep chats created after recording started adding
+        // name, auth, and team.
+        if (chat.name) return chat;
+        let player = this.replay[`player${chat.from}`];
+        // Omit chats from players that we have no information for.
+        if (!player) return false;
+        let reference_frame = clock.findIndex(
+          (time) => display_time == Math.min(time, display_time));
+        // Copy the player information.
+        chat.name = typeof player.name == 'string' ? player.name
+                                                   : player.name[reference_frame];
+        chat.auth = player.auth[reference_frame];
+        chat.team = player.team[reference_frame];
+        return chat;
+      }).filter(chat => chat);
+    }
+  }
 };
 
-module.exports = Renderer;
+/**
+ * Returns a Promise that resolves to the renderer.
+ */
+module.exports = (canvas, replay, options = {}) => {
+  let renderer = new Renderer(canvas, replay, options);
+  return renderer.ready().then(() => renderer);
+};
 
 function drawText(ballname, namex, namey, auth, degree) {
   context.textAlign = 'left';
@@ -146,14 +189,10 @@ function drawChats(positions) {
     let auth = null;
     // Player chat.
     if (typeof chat.from == 'number') {
-      let player = positions[`player${chat.from}`];
-      if (player.auth[frame]) {
-        auth = true;
-      }
-      name = (typeof player.name === "string") ? player.name
-                                               : player.name[frame];
-      name_color = player.team[frame] == 1 ? "#FFB5BD"
-                                           : "#CFCFFF";
+      name = chat.name;
+      auth = chat.auth;
+      name_color = chat.team == 1 ? "#FFB5BD"
+                                  : "#CFCFFF";
     } else if (typeof chat.from == 'string') {
       // Mod/announcement chat.
       name = chat.from;

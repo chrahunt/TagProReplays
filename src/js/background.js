@@ -5,7 +5,7 @@ require('chrome-storage-promise');
 
 const logger = require('./modules/logger')('background');
 const fs = require('./modules/filesystem');
-const Renderer = require('./modules/renderer');
+const get_renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
 const Whammy = require('./modules/whammy');
@@ -124,7 +124,6 @@ function renderVideo(replay, id, options) {
       reject("The replay was not valid.");
     }
     
-    let renderer = new Renderer(can, replay, options);
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
     let encoder = new Whammy.Video(fps);
@@ -133,7 +132,7 @@ function renderVideo(replay, id, options) {
     let notification_freq = 0.05;
     let portions_complete = 0;
 
-    resolve(renderer.ready().then(function render(frame=0) {
+    resolve(get_renderer(can, replay, options).then(function render(renderer, frame=0) {
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
@@ -143,7 +142,7 @@ function renderVideo(replay, id, options) {
           portions_complete++;
           progress(amount_complete);
           // Slight delay to give our progress message time to propagate.
-          return PromiseTimeout(() => render(++frame));
+          return PromiseTimeout(() => render(renderer, ++frame));
         }
       }
 
@@ -460,11 +459,34 @@ function cropReplay(replay, start, end) {
 
   function cropChats(chats) {
     let chat_duration = 30000;
-    return chats.filter((chat) => {
+    let clock = replay.clock.map(Date.parse);
+    // We worry about losing player information during cropping operations
+    // so we operate on the replay in the same way as in the renderer.
+    // If this was just for convenience and didn't represent a loss of
+    // accuracy then we wouldn't bother.
+    return chats.map((chat) => {
+      if (!chat.removeAt) return false;
       let display_time = chat.removeAt - chat_duration;
       let remove_time = chat.removeAt;
-      return display_time && (start_time < remove_time && display_time < end_time);
-    });
+      // Omit chats outside replay timeframe.
+      if (remove_time < start_time || end_time < display_time) return false;
+      // Only apply changes to player-originating replays.
+      if (typeof chat.from != 'number') return chat;
+      // Keep chats created after recording started adding
+      // name, auth, and team.
+      if (chat.name) return chat;
+      let player = replay[`player${chat.from}`];
+      // Omit chats from players that we have no information for.
+      if (!player) return false;
+      let reference_frame = clock.findIndex(
+        (time) => display_time == Math.min(time, display_time));
+      // Copy the player information.
+      chat.name = typeof player.name == 'string' ? player.name
+                                                  : player.name[reference_frame];
+      chat.auth = player.auth[reference_frame];
+      chat.team = player.team[reference_frame];
+      return chat;
+    }).filter(chat => chat);
   }
 
   function cropSplats(splats) {
@@ -895,7 +917,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         failed: false
       });
     }).catch((err) => {
-      logger.error(`Rendering failed for ${id}`);
+      logger.error(`Rendering failed for ${id}`, err);
       // Reset rendering state.
       rendering = false;
       sendResponse({

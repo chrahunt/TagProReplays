@@ -2,7 +2,7 @@ const $ = require('jquery');
 const loadImage = require('image-promise');
 
 const Cookies = require('./cookies');
-const Renderer = require('./renderer');
+const get_renderer = require('./renderer');
 const logger = require('./logger')('renderer');
 
 function get_options() {
@@ -84,9 +84,9 @@ function createReplay(id, positions) {
 
   var renderer;
   get_options().then((opts) => {
-    renderer = new Renderer(can, positions, opts);
-    return renderer.ready();
-  }).then(() => {
+    return get_renderer(can, positions, opts);
+  }).then((created_renderer) => {
+    renderer = created_renderer;
     logger.info('Renderer loaded.');
     renderer.draw(frame);
   });
