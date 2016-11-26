@@ -57,7 +57,7 @@ function recordReplayData() {
   for (let x in positions.map) {
     for (let y in positions.map[x]) {
       let tile = positions.map[x][y];
-      if (dynamic_tile_ids.includes(tile)) {
+      if (dynamic_tile_ids.includes(Math.floor(tile))) {
         positions.floorTiles.push({
           x: x,
           y: y,
@@ -135,7 +135,7 @@ function recordReplayData() {
           tagpro: createZeroArray(saveDuration * fps),
           dead: createZeroArray(saveDuration * fps),
           draw: createZeroArray(saveDuration * fps),
-          me: (+tagpro.playerId == +player ? 'me' : 'other'),
+          // 'me' is set when the replay is saved.
           auth: createZeroArray(saveDuration * fps),
           degree: createZeroArray(saveDuration * fps),
           flair: createZeroArray(saveDuration * fps),
@@ -532,6 +532,16 @@ function emit(event, data) {
 
 // send position data to content script
 function saveReplayData(positions) {
+  let players = Object.keys(positions).filter(
+    k => /player\d+/.test(k));
+  let id = tagpro.playerId;
+  for (let player of players) {
+    if (`player${id}` == player) {
+      positions[player].me = 'me';
+    } else {
+      positions[player].me = 'other';
+    }
+  }
   var data = JSON.stringify(positions);
   logger.info('Sending replay to content script.');
   emit('replay.save', {
@@ -556,7 +566,7 @@ listen('replay.saved', function (result) {
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton() {
-  var recordButton = document.createElement("img");
+  var recordButton = document.createElement('div');
   recordButton.id = 'recordButton';
 
   recordButton.onclick = function () {
