@@ -566,7 +566,7 @@ listen('replay.saved', function (result) {
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.
 function recordButton() {
-  var recordButton = document.createElement("img");
+  var recordButton = document.createElement('div');
   recordButton.id = 'recordButton';
 
   recordButton.onclick = function () {
