@@ -5,6 +5,7 @@ require('bootstrap');
 // Relinquish control back to existing version if needed.
 $.noConflict(true);
 
+require('chrome-storage-promise');
 const reader = require('promise-file-reader');
 
 const logger = require('./modules/logger')('content');
@@ -15,18 +16,6 @@ const track = require('./modules/track');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
-
-function get_options() {
-  return Promise.resolve({
-    spin: Cookies.read('useSpin') == 'true',
-    splats: Cookies.read('useSplats') == 'true',
-    ui: Cookies.read('useClockAndScore') == 'true',
-    chats: Cookies.read('useChat') == 'true',
-    custom_textures: Cookies.read('useTextures') == 'true',
-    width: Cookies.read('canvasWidth') || 1280,
-    height: Cookies.read('canvasHeight') || 800
-  });
-}
 
 // Inserts Replay button in main page
 function createReplayPageButton() {
@@ -113,46 +102,109 @@ function initSettings() {
     // Settings container.
     $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
     setFormTitles();
+    let settings = [{
+        name: 'fps',
+        id: 'fpsInput',
+        type: 'number'
+    }, {
+        name: 'duration',
+        id: 'durationInput',
+        type: 'number'
+    }, {
+        name: 'record',
+        id: 'recordCheckbox',
+        type: 'checkbox'
+    }, {
+        name: 'custom_textures',
+        id: 'useTexturesCheckbox',
+        type: 'checkbox'
+    }, {
+        name: 'hotkey_enabled',
+        id: 'recordKeyChooserInput',
+        get: $elt => $elt.data('record'),
+        set: ($elt, val) => $elt.data('record', val)
+    }, {
+        name: 'hotkey',
+        id: 'recordKeyChooserInput',
+        get: $elt => {
+            if ($elt.text() == 'None') return null;
+            return $elt.text().charCodeAt(0);
+        },
+        set: ($elt, val) => {
+            if ($elt.data('record')) {
+                $elt.text(String.fromCharCode(val));
+                $('#record-key-remove').show();
+            } else {
+                $elt.val('None');
+                $('#record-key-remove').hide();
+            }
+        }
+    }, {
+        name: 'splats',
+        id: 'useSplatsCheckbox',
+        type: 'checkbox'
+    }, {
+        name: 'spin',
+        id: 'useSpinCheckbox',
+        type: 'checkbox'
+    }, {
+        name: 'ui',
+        id: 'useClockAndScoreCheckbox',
+        type: 'checkbox'
+    }, {
+        name: 'chat',
+        id: 'useChatCheckbox',
+        type: 'checkbox'
+    }, {
+        name: 'canvas_width',
+        id: 'canvasWidthInput',
+        type: 'number'
+    }, {
+        name: 'canvas_height',
+        id: 'canvasHeightInput',
+        type: 'number'
+    }].map((setting) => {
+        // Custom getter/setter.
+        if (!setting.type) return setting;
+        if (setting.type == 'number') {
+            setting.get = $elt => {
+                let val = Number($elt.val());
+                // We allow no non-zero values.
+                if (isNaN(val) || !val) return null;
+                return val;
+            }
+            setting.set = ($elt, val) => $elt.val(val);
+        } else if (setting.type == 'checkbox') {
+            setting.get = $elt => $elt.prop('checked');
+            setting.set = ($elt, val) => $elt.prop('checked', val);
+        }
+        return setting;
+    });
 
     // Save form fields.
-    saveSettings = function () {
-        // Save form fields
-        var fpsInputValue = $('#fpsInput')[0].value,
-            durationInputValue = $('#durationInput')[0].value,
-            recordInputValue = $('#recordCheckbox')[0].checked,
-            useTexturesInputValue = $('#useTextureCheckbox')[0].checked,
-            useRecordKeyValue = $('#recordKeyChooserInput').data('record'),
-            currentRecordKey = $('#recordKeyChooserInput').text(),
-            useSplatsValue = $('#useSplatsCheckbox')[0].checked,
-            useSpinValue = $('#useSpinCheckbox')[0].checked,
-            useClockAndScoreValue = $('#useClockAndScoreCheckbox')[0].checked,
-            useChatValue = $('#useChatCheckbox')[0].checked,
-            canvasWidthValue = Number($('#canvasWidthInput').val()),
-            canvasHeightValue = Number($('#canvasHeightInput').val());
-        
-        // Set cookies for replayRecording
-        if (!isNaN(fpsInputValue) && fpsInputValue != "") {
-            Cookies.set('fps', $('#fpsInput')[0].value, cookieDomain)
+    function saveSettings() {
+        let options = {};
+        for (let setting of settings) {
+            let $elt = $(`#${setting.id}`);
+            let result = setting.get($elt);
+            if (result !== null) {
+                options[setting.name] = result;
+            } else {
+                logger.warn(`Value not valid for field ${setting.id}.`);
+            }
         }
-        if (!isNaN(durationInputValue) && durationInputValue != "") {
-            Cookies.set('duration', $('#durationInput')[0].value, cookieDomain);
-        }
-        Cookies.set('record', recordInputValue, cookieDomain);
-        Cookies.set('useTextures', useTexturesInputValue, cookieDomain);
-        Cookies.set('useRecordKey', useRecordKeyValue, cookieDomain);
-        if (currentRecordKey !== 'None') {
-            Cookies.set('replayRecordKey', currentRecordKey.charCodeAt(0), cookieDomain);
-        }
-        Cookies.set('useSplats', useSplatsValue, cookieDomain);
-        Cookies.set('useSpin', useSpinValue, cookieDomain);
-        Cookies.set('useClockAndScore', useClockAndScoreValue, cookieDomain);
-        Cookies.set('useChat', useChatValue, cookieDomain);
-        if (!isNaN(canvasWidthValue) && canvasWidthValue !== "") {
-            Cookies.set('canvasWidth', canvasWidthValue, cookieDomain);
-        }
-        if (!isNaN(canvasHeightValue) && canvasHeightValue !== "") {
-            Cookies.set('canvasHeight', canvasHeightValue, cookieDomain);
-        } 
+        // Save options.
+        chrome.storage.promise.local.get('options').then((items) => {
+            if (!items.options) {
+                throw new Error('Existing options not found in chrome storage');
+            }
+            let new_options = Object.assign(items.options, options);
+            chrome.storage.promise.local.set({
+                options: new_options
+            }).then(() => {
+                logger.info('Options set.');
+            });
+        });
 
         chrome.runtime.sendMessage({
             method: 'cleanRenderedReplays'
@@ -164,66 +216,46 @@ function initSettings() {
 
     // Set value of settings when dialog opened, using default values if
     // none have yet been set.
-    setSettings = function () {
-        var fpsValue = Cookies.read('fps') || "60",
-            durationValue = Cookies.read('duration') || "30",
-            recordValue = Cookies.read('record') || 'true',
-            // Record key default is '/'
-            replayRecordKey = Cookies.read('replayRecordKey') || 47,
-            useTexturesValue = Cookies.read('useTextures') || 'true',
-            useRecordKeyValue = 'true',
-            useSplatsValue = Cookies.read('useSplats') || 'true',
-            useSpinValue = Cookies.read('useSpin') || 'true',
-            useClockAndScoreValue = Cookies.read('useClockAndScore') || 'true',
-            useChatValue = Cookies.read('useChat') || 'true', 
-            canvasWidthValue = Cookies.read('canvasWidth') || 1280,
-            canvasHeightValue = Cookies.read('canvasHeight') || 800;
-
-        $('#fpsInput')[0].value = (!isNaN(fpsValue) & fpsValue != "") ? fpsValue : 60;
-        $('#durationInput')[0].value = (!isNaN(durationValue) & durationValue != "") ? durationValue : 30;
-        if (useRecordKeyValue === 'true') {
-            $('#recordKeyChooserInput').text(String.fromCharCode(replayRecordKey));
-            $('#recordKeyChooserInput').data('record', true);
-            $('#record-key-remove').show();
-        } else {
-            $('#recordKeyChooserInput').text('None');
-            $('#recordKeyChooserInput').data('record', false);
-            $('#record-key-remove').hide();
-        }
-        $('#useTextureCheckbox')[0].checked = (useTexturesValue === 'true');
-        $('#useSplatsCheckbox')[0].checked = (useSplatsValue === 'true');
-        $('#recordCheckbox')[0].checked = (recordValue === 'true');
-        $('#useSpinCheckbox')[0].checked = (useSpinValue === 'true');
-        $('#useClockAndScoreCheckbox')[0].checked = (useClockAndScoreValue === 'true');
-        $('#useChatCheckbox')[0].checked = (useChatValue === 'true');
-        $('#canvasWidthInput').val(canvasWidthValue);
-        $('#canvasHeightInput').val(canvasHeightValue);
+    function setSettings() {
+        return chrome.storage.promise.local.get('options').then((items) => {
+            logger.info('Options: ', items);
+            if (!items.options) {
+                throw new Error('Options not found.');
+            }
+            let options = items.options;
+            for (let setting of settings) {
+                let $elt = $(`#${setting.id}`);
+                setting.set($elt, items.options[setting.name]);
+            }
+        }).catch((err) => {
+            logger.error(err);
+            throw err;
+        });
     }
 
     $('#settingsContainer').on('show.bs.modal', setSettings);
     // Set settings so other areas that use the settings directly from the
     // elements will work properly.
-    setSettings();
+    setSettings().then(() => {
+        logger.info('Settings set.');
+    });
 
     // Record key input.
-    keyListener = function (e) {
-        currentRecordKey = e.which
+    function keyListener(e) {
         $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
         $('#recordKeyChooserInput').data('record', true);
         $('#record-key-remove').show();
         stopInputting();
     }
 
-    stopInputting = function () {
+    function stopInputting() {
         $('#record-key-input-container').removeClass('focused');
         $(document).off("keypress", keyListener);
     }
 
     $('#record-key-input-container').click(function (e) {
-        logger.info("target: " + e.target);
-        logger.info("test");
         $(this).addClass('focused');
-        $(document).on("keypress", keyListener)
+        $(document).on("keypress", keyListener);
     });
 
     $('#record-key-remove').click(function (e) {
@@ -243,30 +275,30 @@ function initSettings() {
     $('#textureSaveButton').click(function () {
         // Load image files, if available, from file fields.
         let imageSources = {
-        tilesInput:        "tiles",
-        portalInput:       "portal",
-        speedpadInput:     "speedpad",
-        speedpadredInput:  "speedpadred",
-        speedpadblueInput: "speedpadblue",
-        splatsInput:       "splats"
+            tilesInput:        "tiles",
+            portalInput:       "portal",
+            speedpadInput:     "speedpad",
+            speedpadredInput:  "speedpadred",
+            speedpadblueInput: "speedpadblue",
+            splatsInput:       "splats"
         };
         let textures = {};
         Promise.all(Object.keys(imageSources).map((id) => {
-        let input = document.getElementById(id);
-        if (!input) {
-            return Promise.reject(`Could not find input with id: ${id}`);
-        }
-        let file = input.files[0];
-        if (!file) return;
-        return reader.readAsDataURL(file).then((data) => {
-            textures[imageSources[id]] = data;
-        });
+            let input = document.getElementById(id);
+            if (!input) {
+                return Promise.reject(`Could not find input with id: ${id}`);
+            }
+            let file = input.files[0];
+            if (!file) return;
+            return reader.readAsDataURL(file).then((data) => {
+                textures[imageSources[id]] = data;
+            });
         })).then(() => {
-        return Textures.set(textures);
+            return Textures.set(textures);
         }).then(() => {
-        $('#textureContainer').modal('hide');
+            $('#textureContainer').modal('hide');
         }).catch((err) => {
-        logger.error('Error saving textures: ', err);
+            logger.error('Error saving textures: ', err);
         });
     });
 }
@@ -330,38 +362,36 @@ function initMenu() {
             if (confirm('Are you sure you want to render these replays? The extension will be unavailable until the movies are rendered.')) {
                 logger.info('Starting rendering of replays.');
                 let i = 0;
-                get_options().then(function render_loop(options) {
-                if (i === ids.length) {
-                    logger.info('Rendering complete.');
-                    return;
-                }
-                let id = ids[i];
-                $(`#${id} .rendered-check`).html('<progress class="progressbar">');
-                chrome.runtime.sendMessage({
-                    method: 'replay.render',
-                    id: id,
-                    options: options
-                }, (result) => {
-                    logger.info(`Received render confirmation for replay: ${i}`);
-                    if (result.failed) {
-                        logger.info(`Rendering of ${i} failed, reason: ${result.reason}`);
-                        if (result.severity == 'fatal') {
-                            alert(`Rendering failed: ${result.reason}`);
-                            return;
-                        } else {
-                            // Some transient error, we can continue to send replays.
-                            $(`#${id} .rendered-check`).html('<span style="color:red">ERROR');
-                        }
-                    } else {
-                        $(`#${id} .rendered-check`).text('✓');
-                        $(`#${id} .download-movie-button`).prop('disabled', false);
+                render_loop();
+                function render_loop() {
+                    if (i === ids.length) {
+                        logger.info('Rendering complete.');
+                        return;
                     }
-                    i++;
-                    render_loop(options);
-                });
-                }).catch((err) => {
-                logger.error('Error retrieving options: ', err);
-                });
+                    let id = ids[i];
+                    $(`#${id} .rendered-check`).html('<progress class="progressbar">');
+                    chrome.runtime.sendMessage({
+                        method: 'replay.render',
+                        id: id,
+                    }, (result) => {
+                        logger.info(`Received render confirmation for replay: ${i}`);
+                        if (result.failed) {
+                            logger.info(`Rendering of ${i} failed, reason: ${result.reason}`);
+                            if (result.severity == 'fatal') {
+                                alert(`Rendering failed: ${result.reason}`);
+                                return;
+                            } else {
+                                // Some transient error, we can continue to send replays.
+                                $(`#${id} .rendered-check`).html('<span style="color:red">ERROR');
+                            }
+                        } else {
+                            $(`#${id} .rendered-check`).text('✓');
+                            $(`#${id} .download-movie-button`).prop('disabled', false);
+                        }
+                        i++;
+                        render_loop();
+                    });
+                }
             }
         }
     }
@@ -999,27 +1029,6 @@ if (!Cookies.read('fps')) {
 if (!Cookies.read('duration')) {
     Cookies.set('duration', 30, cookieDomain);
 }
-if (!Cookies.read('useSplats')) {
-    Cookies.set('useSplats', true, cookieDomain);
-}
-if (!Cookies.read('useSpin')) {
-    Cookies.set('useSpin', true, cookieDomain);
-}
-if (!Cookies.read('useClockAndScore')) {
-    Cookies.set('useClockAndScore', true, cookieDomain);
-}
-if (!Cookies.read('canvasWidth')) {
-    Cookies.set('canvasWidth', 1280, cookieDomain);
-}
-if (!Cookies.read('canvasHeight')) {
-    Cookies.set('canvasHeight', 800, cookieDomain);
-}
-if (!Cookies.read('useChat')) {
-    Cookies.set('useChat', true, cookieDomain);
-}
-if (!Cookies.read('useTextures')) {
-    Cookies.set('useTextures', true, cookieDomain);
-}
 
 // this function sets up a listener wrapper
 function listen(event, listener) {
@@ -1041,6 +1050,32 @@ listen('replay.save', function (info) {
             failed: result
         })
     });
+});
+
+// Set options for the recording script.
+function set_record_options(options) {
+    Cookies.set('tpr_fps', options.fps, cookieDomain);
+    Cookies.set('tpr_duration', options.duration, cookieDomain);
+    Cookies.set('tpr_record', options.record, cookieDomain);
+    Cookies.set('tpr_hotkey_enabled', options.hotkey_enabled, cookieDomain);
+    Cookies.set('tpr_hotkey', options.hotkey, cookieDomain);
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.options) {
+        if (changes.options.newValue) {
+            logger.info('Updating options for record script.');
+            set_record_options(changes.options.newValue);
+        }
+    }
+});
+
+chrome.storage.promise.local.get('options').then((items) => {
+    if (!items.options) {
+        throw new Error('No options set.');
+    }
+    set_record_options(items.options);
 });
 
 function injectScript(path) {

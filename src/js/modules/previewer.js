@@ -5,18 +5,6 @@ const Cookies = require('./cookies');
 const get_renderer = require('./renderer');
 const logger = require('./logger')('renderer');
 
-function get_options() {
-  return Promise.resolve({
-    spin: Cookies.read('useSpin') == 'true',
-    splats: Cookies.read('useSplats') == 'true',
-    ui: Cookies.read('useClockAndScore') == 'true',
-    chats: Cookies.read('useChat') == 'true',
-    custom_textures: Cookies.read('useTextures') == 'true',
-    width: Cookies.read('canvasWidth') || 1280,
-    height: Cookies.read('canvasHeight') || 800
-  });
-}
-
 // Retrieve replay from background page.
 function get_replay(id) {
   return new Promise((resolve, reject) => {
@@ -83,8 +71,9 @@ function createReplay(id, positions) {
   var context = can.getContext('2d');
 
   var renderer;
-  get_options().then((opts) => {
-    return get_renderer(can, positions, opts);
+  chrome.storage.promise.local.get('options').then((items) => {
+    if (!items.options) throw new Error('No options set.');
+    return get_renderer(can, positions, items.options);
   }).then((created_renderer) => {
     renderer = created_renderer;
     logger.info('Renderer loaded.');

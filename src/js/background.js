@@ -33,8 +33,9 @@ can.id = 'mapCanvas';
 document.body.appendChild(can);
 
 can = document.getElementById('mapCanvas');
-can.width = localStorage.getItem('canvasWidth') || 32 * tileSize;
-can.height = localStorage.getItem('canvasHeight') || 20 * tileSize;
+// Defaults.
+can.width = 1280;
+can.height = 800;
 can.style.zIndex = 200;
 can.style.position = 'absolute';
 can.style.top = 0;
@@ -126,7 +127,7 @@ function checkData(positions) {
  * A small delay in rendering is provided after progress notification to give
  * async operations a chance to complete.
  */
-function renderVideo(replay, id, options) {
+function renderVideo(replay, id) {
   return new Progress((resolve, reject, progress) => {
     // Check replay data.
     if (!checkData(replay)) {
@@ -142,7 +143,13 @@ function renderVideo(replay, id, options) {
     let notification_freq = 0.05;
     let portions_complete = 0;
 
-    resolve(get_renderer(can, replay, options).then(function render(renderer, frame=0) {
+    let result = chrome.storage.promise.local.get('options').then((items) => {
+      if (!items.options) throw new Error('No options found');
+      let options = items.options;
+      can.width = options.canvas_width;
+      can.height = options.canvas_height;
+      return get_renderer(can, replay, options);
+    }).then(function render(renderer, frame=0) {
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
@@ -164,7 +171,8 @@ function renderVideo(replay, id, options) {
         logger.error('Error saving render: ', err);
         throw err;
       });
-    }));
+    });
+    resolve(result);
   });
 }
 
@@ -721,11 +729,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (method == 'replay.render') {
     let id = message.id;
     logger.info(`Rendering replay: ${id}`);
-    // Persist the value.
-    localStorage.setItem('canvasWidth', message.options.width);
-    localStorage.setItem('canvasHeight', message.options.height);
-    can.width = message.options.width;
-    can.height = message.options.height;
     if (rendering) {
       sendResponse({
         failed: true,
@@ -737,7 +740,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       rendering = true;
     }
     get_replay(id).then((replay) => {
-      return renderVideo(replay, id, message.options)
+      return renderVideo(replay, id)
       .progress((progress) => {
         logger.debug(`Sending progress update for ${id}: ${progress}`);
         chrome.tabs.sendMessage(tab, {
@@ -771,6 +774,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Extension options.
+// Get default options object.
+function getDefaultOptions() {
+  var options = {
+    fps:             60,
+    duration:        30,
+    hotkey_enabled:  true,
+    hotkey:          47, // '/' key.
+    custom_textures: false,
+    canvas_width:    1280,
+    canvas_height:   800,
+    splats:          true,
+    ui:              true,
+    chat:            true,
+    spin:            true,
+    record:          true // Recording enabled.
+  };
+  return options;
+}
+
+// Ensure options are set.
+chrome.storage.promise.local.get('options').then((items) => {
+  if (!items.options) {
+    chrome.storage.promise.local.set({
+      options: getDefaultOptions()
+    }).then(() => {
+      logger.info('Options set.');
+    }).catch((err) => {
+      logger.error('Error setting options: ', err);
+    });
+  }
+}).catch((err) => {
+  logger.error('Error retrieving options: ', err);
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
   logger.info('onInstalled handler called');
   let reason = details.reason;
@@ -790,7 +828,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         from: last_version,
         to:   version
       });
-      // Clear preview from versions prior to 1.3.
+      // Clear preview storage from versions prior to 1.3.
       if (semver.satisfies(last_version, '<1.3.0')) {
         chrome.storage.promise.local.clear().then(() => {
           chrome.runtime.reload();
