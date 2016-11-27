@@ -24,9 +24,10 @@ files:
 2. Execute `npm install` in the project directory
 3. Execute `npm install -g gulp-cli` anywhere
 4. Execute `gulp build` in the project directory
-5. Inspect extension files in `$project_dir/build`
+5. Load the directory `$project_dir/build` as an unpacked extension.
+6. Develop!
 
-If you make a change, just run `gulp build` again.
+If you make a change to the source files, just run `gulp build` again.
 
 For quicker development execute `gulp watch` instead of `gulp build`. The
 process will stay up and watch the source files for changes, rebuilding when
@@ -62,10 +63,13 @@ because they require changes before use. Those changes are documented here:
 **Extension File Organization**:
 
 * **src/**: Main source files for the extension.
-    - **js/**: Files directly under this directory are treated as individual entry points for the browserify build.
-        + **modules/**: These files are disregarded by the build process (it's assumed that they'll be required by the top-level js files).
-    - **schemas/**: Holds the JSON-Schema files for the main replay file format. This also mirrors, for the most part, the format of the replays as they exist in the IndexedDB document store within the extension.
-* **vendor/**: Third-party libraries that either don't have a proper module, or which required customization. Subdirectories other than `js` are copied to the `build` directory on build.
+    - **js/**: Files directly under this directory are treated as individual
+      entry points for the browserify build.
+        + **modules/**: These files are disregarded by the build process (it's
+        assumed that they'll be required by the top-level js files).
+* **vendor/**: Third-party libraries that either don't have a proper module,
+  or which required customization. Subdirectories other than `js` are copied
+  to the `build` directory on build.
 
 For CSS files injected as content scripts, ensure that referenced resources
 are prepended with `chrome-extension://__MSG_@@extension_id__/`, and listed

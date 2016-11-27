@@ -3,9 +3,10 @@ const saveAs = require('file-saver').saveAs;
 const semver = require('semver');
 require('chrome-storage-promise');
 
+const Data = require('./modules/data');
 const logger = require('./modules/logger')('background');
 const fs = require('./modules/filesystem');
-const Renderer = require('./modules/renderer');
+const get_renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
 const Groover = require('./modules/groover');
@@ -14,6 +15,15 @@ logger.info('Starting background page.');
 
 Textures.ready().then(() => {
   logger.info('Textures ready.');
+});
+
+Data.ready().then(() => {
+  logger.info('Data ready.');
+  get_replay_count().then((n) => {
+    track('DB Load', {
+      'Total Replays': n
+    });
+  });
 });
 
 let tileSize = 40;
@@ -124,7 +134,6 @@ function renderVideo(replay, id, options) {
       reject("The replay was not valid.");
     }
     
-    let renderer = new Renderer(can, replay, options);
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
     let encoder = new Groover.Video(fps);
@@ -133,7 +142,7 @@ function renderVideo(replay, id, options) {
     let notification_freq = 0.05;
     let portions_complete = 0;
 
-    resolve(renderer.ready().then(function render(frame=0) {
+    resolve(get_renderer(can, replay, options).then(function render(renderer, frame=0) {
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
@@ -143,7 +152,7 @@ function renderVideo(replay, id, options) {
           portions_complete++;
           progress(amount_complete);
           // Slight delay to give our progress message time to propagate.
-          return PromiseTimeout(() => render(++frame));
+          return PromiseTimeout(() => render(renderer, ++frame));
         }
       }
       
@@ -187,55 +196,35 @@ function getCurrentReplaysForCleaning() {
  */
 function get_replay(id) {
   logger.info(`Retrieving replay: ${id}.`);
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(["positions"], "readonly");
-    let store = trans.objectStore("positions");
-    let request = store.get(id);
-    request.onsuccess = (e) => {
+  return Data.db.table('positions')
+    .get(id)
+    .then((replay) => {
       logger.debug(`Replay ${id} retrieved.`);
-      let data = JSON.parse(e.target.result);
-      resolve(data);
-    };
-  });
+      let data = JSON.parse(replay);
+      return data;
+    });
 }
 
 function get_replay_count() {
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(['positions'], 'readonly');
-    let store = trans.objectStore('positions');
-    let request = store.count();
-    request.onsuccess = (e) => {
-      resolve(e.target.result);
-    };
-  });
+  return Data.db.table('positions').count();
 }
 
 function delete_replay(id) {
   logger.info(`Deleting replay: ${id}.`);
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(['positions'], 'readwrite');
-    let store = trans.objectStore('positions');
-    let request = store.delete(id);
-    request.onsuccess = () => {
-      resolve();
-    };
-  });
+  return Data.db.table('positions').delete(id);
+}
+
+/**
+ * @param {Array.<string>} ids  ids of items to delete from database.
+ */
+function delete_replays(ids, iteratee=null) {
+  logger.info(`Deleting replays: ${ids}`);
+  return Data.db.table('positions').bulkDelete(ids);
 }
 
 function each_replay(iteratee) {
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(['positions'], 'readonly');
-    let store = trans.objectStore('positions');
-    let req = store.openCursor(null);
-    req.onsuccess = (e) => {
-      if (e.target.result) {
-        iteratee(e.target.result.key, e.target.result.value);
-        e.target.result.continue();
-      } else {
-        resolve();
-      }
-    }
-  });
+  return Data.db.table('positions').each(
+    (item, cursor) => iteratee(cursor.key, item));
 }
 
 /**
@@ -243,14 +232,19 @@ function each_replay(iteratee) {
  */
 function set_replay(id, replay) {
   logger.info(`Saving replay: ${id}.`);
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(['positions'], 'readwrite');
-    let store = trans.objectStore('positions');
-    let request = store.put(JSON.stringify(replay), id);
-    request.onsuccess = () => {
-      resolve(id);
-    };
-  })
+  return Data.db.table('positions').put(JSON.stringify(replay), id);
+}
+
+// This is necessary since we store replays using their name.
+function renameData(oldName, newName) {
+  return Data.db.transaction('rw', ['positions'], () => {
+    Data.db.table('positions').get(oldName).then((replay) => {
+      Data.db.table('positions').delete(oldName).then(() => {
+        localStorage.removeItem(oldName);
+      });
+      Data.db.table('positions').put(replay, newName);
+    });
+  });
 }
 
 // Handles metadata extraction/saving in addition to IDB saving.
@@ -296,76 +290,24 @@ function get_or_make_metadata(id, replay) {
   return metadata;
 }
 
-/**
- * @param {Array.<string>} ids  ids of items to delete from database.
- * @param {Function} iteratee   function to be called on each deletion,
- *   will be passed the index of the item removed. Should only do sync-
- *   ronous operations.
- */
-function delete_replays(ids, iteratee=null) {
-  logger.info(`Deleting replays: ${ids}`);
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(['positions'], 'readwrite');
-    let store = trans.objectStore('positions');
-    let deleted = 0;
-    let request = store.delete(ids[deleted]);
-    request.onsuccess = function deleter() {
-      if (iteratee) iteratee(deleted);
-      deleted++;
-      if (deleted === ids.length) {
-        resolve();
-        return;
-      }
-      let request = store.delete(ids[deleted]);
-      request.onsuccess = deleter;
-    };
-  });
-}
 
-// gets position data from object store for multiple files and zips it into blob
-// saves as zip file
-function getRawDataAndZip(files) {
+/**
+ * @param ids {Array.<String>} - list of ids of replays to download.
+ * @returns {Promise} promise that resolves when operation is complete.
+ */
+function getRawDataAndZip(ids) {
   logger.info('getRawDataAndZip()');
   var zip = new JSZip();
-  var transaction = db.transaction(["positions"], "readonly");
-  var store = transaction.objectStore("positions");
-  var request = store.openCursor(null);
-  request.onsuccess = function () {
-    let cursor = request.result;
-    if (cursor) {
-      if (files.includes(cursor.key)) {
-        zip.file(`${cursor.key}.txt`, cursor.value);
-      }
-      request.result.continue();
-    } else {
-      zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE"
-      }).then((content) => {
-        saveAs(content, 'raw_data.zip');
-      });
-    }
-  };
-}
-
-// this renames data in the object store
-function renameData(oldName, newName) {
-  return new Promise((resolve, reject) => {
-    let trans = db.transaction(["positions"], "readwrite");
-    let store = trans.objectStore("positions");
-    let request = store.get(oldName);
-    request.onsuccess = function (e) {
-      let replay_data = e.target.result;
-      let request = store.delete(oldName);
-      request.onsuccess = function () {
-        let request = store.add(replay_data, newName);
-        request.onsuccess = function () {
-          // Remove metadata.
-          localStorage.removeItem(oldName);
-          resolve();
-        }
-      }
-    }
+  return Data.db.table('positions').where(':id').anyOf(ids)
+  .each((item, cursor) => {
+    zip.file(`${cursor.key}.txt`, cursor.value);
+  }).then(() => {
+    return zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE"
+    }).then((content) => {
+      saveAs(content, 'raw_data.zip');
+    });
   });
 }
 
@@ -460,11 +402,34 @@ function cropReplay(replay, start, end) {
 
   function cropChats(chats) {
     let chat_duration = 30000;
-    return chats.filter((chat) => {
+    let clock = replay.clock.map(Date.parse);
+    // We worry about losing player information during cropping operations
+    // so we operate on the replay in the same way as in the renderer.
+    // If this was just for convenience and didn't represent a loss of
+    // accuracy then we wouldn't bother.
+    return chats.map((chat) => {
+      if (!chat.removeAt) return false;
       let display_time = chat.removeAt - chat_duration;
       let remove_time = chat.removeAt;
-      return display_time && (start_time < remove_time && display_time < end_time);
-    });
+      // Omit chats outside replay timeframe.
+      if (remove_time < start_time || end_time < display_time) return false;
+      // Only apply changes to player-originating replays.
+      if (typeof chat.from != 'number') return chat;
+      // Keep chats created after recording started adding
+      // name, auth, and team.
+      if (chat.name) return chat;
+      let player = replay[`player${chat.from}`];
+      // Omit chats from players that we have no information for.
+      if (!player) return false;
+      let reference_frame = clock.findIndex(
+        (time) => display_time == Math.min(time, display_time));
+      // Copy the player information.
+      chat.name = typeof player.name == 'string' ? player.name
+                                                  : player.name[reference_frame];
+      chat.auth = player.auth[reference_frame];
+      chat.team = player.team[reference_frame];
+      return chat;
+    }).filter(chat => chat);
   }
 
   function cropSplats(splats) {
@@ -569,112 +534,6 @@ function extractMetaData(positions) {
   return metadata;
 }
 
-// Set up indexedDB
-var openRequest = indexedDB.open("ReplayDatabase", 1);
-
-// Set handlers for request.
-setHandlers(openRequest);
-
-// Function to set handlers for request.
-function setHandlers(request) {
-  request.onerror = function (e) {
-    // Reset database and version.
-    if (e.target.error.name == "VersionError") {
-      logger.info("Resetting database.");
-      // Reset the database.
-      var req = indexedDB.deleteDatabase("ReplayDatabase");
-      req.onsuccess = function () {
-        logger.info("Deleted database successfully");
-        // Recreate the database.
-        var openRequest = indexedDB.open("ReplayDatabase", 1);
-        setHandlers(openRequest);
-      };
-      req.onerror = function () {
-        logger.info("Couldn't delete database");
-      };
-      req.onblocked = function () {
-        logger.info("Couldn't delete database due to the operation being blocked");
-      };
-    } else {
-      logger.error("Unforseen error opening database.");
-      logger.dir(e);
-    }
-  }
-  request.onupgradeneeded = function (e) {
-    logger.info("running onupgradeneeded");
-    var thisDb = e.target.result;
-    //Create Object Store
-    if (!thisDb.objectStoreNames.contains("positions")) {
-      logger.info("I need to make the positions objectstore");
-      var objectStore = thisDb.createObjectStore("positions", { autoIncrement: true });
-    }
-    if (!thisDb.objectStoreNames.contains("savedMovies")) {
-      logger.info("I need to make the savedMovies objectstore");
-      var objectStore = thisDb.createObjectStore("savedMovies", { autoIncrement: true });
-    }
-  }
-
-  request.onsuccess = function (e) {
-    db = e.target.result;
-    // Will help figure out if the below code has actually increased
-    // the version.
-    get_replay_count().then((n) => {
-      track('DB Load', {
-        'DB Version': db.version,
-        'Total Replays': n
-      });
-    });
-    db.onerror = function (e) {
-      alert("Sorry, an unforseen error was thrown.");
-      logger.info("***ERROR***");
-      logger.dir(e.target);
-    }
-
-    if (!db.objectStoreNames.contains("positions")) {
-      version = db.version
-      db.close()
-      secondRequest = indexedDB.open("ReplayDatabase", version + 1)
-      secondRequest.onupgradeneeded = function (e) {
-        logger.info("running onupgradeneeded");
-        var thisDb = e.target.result;
-        //Create Object Store
-        if (!thisDb.objectStoreNames.contains("positions")) {
-          logger.info("I need to make the positions objectstore");
-          var objectStore = thisDb.createObjectStore("positions", { autoIncrement: true });
-        }
-        if (!thisDb.objectStoreNames.contains("savedMovies")) {
-          logger.info("I need to make the savedMovies objectstore");
-          var objectStore = thisDb.createObjectStore("savedMovies", { autoIncrement: true });
-        }
-      }
-      secondRequest.onsuccess = function (e) {
-        db = e.target.result
-      }
-    }
-    if (!db.objectStoreNames.contains("savedMovies")) {
-      version = db.version
-      db.close()
-      secondRequest = indexedDB.open("ReplayDatabase", version + 1)
-      secondRequest.onupgradeneeded = function (e) {
-        logger.info("running onupgradeneeded");
-        var thisDb = e.target.result;
-        //Create Object Store
-        if (!thisDb.objectStoreNames.contains("positions")) {
-          logger.info("I need to make the positions objectstore");
-          var objectStore = thisDb.createObjectStore("positions", { autoIncrement: true });
-        }
-        if (!thisDb.objectStoreNames.contains("savedMovies")) {
-          logger.info("I need to make the savedMovies objectstore");
-          var objectStore = thisDb.createObjectStore("savedMovies", { autoIncrement: true });
-        }
-      }
-      secondRequest.onsuccess = function (e) {
-        db = e.target.result
-      }
-    }
-  }
-}
-
 var title;
 // Guard against multi-page rendering.
 let rendering = false;
@@ -720,9 +579,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       } else {
         // Remove old replay.
-        delete_replays([message.id], () => {
+        delete_replay(message.id).then(() => {
           localStorage.removeItem(message.id);
-        }).then(() => {
           chrome.tabs.sendMessage(tab, {
             method: 'replay.deleted',
             ids: [message.id]
@@ -738,10 +596,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   } else if (method == 'replay.delete') {
     let ids = message.ids;
-    delete_replays(ids, (index) => {
+    delete_replays(ids).then(() => {
       // Remove metadata.
-      localStorage.removeItem(ids[index]);
-    }).then(() => {
+      for (let id of ids) {
+        localStorage.removeItem(id);
+      }
       logger.info('Finished deleting replays.');
       chrome.tabs.sendMessage(tab, {
         method: 'replay.deleted',
@@ -895,7 +754,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         failed: false
       });
     }).catch((err) => {
-      logger.error(`Rendering failed for ${id}`);
+      logger.error(`Rendering failed for ${id}`, err);
       // Reset rendering state.
       rendering = false;
       sendResponse({
