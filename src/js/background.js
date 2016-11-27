@@ -9,7 +9,6 @@ const fs = require('./modules/filesystem');
 const get_renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
-const Groover = require('./modules/groover');
 
 logger.info('Starting background page.');
 
@@ -36,6 +35,7 @@ can = document.getElementById('mapCanvas');
 can.width = localStorage.getItem('canvasWidth') || 32 * tileSize;
 can.height = localStorage.getItem('canvasHeight') || 20 * tileSize;
 can.style.zIndex = 200;
+can.style.display = 'none';
 can.style.position = 'absolute';
 can.style.top = 0;
 can.style.left = 0;
@@ -136,17 +136,24 @@ function renderVideo(replay, id, options) {
     
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
-    let encoder = new Groover.Video(fps);
+    let canRecorder = new MediaRecorder(can.captureStream(fps), {mimeType: 'video/webm'});
+    let chunks = [];
+    canRecorder.ondataavailable = function(event) {
+      if(event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
     let frames = replay.clock.length;
     // Fraction of completion that warrants progress notification.
     let notification_freq = 0.05;
     let portions_complete = 0;
 
     resolve(get_renderer(can, replay, options).then(function render(renderer, frame=0) {
+      if(canRecorder.state==="inactive") canRecorder.start();
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
-        encoder.addFrame(context);
+        //canRecorder.requestData(); //for per-frame blobs to adjust framerate later
         let amount_complete = frame / frames;
         if (Math.floor(amount_complete / notification_freq) != portions_complete) {
           portions_complete++;
@@ -156,7 +163,9 @@ function renderVideo(replay, id, options) {
         }
       }
       
-      let output = encoder.toBlob();
+      canRecorder.stop();
+      //can.onstop = function() {
+      let output = new Blob(chunks, {type: 'video/webm'});
       let filename = id.replace(/.*DATE/, '').replace('replays', '');
       return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
         logger.debug('File saved.');
