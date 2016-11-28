@@ -746,8 +746,9 @@ function initMenu() {
     $('#replayList').on('click', '.playback-link', (e) => {
         let id = replay_table.get_id_from_element(e.target);
         logger.info(`Playback link clicked for ${id}`);
+        let info = replay_table.get_replay_data(id);
         $('#menuContainer').hide();
-        Preview(id);
+        Preview(info);
     });
 
     $('#replayList').on('click', '.download-movie-button', (e) => {
@@ -770,15 +771,13 @@ function initMenu() {
         let replay = replay_table.get_replay_data(id);
         logger.info(`Rename button clicked for ${id}`);
         let name = replay.name;
-        let fileNameToRename = id;
-        let datePortion = fileNameToRename.replace(/.*DATE/, '').replace('replays', '');
-        let newName = prompt('How would you like to rename ' + fileNameToRename.replace(/DATE.*/, ''));
-        if (newName != null) {
-            newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-            logger.info('requesting to rename from ' + fileNameToRename + ' to ' + newName);
+        let newName = prompt(`Please enter a new name for ${name}`, name);
+        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
+        if (newName) {
+            logger.info(`Requesting rename for ${id} to ${newName}.`);
             chrome.runtime.sendMessage({
                 method: 'replay.rename',
-                id: replay.id,
+                id: id,
                 new_name: newName
             });
         }
@@ -943,7 +942,7 @@ function formatMetaDataTitle(replay) {
     let title = `Map: ${replay.map}\n`;
     title    += `FPS: ${replay.fps}\n`;
     title    += `Red Team:\n\t${replay.red_team.join('\n\t')}\n`;
-    title    += `Red Team:\n\t${replay.blue_team.join('\n\t')}\n`;
+    title    += `Blue Team:\n\t${replay.blue_team.join('\n\t')}\n`;
     return title;
 }
 

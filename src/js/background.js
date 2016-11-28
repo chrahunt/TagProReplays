@@ -247,13 +247,17 @@ function set_replay(id, replay) {
 // primary key.
 // Resolves to the id of the newly saved replay.
 function renameData(id, new_name) {
+  let name = new_name;
   return Data.db.transaction('rw', ['positions'], () => {
     return Data.db.table('positions').get(id).then((replay) => {
+      let info = make_replay_info(id, get_or_make_metadata(id, replay));
+      // Make date conform to expected format.
+      name = `${name}DATE${info.recorded}`;
       return Data.db.table('positions').delete(id).then(() => replay);
     }).then((replay) => {
       localStorage.removeItem(id);
       // Store using new name.
-      return save_replay(new_name, JSON.parse(replay));
+      return save_replay(name, JSON.parse(replay));
     });
   });
 }
@@ -611,6 +615,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     get_replay(id).then((replay) => {
       logger.debug(`Cropping ${id} from ${start} to ${end}.`);
       let cropped_replay = cropReplay(replay, start, end);
+      // Add date to replay name.
+      let replay_info = make_replay_info(id, get_or_make_metadata(id, replay));
+      new_name = `${new_name}DATE${replay_info.recorded}`;
       return save_replay(new_name, cropped_replay);
     }).then((new_id) => {
       // Original replay was replaced.
