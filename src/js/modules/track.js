@@ -69,7 +69,12 @@ if (isBackground()) {
         event_name: event_name,
         properties: properties
       }, (result) => {
-        if (result.error) {
+        if (chrome.runtime.lastError) {
+          logger.error('Chrome error: ', chrome.runtime.lastError.message);
+          reject(chrome.runtime.lastError.message);
+        } else if (!result) {
+          reject('No result returned');
+        } else if (result.error) {
           reject(result.error);
         } else {
           resolve();

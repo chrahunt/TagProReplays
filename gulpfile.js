@@ -170,7 +170,19 @@ gulp.task('sass-dev', ['clean'], () => {
   return compileSass(dirs.dev + '/css');
 });
 
+gulp.task('sass-dev2', () => {
+  return compileSass(dirs.dev + '/css');
+});
+
 gulp.task('manifest-dev', ['clean'], () => {
+  // Pull version from package.json.
+  var p = jsonfile.readFileSync(pkg);
+  return makeManifest(dirs.dev, {
+    version: p.version
+  });
+});
+
+gulp.task('manifest-dev2', () => {
   // Pull version from package.json.
   var p = jsonfile.readFileSync(pkg);
   return makeManifest(dirs.dev, {
@@ -197,8 +209,8 @@ gulp.task('watch', ['clean', 'sass-dev', 'manifest-dev'], () => {
         }));
   });
 
-  gulp.watch(sass_sources, ['sass-dev']);
-  gulp.watch([pkg, manifest], ['manifest-dev']);
+  gulp.watch(sass_sources, ['sass-dev2']);
+  gulp.watch([pkg, manifest], ['manifest-dev2']);
   // TODO: Merge all streams.
   return bundle;
 });

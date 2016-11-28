@@ -27,6 +27,24 @@
 
 /* end redesign resets */
 
+/* Menu container */
+#tpr-container #menuContainer {
+    .modal-dialog {
+        width: 70%;
+    }
+
+    .dialog-header {
+        padding: 25px;
+        h3 {
+            margin: 0px;
+        }
+    }
+    .modal-body {
+        // Override bootstrap default.
+        padding: 0px;
+    }
+}
+
 #tpr-container #replays table {
     table-layout: fixed;
     margin-bottom: 0;

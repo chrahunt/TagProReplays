@@ -324,7 +324,7 @@ function createReplay(id, positions) {
         chrome.runtime.sendMessage({
           method: 'replay.rename',
           id: replayToRename,
-          newName: newName
+          new_name: newName
         });
       }
     }

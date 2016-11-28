@@ -243,14 +243,17 @@ function set_replay(id, replay) {
   return Data.db.table('positions').put(JSON.stringify(replay), id);
 }
 
-// This is necessary since we store replays using their name.
-function renameData(oldName, newName) {
+// This is necessary since we store the replay name in the
+// primary key.
+// Resolves to the id of the newly saved replay.
+function renameData(id, new_name) {
   return Data.db.transaction('rw', ['positions'], () => {
-    Data.db.table('positions').get(oldName).then((replay) => {
-      Data.db.table('positions').delete(oldName).then(() => {
-        localStorage.removeItem(oldName);
-      });
-      Data.db.table('positions').put(replay, newName);
+    return Data.db.table('positions').get(id).then((replay) => {
+      return Data.db.table('positions').delete(id).then(() => replay);
+    }).then((replay) => {
+      localStorage.removeItem(id);
+      // Store using new name.
+      return save_replay(new_name, JSON.parse(replay));
     });
   });
 }
@@ -542,6 +545,40 @@ function extractMetaData(positions) {
   return metadata;
 }
 
+function make_replay_info(id, metadata) {
+  return {
+    id:        id,
+    name:      id.replace(/DATE.*/, ''),
+    // id is formatted either:
+    // 1. replays(\d+)
+    // 2. (.+)DATE(\d+)
+    // where the last capture group is the date recorded, edited,
+    // or imported.
+    recorded:  Number(id.replace('replays', '').replace(/.*DATE/, '')),
+    rendered:  false,
+    // seconds
+    duration:  metadata.duration,
+    map:       metadata.map,
+    fps:       metadata.fps,
+    red_team:  metadata.redTeam,
+    blue_team: metadata.blueTeam
+  }
+}
+
+// Combine data sources into format suitable for menu.
+function make_replay_list(ids, rendered_ids, metadata) {
+  let replays = [];
+  for (let i = 0; i < ids.length; i++) {
+    let id = ids[i];
+    let info = metadata[i];
+    let replay = make_replay_info(id, info);
+    replay.rendered = rendered_ids.includes(
+      id.replace('replays', '').replace(/.*DATE/, ''));
+    replays.push(replay);
+  }
+  return replays;
+}
+
 var title;
 // Guard against multi-page rendering.
 let rendering = false;
@@ -565,41 +602,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((id) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        id: id,
-        metadata: get_metadata(id)
+        replay: make_replay_info(id, get_metadata(id))
       });
     });
 
   } else if (method == 'replay.crop_and_replace') {
-    get_replay(message.id).then((replay) => {
-      let {start, end} = message;
-      logger.debug(`Cropping ${message.id} from ${start} to ${end}.`);
+    let {id, start, end, new_name} = message;
+    get_replay(id).then((replay) => {
+      logger.debug(`Cropping ${id} from ${start} to ${end}.`);
       let cropped_replay = cropReplay(replay, start, end);
-      return save_replay(message.new_name, cropped_replay);
-    }).then((id) => {
-      if (id == message.id) {
-        // Original replay was replaced in database.
-        chrome.tabs.sendMessage(tab, {
-          method: 'replay.replaced',
-          id: message.id,
-          new_id: id,
-          metadata: get_metadata(id)
-        });
-      } else {
-        // Remove old replay.
-        delete_replay(message.id).then(() => {
-          localStorage.removeItem(message.id);
-          chrome.tabs.sendMessage(tab, {
-            method: 'replay.deleted',
-            ids: [message.id]
-          });
-          chrome.tabs.sendMessage(tab, {
-            method: 'replay.added',
-            id: id,
-            metadata: get_metadata(message.new_name)
-          });
-        });
-      }
+      return save_replay(new_name, cropped_replay);
+    }).then((new_id) => {
+      // Original replay was replaced.
+      if (new_id == id) return new_id;
+      // Original replay still needs to be removed.
+      return delete_replay(id).then(() => {
+        localStorage.removeItem(id);
+        return new_id;
+      });
+    }).then((new_id) => {
+      chrome.tabs.sendMessage(tab, {
+        method: 'replay.updated',
+        id: id,
+        replay: make_replay_info(new_id, get_metadata(new_id))
+      });
     });
 
   } else if (method == 'replay.delete') {
@@ -620,8 +646,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     save_replay(message.name, message.data).then((id) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        id: id,
-        metadata: get_metadata(id)
+        replay: make_replay_info(id, get_metadata(id))
       });
       sendResponse();
     });
@@ -666,9 +691,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((movie_names) => {
       logger.info('Sending replay.list response.');
       sendResponse({
-        replay_ids: ids,
-        movie_names: movie_names,
-        metadata: metadata
+        replays: make_replay_list(ids, movie_names, metadata)
       });
     }).catch((err) => {
       logger.error('Error retrieving replays: ', err);
@@ -694,15 +717,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
   } else if (method == 'replay.rename') {
-    let id = message.id;
-    let new_name = message.newName;
+    let {id, new_name} = message;
     logger.info(`Received replay rename request for: ${id} to ${new_name}.`);
-    renameData(id, new_name).then(() => {
+    renameData(id, new_name).then((new_id) => {
+      // new_id is only different because we save the replay name
+      // in the replay primary key.
       logger.info(`Renaming complete for ${id}, sending reply.`);
       chrome.tabs.sendMessage(tab, {
-        method: "replay.renamed",
+        method: "replay.updated",
         id: id,
-        new_name: new_name
+        replay: make_replay_info(new_id, get_metadata(new_id))
       });
     }).catch((err) => {
       logger.error('Error renaming replay: ', err);
