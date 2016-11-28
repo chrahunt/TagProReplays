@@ -5,18 +5,6 @@ const Cookies = require('./cookies');
 const get_renderer = require('./renderer');
 const logger = require('./logger')('renderer');
 
-function get_options() {
-  return Promise.resolve({
-    spin: Cookies.read('useSpin') == 'true',
-    splats: Cookies.read('useSplats') == 'true',
-    ui: Cookies.read('useClockAndScore') == 'true',
-    chats: Cookies.read('useChat') == 'true',
-    custom_textures: Cookies.read('useTextures') == 'true',
-    width: Cookies.read('canvasWidth') || 1280,
-    height: Cookies.read('canvasHeight') || 800
-  });
-}
-
 // Retrieve replay from background page.
 function get_replay(id) {
   return new Promise((resolve, reject) => {
@@ -35,15 +23,16 @@ function get_replay(id) {
   });
 }
 
-module.exports = (id) => {
-  get_replay(id).then((replay) => {
-    createReplay(id, replay);
+module.exports = (info) => {
+  get_replay(info.id).then((replay) => {
+    createReplay(info, replay);
   });
 };
 
 // Create and display UI for in-browser preview.
-function createReplay(id, positions) {
-  let replay_name = id;
+function createReplay(info, positions) {
+  let id = info.id;
+  let replay_info = info;
   // Initialize values
   let frame = 0;
   var playing = false;
@@ -83,8 +72,9 @@ function createReplay(id, positions) {
   var context = can.getContext('2d');
 
   var renderer;
-  get_options().then((opts) => {
-    return get_renderer(can, positions, opts);
+  chrome.storage.promise.local.get('options').then((items) => {
+    if (!items.options) throw new Error('No options set.');
+    return get_renderer(can, positions, items.options);
   }).then((created_renderer) => {
     renderer = created_renderer;
     logger.info('Renderer loaded.');
@@ -324,20 +314,22 @@ function createReplay(id, positions) {
   // rename this replay
   function renameThisReplay() {
     logger.info('renameThisReplay()');
-    let replayToRename = id;
-    if (replayToRename != null) {
-      let datePortion = replayToRename.replace(/.*DATE/, '').replace('replays', '')
-      let newName = prompt('How would you like to rename ' + replayToRename.replace(/DATE.*/, '') + '?')
-      if (newName != null) {
-        stopReplay(false);
-        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '') + "DATE" + datePortion;
-        logger.info(`Requesting replay rename for ${replayToRename} to ${newName}.`);
-        chrome.runtime.sendMessage({
-          method: 'replay.rename',
-          id: replayToRename,
-          newName: newName
-        });
+    logger.info(`Rename button clicked for ${id}`);
+    let name = replay_info.name;
+    let newName = prompt(`Please enter a new name for ${name}`, name);
+    if (newName) {
+      newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
+      if (newName === '') {
+        alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
+        return;
       }
+      logger.info(`Requesting rename for ${id} to ${newName}.`);
+      stopReplay(false);
+      chrome.runtime.sendMessage({
+        method: 'replay.rename',
+        id: id,
+        new_name: newName
+      });
     }
   }
 
@@ -496,15 +488,13 @@ function createReplay(id, positions) {
   cropAndReplaceButton.style.cursor = "pointer"
   cropAndReplaceButton.onclick = function () {
     let [start, end] = getCropRange();
-    var newName = prompt('If you would also like to rename this replay, type the new name here. Leave it blank to keep the old name.');
+    var newName = prompt('If you would also like to rename this replay, do so now.', replay_info.name);
+    // Cancelled.
     if (newName === null) return;
+    newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
     if (newName === '') {
-      var oldName = replay_name;
-      newName = replay_name;
-    } else {
-      var oldName = replay_name;
-      newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '')
-      newName += 'DATE' + oldName.replace(/^replays/, '').replace(/.*DATE/, '');
+      alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
+      return;
     }
     stopReplay(false);
     chrome.runtime.sendMessage({
