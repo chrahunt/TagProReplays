@@ -35,6 +35,10 @@ exports.set = function (new_textures) {
       Object.assign(textures, new_textures);
       return chrome.storage.promise.local.set({
         textures: textures
+      }).then(() => {
+        logger.info('Textures updated');
+      }).catch((err) => {
+        logger.error('Error setting textures: ', err);
       });
     } else {
       throw new Error("Textures not set.");

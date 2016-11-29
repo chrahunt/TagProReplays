@@ -32,8 +32,9 @@ can.id = 'mapCanvas';
 document.body.appendChild(can);
 
 can = document.getElementById('mapCanvas');
-can.width = localStorage.getItem('canvasWidth') || 32 * tileSize;
-can.height = localStorage.getItem('canvasHeight') || 20 * tileSize;
+// Defaults.
+can.width = 1280;
+can.height = 800;
 can.style.zIndex = 200;
 can.style.display = 'none';
 can.style.position = 'absolute';
@@ -126,7 +127,7 @@ function checkData(positions) {
  * A small delay in rendering is provided after progress notification to give
  * async operations a chance to complete.
  */
-function renderVideo(replay, id, options) {
+function renderVideo(replay, id) {
   return new Progress((resolve, reject, progress) => {
     // Check replay data.
     if (!checkData(replay)) {
@@ -148,8 +149,14 @@ function renderVideo(replay, id, options) {
     let notification_freq = 0.05;
     let portions_complete = 0;
 
-    resolve(get_renderer(can, replay, options).then(function render(renderer, frame=0) {
+    let result = chrome.storage.promise.local.get('options').then((items) => {
+      if (!items.options) throw new Error('No options found');
+      let options = items.options;
+      can.width = options.canvas_width;
+      can.height = options.canvas_height;
       if(canRecorder.state==="inactive") canRecorder.start();
+      return get_renderer(can, replay, options);
+    }).then(function render(renderer, frame=0) {
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
@@ -162,10 +169,8 @@ function renderVideo(replay, id, options) {
           return PromiseTimeout(() => render(renderer, ++frame));
         }
       }
-      
-      canRecorder.stop();
-      //can.onstop = function() {
-      let output = new Blob(chunks, {type: 'video/webm'});
+
+      let output = encoder.compile();
       let filename = id.replace(/.*DATE/, '').replace('replays', '');
       return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
         logger.debug('File saved.');
@@ -173,7 +178,8 @@ function renderVideo(replay, id, options) {
         logger.error('Error saving render: ', err);
         throw err;
       });
-    }));
+    });
+    resolve(result);
   });
 }
 
@@ -244,14 +250,21 @@ function set_replay(id, replay) {
   return Data.db.table('positions').put(JSON.stringify(replay), id);
 }
 
-// This is necessary since we store replays using their name.
-function renameData(oldName, newName) {
+// This is necessary since we store the replay name in the
+// primary key.
+// Resolves to the id of the newly saved replay.
+function renameData(id, new_name) {
+  let name = new_name;
   return Data.db.transaction('rw', ['positions'], () => {
-    Data.db.table('positions').get(oldName).then((replay) => {
-      Data.db.table('positions').delete(oldName).then(() => {
-        localStorage.removeItem(oldName);
-      });
-      Data.db.table('positions').put(replay, newName);
+    return Data.db.table('positions').get(id).then((replay) => {
+      let info = make_replay_info(id, get_or_make_metadata(id, replay));
+      // Make date conform to expected format.
+      name = `${name}DATE${info.recorded}`;
+      return Data.db.table('positions').delete(id).then(() => replay);
+    }).then((replay) => {
+      localStorage.removeItem(id);
+      // Store using new name.
+      return save_replay(name, JSON.parse(replay));
     });
   });
 }
@@ -543,6 +556,40 @@ function extractMetaData(positions) {
   return metadata;
 }
 
+function make_replay_info(id, metadata) {
+  return {
+    id:        id,
+    name:      id.replace(/DATE.*/, ''),
+    // id is formatted either:
+    // 1. replays(\d+)
+    // 2. (.+)DATE(\d+)
+    // where the last capture group is the date recorded, edited,
+    // or imported.
+    recorded:  Number(id.replace('replays', '').replace(/.*DATE/, '')),
+    rendered:  false,
+    // seconds
+    duration:  metadata.duration,
+    map:       metadata.map,
+    fps:       metadata.fps,
+    red_team:  metadata.redTeam,
+    blue_team: metadata.blueTeam
+  }
+}
+
+// Combine data sources into format suitable for menu.
+function make_replay_list(ids, rendered_ids, metadata) {
+  let replays = [];
+  for (let i = 0; i < ids.length; i++) {
+    let id = ids[i];
+    let info = metadata[i];
+    let replay = make_replay_info(id, info);
+    replay.rendered = rendered_ids.includes(
+      id.replace('replays', '').replace(/.*DATE/, ''));
+    replays.push(replay);
+  }
+  return replays;
+}
+
 var title;
 // Guard against multi-page rendering.
 let rendering = false;
@@ -566,41 +613,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((id) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        id: id,
-        metadata: get_metadata(id)
+        replay: make_replay_info(id, get_metadata(id))
       });
     });
 
   } else if (method == 'replay.crop_and_replace') {
-    get_replay(message.id).then((replay) => {
-      let {start, end} = message;
-      logger.debug(`Cropping ${message.id} from ${start} to ${end}.`);
+    let {id, start, end, new_name} = message;
+    get_replay(id).then((replay) => {
+      logger.debug(`Cropping ${id} from ${start} to ${end}.`);
       let cropped_replay = cropReplay(replay, start, end);
-      return save_replay(message.new_name, cropped_replay);
-    }).then((id) => {
-      if (id == message.id) {
-        // Original replay was replaced in database.
-        chrome.tabs.sendMessage(tab, {
-          method: 'replay.replaced',
-          id: message.id,
-          new_id: id,
-          metadata: get_metadata(id)
-        });
-      } else {
-        // Remove old replay.
-        delete_replay(message.id).then(() => {
-          localStorage.removeItem(message.id);
-          chrome.tabs.sendMessage(tab, {
-            method: 'replay.deleted',
-            ids: [message.id]
-          });
-          chrome.tabs.sendMessage(tab, {
-            method: 'replay.added',
-            id: id,
-            metadata: get_metadata(message.new_name)
-          });
-        });
-      }
+      // Add date to replay name.
+      let replay_info = make_replay_info(id, get_or_make_metadata(id, replay));
+      new_name = `${new_name}DATE${replay_info.recorded}`;
+      return save_replay(new_name, cropped_replay);
+    }).then((new_id) => {
+      // Original replay was replaced.
+      if (new_id == id) return new_id;
+      // Original replay still needs to be removed.
+      return delete_replay(id).then(() => {
+        localStorage.removeItem(id);
+        return new_id;
+      });
+    }).then((new_id) => {
+      chrome.tabs.sendMessage(tab, {
+        method: 'replay.updated',
+        id: id,
+        replay: make_replay_info(new_id, get_metadata(new_id))
+      });
     });
 
   } else if (method == 'replay.delete') {
@@ -621,8 +660,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     save_replay(message.name, message.data).then((id) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        id: id,
-        metadata: get_metadata(id)
+        replay: make_replay_info(id, get_metadata(id))
       });
       sendResponse();
     });
@@ -667,9 +705,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((movie_names) => {
       logger.info('Sending replay.list response.');
       sendResponse({
-        replay_ids: ids,
-        movie_names: movie_names,
-        metadata: metadata
+        replays: make_replay_list(ids, movie_names, metadata)
       });
     }).catch((err) => {
       logger.error('Error retrieving replays: ', err);
@@ -695,15 +731,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
   } else if (method == 'replay.rename') {
-    let id = message.id;
-    let new_name = message.newName;
+    let {id, new_name} = message;
     logger.info(`Received replay rename request for: ${id} to ${new_name}.`);
-    renameData(id, new_name).then(() => {
+    renameData(id, new_name).then((new_id) => {
+      // new_id is only different because we save the replay name
+      // in the replay primary key.
       logger.info(`Renaming complete for ${id}, sending reply.`);
       chrome.tabs.sendMessage(tab, {
-        method: "replay.renamed",
+        method: "replay.updated",
         id: id,
-        new_name: new_name
+        replay: make_replay_info(new_id, get_metadata(new_id))
       });
     }).catch((err) => {
       logger.error('Error renaming replay: ', err);
@@ -730,11 +767,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (method == 'replay.render') {
     let id = message.id;
     logger.info(`Rendering replay: ${id}`);
-    // Persist the value.
-    localStorage.setItem('canvasWidth', message.options.width);
-    localStorage.setItem('canvasHeight', message.options.height);
-    can.width = message.options.width;
-    can.height = message.options.height;
     if (rendering) {
       sendResponse({
         failed: true,
@@ -746,7 +778,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       rendering = true;
     }
     get_replay(id).then((replay) => {
-      return renderVideo(replay, id, message.options)
+      return renderVideo(replay, id)
       .progress((progress) => {
         logger.debug(`Sending progress update for ${id}: ${progress}`);
         chrome.tabs.sendMessage(tab, {
@@ -780,6 +812,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Extension options.
+// Get default options object.
+function getDefaultOptions() {
+  var options = {
+    fps:             60,
+    duration:        30,
+    hotkey_enabled:  true,
+    hotkey:          47, // '/' key.
+    custom_textures: false,
+    canvas_width:    1280,
+    canvas_height:   800,
+    splats:          true,
+    ui:              true,
+    chat:            true,
+    spin:            true,
+    record:          true // Recording enabled.
+  };
+  return options;
+}
+
+// Ensure options are set.
+chrome.storage.promise.local.get('options').then((items) => {
+  if (!items.options) {
+    chrome.storage.promise.local.set({
+      options: getDefaultOptions()
+    }).then(() => {
+      logger.info('Options set.');
+    }).catch((err) => {
+      logger.error('Error setting options: ', err);
+    });
+  }
+}).catch((err) => {
+  logger.error('Error retrieving options: ', err);
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
   logger.info('onInstalled handler called');
   let reason = details.reason;
@@ -799,7 +866,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         from: last_version,
         to:   version
       });
-      // Clear preview from versions prior to 1.3.
+      // Clear preview storage from versions prior to 1.3.
       if (semver.satisfies(last_version, '<1.3.0')) {
         chrome.storage.promise.local.clear().then(() => {
           chrome.runtime.reload();

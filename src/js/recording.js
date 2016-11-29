@@ -34,8 +34,8 @@ function createZeroArray(N) {
 
 function recordReplayData() {
   var savingIndex = 0;
-  var fps = +Cookies.read('fps');
-  var saveDuration = +Cookies.read('duration');
+  var fps = Number(Cookies.read('tpr_fps'));
+  var saveDuration = Number(Cookies.read('tpr_duration'));
 
   // set up map data
   positions.chat = [];
@@ -581,11 +581,11 @@ function recordButton() {
   $('body').append(savedFeedback);
   $(savedFeedback).hide();
 
-  if (Cookies.read('useRecordKey') == "true") {
+  if (Cookies.read('tpr_hotkey_enabled') == "true") {
     let last_key = null;
     let pressing = false;
     $(document).on('keypress', (e) => {
-      let record_key = Cookies.read('replayRecordKey');
+      let record_key = Cookies.read('tpr_hotkey');
       if (e.which == record_key && !(last_key == e.key && pressing)) {
         logger.info('Record hotkey pressed.');
         pressing = true;
@@ -602,7 +602,7 @@ function recordButton() {
   }
 }
 
-if (Cookies.read('record') != 'false') {
+if (Cookies.read('tpr_record') != 'false') {
   tagpro.ready(() => {
     var startInterval = setInterval(() => {
       if (tagpro.map && tagpro.wallMap) {
