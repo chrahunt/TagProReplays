@@ -11,7 +11,7 @@ const moment = require('moment');
 
 const logger = require('./modules/logger')('content');
 const Cookies = require('./modules/cookies');
-const Preview = require('./modules/previewer');
+const {Viewer} = require('./modules/previewer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
 
@@ -102,7 +102,7 @@ function injectMenu() {
             insert_point = $('article');
         }
         // Create Container for Replay Menu.
-        insert_point.append('<div id="tpr-container" class="bootstrap-container">');
+        insert_point.append('<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
 
         // Retrieve html of all items
         $('#tpr-container').load(
@@ -638,12 +638,15 @@ let replay_table = new Table({
     }
 });
 
+let viewer = new Viewer();
+
 // Initialize the menu.
 function initMenu() {
     logger.info("Menu loaded.");
     modalFix();
     initSettings();
     replay_table.init();
+    viewer.init();
 
     let menu_opened = false;
     // Update list of replays when menu is opened.
@@ -748,7 +751,7 @@ function initMenu() {
         logger.info(`Playback link clicked for ${id}`);
         let info = replay_table.get_replay_data(id);
         $('#menuContainer').hide();
-        Preview(info);
+        viewer.load(info);
     });
 
     $('#replayList').on('click', '.download-movie-button', (e) => {

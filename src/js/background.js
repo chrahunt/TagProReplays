@@ -598,15 +598,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.crop') {
-    get_replay(message.id).then((replay) => {
-      let {start, end} = message;
-      logger.debug(`Cropping ${message.id} from ${start} to ${end}.`);
+    let {id, start, end, new_name} = message;
+    // Add date to replay name since that's where we store it.
+    new_name += `DATE${Date.now()}`;
+    get_replay(id).then((replay) => {
+      logger.debug(`Cropping ${id} from ${start} to ${end}.`);
       let cropped_replay = cropReplay(replay, start, end);
-      return save_replay(message.new_name, cropped_replay);
-    }).then((id) => {
+      return save_replay(new_name, cropped_replay);
+    }).then((new_id) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        replay: make_replay_info(id, get_metadata(id))
+        replay: make_replay_info(new_id, get_metadata(new_id))
       });
     });
 
