@@ -435,6 +435,10 @@ class Viewer {
         method: 'replay.rename',
         id: id,
         new_name: new_name
+      }, (result) => {
+        if (result.failed) {
+          alert(`Renaming failed: ${result.reason}`);
+        }
       });
     });
 
@@ -447,6 +451,10 @@ class Viewer {
           chrome.runtime.sendMessage({
             method: 'replay.delete',
             ids: [id]
+          }, (result) => {
+            if (result.failed) {
+              alert(`Deletion failed: ${result.reason}`);
+            }
           });
         }, 500);
         dismiss();
@@ -486,6 +494,10 @@ class Viewer {
         end: end,
         id: id,
         new_name: new_name
+      }, (result) => {
+        if (result.failed) {
+          alert(`Failed to save new replay: ${result.reason}`);
+        }
       });
       dismiss();
     });
@@ -506,6 +518,10 @@ class Viewer {
         start: start,
         end: end,
         new_name: new_name,
+      }, (result) => {
+        if (result.failed) {
+          alert(`Failed to replace replay: ${result.reason}`);
+        }
       });
       dismiss();
     });
@@ -595,8 +611,10 @@ class Viewer {
     });
 
     this.media.on('error', (err) => {
-      // TODO: display error overlay.
       logger.error('Error loading media: ', err);
+      alert(`Error loading replay: ${err.message}`);
+      this.hide();
+      $('#menuContainer').show();
     });
 
     this.media.on('play', () => {
@@ -665,8 +683,8 @@ class Viewer {
 
   // Resize elements by window.
   _resize() {
-    let canvas_width = $('#viewer-canvas').prop('width');
-    let canvas_height = $('#viewer-canvas').prop('height');
+    let canvas_width = $(player_elements.canvas).prop('width');
+    let canvas_height = $(player_elements.canvas).prop('height');
     let canvas_aspect_ratio = canvas_width / canvas_height;
     let window_width = $(window).width();
     let window_height = $(window).height();
@@ -676,7 +694,6 @@ class Viewer {
     let width, height;
     // Determine limiting constraint.
     if (max_height * canvas_aspect_ratio > max_width) {
-
       // Width is the limiting factor.
       width = max_width;
       height = max_width / canvas_aspect_ratio;
@@ -685,8 +702,8 @@ class Viewer {
       width = max_height * canvas_aspect_ratio;
       height = max_height;
     }
-    $('#viewer-canvas').width(width);
-    $('#viewer-canvas').height(height);
+    $(player_elements.canvase).width(width);
+    $(player_elements.canvas).height(height);
     let control_padding = 26;
     // Resize control bar.
     $('#viewer-controls').width(width - control_padding);

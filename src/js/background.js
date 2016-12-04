@@ -589,7 +589,7 @@ let rendering = false;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let method = message.method;
   let tab = sender.tab.id;
-  logger.info(`Received ${method}.`)
+  logger.info(`Received ${method}.`);
 
   if (method == 'replay.get') {
     get_replay(message.id).then((replay) => {
@@ -610,7 +610,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         method: 'replay.added',
         replay: make_replay_info(new_id, get_metadata(new_id))
       });
+      sendResponse({
+        failed: false
+      });
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
     });
+    return true;
 
   } else if (method == 'replay.crop_and_replace') {
     let {id, start, end, new_name} = message;
@@ -635,7 +644,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         id: id,
         replay: make_replay_info(new_id, get_metadata(new_id))
       });
-    });
+      sendResponse({
+        failed: false
+      });
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
+    })
+    return true;
 
   } else if (method == 'replay.delete') {
     let ids = message.ids;
@@ -649,7 +667,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         method: 'replay.deleted',
         ids: ids
       });
+      sendResponse({
+        failed: false
+      });
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
     });
+    return true;
 
   } else if (method == 'replay.import') {
     save_replay(message.name, message.data).then((id) => {
@@ -737,9 +764,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         id: id,
         replay: make_replay_info(new_id, get_metadata(new_id))
       });
+      sendResponse({
+        failed: false
+      });
     }).catch((err) => {
       logger.error('Error renaming replay: ', err);
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
     });
+    return true;
 
   } else if (method == 'movie.download') {
     logger.info(`Received request to download movie for: ${message.id}.`);
