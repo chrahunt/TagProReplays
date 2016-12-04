@@ -1,9 +1,12 @@
 const $ = require('jquery');
 const loadImage = require('image-promise');
+const EventEmitter = require('events');
+const saveAs = require('file-saver').saveAs;
 
 const Cookies = require('./cookies');
 const get_renderer = require('./renderer');
 const logger = require('./logger')('renderer');
+const track = require('./track');
 
 // Retrieve replay from background page.
 function get_replay(id) {
@@ -23,156 +26,71 @@ function get_replay(id) {
   });
 }
 
-module.exports = (info) => {
-  get_replay(info.id).then((replay) => {
-    createReplay(info, replay);
-  });
-};
-
-// Create and display UI for in-browser preview.
-function createReplay(info, positions) {
-  let id = info.id;
-  let replay_info = info;
-  // Initialize values
-  let frame = 0;
-  var playing = false;
-  // Get player that corresponds to recording user ball.
-  let fps;
-  for (let j in positions) {
-    if (positions[j].me == 'me') {
-      fps = positions[j].fps;
-      break;
-    }
+/**
+ * Random access Media of a known length
+ * on
+ * - end
+ * - play
+ * - pause
+ * - frame
+ * - load
+ */
+class Media extends EventEmitter {
+  constructor(replay_info, canvas) {
+    super();
+    this.playing = false;
+    this.ready = false;
+    this.frame = 0;
+    this.frames = 0;
+    this.playTimer = 0;
+    this.replay = {};
+    this.replay_info = {};
+    this.canvas = canvas;
+    //this.track = this.canvas.captureStream().getTracks()[0];
+    //this.stream = new MediaStream();
+    //this.stream.addTrack(this.track);
+    this.load(replay_info);
   }
-  
-  var tileSize = 40
 
-  var preview_holder = document.createElement('div');
-  preview_holder.id = 'tpr-previewer';
-  document.body.appendChild(preview_holder);
+  load(replay_info) {
+    logger.debug('Media#load()');
+    this.replay_info = replay_info;
+    get_replay(this.replay_info.id).then((replay) => {
+      this.replay = replay;
+      this.frames = this.replay.clock.length - 1;
+      return chrome.storage.promise.local.get('options');
+    }).then((items) => {
+      if (!items.options) throw new Error('No options set.');
+      return get_renderer(this.canvas, this.replay, items.options);
+    }).then((renderer) => {
+      this.renderer = renderer;
+      this.set(0);
+      this.emit('load');
+    }).catch((err) => {
+      this.emit('error', err);
+    });
+  }
 
-  // Canvas for main display
-  var canvas = $('<canvas>');
-  var can = canvas[0];
-  can.width = 30 * tileSize;
-  can.height = 18 * tileSize;
-  canvas.css({
-    background: 'black',
-    border: '10px solid white',
-    zIndex: 1200,
-    position: 'absolute',
-    top: (window.innerHeight - (18 * tileSize) - 20) / 2 + 'px',
-    left: (window.innerWidth - (30 * tileSize) - 20) / 2 + 'px',
-    display: 'black',
-    transition: 'opacity 0.5s linear',
-    opacity: 0
-  });
-
-  preview_holder.appendChild(can);
-  var context = can.getContext('2d');
-
-  var renderer;
-  chrome.storage.promise.local.get('options').then((items) => {
-    if (!items.options) throw new Error('No options set.');
-    return get_renderer(can, positions, items.options);
-  }).then((created_renderer) => {
-    renderer = created_renderer;
-    logger.info('Renderer loaded.');
-    renderer.draw(frame);
-  });
-
-  ////////////////////////////////
-  /////     Playback bar     /////
-  ////////////////////////////////
-
-  // create area to hold buttons and slider bar
-
-  var playbackBarDiv = document.createElement('div')
-  playbackBarDiv.style.position = 'absolute'
-  playbackBarDiv.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
-  playbackBarDiv.style.left = can.style.left
-  playbackBarDiv.style.width = can.width + 20 + 'px'
-  playbackBarDiv.style.height = '90px'
-  playbackBarDiv.style.transition = "opacity 0.25s linear"
-  playbackBarDiv.style.zIndex = 1300
-  playbackBarDiv.id = 'playbackBarDiv'
-  playbackBarDiv.style.backgroundColor = 'black'
-  preview_holder.appendChild(playbackBarDiv)
-
-  // create white bar showing area that will be cropped
-  var whiteBar = document.createElement('div')
-  whiteBar.style.position = 'absolute'
-  whiteBar.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
-  whiteBar.style.left = can.style.left
-  whiteBar.style.width = can.width + 20 + 'px'
-  whiteBar.style.height = '20px'
-  whiteBar.style.transition = "opacity 0.25s linear"
-  whiteBar.style.zIndex = 1300
-  whiteBar.id = 'whiteBar'
-  whiteBar.style.backgroundColor = 'white'
-  preview_holder.appendChild(whiteBar)
-
-  // create grey bar showing area that will be kept
-  var greyBar = document.createElement('div')
-  greyBar.style.position = 'absolute'
-  greyBar.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
-  greyBar.style.left = can.style.left
-  greyBar.style.width = can.width + 20 + 'px'
-  greyBar.style.height = '20px'
-  greyBar.style.transition = "opacity 0.25s linear"
-  greyBar.style.zIndex = 1300
-  greyBar.id = 'greyBar'
-  greyBar.style.backgroundColor = 'grey'
-  preview_holder.appendChild(greyBar)
-
-  // create slider bar to hold slider
-  var sliderBar = document.createElement('div')
-  sliderBar.style.position = 'absolute'
-  sliderBar.style.top = +can.style.top.replace('px', '') + can.height + 20 + 'px'
-  sliderBar.style.left = can.style.left
-  sliderBar.style.width = can.width + 20 + 'px'
-  sliderBar.style.height = '20px'
-  sliderBar.style.transition = "opacity 0.25s linear"
-  sliderBar.style.zIndex = 1300
-  sliderBar.id = 'sliderBar'
-  sliderBar.style.backgroundColor = 'transparent'
-  preview_holder.appendChild(sliderBar)
-
-  // Play/seek slider.
-  $('#sliderBar').append('<input type="range" id="slider">');
-  var slider = document.getElementById('slider')
-  slider.style.width = $('#sliderBar')[0].style.width;
-  slider.style.transition = "opacity 0.25s linear";
-  slider.style.zIndex = 1300;
-  slider.value = 0;
-  slider.min = 0;
-  slider.max = positions.clock.length - 1;
-  slider.onmousedown = () => {
-    pause();
-  };
-  slider.onchange = function () {
-    logger.debug('slider onchange()');
-    frame = parseInt(this.value);
-    renderer.draw(frame);
-    pause();
-  };
-
-  ////////////////////////////////////
-  /////     Playback buttons     /////
-  ////////////////////////////////////
-  let playInterval;
-  function play(start, end) {
-    logger.info(`Playing from frame ${start} to frame ${end}.`);
-    if (playing) {
-      clearInterval(playInterval);
+  /**
+   * Play media from current frame to provided end frame
+   * or end of stream if no value provided.
+   */
+  play(end = this.replay.clock.length - 1) {
+    if (this.frame >= end) this.frame = 0;
+    logger.debug('Media#play()');
+    if (this.playing) {
+      clearTimeout(this.playTimer);
     }
+    this.playing = true;
+    this.emit('play');
 
+    let self = this;
     // Source for frames.
     function* frames() {
-      let frame = start;
-      let frame_time = new Date(positions.clock[frame]).getTime();
+      let frame = self.frame;
+      let frame_time = Date.parse(self.replay.clock[frame]);
       while (frame < end) {
-        let next_frame_time = new Date(positions.clock[frame + 1]).getTime();
+        let next_frame_time = Date.parse(self.replay.clock[frame + 1]);
         let frame_duration = next_frame_time - frame_time;
         yield [frame, frame_duration];
         frame_time = next_frame_time;
@@ -181,362 +99,684 @@ function createReplay(info, positions) {
       yield [frame, 0];
     }
 
-    playing = true;
-
     let reel = frames();
-    playInterval = setTimeout(function animate() {
+    this.playTimer = setTimeout(function animate() {
       let {value, done} = reel.next();
-      if (done) return;
-      let duration;
-      [frame, duration] = value;
-      renderer.draw(frame);
-      slider.value = frame;
-      let average_render_time = (renderer.total_render_time / renderer.rendered_frames);
-      playInterval = setTimeout(animate, duration - average_render_time);
+      if (done) {
+        this.playing = false;
+        self.emit('end');
+        return;
+      }
+      let [frame, duration] = value;
+      self.renderer.draw(frame);
+      self.frame = frame;
+      self.emit('frame', self.frame);
+      //self.track.requestFrame();
+      let average_render_time =
+        self.renderer.total_render_time / self.renderer.rendered_frames;
+      self.playTimer = setTimeout(animate, duration - average_render_time);
     });
   }
 
-  function pause() {
-    clearTimeout(playInterval);
-    playing = false;
+  pause() {
+    this.playing = false;
+    clearInterval(this.playTimer);
+    this.emit('pause');
   }
 
-  // functions to show, hide, and remove buttons
-  function showButtons() {
-    var buttons = {
-      pause: pauseButton,
-      play: playButton,
-      stop: stopButton,
-      reset: resetButton
-    };
-    for (let button of Object.values(buttons)) {
-      button.style.opacity = "1.0";
-      button.style.cursor = "pointer";
+  set(frame) {
+    this.frame = frame;
+    if (!this.playing) {
+      this.renderer.draw(frame);
+      this.emit('frame', this.frame);
+    }
+  }
+}
+
+let player_elements = {
+  screen: '#viewer-screen',
+  play: '.tpr-button-play',
+  pause: '.tpr-button-pause',
+  replay: '.tpr-button-replay',
+  crop_start: '.tpr-button-crop-start',
+  crop_end: '.tpr-button-crop-end',
+  crop_play: '.tpr-button-crop-play',
+  rename: '.tpr-button-rename',
+  delete: '.tpr-button-delete',
+  crop: '.tpr-button-crop',
+  crop_replace: '.tpr-button-crop-replace',
+  render: '.tpr-button-render',
+  canvas: '#viewer-canvas',
+  background: '#tpr-viewer-container, #tpr-viewer',
+  record: '.tpr-button-record'
+};
+
+let progress_elements = {
+  container: '.tpr-progress-container',
+  hover: '.progress-padding',
+  scrubber: '.progress-scrubber-container',
+  slider: '.progress-slider',
+  bar: '.tpr-progress-bar',
+  crop_start: '.progress-crop-start',
+  crop_end: '.progress-crop-end',
+  crop_start_dismiss: '.progress-crop-dismiss-start',
+  crop_end_dismiss: '.progress-crop-dismiss-end'
+};
+
+/**
+ * A little progress/player bar with start/end clip regions.
+ * @emits
+ * @event set
+ * @event clip_end_remove
+ * @event clip_start_remove
+ */
+class little_progress extends EventEmitter {
+  constructor(spec) {
+    super();
+    this.spec = spec;
+    this.val = 0;
+    this.clip_start_value = 0;
+    this.clip_end_value = 1;
+    this.forced_expand = false;
+    this.hovered = false;
+
+    // Slider bar change.
+    $(this.spec.container).click((e) => {
+      logger.debug('Slider click');
+      let offset = e.offsetX;
+      let val = offset / $(e.target).width();
+      this.set(val);
+      this.emit('set', val);
+      e.preventDefault();
+    });
+
+    let unhovered_timer;
+    $(this.spec.container).hover((e) => {
+      this.hovered = true;
+      this._update();
+      if (unhovered_timer) clearTimeout(unhovered_timer);
+    }, (e) => {
+      // Delay so state doesn't change immediately.
+      let update_delay = 300;
+      unhovered_timer = setTimeout(() => {
+        unhovered_timer = null;
+        this.hovered = false;
+        this._update();
+      }, update_delay);
+    });
+
+    $(this.spec.crop_start_dismiss).click((e) => {
+      logger.debug('Crop start dismiss clicked');
+      this.clip_start(0);
+      this.emit('clip_start_remove');
+      return false;
+    });
+
+    $(this.spec.crop_end_dismiss).click((e) => {
+      logger.debug('Crop end dismiss clicked');
+      this.clip_end(1);
+      this.emit('clip_end_remove');
+      return false;
+    });
+
+    $(window).resize(() => {
+      this.clip_start(this.clip_start_value);
+      this.clip_end(this.clip_end_value);
+      this.set(this.val);
+    });
+  }
+
+  /**
+   * Set slider value.
+   */
+  set(value) {
+    this.val = value;
+    $(this.spec.slider).css({
+      transform: `scaleX(${value})`
+    });
+    let last_width = $(this.spec.bar).width();
+    $(this.spec.scrubber).css({
+      transform: `translateX(${last_width * value}px)`
+    });
+  }
+
+  /**
+   * Get slider value.
+   * @returns {number} the slider value in the range 0..1
+   */
+  get() {
+    return this.val;
+  }
+
+  /**
+   * Force display of larger progress bar style.
+   */
+  expand() {
+    this.forced_expand = true;
+    this._update();
+  }
+
+  /**
+   * Allow progress to contract if needed.
+   */
+  contract() {
+    this.forced_expand = false;
+    this._update();
+  }
+
+  /**
+   * @private
+   */
+  _update() {
+    if (this.hovered || this.forced_expand) {
+      $(this.spec.bar).addClass('hover');
+    } else {
+      $(this.spec.bar).removeClass('hover');
     }
   }
 
-  // functions to control replay playback
-  function resetReplay() {
-    logger.info('resetReplay()');
-    pause();
-    frame = 0;
-    renderer.draw(frame);
-    slider.value = 0;
+  /**
+   * Show the clip start.
+   * @param {number} value  number in the range 0..1
+   */
+  clip_start(value) {
+    this.clip_start_value = value;
+    $(this.spec.crop_start).css({
+      width: `${this.clip_start_value * 100}%`
+    });
+    if (value) {
+      let width = $(this.spec.container).width();
+      $(this.spec.crop_start_dismiss).css({
+        transform: `translateX(${width * this.clip_start_value}px)`
+      });
+      $(this.spec.crop_start_dismiss).addClass('active');
+    } else {
+      $(this.spec.crop_start_dismiss).removeClass('active');
+    }
   }
 
-  function stopReplay(doNotReopen) {
-    logger.info('stopReplay()');
-    if (playing) {
-      clearTimeout(playInterval);
-      playing = false;
+  /**
+   * @param {number} value  number in the range 0..1 with the proportion
+   *   of the media to start end clip region.
+   */
+  clip_end(value) {
+    this.clip_end_value = value;
+    let style_value = 1 - this.clip_end_value;
+    $(this.spec.crop_end).css({
+      width: `${style_value * 100}%`
+    });
+    if (value !== 1) {
+      let width = $(this.spec.container).width();
+      $(this.spec.crop_end_dismiss).css({
+        transform: `translateX(-${width * style_value}px)`
+      });
+      $(this.spec.crop_end_dismiss).addClass('active');
+    } else {
+      $(this.spec.crop_end_dismiss).removeClass('active');
     }
-    frame = 0;
+  }
+}
 
-    if (!doNotReopen) {
+class Viewer {
+  constructor() {
+    this.crop_start = null;
+    this.crop_end = null;
+    this.capture_type = 'video/webm';
+    this.focus = false;
+    this.playing = false;
+    this.end = false;
+    /**
+     * @type {MediaRecorder}
+     */
+    this.recorder = null;
+    /**
+     * @type {Media}
+     */
+    this.media = null;
+    /**
+     * @type {little_progress}
+     */
+    this.slider = null;
+  }
+
+  // Initialize listeners
+  init() {
+    this.$canvas = $(player_elements.canvas);
+    // We need to resize before the slider.
+    $(window).resize(() => this._resize());
+    // Replay playback controls.
+    this.slider = new little_progress(progress_elements);
+    let recording = false;
+    $(player_elements.screen).click(() => {
+      if (this.playing) {
+        this.media.pause();
+      } else {
+        this.media.play();
+      }
+    });
+
+    $(player_elements.play).click(() => {
+      logger.info('Play button clicked.');
+      this.media.play();
+    });
+
+    $(player_elements.pause).click(() => {
+      logger.info('Pause button clicked.');
+      this.media.pause();
+    });
+
+    $(player_elements.replay).click(() => {
+      logger.info('Replay button clicked.');
+      this.media.set(0);
+      this.media.play();
+    });
+
+    $(player_elements.crop_start).click(() => {
+      logger.info('Crop start button clicked.');
+      this.crop_start = this.last_frame;
+      this.slider.clip_start(this.crop_start / this.media.frames);
+      if (this.crop_end < this.crop_start) {
+        this.crop_end = this.media.frames;
+        this.slider.clip_end(1);
+      }
+    });
+
+    $(player_elements.crop_end).click(() => {
+      logger.info('Crop end button clicked.');
+      this.crop_end = this.last_frame;
+      this.slider.clip_end(this.crop_end / this.media.frames);
+      if (this.crop_end < this.crop_start) {
+        this.crop_start = 0;
+        this.slider.clip_start(0);
+      }
+    });
+
+    $(player_elements.crop_play).click(() => {
+      logger.info('Crop play button clicked.');
+      this.media.set(this.crop_start);
+      this.media.play(this.crop_end);
+    });
+
+    // Replay editing controls.
+    function clean_name(name) {
+      return name.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
+    }
+
+    function validate_name(name) {
+      let cleaned_name = clean_name(name);
+      return cleaned_name !== '';
+    }
+
+    let self = this;
+    function dismiss() {
+      self.media.pause();
+      self.hide();
       $('#menuContainer').show();
     }
-    preview_holder.style.opacity = 0;
-    setTimeout(() => {
-      preview_holder.remove();
-    }, 600);
-  }
 
-  function playReplay() {
-    logger.info('playReplay()');
-    let end = positions.clock.length - 1;
-    let start = frame >= end ? 0
-                             : frame;
-    play(start, positions.clock.length - 1);
-  }
-
-  function pauseReplay() {
-    logger.info('pauseReplay()');
-    pause();
-  }
-
-  // cropping functions
-  let crop_start = 0;
-  let crop_end = 1;
-  function setCropStart() {
-    crop_start = +$('#slider')[0].value / +$('#slider')[0].max;
-    greyBarStart = crop_start * $('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px', '');
-    if (crop_start >= crop_end) {
-      crop_end = 1;
-    }
-    $('#greyBar')[0].style.left = greyBarStart + 'px';
-    greyBarEnd = crop_end * $('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px', '');
-    $('#greyBar').width(greyBarEnd - greyBarStart) + 'px';
-  }
-
-  function setCropEnd() {
-    crop_end = +$('#slider')[0].value / +$('#slider')[0].max;
-    greyBarEnd = crop_end * $('#whiteBar').width();
-    if (crop_end <= crop_start) {
-      crop_start = 0;
-    }
-    greyBarStart = crop_start * $('#whiteBar').width() + +$('#whiteBar')[0].style.left.replace('px', '');
-    $('#greyBar')[0].style.left = greyBarStart + 'px';
-    $('#greyBar').width(greyBarEnd - greyBarStart + +$('#whiteBar')[0].style.left.replace('px', '')) + 'px';
-  }
-
-  function getCropRange() {
-    let total = positions.clock.length - 1;
-    let start = Math.floor(crop_start * total);
-    let end = Math.floor(crop_end * total);
-    return [start, end];
-  }
-
-  function playCroppedMovie() {
-    let [start, end] = getCropRange();
-    play(start, end);
-  }
-
-  // delete, render, and rename functions
-
-  // delete this replay
-  function deleteThisReplay() {
-    logger.info('deleteThisReplay()');
-    let replayToDelete = id;
-    if (replayToDelete != null) {
-      if (confirm('Are you sure you want to delete this replay?')) {
-        stopReplay(false);
-        setTimeout(() => {
-          logger.info(`Sending request to delete: ${replayToDelete}`);
-          chrome.runtime.sendMessage({
-            method:   'replay.delete',
-            ids: [replayToDelete]
-          });
-        }, 500);
-      }
-    }
-  }
-
-  // rename this replay
-  function renameThisReplay() {
-    logger.info('renameThisReplay()');
-    logger.info(`Rename button clicked for ${id}`);
-    let name = replay_info.name;
-    let newName = prompt(`Please enter a new name for ${name}`, name);
-    if (newName) {
-      newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
-      if (newName === '') {
+    $(player_elements.rename).click(() => {
+      let id = this.replay_info.id;
+      logger.info(`Rename button clicked for ${id}`);
+      let name = this.replay_info.name;
+      let new_name = prompt(`Please enter a new name for ${name}`, name);
+      if (new_name === null) return;
+      if (!validate_name(new_name)) {
         alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
         return;
       }
-      logger.info(`Requesting rename for ${id} to ${newName}.`);
-      stopReplay(false);
+      new_name = clean_name(new_name);
+      dismiss();
+      logger.info(`Requesting rename for ${id} to ${new_name}.`);
       chrome.runtime.sendMessage({
         method: 'replay.rename',
         id: id,
-        new_name: newName
+        new_name: new_name
+      }, (result) => {
+        if (result.failed) {
+          alert(`Renaming failed: ${result.reason}`);
+        }
       });
+    });
+
+    $(player_elements.delete).click(() => {
+      logger.info('Delete button clicked.');
+      let id = this.replay_info.id;
+      if (confirm('Are you sure you want to delete this replay?')) {
+        setTimeout(() => {
+          logger.info(`Sending request to delete: ${id}`);
+          chrome.runtime.sendMessage({
+            method: 'replay.delete',
+            ids: [id]
+          }, (result) => {
+            if (result.failed) {
+              alert(`Deletion failed: ${result.reason}`);
+            }
+          });
+        }, 500);
+        dismiss();
+      }
+    });
+
+    $(player_elements.record).click(() => {
+      logger.info('Record button clicked.');
+      recording = !recording;
+      if (!recording) {
+        logger.info('Stopping recording.');
+        this.recorder.stop();
+        $(player_elements.record).toggleClass('active');
+      } else {
+        logger.info('Starting recording.');
+        this.recorder.start();
+        $(player_elements.record).toggleClass('active');
+      }
+    });
+
+    $(player_elements.crop).click(() => {
+      let [start, end] = [this.crop_start, this.crop_end];
+      let id = this.replay_info.id;
+      let new_name = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
+      if (new_name === null) return;
+      if (new_name === '') {
+        new_name = 'replays' + Date.now();
+      } else if (!validate_name(new_name)) {
+        alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
+        return;
+      } else {
+        new_name = clean_name(new_name);
+      }
+      chrome.runtime.sendMessage({
+        method: 'replay.crop',
+        start: start,
+        end: end,
+        id: id,
+        new_name: new_name
+      }, (result) => {
+        if (result.failed) {
+          alert(`Failed to save new replay: ${result.reason}`);
+        }
+      });
+      dismiss();
+    });
+
+    $(player_elements.crop_replace).click(() => {
+      let [start, end] = [this.crop_start, this.crop_end];
+      let id = this.replay_info.id;
+      var new_name = prompt('If you would also like to rename this replay, do so now.', this.replay_info.name);
+      if (new_name === null) return;
+      if (!validate_name(new_name)) {
+        alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
+        return;
+      }
+      new_name = clean_name(new_name);
+      chrome.runtime.sendMessage({
+        method: 'replay.crop_and_replace',
+        id: id,
+        start: start,
+        end: end,
+        new_name: new_name,
+      }, (result) => {
+        if (result.failed) {
+          alert(`Failed to replace replay: ${result.reason}`);
+        }
+      });
+      dismiss();
+    });
+
+    this.slider.on('clip_start_remove', () => {
+      this.crop_start = 0;
+    });
+
+    this.slider.on('clip_end_remove', () => {
+      this.crop_end = this.media.frames;
+    });
+
+    this.slider.on('set', (val) => {
+      let frame = val * this.media.frames;
+      this.media.set(Math.floor(frame));
+      if (this.playing) {
+        this.media.play();
+      }
+    });
+
+    // Background click to close viewer.
+    let $background = $(player_elements.background);
+    $background.click((e) => {
+      if ($background.is(e.target)) {
+        dismiss();
+      }
+    });
+
+    // Initial sizing.
+    this._resize();
+
+    // Arrow key controls.
+    let keys = {
+      back:    37, // left
+      advance: 39  // right
+    };
+
+    $(document).on('keydown', (e) => {
+      if (!this.focus) return;
+      if (this.playing) return;
+      if (e.which == keys.back) {
+        if (this.last_frame) {
+          this.media.set(this.last_frame - 1);
+        }
+      } else if (e.which == keys.advance) {
+        if (this.last_frame < this.media.frames) {
+          this.media.set(this.last_frame + 1);
+        }
+      }
+    });
+
+    // Control auto-hide listeners.
+    // Returns a function that, when called, prevents the given
+    // callback from being executed.
+    function debounce(callback, wait) {
+      let fn = () => { timeout = null; callback(); };
+      var timeout = setTimeout(fn, wait);
+      return function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(fn, wait);
+      }
     }
+
+    this.pointer_active = false;
+    let reset_idle;
+    $('#viewer-container').mousemove(() => {
+      if (!this.pointer_active) {
+        this.pointer_active = true;
+        this._update();
+      }
+      if (!reset_idle) {
+        reset_idle = debounce(() => {
+          reset_idle = null;
+          this.pointer_active = false;
+          this._update();
+        }, 1000);
+      }
+      reset_idle();
+    });
+
+    this.pointer_on_controls = false;
+    $('#viewer-control-container').hover(() => {
+      this.pointer_on_controls = true;
+      this._update();
+    }, () => {
+      this.pointer_on_controls = false;
+      this._update();
+    });
   }
 
-  // playback control buttons
-  var buttonURLs = {
-    'stop':    'http://i.imgur.com/G32WYvH.png',
-    'play':    'http://i.imgur.com/KvSKqpI.png',
-    'pause':   'http://i.imgur.com/aSpd4cK.png',
-    'forward': 'http://i.imgur.com/TVtAO69.png',
-    'reset':   'http://i.imgur.com/vs3jWpc.png'
-  };
+  /**
+   * @param {object} replay - replay info, object with id,
+   *   name, etc.
+   */
+  load(replay) {
+    this.replay_info = replay;
+    this.media = new Media(replay, this.$canvas[0]);
+    /*this.recorder = new MediaRecorder(this.media.stream, {
+      mimeType: this.capture_type
+    });
+    */
+    this.recorder = {};
 
-  // stop button
-  var stopButton = new Image()
-  stopButton.id = 'stopButton'
-  stopButton.src = buttonURLs['stop']
-  stopButton.onclick = function () {
-    stopReplay(false);
+    let chunks = [];
+    this.recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
+    this.recorder.onstop = () => {
+      let blob = new Blob(chunks, {
+        type: this.capture_type
+      });
+      saveAs(blob, 'test.webm');
+    };
+    this.recorder.onstart = () => {
+      chunks = [];
+    };
+
+    this.media.on('load', () => {
+      this.show();
+      this.media.set(0);
+      this.crop_start = 0;
+      this.crop_end = this.media.frames;
+      this.slider.clip_start(0);
+      this.slider.clip_end(1);
+      track('Preview Replay');
+    });
+
+    this.media.on('error', (err) => {
+      logger.error('Error loading media: ', err);
+      alert(`Error loading replay: ${err.message}`);
+      this.hide();
+      $('#menuContainer').show();
+    });
+
+    this.media.on('play', () => {
+      this.playing = true;
+      this.end = false;
+      this._update();
+    });
+
+    this.media.on('pause', () => {
+      this.playing = false;
+      this._update();
+    });
+
+    this.media.on('end', () => {
+      this.playing = false;
+      this.end = true;
+      this._update();
+    });
+
+    this.media.on('frame', (i) => {
+      this.last_frame = i;
+      // Set slider.
+      let ratio = this.last_frame / this.media.frames;
+      this.slider.set(ratio);
+    });
+
+    this._update();
   }
-  stopButton.style.position = "absolute"
-  stopButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
-  stopButton.style.left = +can.style.left.replace('px', '') + 20 + 'px'
-  stopButton.style.transition = "opacity 0.25s linear"
-  stopButton.style.zIndex = 1300
-  stopButton.style.opacity = 0
-  preview_holder.appendChild(stopButton)
 
-  // reset button
-  var resetButton = new Image()
-  resetButton.id = 'resetButton'
-  resetButton.src = buttonURLs['reset']
-  resetButton.onclick = resetReplay
-  resetButton.style.position = "absolute"
-  resetButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
-  resetButton.style.left = +can.style.left.replace('px', '') + 80 + 'px'
-  resetButton.style.transition = "opacity 0.25s linear"
-  resetButton.style.zIndex = 1300
-  resetButton.style.opacity = 0
-  preview_holder.appendChild(resetButton)
+  /**
+   * Show previewer.
+   */
+  show() {
+    $('#tpr-viewer-container').show();
+    this.focus = true;
+  }
 
-  // play button
-  var playButton = new Image()
-  playButton.id = 'playButton'
-  playButton.src = buttonURLs['play']
-  playButton.onclick = playReplay
-  playButton.style.position = "absolute"
-  playButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
-  playButton.style.left = +can.style.left.replace('px', '') + 140 + 'px'
-  playButton.style.transition = "opacity 0.25s linear"
-  playButton.style.zIndex = 1300
-  playButton.style.opacity = 0
-  preview_holder.appendChild(playButton)
+  /**
+   * Hide previewer.
+   */
+  hide() {
+    this.focus = false;
+    $('#tpr-viewer-container').hide();
+  }
 
-  // pause button
-  var pauseButton = new Image()
-  pauseButton.id = 'pauseButton'
-  pauseButton.src = buttonURLs['pause']
-  pauseButton.onclick = pauseReplay
-  pauseButton.style.position = "absolute"
-  pauseButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 25 + 'px'
-  pauseButton.style.left = +can.style.left.replace('px', '') + 200 + 'px'
-  pauseButton.style.transition = "opacity 0.25s linear"
-  pauseButton.style.zIndex = 1300
-  pauseButton.style.opacity = 0
-  preview_holder.appendChild(pauseButton)
-
-  // crop start button
-  $('#pauseButton').after('<button id="cropStartButton">Crop Start')
-  var cropStartButton = document.getElementById('cropStartButton')
-  cropStartButton.style.position = 'absolute'
-  cropStartButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  cropStartButton.style.left = +pauseButton.style.left.replace('px', '') + 70 + 'px'
-  cropStartButton.style.height = '40px'
-  cropStartButton.style.fontSize = '20px'
-  cropStartButton.style.fontWeight = 'bold'
-  cropStartButton.style.transition = "opacity 0.25s linear"
-  cropStartButton.style.zIndex = 1300
-  cropStartButton.style.cursor = "pointer"
-  cropStartButton.onclick = setCropStart
-  cropStartButton.title = 'This sets the beginning of the cropped portion of the replay. Everything before this point will be erased when you crop the replay.'
-
-  // crop End button
-  $('#cropStartButton').after('<button id="cropEndButton">Crop End')
-  var cropEndButton = document.getElementById('cropEndButton')
-  cropEndButton.style.position = 'absolute'
-  cropEndButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  cropEndButton.style.left = +cropStartButton.style.left.replace('px', '') + $('#cropStartButton').width() + 20 + 'px'
-  cropEndButton.style.height = '40px'
-  cropEndButton.style.fontSize = '20px'
-  cropEndButton.style.fontWeight = 'bold'
-  cropEndButton.style.transition = "opacity 0.25s linear"
-  cropEndButton.style.zIndex = 1300
-  cropEndButton.style.cursor = "pointer"
-  cropEndButton.onclick = setCropEnd
-  cropEndButton.title = 'This sets the end of the cropped portion of the replay. Everything after this point will be erased when you crop the replay.'
-
-  // play cropped movie button
-  $('#cropEndButton').after('<button id="playCroppedMovieButton">Play Cropped')
-  var playCroppedMovieButton = document.getElementById('playCroppedMovieButton')
-  playCroppedMovieButton.style.position = 'absolute'
-  playCroppedMovieButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  playCroppedMovieButton.style.left = +cropEndButton.style.left.replace('px', '') + $('#cropEndButton').width() + 20 + 'px'
-  playCroppedMovieButton.style.height = '40px'
-  playCroppedMovieButton.style.fontSize = '20px'
-  playCroppedMovieButton.style.fontWeight = 'bold'
-  playCroppedMovieButton.style.transition = "opacity 0.25s linear"
-  playCroppedMovieButton.style.zIndex = 1300
-  playCroppedMovieButton.style.cursor = "pointer"
-  playCroppedMovieButton.onclick = playCroppedMovie
-  playCroppedMovieButton.title = 'This plays the section of the replay between the "crop start" and "crop end" so you know what your cropped replay will look like.'
-
-  // crop button
-  $('#playCroppedMovieButton').after('<button id="cropButton">Crop')
-  var cropButton = document.getElementById('cropButton')
-  cropButton.style.position = 'absolute'
-  cropButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  cropButton.style.left = +playCroppedMovieButton.style.left.replace('px', '') + $('#playCroppedMovieButton').width() + 20 + 'px'
-  cropButton.style.height = '40px'
-  cropButton.style.fontSize = '20px'
-  cropButton.style.fontWeight = 'bold'
-  cropButton.style.transition = "opacity 0.25s linear"
-  cropButton.style.zIndex = 1300
-  cropButton.style.cursor = "pointer"
-  cropButton.onclick = function () {
-    let [start, end] = getCropRange();
-    let newName = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
-    if (newName === null) return;
-    if (newName === '') {
-      newName = 'replays' + Date.now();
+  // Update UI.
+  _update() {
+    this.end = this.last_frame === this.media.frames;
+    if (this.playing) {
+      $(player_elements.pause).show();
+      $(player_elements.play).hide();
+      $(player_elements.replay).hide();
+      this.slider.contract();
+      if (this.pointer_active || this.pointer_on_controls) {
+        this._show_controls();
+      } else {
+        this._hide_controls();
+      }
     } else {
-      newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
-      newName += 'DATE' + Date.now();
+      this.slider.expand();
+      this._show_controls();
+      $(player_elements.pause).hide();
+      if (this.end) {
+        $(player_elements.play).hide();
+        $(player_elements.replay).show();
+      } else {
+        $(player_elements.play).show();
+        $(player_elements.replay).hide();
+      }
     }
-    stopReplay(false);
-    chrome.runtime.sendMessage({
-      method: 'replay.crop',
-      start: start,
-      end: end,
-      id: id,
-      new_name: newName
-    });
   }
-  cropButton.title = 'This actually crops the replay. It leaves the original replay intact, though, and saves a new cropped replay.'
 
-  // crop and replace button
-  $('#cropButton').after('<button id="cropAndReplaceButton">Crop and Replace')
-  var cropAndReplaceButton = document.getElementById('cropAndReplaceButton')
-  cropAndReplaceButton.style.position = 'absolute'
-  cropAndReplaceButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  cropAndReplaceButton.style.left = +cropButton.style.left.replace('px', '') + $('#cropButton').width() + 20 + 'px'
-  cropAndReplaceButton.style.height = '40px'
-  cropAndReplaceButton.style.fontSize = '20px'
-  cropAndReplaceButton.style.fontWeight = 'bold'
-  cropAndReplaceButton.style.transition = "opacity 0.25s linear"
-  cropAndReplaceButton.style.zIndex = 1300
-  cropAndReplaceButton.style.cursor = "pointer"
-  cropAndReplaceButton.onclick = function () {
-    let [start, end] = getCropRange();
-    var newName = prompt('If you would also like to rename this replay, do so now.', replay_info.name);
-    // Cancelled.
-    if (newName === null) return;
-    newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
-    if (newName === '') {
-      alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
-      return;
+  _hide_controls() {
+    $('#viewer-control-container').removeClass('active');
+  }
+
+  _show_controls() {
+    $('#viewer-control-container').addClass('active');
+  }
+
+  // Resize elements by window.
+  _resize() {
+    let canvas_width = $(player_elements.canvas).prop('width');
+    let canvas_height = $(player_elements.canvas).prop('height');
+    let canvas_aspect_ratio = canvas_width / canvas_height;
+    let window_width = $(window).width();
+    let window_height = $(window).height();
+    let padding = 50;
+    let max_width = window_width - padding;
+    let max_height = window_height - padding;
+    let width, height;
+    // Determine limiting constraint.
+    if (max_height * canvas_aspect_ratio > max_width) {
+      // Width is the limiting factor.
+      width = max_width;
+      height = max_width / canvas_aspect_ratio;
+    } else {
+      // Height is the limiting factor.
+      width = max_height * canvas_aspect_ratio;
+      height = max_height;
     }
-    stopReplay(false);
-    chrome.runtime.sendMessage({
-      method: 'replay.crop_and_replace',
-      id: id,
-      start: start,
-      end: end,
-      new_name: newName,
-    });
+    $(player_elements.canvase).width(width);
+    $(player_elements.canvas).height(height);
+    let control_padding = 26;
+    // Resize control bar.
+    $('#viewer-controls').width(width - control_padding);
   }
-  cropAndReplaceButton.title = 'This also actually crops the replay, but it replaces the original replay with the cropped one.'
 
-  // delete button
-  $('#cropAndReplaceButton').after('<button id="deleteButton">Delete')
-  var deleteButton = document.getElementById('deleteButton')
-  deleteButton.style.position = 'absolute'
-  deleteButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  deleteButton.style.left = +cropAndReplaceButton.style.left.replace('px', '') + $('#cropAndReplaceButton').width() + 20 + 'px'
-  deleteButton.style.height = '40px'
-  deleteButton.style.fontSize = '20px'
-  deleteButton.style.fontWeight = 'bold'
-  deleteButton.style.transition = "opacity 0.25s linear"
-  deleteButton.style.zIndex = 1300
-  deleteButton.style.cursor = "pointer"
-  deleteButton.onclick = deleteThisReplay;
-  deleteButton.title = 'This deletes the current replay.'
+  set crop_start(val) {
+    logger.debug(`Setting crop start to ${val}`);
+    this._crop_start = val;
+  }
 
-  // rename button
-  $('#deleteButton').after('<button id="renameButton">Rename')
-  var renameButton = document.getElementById('renameButton')
-  renameButton.style.position = 'absolute'
-  renameButton.style.top = +can.style.top.replace('px', '') + can.height + 20 + 35 + 'px'
-  renameButton.style.left = +deleteButton.style.left.replace('px', '') + $('#deleteButton').width() + 20 + 'px'
-  renameButton.style.height = '40px'
-  renameButton.style.fontSize = '20px'
-  renameButton.style.fontWeight = 'bold'
-  renameButton.style.transition = "opacity 0.25s linear"
-  renameButton.style.zIndex = 1300
-  renameButton.style.cursor = "pointer"
-  renameButton.onclick = renameThisReplay
-  renameButton.title = 'This renames the current replay.'
+  get crop_start() {
+    return this._crop_start;
+  }
 
-  can.style.opacity = 1;
-  showButtons();
+  set crop_end(val) {
+    logger.debug(`Setting crop end to ${val}`);
+    this._crop_end = val;
+  }
+
+  get crop_end() {
+    return this._crop_end;
+  }
 }
+
+exports.Viewer = Viewer;

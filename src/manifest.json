@@ -22,7 +22,7 @@
     "css": [
       "css/record.css",
       "css/menu.css",
-      "css/previewer.css"
+      "css/viewer.css"
     ],
     "matches": [
       "http://*.koalabeast.com/*",

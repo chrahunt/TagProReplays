@@ -1,95 +1,293 @@
-#viewer-container {
+/* background of viewer */
+#tpr-viewer-container {
     height: 100%;
     width: 100%;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     z-index: 2000;
-    display: 'none';
+    display: none;
 }
 
-#viewer-container #viewer-canvas {
-    height: 90%;
+/* container for viewer elements */
+#tpr-viewer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
+    height: 100%;
+}
+
+/* border/background */
+#viewer-background {
+    border: 2px solid white;
+    border-radius: 2px;
+    width: min-content;
+    position: relative;
+    margin: auto;
+}
+
+#viewer-container {
+    width: 100%;
+    background-color: rgba(17, 17, 17, 0.5);
+}
+
+#tpr-viewer-container #viewer-canvas {
     background: black;
     display: block;
-    border: 10px solid white;
 }
 
-#viewer-container #viewer-footer {
-    height: 10%;
-    width: 100%;
+// Viewer controls start here.
+// Centered viewer controls.
+#viewer-control-container {
+    display: flex;
+    justify-content: center;
     position: absolute;
-    top: 90%;
-    left: 0;
-    background: black;
-}
-
-#viewer-container #button-bar {
-    height: 77%;
-    width: 100%;
-    position: absolute;
-    top: 23%;
-    left: 0;
-}
-
-.img-container {
-    position: absolute;
-    top: 0;
     bottom: 0;
-    left: 0;
-    right: 0;
-    text-align:left; 
+    width: 100%;
+    // Auto-hide, sharp curve.
+    transition: opacity 0.25s cubic-bezier(0.4, 0.0, 0.6, 1);
+    pointer-events: none;
+    opacity: 0;
+
+    &.active {
+        pointer-events: all;
+        opacity: 1;
+    }
+
+    #viewer-controls {
+        position: absolute;
+        bottom: 0;
+    }
 }
 
-.img-container:before {
-    content: ' ';
-    display: inline-block;
-    vertical-align: middle;
-    height: 100%;
+@mixin progress-transition($properties...) {
+    transition-delay: 0;
+    transition-duration: 0.1s;
+    transition-property: $properties;
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
 }
 
-#button-bar button {
-    vertical-align: middle;
-    max-height: 70%;
-    height: 70%;
-    width: auto;
-    font-weight: bold;
-    color: black;
+// Crop overlays.
+.tpr-progress-container {
+    .progress-crop {
+        height: 100%;
+        width: 0;
+        position: absolute;
+        pointer-events: none;
+        background-image: repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 0, 0, 0.8) 10px,
+            rgba(0, 0, 0, 0.8) 25px
+        );
+    }
+
+    .progress-crop-start {
+        left: 0px;
+    }
+
+    .progress-crop-end {
+        right: 0px;
+    }
+
+    .progress-crop-dismiss-container {
+        position: absolute;
+        top: -4px;
+        .progress-crop-dismiss {
+            transform: scale(0);
+            width: 13px;
+            height: 13px;
+            line-height: 10px;
+            font-size: 10px;
+            text-align: center;
+            line-height: 10px;
+            border-radius: 3px;
+            background-color: #333;
+            @include progress-transition(transform);
+        }
+    }
+
+    .tpr-progress-bar.hover {
+        .progress-crop-dismiss-container.active {
+            .progress-crop-dismiss {
+                transform: scale(1);
+            }
+        }
+    }
+    
+    .progress-crop-dismiss-start {
+        left: -6.5px;
+        transform: translateX(0);
+    }
+
+    .progress-crop-dismiss-end {
+        right: -6.5px;
+        transform: translateX(0);
+    }
+
+    .glyphicon.glyphicon-remove {
+        color: lightgray;
+        font-size: 10px;
+        @include progress-transition(font-size);
+    }
+}
+
+// Slider
+.tpr-progress-container {
+    background-color: rgba(169, 169, 169, 0.3);
+    position: absolute;
+    // button height
+    bottom: 33px;
+    width: 100%;
+
+    .tpr-progress-bar {
+        // Normal height.
+        height: 3px;
+        @include progress-transition(height);
+        // Hover height.
+        &.hover {
+            height: 5px;
+            .progress-padding {
+                height: 22px;
+                bottom: -3px;
+            }
+        }
+        // Extended hover area.
+        .progress-padding {
+            position: absolute;
+            bottom: 0;
+            height: 16px;
+            width: 100%;
+        }
+
+        .progress-list {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .progress-slider {
+            position: absolute;
+            left: 0;
+            height: 100%;
+            background-color: rgba(27,127,204,.8);
+            width: 100%;
+            transform: scaleX(0);
+            transform-origin: left;
+            pointer-events: none;
+        }
+
+        &.hover {
+            .progress-scrubber-container {
+                .progress-scrubber {
+                    transform: scale(1);
+                }
+            }
+        }
+        // Updated by frame.
+        .progress-scrubber-container {
+            position: absolute;
+            top: -4px;
+            left: -6.5px;
+            transform: translateX(0);
+            .progress-scrubber {
+                height: 13px;
+                width: 13px;
+                background-color: rgba(175, 175, 175, 0.8);
+                border-radius: 6.5px;
+                @include progress-transition(transform);
+                // Updated.
+                transform: scale(0);
+            }
+        }
+    }
+}
+
+#tpr-viewer-container #viewer-controls {
+    height: 58px;
+    width: 100%;
+    // force to bottom of viewer.
+    bottom: 0;
+    position: absolute;
+}
+
+.progress-main {
+    height: 15px;
+    position: absolute;
+    // height of .viewer-buttons
+    bottom: 33px;
+    width: 100%;
+    z-index: 2;
+
+    .progress-slider {
+        position: absolute;
+        left: 0;
+        height: 3px;
+        background-color: rgba(0, 0, 145, 0.7);
+        width: 100%;
+        transform: scaleX(0);
+        transform-origin: left;
+    }
+}
+
+.time-slider-container {
+    height: 25px;
+    position: absolute;
+    // height of viewer-buttons.
+    bottom: 33px;
+    width: 100%;
+    z-index: 2;
+}
+
+.viewer-buttons {
+    height: 33px;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    z-index: 1;
+}
+
+.tpr-button {
+    height: 33px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    color: #bbb;
+    font-size: 19px;
+}
+
+/* Text options */
+.tpr-option {
+    display: flex;
+    float: right;
+    height: 33px;
+    color: #ddd;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
     cursor: pointer;
 }
 
-#button-bar img { 
-    vertical-align: middle;
-    max-height: 100%;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-    cursor: pointer;
+.tpr-option:hover, .tpr-button:hover {
+    box-shadow: 0px 0px 2px #eee;
 }
 
-#slider-bar {
-    height: 23%;
-    width: 100%;
-    left: 0;
-    position: absolute;
-    background-color: white;
+.tpr-button-play, .tpr-button-pause, .tpr-button-replay {
+    width: 45px;
 }
 
-#slider-bar #grey-bar {
-    height: 100%;
-    width: 100%;
-    left: 0;
-    position: absolute;
-    background-color: gray;
+.tpr-button-replay {
+    transform: scaleX(-1);
 }
 
-#slider-bar #slider {
-    height: 100%;
-    width: 100%;
-    position: absolute;
+.tpr-button:nth-child(n+4) {
+    width: 30px;
+}
+
+.tpr-button-record.active {
+    color: red;
 }
 
