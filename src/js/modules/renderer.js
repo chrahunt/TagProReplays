@@ -60,7 +60,7 @@ class Renderer {
   draw(frame) {
     let t0 = performance.now();
     animateReplay(frame, this.replay, this.map, this.options.spin,
-      this.options.splats, this.options.ui, this.options.chats);
+      this.options.splats, this.options.ui, this.options.chat);
     let t1 = performance.now();
     this.total_render_time += t1 - t0;
     this.rendered_frames++;
