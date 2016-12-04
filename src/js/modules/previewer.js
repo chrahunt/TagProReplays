@@ -190,23 +190,16 @@ class little_progress extends EventEmitter {
       e.preventDefault();
     });
 
-    let contract_timer = 0;
-    let last_hovered = 0;
-    let last_unhovered = 0;
+    let unhovered_timer;
     $(this.spec.container).hover((e) => {
-      logger.debug('Slider hover');
-      last_hovered = Date.now();
       this.hovered = true;
       this._update();
+      if (unhovered_timer) clearTimeout(unhovered_timer);
     }, (e) => {
-      logger.debug('Slider unhover');
-      // Delay so state doesn't change immediately.'
-      last_unhovered = Date.now();
+      // Delay so state doesn't change immediately.
       let update_delay = 300;
-      if (contract_timer) clearTimeout(contract_timer);
-      contract_timer = setTimeout(() => {
-        contract_timer = 0;
-        if (last_hovered > last_unhovered) return;
+      unhovered_timer = setTimeout(() => {
+        unhovered_timer = null;
         this.hovered = false;
         this._update();
       }, update_delay);
@@ -351,6 +344,7 @@ class Viewer {
     this.$canvas = $(player_elements.canvas);
     // We need to resize before the slider.
     $(window).resize(() => this._resize());
+    // Replay playback controls.
     this.slider = new little_progress(progress_elements);
     let recording = false;
     $(player_elements.screen).click(() => {
@@ -403,6 +397,7 @@ class Viewer {
       this.media.play(this.crop_end);
     });
 
+    // Replay editing controls.
     function clean_name(name) {
       return name.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
     }
@@ -444,7 +439,7 @@ class Viewer {
     });
 
     $(player_elements.delete).click(() => {
-      logger.info('deleteThisReplay()');
+      logger.info('Delete button clicked.');
       let id = this.replay_info.id;
       if (confirm('Are you sure you want to delete this replay?')) {
         setTimeout(() => {
@@ -553,6 +548,8 @@ class Viewer {
 
     // Initial sizing.
     this._resize();
+
+    // Arrow key controls.
     let keys = {
       back:    37, // left
       advance: 39  // right
@@ -570,6 +567,44 @@ class Viewer {
           this.media.set(this.last_frame + 1);
         }
       }
+    });
+
+    // Control auto-hide listeners.
+    // Returns a function that, when called, prevents the given
+    // callback from being executed.
+    function debounce(callback, wait) {
+      let fn = () => { timeout = null; callback(); };
+      var timeout = setTimeout(fn, wait);
+      return function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(fn, wait);
+      }
+    }
+
+    this.pointer_active = false;
+    let reset_idle;
+    $('#viewer-container').mousemove(() => {
+      if (!this.pointer_active) {
+        this.pointer_active = true;
+        this._update();
+      }
+      if (!reset_idle) {
+        reset_idle = debounce(() => {
+          reset_idle = null;
+          this.pointer_active = false;
+          this._update();
+        }, 1000);
+      }
+      reset_idle();
+    });
+
+    this.pointer_on_controls = false;
+    $('#viewer-control-container').hover(() => {
+      this.pointer_on_controls = true;
+      this._update();
+    }, () => {
+      this.pointer_on_controls = false;
+      this._update();
     });
   }
 
@@ -670,8 +705,14 @@ class Viewer {
       $(player_elements.play).hide();
       $(player_elements.replay).hide();
       this.slider.contract();
+      if (this.pointer_active || this.pointer_on_controls) {
+        this._show_controls();
+      } else {
+        this._hide_controls();
+      }
     } else {
       this.slider.expand();
+      this._show_controls();
       $(player_elements.pause).hide();
       if (this.end) {
         $(player_elements.play).hide();
@@ -681,6 +722,14 @@ class Viewer {
         $(player_elements.replay).hide();
       }
     }
+  }
+
+  _hide_controls() {
+    $('#viewer-control-container').removeClass('active');
+  }
+
+  _show_controls() {
+    $('#viewer-control-container').addClass('active');
   }
 
   // Resize elements by window.

@@ -100,7 +100,7 @@ if (isBackground()) {
         } else if (!result) {
           reject('No result returned from background page.');
         } else if (result.failed) {
-          reject(new Error(result.message));
+          reject(new Error(result.reason));
         } else {
           resolve();
         }

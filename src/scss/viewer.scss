@@ -37,10 +37,7 @@
     display: block;
 }
 
-.tpr-button-record.active {
-    color: red;
-}
-
+// Viewer controls start here.
 // Centered viewer controls.
 #viewer-control-container {
     display: flex;
@@ -48,6 +45,15 @@
     position: absolute;
     bottom: 0;
     width: 100%;
+    // Auto-hide, sharp curve.
+    transition: opacity 0.25s cubic-bezier(0.4, 0.0, 0.6, 1);
+    pointer-events: none;
+    opacity: 0;
+
+    &.active {
+        pointer-events: all;
+        opacity: 1;
+    }
 
     #viewer-controls {
         position: absolute;
@@ -130,7 +136,7 @@
 
 // Slider
 .tpr-progress-container {
-    background-color: darkgray;
+    background-color: rgba(169, 169, 169, 0.3);
     position: absolute;
     // button height
     bottom: 33px;
@@ -234,33 +240,6 @@
     z-index: 2;
 }
 
-#time-slider .ui-slider-range {
-    background: #729fcf;
-}
-
-#time-slider {
-    border-radius: 0px !important;
-    border: none !important;
-    height: 8px;
-    width: 100%;
-    position: absolute;
-    bottom: 0px;
-    transform-origin: center bottom;
-
-    .ui-slider-handle {
-        display: none;
-        transition-property: opacity;
-        transition-duration: 1s;
-        border: 4px solid rgb(204, 204, 204);
-        border-radius: 10px;
-    }
-
-    .ui-slider-range {
-        border-radius: 0px;
-        border: none;
-    }
-}
-
 .viewer-buttons {
     height: 33px;
     width: 100%;
@@ -307,3 +286,8 @@
 .tpr-button:nth-child(n+4) {
     width: 30px;
 }
+
+.tpr-button-record.active {
+    color: red;
+}
+
