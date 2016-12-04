@@ -1,5 +1,27 @@
 /**
- * Contains the in-app tracking/metrics.
+ * Contains the in-app tracking/metrics functions that send info
+ * out to Mixpanel. When called from a content script the actual
+ * mixpanel call is delegated to the background page to avoid being
+ * blocked by other extensions.
+ * 
+ * Usage:
+ * 
+ *     const track = require('./track');
+ *     track('Activity', {
+ *       attribute_1: 'value',
+ *       attribute_2: 'value'
+ *     }).then(() => {
+ *       console.log('All done!');
+ *     }).catch((err) => {
+ *       console.error(`Problem: ${err.message}`);
+ *     });
+ * 
+ * By default the following properties are set:
+ * 1. Specific version of Chrome (major, minor, build)
+ * 2. User mode:
+ *     - dev - loaded as an unpacked extension
+ *     - user - installed version from Chrome web store
+ * 3. Extension version
  */
 const mixpanel = require('mixpanel-browser');
 
@@ -50,10 +72,13 @@ if (isBackground()) {
     if (method == 'track') {
       logger.debug('Received event from content script.');
       track(message.event_name, message.properties).then(() => {
-        sendResponse({});
+        sendResponse({
+          failed: false
+        });
       }).catch((err) => {
         sendResponse({
-          error: err
+          failed: true,
+          reason: err.message
         });
       });
 
@@ -70,12 +95,12 @@ if (isBackground()) {
         properties: properties
       }, (result) => {
         if (chrome.runtime.lastError) {
-          logger.error('Chrome error: ', chrome.runtime.lastError.message);
+          logger.error(`Chrome error: ${chrome.runtime.lastError.message}`);
           reject(chrome.runtime.lastError.message);
         } else if (!result) {
-          reject('No result returned');
-        } else if (result.error) {
-          reject(result.error);
+          reject('No result returned from background page.');
+        } else if (result.failed) {
+          reject(new Error(result.message));
         } else {
           resolve();
         }

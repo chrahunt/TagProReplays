@@ -6,6 +6,7 @@ const saveAs = require('file-saver').saveAs;
 const Cookies = require('./cookies');
 const get_renderer = require('./renderer');
 const logger = require('./logger')('renderer');
+const track = require('./track');
 
 // Retrieve replay from background page.
 function get_replay(id) {
@@ -608,6 +609,7 @@ class Viewer {
       this.crop_end = this.media.frames;
       this.slider.clip_start(0);
       this.slider.clip_end(1);
+      track('Preview Replay');
     });
 
     this.media.on('error', (err) => {
