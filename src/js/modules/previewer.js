@@ -381,6 +381,7 @@ class Viewer {
       this.crop_start = this.last_frame;
       this.slider.clip_start(this.crop_start / this.media.frames);
       if (this.crop_end < this.crop_start) {
+        this.crop_end = this.media.frames;
         this.slider.clip_end(1);
       }
     });
@@ -390,6 +391,7 @@ class Viewer {
       this.crop_end = this.last_frame;
       this.slider.clip_end(this.crop_end / this.media.frames);
       if (this.crop_end < this.crop_start) {
+        this.crop_start = 0;
         this.slider.clip_start(0);
       }
     });
@@ -586,6 +588,10 @@ class Viewer {
     this.media.on('load', () => {
       this.show();
       this.media.set(0);
+      this.crop_start = 0;
+      this.crop_end = this.media.frames;
+      this.slider.clip_start(0);
+      this.slider.clip_end(1);
     });
 
     this.media.on('error', (err) => {
@@ -617,10 +623,6 @@ class Viewer {
       this.slider.set(ratio);
     });
 
-    this.crop_start = 0;
-    this.crop_end = this.media.frames;
-    this.slider.clip_start(0);
-    this.slider.clip_end(1);
     this._update();
   }
 
@@ -688,6 +690,24 @@ class Viewer {
     let control_padding = 26;
     // Resize control bar.
     $('#viewer-controls').width(width - control_padding);
+  }
+
+  set crop_start(val) {
+    logger.debug(`Setting crop start to ${val}`);
+    this._crop_start = val;
+  }
+
+  get crop_start() {
+    return this._crop_start;
+  }
+
+  set crop_end(val) {
+    logger.debug(`Setting crop end to ${val}`);
+    this._crop_end = val;
+  }
+
+  get crop_end() {
+    return this._crop_end;
   }
 }
 
