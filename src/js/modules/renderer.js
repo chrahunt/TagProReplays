@@ -81,7 +81,7 @@ class Renderer {
     // later.
     let clock = this.replay.clock.map(Date.parse);
     let start = clock[0];
-    let end = clock[1];
+    let end = clock[clock.length - 1];
     // Chat normalization, using frame in which chat was created
     // instead of one that we're rendering for player information.
     if (this.replay.chat) {
