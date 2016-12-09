@@ -44,6 +44,7 @@
   },
   "homepage": "https://github.com/chrahunt/TagProReplays#readme",
   "dependencies": {
+    "ajv": "^4.9.2",
     "bootstrap": "^3.3.7",
     "chrome-storage-promise": "^0.1.0",
     "debug": "^2.2.0",
