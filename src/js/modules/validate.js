@@ -1,4 +1,4 @@
-const Ajv = require('ajv');
+const get_ajv = require('./ajv-proxy');
 
 // Schema loading strategy, override in tests.
 exports.load_schema = (target) => {
@@ -144,36 +144,44 @@ class Validator {
 
     if (this.validators[version]) {
       let validator = this.validators[version];
-      let valid = validator.validate(version, replay);
-      if (!valid) {
-        return Promise.resolve({
-          failed: true,
-          code: 'schema validation failure',
-          reason: validator.errorsText()
-        });
-      }
-      if (version in semantic_validator) {
-        let valid = semantic_validator[version](replay);
+      return validator.validate(version, replay).then((valid) => {
         if (!valid) {
-          return Promise.resolve({
-            failed: true,
-            code: 'semantic validation failure',
-            reason: semantic_validator.errors
+          return validator.errorsText().then((text) => {
+            return {
+              failed: true,
+              code: 'schema validation failure',
+              reason: text
+            };
           });
+        } else if (version in semantic_validator) {
+          let valid = semantic_validator[version](replay);
+          if (!valid) {
+            return {
+              failed: true,
+              code: 'semantic validation failure',
+              reason: semantic_validator.errors
+            };
+          }
         }
-      }
-      return Promise.resolve({
-        failed: false
+        return {
+          failed: false
+        };
       });
     }
 
     return loadSchema(version).then((schemas) => {
-      let ajv = new Ajv();
-      ajv.addSchema(schemas.main, version);
-      for (let name in schemas.deps) {
-        ajv.addSchema(schemas.deps[name], name);
-      }
+      return get_ajv().then((ajv) => [ajv, schemas]);
+    }).then(([ajv, schemas]) => {
       this.validators[version] = ajv;
+      let additions = [
+        ajv.addSchema(schemas.main, version)
+      ];
+
+      for (let name in schemas.deps) {
+        additions.push(ajv.addSchema(schemas.deps[name], name));
+      }
+      return Promise.race(additions);
+    }).then(() => {
       return this.validate(replay);
     });
   }

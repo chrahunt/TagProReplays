@@ -730,6 +730,10 @@ function initMenu() {
             chrome.runtime.sendMessage({
                 method: 'replay.delete',
                 ids: ids
+            }, (result) => {
+                if (result.failed) {
+                    logger.error(`Error deleting replays: ${result.reason}`);
+                }
             });
         }
     }
@@ -822,47 +826,45 @@ function initMenu() {
     $(window).resize(setReplayListHeight);
     setReplayListHeight();
 
-    // Raw data import functionality.
-    /*
-     * Test a raw TagPro Replays data file for integrity and add to
-     * replays.
-     * fileData  the file data as read from the file input
-     * fileName  
-     */
-    rawParse = function (fileData, fileName, i, files) {
-        i++;
-        try {
-            var parsedData = JSON.parse(fileData);
-        } catch (err) {
-            alert('The file you uploaded was not a valid TagPro Replays raw file.');
-            return;
+    // Raw data import.
+    let resume;
+    $('#import-alert').on('hidden.bs.modal', () => {
+        if (resume) {
+            resume();
+            resume = null;
         }
+    });
 
-        // Test for necessary replay parts.
-        if (!parsedData.tiles | !parsedData.clock | !parsedData.floorTiles | !parsedData.map | !parsedData.wallMap) {
-            alert('The file you uploaded was not a valid TagPro Replays raw file.');
-        } else {
+    function showImportAlert(filename, reason) {
+        return new Promise((resolve, reject) => {
+            resume = resolve;
+            $('#import-alert .filename').text(filename);
+            $('#import-alert .reason').text(reason);
+            $('#import-alert').modal({
+                backdrop: false
+            });
+        });
+    }
+
+    function readImportedFile(files, i) {
+        if (i == files.length) return;
+        let file = files[i++];
+        return reader.readAsText(file).then((text) => {
             chrome.runtime.sendMessage({
                 method: 'replay.import',
-                name: fileName,
-                data: parsedData
+                name: file.name,
+                data: text
             }, function (response) {
-                logger.info(`Replay ${name} imported.`);
-                readImportedFile(files, i);
+                if (response.failed) {
+                    // Failed to import. Wait until confirmation.
+                    showImportAlert(file.name, response.reason).then(() => {
+                        readImportedFile(files, i);
+                    });
+                } else {
+                    logger.info(`Replay ${name} imported.`);
+                    readImportedFile(files, i);
+                }
             });
-        }
-    };
-    
-    // function for preparing a file to be read by the rawParse function
-    readImportedFile = function(files, i) {
-        if (i == files.length) return;
-        // Get file name from file or create.
-        var file_name = files[i].name.replace(/\.txt$/, '');
-        if (!file_name.includes('DATE') && !file_name.startsWith('replays')) {
-            file_name += 'DATE' + Date.now();
-        }
-        reader.readAsText(files[i]).then((text) => {
-            rawParse(text, file_name, i, files);
         });
     };
     

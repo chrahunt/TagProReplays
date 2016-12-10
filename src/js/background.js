@@ -9,6 +9,7 @@ const fs = require('./modules/filesystem');
 const get_renderer = require('./modules/renderer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
+const {validate} = require('./modules/validate');
 const Whammy = require('./modules/whammy');
 
 logger.info('Starting background page.');
@@ -589,6 +590,7 @@ let rendering = false;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let method = message.method;
   let tab = sender.tab.id;
+  let url = sender.url;
   logger.info(`Received ${method}.`);
 
   if (method == 'replay.get') {
@@ -656,7 +658,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.delete') {
-    let ids = message.ids;
+    let {ids} = message;
     delete_replays(ids).then(() => {
       // Remove metadata.
       for (let id of ids) {
@@ -679,23 +681,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.import') {
-    save_replay(message.name, message.data).then((id) => {
+    let {name, data} = message;
+    // Get file name from file or create.
+    name = name.replace(/\.txt$/, '');
+    if (!name.includes('DATE') && !name.startsWith('replays')) {
+        name += 'DATE' + Date.now();
+    }
+    try {
+      data = JSON.parse(data);
+    } catch(e) {
+      sendResponse({
+        failed: true,
+        reason: 'Replay is not valid JSON'
+      });
+      return false;
+    }
+    validate(data).then((result) => {
+      if (result.failed) {
+        throw new Error(`Validation error: ${result.code}; ${result.reason}`);
+      } else {
+        return save_replay(name, data);
+      }
+    }).then((id) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
         replay: make_replay_info(id, get_metadata(id))
       });
-      sendResponse();
+      sendResponse({
+        failed: false
+      });
+      track('Imported Replay', {
+        Failed: false
+      });
+    }).catch((err) => {
+      track('Imported Replay', {
+        Failed: true,
+        Reason: err.message,
+        Name: name
+      });
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
     });
     return true;
 
   } else if (method == 'replay.save_record') {
+    let {name, data} = message;
     try {
-      let data = JSON.parse(message.data);
-      data = trimReplay(data);
-      save_replay(message.name, data).then((id) => {
+      let parsed = JSON.parse(data);
+      parsed = trimReplay(parsed);
+      validate(parsed).then((result) => {
+        if (result.failed) {
+          throw new Error(`Validation error: ${result.code}; ${result.reason}`);
+        } else {
+          return save_replay(name, parsed);
+        }
+      }).then((id) => {
         get_replay_count().then((n) => {
           track("Recorded Replay", {
-            'Total Replays': n
+            Failed: false,
+            'Total Replays': n,
+            URL: url
           });
         });
         sendResponse({
@@ -703,12 +750,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       }).catch((err) => {
         logger.error('Error saving replay: ', err);
+        let blob = new Blob([data], { type: 'application/json' });
+        saveAs(blob, `${name}.txt`);
         sendResponse({
           failed: true
         });
       });
     } catch (e) {
       logger.error('Error saving replay: ', e);
+      track("Recorded Replay", {
+        Failed: true,
+        Reason: e.message,
+        URL: url
+      });
       sendResponse({
         failed: true
       });
