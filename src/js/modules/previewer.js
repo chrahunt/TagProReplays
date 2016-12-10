@@ -103,7 +103,7 @@ class Media extends EventEmitter {
     this.playTimer = setTimeout(function animate() {
       let {value, done} = reel.next();
       if (done) {
-        this.playing = false;
+        self.playing = false;
         self.emit('end');
         return;
       }
@@ -676,6 +676,7 @@ class Viewer {
       // Set slider.
       let ratio = this.last_frame / this.media.frames;
       this.slider.set(ratio);
+      this._update();
     });
 
     this._update();
