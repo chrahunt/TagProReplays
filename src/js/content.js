@@ -985,16 +985,20 @@ function listen(event, listener) {
 
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
+// Listens for recorded replay from recording script.
+// info is an object with:
+// @property {string} data  JSON formatted data
+// @property {string?} name  optional name
 listen('replay.save', function (info) {
-    logger.info('got position data from injected script. sending to background script')
+    logger.info('Received recording, sending to background page.');
     chrome.runtime.sendMessage({
         method: 'replay.save_record',
         data: info.data,
         name: info.name
     }, (result) => {
         emit('replay.saved', {
-            failed: result
-        })
+            failed: result.failed
+        });
     });
 });
 
