@@ -1,6 +1,7 @@
 // $ is implicit, we get injected into the page where it is available.
 const logger = require('./modules/logger')('recording');
 const Cookies = require('./modules/cookies');
+const saveAs = require('file-saver').saveAs;
 
 /**
  * Record and save the state of the game, emitting an event to the
@@ -557,9 +558,15 @@ function listen(event, listener) {
   });
 }
 
-// TODO: Check result.failed
 listen('replay.saved', function (result) {
   logger.info('Replay save confirmed.');
+  if (result.failed) {
+    $('savedFeedback').addClass('failed');
+    $('savedFeedback').text('Failed!');
+  } else {
+    $('savedFeedback').removeClass('failed');
+    $('savedFeedback').text('Saved!');
+  }}
   $(savedFeedback).fadeIn(300);
   $(savedFeedback).fadeOut(900);
 });
@@ -575,7 +582,7 @@ function recordButton() {
   }
   $('body').append(recordButton);
 
-  var savedFeedback = document.createElement('a');
+  var savedFeedback = document.createElement('div');
   savedFeedback.id = 'savedFeedback';
   savedFeedback.textContent = 'Saved!';
   $('body').append(savedFeedback);

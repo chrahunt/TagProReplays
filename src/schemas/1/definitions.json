@@ -1,0 +1,10 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Various definitions used in multiple schema files.",
+  "team": {
+    "type": "integer",
+    "title": "Team.",
+    "description": "Specifies team relevant to object, 1 for red or 2 for blue",
+    "enum": [1, 2]
+  }
+}
