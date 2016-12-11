@@ -584,6 +584,22 @@ function make_replay_list(ids, rendered_ids, metadata) {
   return replays;
 }
 
+// Generate a new replay name.
+// Current default is: {count:0>4}_replay_{timestamp}
+function get_new_replay_name() {
+  let prefix_length = 4;
+  // We'll just keep it in localStorage, not super critical.
+  if (!localStorage.getItem('counter')) {
+    localStorage.setItem('counter', '1');
+  }
+  let max_val = Math.pow(10, prefix_length);
+  let current = Math.max(Number(localStorage.getItem('counter')) % max_val, 1);
+  let prefix = ('0'.repeat(prefix_length) + current).slice(-prefix_length);
+  localStorage.setItem('counter', ++current);
+  let timestamp = Date.now();
+  return `${prefix}_replay_${timestamp}`;
+}
+
 var title;
 // Guard against multi-page rendering.
 let rendering = false;
@@ -728,6 +744,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   } else if (method == 'replay.save_record') {
     let {name, data} = message;
+    if (!name) {
+      name = get_new_replay_name();
+    }
+    // We store date recorded in the name of the replay.
+    name = `${name}DATE${Date.now()}`;
     try {
       let parsed = JSON.parse(data);
       parsed = trimReplay(parsed);

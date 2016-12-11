@@ -546,8 +546,7 @@ function saveReplayData(positions) {
   var data = JSON.stringify(positions);
   logger.info('Sending replay to content script.');
   emit('replay.save', {
-    data: data,
-    name: `replays${Date.now()}`
+    data: data
   });
 }
 
@@ -566,7 +565,7 @@ listen('replay.saved', function (result) {
   } else {
     $('savedFeedback').removeClass('failed');
     $('savedFeedback').text('Saved!');
-  }}
+  }
   $(savedFeedback).fadeIn(300);
   $(savedFeedback).fadeOut(900);
 });
