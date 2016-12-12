@@ -749,45 +749,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     // We store date recorded in the name of the replay.
     name = `${name}DATE${Date.now()}`;
-    try {
-      let parsed = JSON.parse(data);
+    Promise.resolve(data)
+    .then(JSON.parse)
+    .then((parsed) => {
       parsed = trimReplay(parsed);
-      validate(parsed).then((result) => {
-        if (result.failed) {
+      return validate(parsed).then((result) => {
+        if (result.failed)
           throw new Error(`Validation error: ${result.code}; ${result.reason}`);
-        } else {
-          return save_replay(name, parsed);
-        }
-      }).then((id) => {
-        get_replay_count().then((n) => {
-          track("Recorded Replay", {
-            Failed: false,
-            'Total Replays': n,
-            URL: url
-          });
-        });
-        sendResponse({
-          failed: false
-        });
-      }).catch((err) => {
-        logger.error('Error saving replay: ', err);
-        let blob = new Blob([data], { type: 'application/json' });
-        saveAs(blob, `${name}.txt`);
-        sendResponse({
-          failed: true
+        return save_replay(name, parsed);
+      });
+    })
+    .then(validate)
+    .then((id) => {
+      get_replay_count().then((n) => {
+        track("Recorded Replay", {
+          Failed: false,
+          'Total Replays': n,
+          URL: url
         });
       });
-    } catch (e) {
-      logger.error('Error saving replay: ', e);
+      sendResponse({
+        failed: false
+      });
+    }).catch((err) => {
+      logger.error('Error saving replay: ', err);
+      let blob = new Blob([data], { type: 'application/json' });
+      saveAs(blob, `${name}.txt`);
       track("Recorded Replay", {
         Failed: true,
-        Reason: e.message,
+        Reason: err.message,
         URL: url
       });
       sendResponse({
         failed: true
       });
-    }
+    });
     return true;
 
   } else if (method == 'replay.list') {
