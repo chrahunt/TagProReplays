@@ -67,7 +67,7 @@
           "description": "New chat format introduced to fix #104",
           "properties": {
             "auth": {
-              "type": "boolean"
+              "type": ["boolean", "null"]
             },
             "c": {
               "description": "Optional text color.",
