@@ -31,7 +31,11 @@ class Renderer {
     context = canvas.getContext('2d');
     options = these_options;
     render_state = {
-      splats: {}
+      splats: {},
+      text_cache: {
+        pretty_text: {},
+        very_pretty_text: {}
+      }
     };
     this.canvas = canvas;
     this.replay = replay;
@@ -56,7 +60,7 @@ class Renderer {
   draw(frame) {
     let t0 = performance.now();
     animateReplay(frame, this.replay, this.map, this.options.spin,
-      this.options.splats, this.options.ui, this.options.chats);
+      this.options.splats, this.options.ui, this.options.chat);
     let t1 = performance.now();
     this.total_render_time += t1 - t0;
     this.rendered_frames++;
@@ -77,7 +81,7 @@ class Renderer {
     // later.
     let clock = this.replay.clock.map(Date.parse);
     let start = clock[0];
-    let end = clock[1];
+    let end = clock[clock.length - 1];
     // Chat normalization, using frame in which chat was created
     // instead of one that we're rendering for player information.
     if (this.replay.chat) {
@@ -116,42 +120,47 @@ module.exports = (canvas, replay, options = {}) => {
   return renderer.ready().then(() => renderer);
 };
 
-function drawText(ballname, namex, namey, auth, degree) {
+function drawName(name, auth, x, y) {
+  let color = auth ? '#bfff00' : '#ffffff';
+  let pos = [x + 20, y - 21];
+  veryPrettyText(name, pos[0], pos[1], color);
+}
+
+function drawDegree(degree, x, y) {
+  if (!degree) return;
+  let text = `${degree}°`;
+  let pos = [x + 25, y - 10];
+  veryPrettyText(text, pos[0], pos[1]);
+}
+
+function drawFlair(flair, x, y) {
+  if (!flair) return;
+  context.drawImage(textures.flair,
+    flair.x * 16, flair.y * 16,
+    16, 16,
+    x + 12, y - 17,
+    16, 16);
+}
+
+function veryPrettyText(text, x, y, color) {
   context.textAlign = 'left';
-  context.fillStyle = (auth == true) ? "#BFFF00"
-                                     : "#ffffff";
+  context.fillStyle = color || '#ffffff';
   context.strokeStyle = "#000000";
   context.shadowColor = "#000000";
   context.shadowOffsetX = 0;
   context.shadowOffsetY = 0;
   context.lineWidth = 2;
-  context.font = "bold 8pt Arial";
+  context.font = "bold 8pt arial";
   context.shadowBlur = 10;
-  context.strokeText(ballname, namex + 3, namey);
-  if (typeof degree != "undefined" && degree != 0) {
-    context.strokeText(degree + "°", namex + 10, namey + 12);
-  }
+  context.strokeText(text, x + 16, y + 16);
   context.shadowBlur = 0;
-  context.fillText(ballname, namex + 3, namey);
-  if (typeof degree != "undefined" && degree != 0) {
-    context.fillStyle = "#ffffff";
-    context.fillText(degree + "°", namex + 10, namey + 12);
-  }
-}
-
-function drawFlair(ballFlair, flairx, flairy) {
-  if (ballFlair !== null) {
-    context.drawImage(textures.flair,
-      ballFlair.x * 16, ballFlair.y * 16,
-      16, 16,
-      flairx, flairy,
-      16, 16);
-  }
+  context.fillText(text, x + 16, y + 16);
+  return context.measureText(text).width;
 }
 
 function prettyText(text, textx, texty, color) {
   context.textAlign = 'left';
-  context.fillStyle = color;
+  context.fillStyle = color || '#ffffff';
   context.strokeStyle = "#000000";
   context.shadowColor = "#000000";
   context.shadowOffsetX = 0;
@@ -808,17 +817,20 @@ function drawBalls(positions) {
   // what team?
   let team = Array.isArray(player.team) ? player.team[frame]
                                         : player.team;
+  let center_x = context.canvas.width / 2;
+  let center_y = context.canvas.height / 2;
+  let player_x = center_x - TILE_SIZE / 2;
+  let player_y = center_y - TILE_SIZE / 2;
   if (!player.dead[frame]) {
     // draw own ball with or without spin
     if (!options.spin || typeof player.angle === 'undefined') {
       context.drawImage(textures.tiles,
         (team == 1 ? 14 : 15) * TILE_SIZE, 0,
         TILE_SIZE, TILE_SIZE,
-        context.canvas.width / 2 - TILE_SIZE / 2,
-        context.canvas.height / 2 - TILE_SIZE / 2,
+        player_x, player_y,
         TILE_SIZE, TILE_SIZE);
     } else {
-      context.translate(context.canvas.width / 2, context.canvas.height / 2);
+      context.translate(center_x, center_y);
       context.rotate(player.angle[frame]);
       context.drawImage(textures.tiles,
         (team == 1 ? 14 : 15) * TILE_SIZE, 0,
@@ -827,22 +839,17 @@ function drawBalls(positions) {
         TILE_SIZE,
         TILE_SIZE);
       context.rotate(-player.angle[frame]);
-      context.translate(-context.canvas.width / 2, -context.canvas.height / 2);
+      context.translate(-center_x, -center_y);
     }
 
-    drawPowerups(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
-    drawFlag(me, context.canvas.width / 2 - TILE_SIZE / 2, context.canvas.height / 2 - TILE_SIZE / 2, positions)
+    drawPowerups(me, player_x, player_y, positions);
+    drawFlag(me, player_x, player_y, positions);
     let name = Array.isArray(player.name) ? player.name[frame]
                                           : player.name;
-    drawText(name,
-      context.canvas.width / 2 - TILE_SIZE / 2 + 30,
-      context.canvas.height / 2 - TILE_SIZE / 2 - 5,
-      (typeof player.auth != 'undefined') ? player.auth[frame] : undefined,
-      (typeof player.degree != 'undefined') ? player.degree[frame] : undefined)
-    if (typeof player.flair !== 'undefined') {
-      drawFlair(positions[me].flair[frame],
-        context.canvas.width / 2 - 16 / 2,
-        context.canvas.height / 2 - TILE_SIZE / 2 - 17)
+    drawName(name, player.auth[frame], player_x, player_y);
+    drawDegree(player.degree[frame], player_x, player_y);
+    if (player.flair) {
+      drawFlair(player.flair[frame], player_x, player_y);
     }
   }
   ballPop(positions, me)
@@ -853,6 +860,8 @@ function drawBalls(positions) {
     if (!j.startsWith('player')) continue;
     if (j == me) continue;
     let player = positions[j];
+    let x = player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2;
+    let y = player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2;
     if (!player.dead[frame] && player.draw[frame]) {
       if (frame == 0 || player.draw[frame - 1] == true) {
         if ((player.dead[frame - 1] &&
@@ -866,8 +875,7 @@ function drawBalls(positions) {
             context.drawImage(textures.tiles,
               (team == 1 ? 14 : 15) * TILE_SIZE, 0,
               TILE_SIZE, TILE_SIZE,
-              player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2,
-              player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2,
+              x, y,
               TILE_SIZE, TILE_SIZE);
           } else {
             context.translate(
@@ -885,23 +893,15 @@ function drawBalls(positions) {
               -(player.y[frame] - positions[me].y[frame] + context.canvas.height / 2));
           }
 
-          drawPowerups(j,
-            player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2,
-            player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2, positions)
-          drawFlag(j,
-            player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2,
-            player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2, positions)
+          drawPowerups(j, x, y, positions);
+          drawFlag(j, x, y, positions);
           let name = Array.isArray(player.name) ? player.name[frame]
                                                 : player.name;
-          drawText(name,
-            player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2 + 30,
-            player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2 - 5,
-            (typeof player.auth != 'undefined') ? player.auth[frame] : undefined,
-            (typeof player.degree != 'undefined') ? player.degree[frame] : undefined)
+                                            
+          drawName(name, player.auth[frame], x, y);
+          drawDegree(player.degree[frame], x, y);
           if (typeof player.flair !== 'undefined') {
-            drawFlair(player.flair[frame],
-              player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - 16 / 2,
-              player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2 - 20);
+            drawFlair(player.flair[frame], x, y);
           }
           rollingBombPop(positions, j);
         }

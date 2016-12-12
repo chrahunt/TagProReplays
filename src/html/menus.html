@@ -1,231 +1,297 @@
 <!-- Main Menu -->
 <div class="modal fade" id="menuContainer">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">TagPro Replays</h4>
-            </div>
-            <div class="modal-body">
-                <div class="dialog-header">
-                    <a class="pull-right" id="tpr-settings" data-toggle="modal" data-target="#settingsContainer"><span
-                            class="glyphicon glyphicon-cog"></span></a>
-                    <h3>Available Replays</h3>
-                </div>
-                <div id="replays">
-                    <table class="table table-condensed" id="replay-headers">
-                        <thead>
-                        <tr>
-                            <th class="col-sm-1"><input type="checkbox" id="selectAllCheckbox" style="float:right;"></th>
-                            <th class="col-sm-3" id="nameHeader">Name</th>
-                            <th class="col-sm-1" id="renderedHeader">Rendered</th>
-                            <th class="col-sm-1" id="durationHeader">Duration</th>
-                            <th class="col-sm-2" id="dateHeader">Date</th>
-                            <th class="col-sm-1">Movie</th>
-                            <th class="col-sm-1"></th>
-                        </tr>
-                        </thead>
-                    </table>
-                    <div id="replaysLoading">
-                        <div class="sk-spinner sk-spinner-wave">
-                            <div class="sk-rect1"></div>
-                            <div class="sk-rect2"></div>
-                            <div class="sk-rect3"></div>
-                            <div class="sk-rect4"></div>
-                            <div class="sk-rect5"></div>
-                        </div>
-                    </div>
-                    <div id="noReplays" class="text-center">
-                        <p>You don't have any replays saved. Go record some!</p>
-                    </div>
-                    <div id="replayList">
-                        <table class="table table-condensed">
-                            <tbody>
-                            <tr class="replayRow clone">
-                                <td class="text-right"><input type="checkbox" class="selected-checkbox"></td>
-                                <td class="col-sm-3"><a class="playback-link" data-toggle="popover" href="#"></a></td>
-                                <td class="col-sm-1">
-                                    <div class="rendered-check"></div>
-                                </td>
-                                <td class="col-sm-1">
-                                	<div class="duration"></div>
-                                </td>
-                                <td class="col-sm-2">
-                                    <txt class="replay-date"></txt>
-                                </td>
-                                <td class="col-sm-1">
-                                    <button class="download-movie-button">Download</button>
-                                </td>
-                                <!--
-                                <td class="col-sm-1">
-                                    <button class="download-button">Download</button>
-                                </td>
-                                -->
-                                <td class="col-sm-1">
-                                    <button class="rename-button">Rename</button>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div class="pull-left">
-                    <button type="button" class="btn btn-danger" id="deleteSelectedButton">Delete Selected</button>
-                    <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
-                    <button type="button" class="btn btn-primary" id="downloadRawButton">Download Raw Data</button>
-                </div>
-                <div class="pull-right">
-                    <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
-                    <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input" multiple="multiple">
-                </div>
-            </div>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">TagPro Replays</h4>
+      </div>
+      <div class="modal-body">
+        <div class="dialog-header">
+          <a class="pull-right" id="tpr-settings" data-toggle="modal" data-target="#settingsContainer">
+            <span class="glyphicon glyphicon-cog"></span>
+          </a>
+          <h3>Available Replays</h3>
         </div>
+        <div id="replays">
+          <table class="table table-condensed" id="replay-headers">
+            <thead>
+              <tr>
+                <th class="col-sm-1"><input type="checkbox" id="selectAllCheckbox" style="float:right;"></th>
+                <th class="col-sm-3" id="nameHeader">Name</th>
+                <th class="col-sm-1" id="renderedHeader">Rendered</th>
+                <th class="col-sm-1" id="durationHeader">Duration</th>
+                <th class="col-sm-2" id="dateHeader">Date</th>
+                <th class="col-sm-1">Movie</th>
+                <th class="col-sm-1"></th>
+              </tr>
+            </thead>
+          </table>
+          <div id="replaysLoading">
+            <div class="sk-spinner sk-spinner-wave">
+              <div class="sk-rect1"></div>
+              <div class="sk-rect2"></div>
+              <div class="sk-rect3"></div>
+              <div class="sk-rect4"></div>
+              <div class="sk-rect5"></div>
+            </div>
+          </div>
+          <div id="noReplays" class="text-center">
+            <p>You don't have any replays saved. Go record some!</p>
+          </div>
+          <div id="replayList">
+            <table class="table table-condensed">
+              <tbody>
+                <tr class="replayRow clone">
+                  <td class="text-right"><input type="checkbox" class="selected-checkbox"></td>
+                  <td class="col-sm-3">
+                    <a class="playback-link" data-toggle="popover" href="#"></a>
+                  </td>
+                  <td class="col-sm-1">
+                    <div class="rendered-check"></div>
+                  </td>
+                  <td class="col-sm-1">
+                    <div class="duration"></div>
+                  </td>
+                  <td class="col-sm-2">
+                    <txt class="replay-date"></txt>
+                  </td>
+                  <td class="col-sm-1">
+                    <button class="download-movie-button">Download</button>
+                  </td>
+                  <!--
+                  <td class="col-sm-1">
+                      <button class="download-button">Download</button>
+                  </td>
+                  -->
+                  <td class="col-sm-1">
+                    <button class="rename-button">Rename</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="pull-left">
+          <button type="button" class="btn btn-danger" id="deleteSelectedButton">Delete Selected</button>
+          <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
+          <button type="button" class="btn btn-primary" id="downloadRawButton">Download Raw Data</button>
+        </div>
+        <div class="pull-right">
+          <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
+          <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input" multiple="multiple">
+        </div>
+      </div>
     </div>
+  </div>
+</div>
+<!-- Import alert -->
+<div class="modal fade" id="import-alert">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        Import error
+      </div>
+      <div class="modal-body">
+        Your replay (<span class="filename"></span>) had a problem:
+        <span class="reason"></span>
+        If you believe this was in error then upload your replay to <a href="http://dropcanvas.com">dropcanvas</a> and make an issue <a href="https://github.com/chrahunt/TagProReplays/issues">here</a> with the link and message above.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 <!-- Settings -->
 <div class="modal fade" id="settingsContainer">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title" id="settings-title">TagPro Replays</h4>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title" id="settings-title">TagPro Replays</h4>
+      </div>
+      <div class="modal-body">
+        <h3>Settings</h3>
+        <div class="row form-horizontal" id="settings-form">
+          <div class="col-sm-12 text-center">
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="recordCheckbox"> Extension Enabled
+              </label>
             </div>
-            <div class="modal-body">
-                <h3>Settings</h3>
-
-                <div class="row form-horizontal" id="settings-form">
-                    <div class="col-sm-12 text-center">
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="recordCheckbox"> Extension Enabled
-                            </label>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 text-center">
-                        <h4>Recording</h4>
-
-                        <div class="form-group">
-                            <label for="fpsInput" class="control-label-sm col-sm-6">FPS:</label>
-
-                            <div class="col-sm-4">
-                                <input type="text" class="form-control input-xs narrow-input" id="fpsInput">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="durationInput" class="control-label-sm col-sm-6">Duration:</label>
-
-                            <div class="col-sm-4">
-                                <input type="text" class="form-control input-xs narrow-input" id="durationInput">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="recordKeyChooserInput" class="control-label-sm col-sm-6">Record Key:</label>
-
-                            <div class="col-sm-4">
+          </div>
+          <div class="col-sm-6 text-center">
+            <h4>Recording</h4>
+            <div class="form-group">
+              <label for="fpsInput" class="control-label-sm col-sm-6">FPS:</label>
+              <div class="col-sm-4">
+                <input type="text" class="form-control input-xs narrow-input" id="fpsInput">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="durationInput" class="control-label-sm col-sm-6">Duration:</label>
+              <div class="col-sm-4">
+                <input type="text" class="form-control input-xs narrow-input" id="durationInput">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="recordKeyChooserInput" class="control-label-sm col-sm-6">Record Key:</label>
+              <div class="col-sm-4">
                 <span class="form-control input-xs narrow-input" id="record-key-input-container">
                   <span id="recordKeyChooserInput"></span>
-                  <span class="glyphicon glyphicon-remove pull-right" id="record-key-remove"></span>
+                <span class="glyphicon glyphicon-remove pull-right" id="record-key-remove"></span>
                 </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 text-center">
-                        <h4>Rendering</h4>
-
-						<div class="form-group">
-                            <label>
-                                <input type="checkbox" id="useSpinCheckbox"> Show Spin
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="useSplatsCheckbox"> Show Splats
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="useClockAndScoreCheckbox"> Show Clock and Score
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="useChatCheckbox"> Show Chat
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label class="col-sm-12">
-                                <input type="checkbox" id="useTextureCheckbox"> Use Custom Textures
-                            </label>
-                            <button data-toggle="modal" data-target="#textureContainer">Load Textures</button>
-                        </div>
-                        <div class="form-group">
-                            <label for="canvasWidthInput" class="control-label-sm col-sm-6">Canvas Width:</label>
-
-                            <div class="col-sm-4">
-                                <input type="text" class="form-control input-xs narrow-input" id="canvasWidthInput">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="canvasHeightInput" class="control-label-sm col-sm-6">Canvas Height:</label>
-
-                            <div class="col-sm-4">
-                                <input type="text" class="form-control input-xs narrow-input" id="canvasHeightInput">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="saveSettingsButton">Save changes</button>
+          </div>
+          <div class="col-sm-6 text-center">
+            <h4>Rendering</h4>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="useSpinCheckbox"> Show Spin
+              </label>
             </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="useSplatsCheckbox"> Show Splats
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="useClockAndScoreCheckbox"> Show Clock and Score
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="useChatCheckbox"> Show Chat
+              </label>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-12">
+                <input type="checkbox" id="useTextureCheckbox"> Use Custom Textures
+              </label>
+              <button data-toggle="modal" data-target="#textureContainer">Load Textures</button>
+            </div>
+            <div class="form-group">
+              <label for="canvasWidthInput" class="control-label-sm col-sm-6">Canvas Width:</label>
+              <div class="col-sm-4">
+                <input type="text" class="form-control input-xs narrow-input" id="canvasWidthInput">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="canvasHeightInput" class="control-label-sm col-sm-6">Canvas Height:</label>
+              <div class="col-sm-4">
+                <input type="text" class="form-control input-xs narrow-input" id="canvasHeightInput">
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsButton">Save changes</button>
+      </div>
     </div>
+  </div>
 </div>
 <!-- Texture Picker -->
 <div class="modal fade" id="textureContainer">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">TagPro Replays</h4>
-            </div>
-            <div class="modal-body">
-                <h3>Select Texture Files</h3>
-
-                <div class="form" id="texture-form">
-                    <div class="form-group">
-                        <label for="tilesInput" class="control-label">Tiles File</label>
-                        <input type="file" id="tilesInput">
-                    </div>
-                    <div class="form-group">
-                        <label for="portalInput" class="control-label">Portal File</label>
-                        <input type="file" id="portalInput">
-                    </div>
-                    <div class="form-group">
-                        <label for="speedpadInput" class="control-label">Speedpad File</label>
-                        <input type="file" id="speedpadInput">
-                    </div>
-                    <div class="form-group">
-                        <label for="speedpadredInput" class="control-label">Red Speedpad File</label>
-                        <input type="file" id="speedpadredInput">
-                    </div>
-                    <div class="form-group">
-                        <label for="speedpadblueInput" class="control-label">Blue Speedpad File</label>
-                        <input type="file" id="speedpadblueInput">
-                    </div>
-                    <div class="form-group">
-                        <label for="splatsInput" class="control-label">Splats File</label>
-                        <input type="file" id="splatsInput">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="textureSaveButton">Save changes</button>
-            </div>
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">TagPro Replays</h4>
+      </div>
+      <div class="modal-body">
+        <h3>Select Texture Files</h3>
+        <div class="form" id="texture-form">
+          <div class="form-group">
+            <label for="tilesInput" class="control-label">Tiles File</label>
+            <input type="file" id="tilesInput">
+          </div>
+          <div class="form-group">
+            <label for="portalInput" class="control-label">Portal File</label>
+            <input type="file" id="portalInput">
+          </div>
+          <div class="form-group">
+            <label for="speedpadInput" class="control-label">Speedpad File</label>
+            <input type="file" id="speedpadInput">
+          </div>
+          <div class="form-group">
+            <label for="speedpadredInput" class="control-label">Red Speedpad File</label>
+            <input type="file" id="speedpadredInput">
+          </div>
+          <div class="form-group">
+            <label for="speedpadblueInput" class="control-label">Blue Speedpad File</label>
+            <input type="file" id="speedpadblueInput">
+          </div>
+          <div class="form-group">
+            <label for="splatsInput" class="control-label">Splats File</label>
+            <input type="file" id="splatsInput">
+          </div>
         </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="textureSaveButton">Save changes</button>
+      </div>
     </div>
+  </div>
+</div>
+<div id="tpr-viewer-container">
+  <!-- In-Browser Preview Viewer -->
+  <div id="tpr-viewer">
+    <div id="viewer-background">
+      <div id="viewer-container">
+        <div id="viewer-screen">
+          <canvas id="viewer-canvas" width="1280" height="800"></canvas>
+        </div>
+        <div id="viewer-control-container" class="active">
+          <div id="viewer-controls">
+            <div class="tpr-progress-container">
+              <div class="tpr-progress-bar">
+                <div class="progress-padding"></div>
+                <div class="progress-list">
+                  <div class="progress-slider"></div>
+                  <div class="progress-crop progress-crop-start"></div>
+                  <div class="progress-crop-dismiss-container progress-crop-dismiss-start">
+                    <div class="progress-crop-dismiss">
+                      <span class="glyphicon glyphicon-remove"></span>
+                    </div>
+                  </div>
+                  <div class="progress-crop progress-crop-end"></div>
+                  <div class="progress-crop-dismiss-container progress-crop-dismiss-end">
+                    <div class="progress-crop-dismiss">
+                      <span class="glyphicon glyphicon-remove"></span>
+                    </div>
+                  </div>
+                  <div class="progress-scrubber-container">
+                    <div class="progress-scrubber"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="viewer-buttons">
+              <div class="tpr-button tpr-button-play"><span class="glyphicon glyphicon-play"></span></div>
+              <div class="tpr-button tpr-button-pause"><span class="glyphicon glyphicon-pause"></span></div>
+              <div class="tpr-button tpr-button-replay"><span class="glyphicon glyphicon-repeat"></span></div>
+              <!--<div class="tpr-button tpr-button-stop"><span class="glyphicon glyphicon-stop"></span></div>-->
+              <div class="tpr-button tpr-button-crop-start" data-toggle="tooltip" data-placement="bottom" title="Set trim start."><span class="glyphicon glyphicon-chevron-right"></span></div>
+              <div class="tpr-button tpr-button-crop-end" data-toggle="tooltip" data-placement="bottom" title="Set trim end."><span class="glyphicon glyphicon-chevron-left"></span></div>
+              <div class="tpr-button tpr-button-crop-play" data-toggle="tooltip" data-placement="bottom" title="Preview trimmed replay."><span class="glyphicon glyphicon-eye-open"></span></div>
+              <div class="tpr-button tpr-button-rename" data-toggle="tooltip" data-placement="bottom" title="Rename this replay."><span class="glyphicon glyphicon-pencil"></span></div>
+              <div class="tpr-button tpr-button-delete" data-toggle="tooltip" data-placement="bottom" title="Delete this replay."><span class="glyphicon glyphicon-trash"></span></div>
+              <!--<div class="tpr-button tpr-button-record" data-toggle="tooltip" data-placement="bottom" title="Start recording the replay."><span class="glyphicon glyphicon-record"></span></div>-->
+              <div class="tpr-option tpr-button-crop" data-toggle="tooltip" data-placement="bottom" title="Trim and save as a new replay.">Save As</div>
+              <div class="tpr-option tpr-button-crop-replace" data-toggle="tooltip" data-placement="bottom" title="Trim and replace this replay.">Save</div>
+              <!--<div class="tpr-option tpr-button-render" data-toggle="tooltip" data-placement="bottom" title="Renders the current replay.">Render</div>-->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -11,7 +11,7 @@ const moment = require('moment');
 
 const logger = require('./modules/logger')('content');
 const Cookies = require('./modules/cookies');
-const Preview = require('./modules/previewer');
+const {Viewer} = require('./modules/previewer');
 const Textures = require('./modules/textures');
 const track = require('./modules/track');
 
@@ -102,7 +102,7 @@ function injectMenu() {
             insert_point = $('article');
         }
         // Create Container for Replay Menu.
-        insert_point.append('<div id="tpr-container" class="bootstrap-container">');
+        insert_point.append('<div id="tpr-container" class="bootstrap-container jquery-ui-container">');
 
         // Retrieve html of all items
         $('#tpr-container').load(
@@ -638,12 +638,15 @@ let replay_table = new Table({
     }
 });
 
+let viewer = new Viewer();
+
 // Initialize the menu.
 function initMenu() {
     logger.info("Menu loaded.");
     modalFix();
     initSettings();
     replay_table.init();
+    viewer.init();
 
     let menu_opened = false;
     // Update list of replays when menu is opened.
@@ -727,6 +730,10 @@ function initMenu() {
             chrome.runtime.sendMessage({
                 method: 'replay.delete',
                 ids: ids
+            }, (result) => {
+                if (result.failed) {
+                    logger.error(`Error deleting replays: ${result.reason}`);
+                }
             });
         }
     }
@@ -748,7 +755,7 @@ function initMenu() {
         logger.info(`Playback link clicked for ${id}`);
         let info = replay_table.get_replay_data(id);
         $('#menuContainer').hide();
-        Preview(info);
+        viewer.load(info);
     });
 
     $('#replayList').on('click', '.download-movie-button', (e) => {
@@ -819,47 +826,45 @@ function initMenu() {
     $(window).resize(setReplayListHeight);
     setReplayListHeight();
 
-    // Raw data import functionality.
-    /*
-     * Test a raw TagPro Replays data file for integrity and add to
-     * replays.
-     * fileData  the file data as read from the file input
-     * fileName  
-     */
-    rawParse = function (fileData, fileName, i, files) {
-        i++;
-        try {
-            var parsedData = JSON.parse(fileData);
-        } catch (err) {
-            alert('The file you uploaded was not a valid TagPro Replays raw file.');
-            return;
+    // Raw data import.
+    let resume;
+    $('#import-alert').on('hidden.bs.modal', () => {
+        if (resume) {
+            resume();
+            resume = null;
         }
+    });
 
-        // Test for necessary replay parts.
-        if (!parsedData.tiles | !parsedData.clock | !parsedData.floorTiles | !parsedData.map | !parsedData.wallMap) {
-            alert('The file you uploaded was not a valid TagPro Replays raw file.');
-        } else {
+    function showImportAlert(filename, reason) {
+        return new Promise((resolve, reject) => {
+            resume = resolve;
+            $('#import-alert .filename').text(filename);
+            $('#import-alert .reason').text(reason);
+            $('#import-alert').modal({
+                backdrop: false
+            });
+        });
+    }
+
+    function readImportedFile(files, i) {
+        if (i == files.length) return;
+        let file = files[i++];
+        return reader.readAsText(file).then((text) => {
             chrome.runtime.sendMessage({
                 method: 'replay.import',
-                name: fileName,
-                data: parsedData
+                name: file.name,
+                data: text
             }, function (response) {
-                logger.info(`Replay ${name} imported.`);
-                readImportedFile(files, i);
+                if (response.failed) {
+                    // Failed to import. Wait until confirmation.
+                    showImportAlert(file.name, response.reason).then(() => {
+                        readImportedFile(files, i);
+                    });
+                } else {
+                    logger.info(`Replay ${name} imported.`);
+                    readImportedFile(files, i);
+                }
             });
-        }
-    };
-    
-    // function for preparing a file to be read by the rawParse function
-    readImportedFile = function(files, i) {
-        if (i == files.length) return;
-        // Get file name from file or create.
-        var file_name = files[i].name.replace(/\.txt$/, '');
-        if (!file_name.includes('DATE') && !file_name.startsWith('replays')) {
-            file_name += 'DATE' + Date.now();
-        }
-        reader.readAsText(files[i]).then((text) => {
-            rawParse(text, file_name, i, files);
         });
     };
     
@@ -980,16 +985,20 @@ function listen(event, listener) {
 
 // set up listener for info from injected script
 // if we receive data, send it along to the background script for storage
+// Listens for recorded replay from recording script.
+// info is an object with:
+// @property {string} data  JSON formatted data
+// @property {string?} name  optional name
 listen('replay.save', function (info) {
-    logger.info('got position data from injected script. sending to background script')
+    logger.info('Received recording, sending to background page.');
     chrome.runtime.sendMessage({
         method: 'replay.save_record',
         data: info.data,
         name: info.name
     }, (result) => {
         emit('replay.saved', {
-            failed: result
-        })
+            failed: result.failed
+        });
     });
 });
 

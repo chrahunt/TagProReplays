@@ -1,0 +1,361 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "Replay Data Version 1.",
+  "description": "Represents the state of replay objects as stored in IndexedDB v1/2 and exported replays.",
+  "definitions": {
+    "bombInstance": {
+      "type": "object",
+      "description": "Instance of an explosion.",
+      "properties": {
+        "time": { "$ref": "#/definitions/stringTime" },
+        "type": {
+          "type": "integer",
+          "enum": [1, 2, 3]
+        },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "bombAnimation": {
+          "description": "Unnecessary property added by rendering."
+        }
+      },
+      "required": [
+        "time",
+        "type",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "chatInstance": {
+      "title": "Chat Message.",
+      "description": "Information about a message sent to the player via chat.",
+      "oneOf": [{
+          "type": "object",
+          "properties": {
+            "c": {
+              "description": "Optional text color.",
+              "type": "string"
+            },
+            "from": {
+              "type": ["string", "integer", "null"]
+            },
+            "message": { "type": "string" },
+            "mod": {
+              "description": "Optional mod parameter.",
+              "type": "boolean"
+            },
+            "removeAt": {
+              "description": "The time at which to remove the chat, 30s after it was sent. May not be present if replay was made while 3.0 bug was present.",
+              "$ref": "#/definitions/epochTime"
+            },
+            "shake": { "type": "boolean" },
+            "to": {
+              "id": "to",
+              "type": "string",
+              "enum": ["all", "team", "group"]
+            }
+          },
+          "required": [
+            "from",
+            "message",
+            "to"
+          ],
+          "additionalProperties": false
+        }, {
+          "type": "object",
+          "description": "New chat format introduced to fix #104",
+          "properties": {
+            "auth": {
+              "type": ["boolean", "null"]
+            },
+            "c": {
+              "description": "Optional text color.",
+              "type": "string"
+            },
+            "from": {
+              "type": ["string", "integer", "null"]
+            },
+            "message": { "type": "string" },
+            "mod": {
+              "description": "Optional mod parameter.",
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "removeAt": {
+              "description": "The time at which to remove the chat, 30s after it was sent. May not be present if replay was made while 3.0 bug was present.",
+              "$ref": "#/definitions/epochTime"
+            },
+            "shake": { "type": "boolean" },
+            "team": {
+              "$ref": "definitions.json#/team"
+            },
+            "to": {
+              "id": "to",
+              "type": "string",
+              "enum": ["all", "team", "group"]
+            }
+          },
+          "required": [
+            "auth",
+            "from",
+            "message",
+            "name",
+            "team",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Extraneous sound packet seen in some old replays.",
+          "type": "object",
+          "properties": {
+            "s": { "type": "string" },
+            "v": { "type": "number" },
+            "removeAt": { "type": "integer" }
+          },
+          "required": [
+            "s",
+            "v",
+            "removeAt"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "spawn": {
+      "type": "object",
+      "title": "Spawn Event.",
+      "description": "Information about a player spawning.",
+      "properties": {
+        "t": { "$ref": "definitions.json#/team" },
+        "w": {
+          "title": "Wait Time.",
+          "description": "Time before player spawns after spawn position appears.",
+          "type": "integer"
+        },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "time": { "$ref": "#/definitions/stringTime" }
+      },
+      "required": [
+        "t",
+        "w",
+        "x",
+        "y",
+        "time"
+      ],
+      "additionalProperties": false
+    },
+    "score": {
+      "title": "Score Object.",
+      "description": "Represents the score at a point in time.",
+      "type": "object",
+      "properties": {
+        "b": { "type": "integer" },
+        "r": { "type": "integer" }
+      },
+      "required": [
+        "b",
+        "r"
+      ],
+      "additionalProperties": false
+    },
+    "splat": {
+      "title": "Splat.",
+      "description": "Information about a splat that has occurred.",
+      "type": "object",
+      "properties": {
+        "t": { "$ref": "definitions.json#/team" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "time": { "$ref": "#/definitions/stringTime" },
+        "temp": { "type": "boolean" },
+        "img": {
+          "description": "Extra property added in earlier version of replays. Not used.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t",
+        "x",
+        "y",
+        "time"
+      ],
+      "additionalProperties": false
+    },
+    "floorTile": {
+      "title": "Dynamic Floor Tile.",
+      "description": "Object holding the information about the state of a tile throughout the replay.",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "type": ["number", "string"]
+          }
+        },
+        "x": {
+          "description": "The X position of the tile in the map array.",
+          "type": "string"
+          },
+        "y": {
+          "description": "The Y position of the tile in the map array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "stringTime": {
+      "description": "String result of JSON parsing date objects.",
+      "type": "string"
+    },
+    "epochTime": {
+      "type": "integer",
+      "title": "Epoch Time (ms).",
+      "description": "Time of an event in ms."
+    },
+    "time": {
+      "type": "object",
+      "description": "Message sent to initialize wait period and game start.",
+      "properties": {
+        "time": {
+          "description": "The time left in the game, in ms.",
+          "type": "integer"
+        },
+        "state": {
+          "description": "The state to change to."
+        },
+        "startTime": {
+          "$ref": "#/definitions/stringTime"
+        }
+      }
+    }
+  },
+  "properties": {
+    "bombs": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/bombInstance" }
+    },
+    "chat": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/chatInstance" }
+    },
+    "clock": {
+      "type": "array",
+      "description": "The time corresponding to each frame.",
+      "items": { "$ref": "#/definitions/stringTime" }
+    },
+    "gameEndsAt": {
+      "title": "Game End Info.",
+      "description": "Holds information about the end of the game, if it occurred in the replay.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": [
+            {
+              "description": "The initial value of tagpro.gameEndsAt as of initialization of the replay recording script.",
+              "$ref": "#/definitions/epochTime"
+            },
+            {
+              "description": "The time message sent when the game starts.",
+              "$ref": "#/definitions/time"
+            }
+          ],
+          "minItems": 1,
+          "maxItems": 2
+        },
+        {
+          "type": "integer",
+          "description": "Old version that only held the gameEndsAt value from the start of the recording initialization."
+        }
+      ]
+    },
+    "end": {
+      "type": "object",
+      "properties": {
+        "time": { "$ref": "#/definitions/stringTime" },
+        "groupId": {
+          "type": ["string", "null"],
+          "description": "Not used but may be present."
+        },
+        "winner": { "type": "string" }
+      },
+      "required": [
+        "time",
+        "winner"
+      ],
+      "additionalProperties": false
+    },
+    "floorTiles": {
+      "title": "Floor Tiles.",
+      "description": "Track information about the state of dynamic tiles on the map.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/floorTile" }
+    },
+    "map": {
+      "description": "The 2d map array copied from tagpro.map.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": ["number", "string"] }
+      }
+    },
+    "score": {
+      "title": "Scores.",
+      "description": "Holds the scores for each team at each frame of the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/score" }
+    },
+    "spawns": {
+      "title": "Spawns.",
+      "description": "Information about the spawns that occurred over the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/spawn" }
+    },
+    "splats": {
+      "title": "Splats.",
+      "description": "Information about the splats that have occurred over the replay.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/splat" }
+    },
+    "tiles": {
+      "title": "Tile Information.",
+      "description": "Converted tile information to use in reconstructing the replay."
+    },
+    "wallMap": {
+      "description": "As copied from tagpro.wallMap.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": { "type": ["number", "string"] },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    }
+  },
+  "patternProperties": {
+    "^player[0-9]+$": { "$ref": "player.json#" }
+  },
+  "required": [
+    "bombs",
+    "chat",
+    "clock",
+    "floorTiles",
+    "map",
+    "score",
+    "spawns",
+    "splats",
+    "wallMap"
+  ],
+  "additionalProperties": false
+}

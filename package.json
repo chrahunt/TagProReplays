@@ -1,10 +1,11 @@
 {
   "name": "tagproreplays",
-  "version": "1.3.6",
+  "version": "1.3.11",
   "description": "Chrome extension for recording play in TagPro.",
   "main": "TagProReplays.js",
   "devDependencies": {
     "browserify": "^13.1.1",
+    "chai": "^3.5.0",
     "concat-stream": "^1.5.2",
     "event-stream": "^3.3.4",
     "gulp": "^3.9.1",
@@ -20,11 +21,14 @@
     "gulp-watch": "^4.3.10",
     "gulp-zip": "^3.2.0",
     "jsonfile": "^2.4.0",
+    "mocha": "^3.1.2",
     "rimraf": "^2.5.4",
     "vinyl-source-stream": "^1.1.0",
     "watchify": "^3.7.0"
   },
-  "scripts": {},
+  "scripts": {
+    "test": "node_modules/.bin/mocha"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chrahunt/TagProReplays.git"
@@ -40,6 +44,7 @@
   },
   "homepage": "https://github.com/chrahunt/TagProReplays#readme",
   "dependencies": {
+    "ajv": "^4.9.2",
     "bootstrap": "^3.3.7",
     "chrome-storage-promise": "^0.1.0",
     "debug": "^2.2.0",

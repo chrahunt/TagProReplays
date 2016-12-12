@@ -4,9 +4,12 @@ debug.enable("*");
 var top = "tpr";
 
 // Set debug by default.
-if (global.localStorage) {
-  global.localStorage.debug = `${top}:*`;
-}
+// Prevent breaking in sandboxed pages.
+try {
+  if (global.localStorage) {
+    global.localStorage.debug = `${top}:*`;
+  }
+} catch(e) { }
 
 var loggers = {
   trace: console.log.bind(console),

@@ -30,6 +30,11 @@ var assets = [
   ]
 ];
 
+let asset_base = [
+  'src',
+  'vendor'
+];
+
 // Top-level source files which get browserified.
 var sources = 'src/js/*.js';
 var source_base = 'src/';
@@ -199,9 +204,11 @@ gulp.task('watch', ['clean', 'sass-dev', 'manifest-dev'], () => {
   });
 
 
-  assets.forEach((asset) => {
+  assets.forEach((asset, i) => {
     gulp.src(asset)
-        .pipe(watch(asset))
+        .pipe(watch(asset, {
+          base: asset_base[i]
+        }))
         .pipe(plumber())
         .pipe(gulp.dest(dirs.dev))
         .pipe(notify((file) => {

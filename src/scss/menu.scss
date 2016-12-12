@@ -137,3 +137,15 @@
 	  max-width: 800px;
 	  width: auto;
 }
+
+#tpr-container #import-alert {
+    .filename {
+        font-family: monospace;
+    }
+
+    .reason {
+        display: block;
+        padding: 5px;
+        font-family: monospace;
+    }
+}
