@@ -151,27 +151,32 @@ function renderVideo(replay, id) {
       can.height = options.canvas_height;
       return get_renderer(can, replay, options);
     }).then(function render(renderer, frame=0) {
+      if(frame==0) console.time('render time');
       for (; frame < frames; frame++) {
         //logger.trace(`Rendering frame ${frame} of ${frames}`);
         renderer.draw(frame);
-        encoder.add(context);
-        let amount_complete = frame / frames;
-        if (Math.floor(amount_complete / notification_freq) != portions_complete) {
-          portions_complete++;
-          progress(amount_complete);
-          // Slight delay to give our progress message time to propagate.
-          return PromiseTimeout(() => render(renderer, ++frame));
-        }
-      }
+        context.canvas.toBlob(function(blob) {
+          encoder.add(blob, frame);
 
-      let output = encoder.compile();
-      let filename = id.replace(/.*DATE/, '').replace('replays', '');
-      return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
-        logger.debug('File saved.');
-      }).catch((err) => {
-        logger.error('Error saving render: ', err);
-        throw err;
-      });
+          if (encoder.frames.length === frames) {
+            return encoder.compile().then(function(output) {
+              console.endTime('render time');
+              let filename = id.replace(/.*DATE/, '').replace('replays', '');
+              return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
+                logger.debug('File saved.');
+              }).catch((err) => {
+                logger.error('Error saving render: ', err);
+                throw err;
+              });
+            });
+          } else if (Math.floor(frame / frames / notification_freq) != portions_complete) {
+            portions_complete++;
+            progress(frame / frames);
+            // Slight delay to give our progress message time to propagate.
+            return PromiseTimeout(() => render(renderer, ++frame));
+          }
+        }, 'image/webp', 0.8);
+      }
     });
     resolve(result);
   });
