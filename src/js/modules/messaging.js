@@ -38,7 +38,7 @@ class Sandbox {
       this.port = this.channel.port1;
       this.port.onmessage = (e) => this.handle_message(e);
     }, false);
-    document.body.append(this.frame);
+    document.body.appendChild(this.frame);
   }
 
   /**
