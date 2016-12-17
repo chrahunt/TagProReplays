@@ -558,6 +558,7 @@ class Table {
     }
 
     _update_ui() {
+        $('.replay-count').text(`Total replays: ${this.data.length}`);
         if (this.empty()) {
             // Show "No replays" message.
             $('#noReplays').show();
