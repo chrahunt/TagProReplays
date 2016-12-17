@@ -14,13 +14,13 @@ function get_replay(id) {
     chrome.runtime.sendMessage({
       method: 'replay.get',
       id: id
-    }, (replay) => {
-      if (!replay) {
-        reject('Replay not retrieved.');
+    }, (result) => {
+      if (result.failed) {
+        reject('Replay not retrieved, error: ' + result.reason);
       } else if (chrome.runtime.lastError) {
         reject(`Chrome error: ${chrome.runtime.lastError.message}`);
       } else {
-        resolve(replay);
+        resolve(result.data);
       }
     });
   });

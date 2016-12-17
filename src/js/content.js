@@ -786,6 +786,10 @@ function initMenu() {
                 method: 'replay.rename',
                 id: id,
                 new_name: newName
+            }, (result) => {
+                if (result.failed) {
+                    alert(`Replay renaming failed: ${result.reason}`);
+                }
             });
         }
     });
