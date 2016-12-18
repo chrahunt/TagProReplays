@@ -1,7 +1,7 @@
 const loadImage = require('image-promise');
 require('chrome-storage-promise');
 
-var logger = require('./logger')('textures');
+var logger = require('util/logger')('textures');
 logger.info('Loading textures');
 
 /*

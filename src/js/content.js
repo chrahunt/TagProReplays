@@ -6,14 +6,19 @@ require('bootstrap');
 $.noConflict(true);
 
 require('chrome-storage-promise');
-const reader = require('promise-file-reader');
+const EventEmitter = require('events');
 const moment = require('moment');
+const reader = require('promise-file-reader');
 
-const logger = require('./modules/logger')('content');
-const Cookies = require('./modules/cookies');
-const {Viewer} = require('./modules/previewer');
-const Textures = require('./modules/textures');
-const track = require('./modules/track');
+const logger = require('util/logger')('content');
+const Cookies = require('util/cookies');
+const {Viewer} = require('modules/previewer');
+const Textures = require('modules/textures');
+const track = require('util/track');
+
+// Components
+const Upload = require('modules/upload');
+const ActivityDialog = require('modules/activity-dialog');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
@@ -640,7 +645,7 @@ let replay_table = new Table({
 });
 
 let viewer = new Viewer();
-
+let activity = new EventEmitter();
 // Initialize the menu.
 function initMenu() {
     logger.info("Menu loaded.");
@@ -648,6 +653,7 @@ function initMenu() {
     initSettings();
     replay_table.init();
     viewer.init();
+    let activity_dialog = new ActivityDialog($('#activity-container'));
 
     let menu_opened = false;
     // Update list of replays when menu is opened.
@@ -739,14 +745,69 @@ function initMenu() {
         }
     }
 
-    //function to download multiple raw data at once
+
+    /**
+     * Callback for replay download button.
+     * 
+     * Raw data is zipped on the background page,
+     * this just sends the request and then manages
+     * the progress modal.
+     */
     function downloadRawData() {
         let ids = replay_table.get_selected();
         if (!ids.length) return;
-        logger.info(`Requestion download for: ${ids}`);
+        logger.info(`Requesting download for: ${ids}`);
+        // Initialize activity dialog.
+        activity_dialog.set({
+            dismissable: false,
+            progress: true
+        });
+        activity_dialog.header('Replay Export');
+        activity_dialog.text('Preparing download');
+        activity_dialog.progress(0);
+        activity_dialog.show();
+        // Zipping messages override 
+        let zipping = 0;
+        // Update activity dialog progress.
+        function update_dialog(activity) {
+            let {action, value} = activity;
+            if (action == 'progress') {
+                activity_dialog.progress(value);
+                if (!zipping) {
+                    activity_dialog.text('Adding files to zip.');
+                }
+            } else if (action == 'state') {
+                // Zip updates.
+                // Stop zipping.
+                if (value.startsWith('!')) {
+                    zipping--;
+                    if (!zipping) {
+                        activity_dialog.text('Downloading zip...');
+                    }
+                } else {
+                    zipping++;
+                    if (value == 'zip:intermediate') {
+                        activity_dialog.text('Generating intermediate zip file.');
+                    } else if (value == 'zip:final') {
+                        activity_dialog.text('Generating final zip.');
+                    }
+                }
+            }
+        }
+        activity.on('export', update_dialog);
         chrome.runtime.sendMessage({
             method: 'replay.download',
             ids: ids
+        }, (result) => {
+            activity.removeListener('export', update_dialog);
+            activity_dialog.update({
+                dismissable: true
+            });
+            if (result.failed) {
+                activity_dialog.text(`Replay export failed, reason: ${result.reason}`);
+            } else {
+                activity_dialog.text('Replays exported.');
+            }
         });
     }
 
@@ -851,9 +912,25 @@ function initMenu() {
         });
     }
 
+    let import_start, import_end, total_size, total;
+    function report_stats() {
+        let duration = import_end - import_start;
+        logger.info(`Import Statistics:\nStart: ${import_start}\nEnd: ${import_end}\nDuration: ${duration}\nTotal files: ${total}\nSize: ${total_size}`);
+    }
     function readImportedFile(files, i) {
-        if (i == files.length) return;
+        if (!i) {
+            // Reset stats.
+            total = files.length;
+            total_size = 0;
+            import_start = performance.now();
+        }
+        if (i == files.length) {
+            import_end = performance.now();
+            report_stats();
+            return;
+        }
         let file = files[i++];
+        total_size += file.size;
         return reader.readAsText(file).then((text) => {
             chrome.runtime.sendMessage({
                 method: 'replay.import',
@@ -873,20 +950,9 @@ function initMenu() {
         });
     };
     
-    // Visible button invokes the actual file input.
-    $('#raw-upload-button').click(function (e) {
-        // Empty file input so change listener is invoked even if same
-        // file is selected.
-        $('#raw-upload').val('');
-        $('#raw-upload').click();
-        e.preventDefault();
-    });
-    $('#raw-upload').attr('accept', '.txt');
-    $('#raw-upload').change(function () {
-        var files = $(this).prop('files');
-        if (files.length > 0) {
-            readImportedFile(files, 0)
-        }
+    let upload = new Upload('raw-upload-button');
+    upload.on('files', (files) => {
+        readImportedFile(files, 0);
     });
 } // end initMenu
 
@@ -958,7 +1024,7 @@ function formatMetaDataTitle(replay) {
 
 // then set up listeners for info from background script
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    let method = message.method;
+    let {method} = message;
     logger.info(`Received message: ${method}`);
 
     if (method == 'replay.added') {
@@ -975,6 +1041,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         let $row = replay_table.get_row(id);
         let progress_bar = $row.find('.progressbar')[0];
         progress_bar.value = progress;
+
+    } else if (method == 'export.update') {
+        let {data} = message;
+        activity.emit('export', data);
 
     } else {
         logger.error(`Message type not recognized: ${method}`);

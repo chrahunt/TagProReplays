@@ -1,7 +1,8 @@
 // $ is implicit, we get injected into the page where it is available.
-const logger = require('./modules/logger')('recording');
-const Cookies = require('./modules/cookies');
 const saveAs = require('file-saver').saveAs;
+
+const logger = require('util/logger')('recording');
+const Cookies = require('util/cookies');
 
 /**
  * Record and save the state of the game, emitting an event to the

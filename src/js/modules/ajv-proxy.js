@@ -1,7 +1,7 @@
 const Ajv = require('ajv');
 
-const logger = require('./logger')('ajv-proxy');
-const {Sandbox} = require('./messaging');
+const logger = require('util/logger')('ajv-proxy');
+const {Sandbox} = require('util/messaging');
 /**
  * This module provides an interface to Ajv that works in restricted
  * contexts, assuming a sandbox page has been made available.

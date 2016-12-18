@@ -3,10 +3,10 @@ const loadImage = require('image-promise');
 const EventEmitter = require('events');
 const saveAs = require('file-saver').saveAs;
 
-const Cookies = require('./cookies');
-const get_renderer = require('./renderer');
-const logger = require('./logger')('renderer');
-const track = require('./track');
+const Cookies = require('util/cookies');
+const get_renderer = require('modules/renderer');
+const logger = require('util/logger')('renderer');
+const track = require('util/track');
 
 // Retrieve replay from background page.
 function get_replay(id) {

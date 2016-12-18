@@ -4,14 +4,14 @@ const saveAs = require('file-saver').saveAs;
 const semver = require('semver');
 require('chrome-storage-promise');
 
-const Data = require('./modules/data');
-const logger = require('./modules/logger')('background');
-const fs = require('./modules/filesystem');
-const get_renderer = require('./modules/renderer');
-const Textures = require('./modules/textures');
-const track = require('./modules/track');
-const {validate} = require('./modules/validate');
-const Whammy = require('./modules/whammy');
+const Data = require('modules/data');
+const logger = require('util/logger')('background');
+const fs = require('util/filesystem');
+const get_renderer = require('modules/renderer');
+const Textures = require('modules/textures');
+const track = require('util/track');
+const {validate} = require('modules/validate');
+const Whammy = require('util/whammy');
 
 logger.info('Starting background page.');
 
@@ -479,47 +479,75 @@ function save_replay(id, replay) {
  * @param ids {Array.<String>} - list of ids of replays to download.
  * @returns {Promise} promise that resolves when operation is complete.
  */
-function getRawDataAndZip(ids) {
+function download_replays(ids) {
   logger.info('getRawDataAndZip()');
   let total = ids.length;
   let i = 0;
   let zip = new JSZip();
   let size = 0;
   //  100 MB
-  let max_size = 100 * 1024 * 1024 * 1024;
-  return Data.db.table('positions').where(':id').anyOf(ids)
-  .each((item, cursor) => {
-    logger.debug(`Zipping replay ${++i} of ${total}`);
-    // Skip null values.
-    if (!item) return;
-    let this_size = item.length;
-    size += this_size;
-    let filename = sanitize(cursor.key);
-    // Uniqueness provided by uniqueness constraint of primary key.
-    zip.file(`${filename}.txt`, cursor.value);
-    if (size > max_size) {
-      logger.info('Generating intermediate zip file.');
-      // Generate intermediate zip.
-      zip.generateAsync({
+  let max_size = 200 * 1024 * 1024;
+  let batch_size = 5;
+
+  return new Progress((resolve, reject, progress) => {
+    function send_start_zip_update() {
+      progress({
+        action: 'state',
+        value: i === total ? 'zip:final'
+                           : 'zip:intermediate'
+      });
+    }
+    function send_end_zip_update() {
+      progress({
+        action: 'state',
+        value: '!zip'
+      });
+    }
+    let table = Data.db.table('positions');
+    resolve(Data.each_key(table, ids, (cursor) => {
+      logger.debug(`Zipping replay ${++i} of ${total}`);
+      let item = cursor.value;
+      // Skip null values.
+      if (!item) return;
+      let this_size = item.length;
+      size += this_size;
+      let filename = sanitize(cursor.key);
+      // Uniqueness provided by uniqueness constraint of primary key.
+      zip.file(`${filename}.txt`, cursor.value);
+      progress({
+        action: 'progress',
+        value: i / total
+      });
+      logger.debug(`Size: ${size}; Max: ${max_size}`);
+      if (size > max_size) {
+        size = 0;
+        logger.info('Generating intermediate zip file.');
+        send_start_zip_update();
+        // Generate intermediate zip.
+        let result = zip.generateAsync({
+          type: "blob",
+          compression: "STORE"
+        }).then((content) => {
+          logger.info('Finished generating zip.');
+          send_end_zip_update();
+          saveAs(content, 'raw_data.zip');
+        });
+        zip = new JSZip();
+        return result;
+      }
+    }).then(() => {
+      logger.info('Finished looping.');
+      if (!size) return Promise.resolve();
+      logger.info('Generating final zip file.');
+      send_start_zip_update();
+      return zip.generateAsync({
         type: "blob",
         compression: "DEFLATE"
       }).then((content) => {
-        logger.info('Finished generating zip.');
+        send_end_zip_update();
         saveAs(content, 'raw_data.zip');
       });
-      size = 0;
-      zip = new JSZip();
-    }
-  }).then(() => {
-    logger.info('Finished looping.');
-    if (!size) return Promise.resolve();
-    logger.info('Generating final zip file.');
-    return zip.generateAsync({
-      type: "blob",
-      compression: "DEFLATE"
-    }).then((content) => {
-      saveAs(content, 'raw_data.zip');
-    });
+    }));
   });
 }
 
@@ -701,8 +729,6 @@ function getDuration(positions) {
   var duration = Math.round(player.x.length / player.fps);
   return (duration);
 }
-
-
 
 // Generate a new replay name.
 // Current default is: {count:0>4}_replay_{timestamp}
@@ -934,10 +960,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         data = JSON.stringify(data);
         let file = new Blob([data], { type: "data:text/txt;charset=utf-8" });
         saveAs(file, `${id}.txt`);
+      }).then(() => {
+        sendResponse({
+          failed: false
+        });
       });
     } else {
-      getRawDataAndZip(ids);
+      download_replays(ids).progress((update) => {
+        chrome.tabs.sendMessage(tab, {
+          method: 'export.update',
+          data: update
+        });
+      }).then(() => {
+        sendResponse({
+          failed: false
+        });
+      }).catch((err) => {
+        logger.error('Error downloading replays: ', err);
+        sendResponse({
+          failed: true,
+          reason: err.message
+        });
+      });
     }
+    return true;
 
   } else if (method == 'replay.rename') {
     let {id, new_name} = message;

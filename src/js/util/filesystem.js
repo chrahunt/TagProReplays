@@ -1,4 +1,4 @@
-var logger = require('./logger')('filesystem');
+var logger = require('util/logger')('filesystem');
 
 /**
  * Promise-based wrapper around Chrome's implementation of the FileSystem

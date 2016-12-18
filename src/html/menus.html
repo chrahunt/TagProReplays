@@ -79,7 +79,6 @@
           <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
           <button type="button" class="btn btn-primary" id="downloadRawButton">Download Raw Data</button>
           <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
-          <input type="file" id="raw-upload" name="raw-upload" class="hidden-file-input" multiple="multiple">
         </div>
         <div class="pull-right">
           <span class="replay-count"></span>
@@ -102,6 +101,21 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Progress -->
+<div class="modal fade" id="activity-container">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header activity-header"></div>
+      <div class="modal-body activity-body">
+        <span class="activity-text"></span>
+        <div class="activity-progress"></div>
+      </div>
+      <div class="modal-footer activity-footer">
+        <button type="button" class="btn btn-default activity-dismiss" data-dismiss="modal">Cancel</button>
       </div>
     </div>
   </div>

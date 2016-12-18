@@ -1,5 +1,8 @@
-const logger = require('./logger')('messaging');;
+const logger = require('util/logger')('messaging');;
 
+/**
+ * Messaging utilities.
+ */
 /**
  * Request-response communication from a Sandbox client to a sandboxed
  * web page.
@@ -23,10 +26,10 @@ const logger = require('./logger')('messaging');;
  *   {number} callback_ref - reference passed in initial request
  * }
  */
-/**
- * Injects a new iframe into the current page 
- */
 class Sandbox {
+  /**
+   * Injects a new iframe into the current page 
+   */
   constructor(src) {
     this.callbacks = new Map();
     this.callback_ids = 0;
@@ -86,18 +89,7 @@ class Sandbox {
 }
 exports.Sandbox = Sandbox;
 
-// Return a function that can only be called once.
-function once(fn) {
-  return (...args) => {
-    if (fn) {
-      let result = fn(...args);
-      fn = null;
-      return result;
-    }
-  };
-}
-
-let setPortListener = once(() => {
+let setPortListener = () => {
   return new Promise((resolve, reject) => {
     onmessage = (e) => {
       logger.debug('Received window message.');
@@ -105,7 +97,7 @@ let setPortListener = once(() => {
       resolve(port);
     };
   });
-});
+};
 
 /**
  * Called from the sandboxed page to register a listener.
@@ -119,39 +111,22 @@ exports.registerSandbox = (callback) => {
     logger.info('Received port');
     port.onmessage = (e) => {
       let {data, callback_ref} = JSON.parse(e.data);
-      let result;
-      try {
-        result = callback(data);
-      } catch (e) {
-        port.postMessage({
-          callback_ref: callback_ref,
-          failed: true,
-          data: e.message
-        });
-        logger.error('Error calling callback: ', e);
-        return;
-      }
-      if (result && result.then) {
-        result.then((value) => {
-          port.postMessage({
-            callback_ref: callback_ref,
-            failed: false,
-            data: value
-          });
-        }).catch((err) => {
-          port.postMessage({
-            callback_ref: callback_ref,
-            failed: true,
-            data: e.message
-          });
-        });
-      } else {
+      Promise.resolve(data)
+      .then(callback)
+      .then((value) => {
         port.postMessage({
           callback_ref: callback_ref,
           failed: false,
-          data: result
+          data: value
         });
-      }
+      })
+      .catch((err) => {
+        port.postMessage({
+          callback_ref: callback_ref,
+          failed: true,
+          data: err.message
+        });
+      });
     };
   });
 };
