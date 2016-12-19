@@ -130,3 +130,152 @@ exports.registerSandbox = (callback) => {
     };
   });
 };
+
+/**
+ * Promise interface around content script to background page
+ * request/response communication.
+ * 
+ * Usage:
+ * 
+ *   # content_script.js
+ *   const Client = require('messaging').Client();
+ *   Client.send('person.add', {
+ *     first_name: 'john',
+ *     last_name: 'doe'
+ *   }).then((id) => {
+ *     console.log('Added successfully!');
+ *   }).catch((err) => {
+ *     console.warn('Error adding record: ', err);
+ *   });
+ * 
+ *   # background.js
+ *   const Server = require('messaging').Server();
+ *   Server.on('person.add', (data, sender) => {
+ *     return db.table('people').add(data).then(() => {
+ *       console.log('Added to db.');
+ *     });
+ *   });
+ */
+/**
+ * Promise interface for content scripts to communicate with
+ * extension background page.
+ */
+class Client {
+  /**
+   * Send a named message to the background page.
+   * @param {string} name
+   * @param {*} message
+   * @returns {Promise}
+   */
+  send(name, message) {
+    return new Promise((resolve, reject) => {
+      logger.debug(`Sending ${name}`);
+      chrome.runtime.sendMessage({
+        method: name,
+        data: message
+      }, (result) => {
+        logger.debug(`Received response for ${name}`);
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else if (result.failed) {
+          reject(result.data.message);
+        } else {
+          resolve(result.data);
+        }
+      });
+    });
+  }
+}
+exports.Client = getInstance(Client);
+
+/**
+ * Background-page side of the interface.
+ * 
+ * Only a single callback can be set per message type.
+ */
+class Server {
+  constructor() {
+    this.callbacks = new Map();
+    chrome.runtime.onMessage.addListener(this.handle_message.bind(this));
+  }
+
+  /**
+   * Listen for a message from a content script.
+   * 
+   * Only a single callback can be set per message type.
+   * @param {string} name
+   * @param {Function} callback - takes data and sender.
+   */
+  on(name, callback) {
+    if (this.callbacks.has(name))
+      throw new Error(`Callback already set for ${name}`);
+    this.callbacks.set(name, callback);
+  }
+
+  /**
+   * Remove the given callback from listening.
+   */
+  off(name, callback) {
+    let existing_callback = this.callbacks.get(name);
+    if (!existing_callback || callback !== existing_callback)
+      throw new Error(`Callback not set for ${name}`);
+    this.callbacks.remove(name);
+  }
+
+  /**
+   * @private
+   */
+  handle_message(message, sender, sendResponse) {
+    let {method, data} = message;
+    this.listener_delegate(method, data, sender).then((result) => {
+      sendResponse({
+        failed: false,
+        data: result
+      });
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        data: serialize_error(err)
+      });
+    });
+    return true;
+  }
+
+  /**
+   * @private
+   */
+  listener_delegate(method, message, sender) {
+    return new Promise((resolve, reject) => {
+      if (!method) {
+        logger.warn(`Invalid message: ${message}`);
+        reject(new Error('Empty method received.'));
+      } else {
+        let callback = this.callbacks.get(method);
+        if (!callback) {
+          logger.warn(`Callback not found for ${method}`);
+          reject(new Error('No callback'));
+        } else {
+          resolve(callback(message, sender));
+        }
+      }
+    });
+  }
+}
+
+exports.Server = getInstance(Server);
+
+function serialize_error(err) {
+  return {
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  };
+}
+
+function getInstance(klass) {
+  let instance;
+  return () => {
+    if (!instance) instance = new klass();
+    return instance;
+  };
+}

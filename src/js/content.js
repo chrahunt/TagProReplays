@@ -10,15 +10,18 @@ const EventEmitter = require('events');
 const moment = require('moment');
 const reader = require('promise-file-reader');
 
-const logger = require('util/logger')('content');
+const Client = require('util/messaging').Client();
 const Cookies = require('util/cookies');
-const {Viewer} = require('modules/previewer');
+const logger = require('util/logger')('content');
+const Replays = require('modules/replay-collection');
 const Textures = require('modules/textures');
 const track = require('util/track');
+const {Viewer} = require('modules/previewer');
 
 // Components
-const Upload = require('modules/upload');
 const ActivityDialog = require('modules/activity-dialog');
+const Table = require('modules/table');
+const Upload = require('modules/upload');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
@@ -321,300 +324,26 @@ function initSettings() {
     });
 }
 
-/**
- * Provides DOM/replay data access and reconciliation.
- * 
- * Automatically handles sorting and some display state related
- * to replays.
- */
-class Table {
-    constructor(options) {
-        // Source has a get function that returns data.
-        this.source = options.source;
-        // Sort fields is an object mapping sort field name to:
-        // - id: id of column header
-        // - text: default column header text
-        // - sort: function for sorting elements in ascending order
-        // it also has a 'default' key which contains the default
-        // name and dir of sorting.
-        this.sort_fields = options.sort_fields;
-        this.data = [];
-        // Map from replay id to row element id to prevent overlap.
-        this.ids = {};
-        this.num_ids = 0;
-    }
-
-    // Initialize when the DOM is ready.
-    init() {
-        // Set up sort headers.
-        for (let type in this.sort_fields) {
-            if (type == 'default') continue;
-            let $elt = $(`#${this.sort_fields[type].id}`);
-            $elt.click((e) => {
-                let [name, dir] = this._get_sort();
-                let new_dir = 'desc';
-                if (name == type && dir == 'desc') {
-                    new_dir = 'asc';
-                }
-                this.sort(type, new_dir);
-            });
-            $elt.css({
-                cursor: 'pointer'
-            });
-        }
-
-        // Template row.
-        this.$template_row = $('#replayList .replayRow.clone:first').clone(true);
-        this.$template_row.removeClass('clone'); 
-    }
-
-    /**
-     * Table updates from its source.
-     */
-    update() {
-        $('.replayRow').not('.clone').remove();
-        this.source.get().then((data) => {
-            logger.info(`Received ${data.length} replays.`);
-            for (let replay of data) {
-                this._add_replay(replay);
-            }
-            this._update_ui();
-            this._do_sort();
-        }).catch((err) => {
-            logger.error('Error retrieving replays: ', err);
-        });
-    }
-
-    /**
-     * Add a replay to the table.
-     */
-    add_replay(replay) {
-        this._add_replay(replay);
-        this._update_ui();
-        this._do_sort();
-    }
-
-    /**
-     * Remove replays by id.
-     */
-    remove_replays(ids) {
-        if (!Array.isArray(ids)) ids = [ids];
-        // Remove from DOM.
-        for (let id of ids) {
-            this.get_row(id).remove();
-        }
-        // Remove from internal list.
-        let data_ids = this.data.map(item => item.id).filter(
-            id => !ids.includes(id));
-        this.data = this.data.filter(
-            item => data_ids.includes(item.id));
-        this._update_ui();
-    }
-
-    /**
-     * Update a replay and the corresponding table information.
-     * @param {*} id
-     * @param {Object} updates - updates to be applied to the replay
-     */
-    update_replay(id, updates) {
-        let current_data = this.get_replay_data(id);
-        let result = Object.assign(current_data, updates);
-        let $row = this.get_row(id);
-        $row.data('replay', result);
-        if (id !== result.id) {
-            $row.attr('id', this._get_id(result.id));
-        }
-        this._render_row($row);
-        this._do_sort();
-    }
-
-    /**
-     * Whether the table is empty.
-     */
-    empty() {
-        return !this.data.length;
-    }
-
-    // Given a DOM element in a row, get the id of the replay it is associated
-    // with;
-    get_id_from_element(elt) {
-        let row = $(elt).closest('tr');
-        return row.data('replay').id;
-    }
-
-    // Given a replay id, get the corresponding metadata.
-    get_replay_data(id) {
-        return this.get_row(id).data('replay');
-    }
-
-    /**
-     * Get ids of all selected replays.
-     */
-    get_selected() {
-        let ids = [];
-        $('.selected-checkbox:checked').each((i, elt) => {
-            ids.push(this.get_id_from_element(elt));
-        });
-        return ids;
-    }
-
-    get_row(id) {
-        return $(`#${this._get_id(id)}`);
-    }
-
-    sort(field, direction) {
-        this._set_sort(field, direction);
-        this._do_sort();
-    }
-
-    // Private functions.
-    _add_replay(replay) {
-        let row = this._make_row(replay);
-        this._render_row(row);
-        this._add_row(row);
-        this.data.push(replay);
-    }
-
-    _make_row(replay) {
-        let row = this.$template_row.clone(true);
-        row.data('replay', replay);
-        row.attr('id', this._get_id(replay.id));
-        return row;
-    }
-
-    _render_row(row) {
-        let replay = row.data('replay');
+// Initialize replay table.
+let replay_table = new Table({
+    collection: Replays,
+    // Rendering the individual row from a template and the
+    // replay.
+    render: ($row, replay) => {
         // Set playback link text
-        row.find('a.playback-link').text(replay.name);
-
+        $row.find('a.playback-link').text(replay.name);
         if (replay.rendered) {
-            row.find('.rendered-check').text('✓');
-            row.find('.download-movie-button').prop('disabled', false);
+            $row.find('.rendered-check').text('✓');
+            $row.find('.download-movie-button').prop('disabled', false);
         } else {
-            row.find('.download-movie-button').prop('disabled', true);
+            $row.find('.download-movie-button').prop('disabled', true);
         }
         let duration = moment(replay.duration * 1000);
-        row.find('.duration').text(duration.format('mm:ss'));
+        $row.find('.duration').text(duration.format('mm:ss'));
         let recorded = moment(replay.recorded);
-        row.find('.replay-date').text(recorded.calendar());
+        $row.find('.replay-date').text(recorded.calendar());
         let titleText = formatMetaDataTitle(replay);
-        row.attr('title', titleText);
-    }
-
-    _add_row(row) {
-        $('#replayList tbody').append(row);
-    }
-
-    _do_sort() {
-        let [name, dir] = this._get_sort();
-        // Column headers.
-        let arrow = dir == 'asc' ? '\u25B2'
-                                 : '\u25BC';
-        let id = this.sort_fields[name].id;
-        let text = this.sort_fields[name].text;
-
-        for (let type in this.sort_fields) {
-            if (type == 'default') continue;
-            let field = this.sort_fields[type];
-            let id = field.id;
-            let text = field.text;
-            if (type == name) {
-                text = `${text} ${arrow}`;
-            }
-            $(`#${id}`).text(text);
-        }
-        // Sort data.
-        this.data.sort(this.sort_fields[name].sort);
-        if (dir == 'desc') {
-            this.data.reverse();
-        }
-        // Change DOM.
-        this._order_rows();
-    }
-
-    // Ensure visible rows are ordered according to order in data
-    // member.
-    _order_rows() {
-        let ordered_ids = this.data.map(item => item.id);
-        let $row_container = $('#replayList tbody');
-        for (let id of ordered_ids) {
-            this.get_row(id).detach().appendTo($row_container);
-        }
-    }
-
-    _get_sort() {
-        if (!sessionStorage.getItem('tpr_sort_field') ||
-            !sessionStorage.getItem('tpr_sort_dir')) {
-            return [
-                this.sort_fields.default.name,
-                this.sort_fields.default.dir
-            ];
-        } else {
-            return [
-                sessionStorage.getItem('tpr_sort_field'),
-                sessionStorage.getItem('tpr_sort_dir')
-            ];
-        }
-    }
-
-    _set_sort(field, direction) {
-        sessionStorage.setItem('tpr_sort_field', field);
-        sessionStorage.setItem('tpr_sort_dir', direction);
-    }
-
-    _update_ui() {
-        $('.replay-count').text(`Total replays: ${this.data.length}`);
-        if (this.empty()) {
-            // Show "No replays" message.
-            $('#noReplays').show();
-            $('#replayList').hide()
-            $('#renderSelectedButton').prop('disabled', true);
-            $('#deleteSelectedButton').prop('disabled', true);
-            $('#downloadRawButton').prop('disabled', true);
-            $('#selectAllCheckbox').prop('disabled', true);
-            $('#selectAllCheckbox').prop('checked', false);
-        } else {
-            // Hide "No replays".
-            $('#noReplays').hide();
-            // Display list of replays.
-            $('#replayList').show();
-            // Enable buttons for interacting with multiple selections.
-            $('#renderSelectedButton').prop('disabled', false);
-            $('#deleteSelectedButton').prop('disabled', false);
-            $('#downloadRawButton').prop('disabled', false);
-            $('#selectAllCheckbox').prop('disabled', false);
-        }
-    }
-
-    // Get id for item suitable for element id attribute.
-    // This is necessary since we use arbitrary strings for
-    // replay keys but don't want to overlap with another id
-    // of the name we map to.
-    _get_id(item_id) {
-        if (!this.ids[item_id]) {
-            // HTML5 says no spaces in ids.
-            let valid_id = item_id.replace(' ', '_');
-            this.ids[item_id] = `replay-${this.num_ids++}-${valid_id}`;
-        }
-        return this.ids[item_id];
-    }
-}
-
-let replay_table = new Table({
-    source: {
-        get: () => {
-            return new Promise((resolve, reject) => {
-                chrome.runtime.sendMessage({
-                    method: 'replay.list'
-                }, (result) => {
-                    if (result.error) {
-                        reject(result.message);
-                    } else {
-                        resolve(result.replays);
-                    }
-                });
-            });
-        }
+        $row.attr('title', titleText);
     },
     sort_fields: {
         default: {
@@ -665,16 +394,8 @@ function initMenu() {
         replay_table.update();
     });
 
-    // allow 'select all' checkbox to work
-    $('#selectAllCheckbox')[0].onchange=function(e) {
-        $('.replayRow:not(.clone) .selected-checkbox').each(function() {
-            this.checked = e.target.checked 
-        });
-    }
-
     // these buttons allow rendering/deleting multiple replays
     $('#renderSelectedButton').click(renderSelected);
-    $('#deleteSelectedButton').click(deleteSelected);
     $('#downloadRawButton').click(downloadRawData);
 
     /**
@@ -728,23 +449,14 @@ function initMenu() {
         }
     }
 
-    // function to delete multiple files at once
-    function deleteSelected() {
-        let ids = replay_table.get_selected();
-        if (!ids.length) return;
+    replay_table.add_collection_action('#deleteSelectedButton', (replays) => {
         if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
-            logger.info(`Requesting deletion of: ${ids}`);
-            chrome.runtime.sendMessage({
-                method: 'replay.delete',
-                ids: ids
-            }, (result) => {
-                if (result.failed) {
-                    logger.error(`Error deleting replays: ${result.reason}`);
-                }
+            logger.info(`Requesting deletion of: ${replays.ids}`);
+            replays.delete().catch((err) => {
+                logger.error('Error deleting replays: ', err);
             });
         }
-    }
-
+    });
 
     /**
      * Callback for replay download button.
@@ -811,86 +523,31 @@ function initMenu() {
         });
     }
 
-    // Replay data row listeners.
-    $('#replayList').on('click', '.playback-link', (e) => {
-        let id = replay_table.get_id_from_element(e.target);
-        logger.info(`Playback link clicked for ${id}`);
-        let info = replay_table.get_replay_data(id);
+    replay_table.add_row_action('.playback-link', (replay) => {
+        logger.info(`Playback link clicked for ${replay.id}`);
         $('#menuContainer').hide();
-        viewer.load(info);
+        viewer.load(replay);
     });
 
-    $('#replayList').on('click', '.download-movie-button', (e) => {
-        let id = replay_table.get_id_from_element(e.target);
-        logger.info(`Movie download button clicked for ${id}`);
-        chrome.runtime.sendMessage({
-            method: 'movie.download',
-            id: id
-        }, (result) => {
-            if (result.failed) {
-                alert(`Download failed. Most likely you haven't rendered that movie yet.\nReason: ${result.reason}`);
-            } else {
-                logger.debug('Movie download completed.');
-            }
+    replay_table.add_row_action('.download-movie-button', (replay) => {
+        logger.info(`Movie download button clicked for ${replay.id}`);
+        replay.download_movie().then(() => {
+            logger.debug('Movie download completed.');
+        }).catch((err) => {
+            alert(`Download failed. Most likely you haven't rendered that movie yet.\nReason: ${err.message}`);
         });
     });
 
-    $('#replayList').on('click', '.rename-button', (e) => {
-        let id = replay_table.get_id_from_element(e.target);
-        let replay = replay_table.get_replay_data(id);
-        logger.info(`Rename button clicked for ${id}`);
+    replay_table.add_row_action('.rename-button', (replay) => {
+        logger.info(`Rename button clicked for ${replay.id}`);
         let name = replay.name;
-        let newName = prompt(`Please enter a new name for ${name}`, name);
-        newName = newName.replace(/ /g, '_').replace(/[^a-z0-9\_\-]/gi, '');
-        if (newName) {
-            logger.info(`Requesting rename for ${id} to ${newName}.`);
-            chrome.runtime.sendMessage({
-                method: 'replay.rename',
-                id: id,
-                new_name: newName
-            }, (result) => {
-                if (result.failed) {
-                    alert(`Replay renaming failed: ${result.reason}`);
-                }
-            });
-        }
-    });
-
-    $('#replayList').on('click', '.selected-checkbox', (e) => {
-        let self = e.target;
-        if (self.checked && e.shiftKey &&
-            $('.replayRow:not(.clone) .selected-checkbox:checked').length > 1) {
-            let boxes = $('.replayRow:not(.clone) .selected-checkbox'),
-                closestBox = null,
-                thisBox = null;
-            for (let i = 0; i < boxes.length; i++) {
-                if (self == boxes[i]) { 
-                    thisBox = i; 
-                    if (closestBox !== null) break;
-                    continue;
-                }
-                if (boxes[i].checked) closestBox = i;
-                if (thisBox !== null && closestBox !== null) break;
-            }
-            var bounds = [closestBox, thisBox].sort((a, b) => a - b);
-            boxes.map((num, box) => {
-                box.checked = bounds[0] <= num && num <= bounds[1];
-            });
-        }
-    });
-
-    function setReplayListHeight() {
-        let new_height = 185;
-        if ($(window).height() > 500) {
-            new_height = $(window).height() - 315;
-        }
-        $('#replayList').css({
-            'max-height': new_height
+        let new_name = prompt(`Please enter a new name for ${name}`, name);
+        if (new_name === null) return;
+        replay.rename(new_name).catch((err) => {
+            console.error('Error renaming replay: ', err);
+            alert(`Replay renaming failed: ${err.message}`);
         });
-    }
-    
-    $(window).resize(setReplayListHeight);
-    setReplayListHeight();
+    });
 
     // Raw data import.
     let resume;
@@ -1015,28 +672,31 @@ function emit(event, data) {
 
 // function to format metadata to put into title text
 function formatMetaDataTitle(replay) {
-    let title = `Map: ${replay.map}\n`;
-    title    += `FPS: ${replay.fps}\n`;
-    title    += `Red Team:\n\t${replay.red_team.join('\n\t')}\n`;
-    title    += `Blue Team:\n\t${replay.blue_team.join('\n\t')}\n`;
+    let title = `Map: ${replay.info.map}\n`;
+    title    += `FPS: ${replay.info.fps}\n`;
+    title    += `Red Team:\n\t${replay.info.red_team.join('\n\t')}\n`;
+    title    += `Blue Team:\n\t${replay.info.blue_team.join('\n\t')}\n`;
     return title;
 }
+
+Replays.on('added', (replay) => {
+    replay_table.add_replay(replay);
+});
+
+Replays.on('deleted', (ids) => {
+    replay_table.remove_replays(ids);
+});
+
+Replays.on('updated', (id, replay) => {
+    replay_table.update_replay(id, replay);
+});
 
 // then set up listeners for info from background script
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     let {method} = message;
     logger.info(`Received message: ${method}`);
 
-    if (method == 'replay.added') {
-        replay_table.add_replay(message.replay);
-
-    } else if (method == 'replay.deleted') {
-        replay_table.remove_replays(message.ids);
-
-    } else if (method == 'replay.updated') {
-        replay_table.update_replay(message.id, message.replay);
-
-    } else if (method == "render.update") {
+    if (method == "render.update") {
         let {id, progress} = message;
         let $row = replay_table.get_row(id);
         let progress_bar = $row.find('.progressbar')[0];
@@ -1047,7 +707,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         activity.emit('export', data);
 
     } else {
-        logger.error(`Message type not recognized: ${method}`);
+        logger.warn(`Message type not recognized: ${method}`);
     }
 });
 

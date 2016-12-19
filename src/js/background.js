@@ -751,6 +751,7 @@ var title;
 let rendering = false;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let method = message.method;
+  //message = message.data;
   let tab = sender.tab.id;
   let url = sender.url;
   logger.info(`Received ${method}.`);
