@@ -1,5 +1,5 @@
 const expect = require('chai').expect;
-const validate = require('../src/js/modules/validate');
+const validate = require('modules/validate');
 const fs = require('fs');
 
 // Override schemas to use file path.
