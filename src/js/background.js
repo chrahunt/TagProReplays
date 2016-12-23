@@ -8,6 +8,7 @@ const Data = require('modules/data');
 const logger = require('util/logger')('background');
 const fs = require('util/filesystem');
 const get_renderer = require('modules/renderer');
+const {Progress} = require('util/promise-ext');
 const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
@@ -44,47 +45,6 @@ can.style.top = 0;
 can.style.left = 0;
 
 let context = can.getContext('2d');
-
-/**
- * Provide a progress callback to some bit of work wrapped
- * in a Promise.
- * 
- * Use with regular promises like:
- *   
- *   let total = n;
- *   var p = new Progress((resolve, reject, progress) => {
- *     let i = 0;
- *     loop((item) => {
- *       progress(++i / n);
- *     });
- *   });
- * 
- *   // elsewhere...
- * 
- *   promise_returning_fn().then(p.progress((progress) => {
- *     update_something(progress);
- *   })).then((result) => {
- *     all_done();
- *   });
- * 
- * The value passed to progress can be anything you like, it is
- * passed on as-is.
- */
-class Progress {
-  constructor(wrapped) {
-    this.__callback = () => {};
-    this.__promise = new Promise((resolve, reject) => {
-      return wrapped(resolve, reject, (progress) => {
-        this.__callback(progress);
-      });
-    });
-  }
-
-  progress(callback) {
-    this.__callback = callback;
-    return this.__promise;
-  }
-}
 
 /**
  * Resolves the given callback after a timeout.
@@ -139,8 +99,7 @@ function renderVideo(replay, id) {
       }
 
       let output = encoder.compile();
-      let filename = replay_id_to_file_id(id);
-      return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
+      return Movies.save(id, output).then(() => {
         logger.debug('File saved.');
       }).catch((err) => {
         logger.error('Error saving render: ', err);
@@ -150,6 +109,109 @@ function renderVideo(replay, id) {
     resolve(result);
   });
 }
+
+/**
+ * Wrapper around rendered replay storage, providing a Promise-based
+ * interface.
+ */
+const Movies = {
+  /**
+   * @param {string} id
+   * @returns {Promise<File>}
+   */
+  get: function(id) {
+    let filename = this._replay_id_to_file_id(id);
+    let path = `${this._dir}/${filename}`;
+    return fs.getFile(path);
+  },
+  /**
+   * Delete the movie matching the provided id.
+   */
+  delete: function(id) {
+    let filename = this._replay_id_to_file_id(id);
+    return this._delete(filename);
+  },
+  /**
+   * Deletes movies from storage that do not correspond to the provided
+   * replay ids.
+   * @returns {Promise}
+   */
+  deleteMissing: function(ids) {
+    let lookup = new Set(ids.map(this._replay_id_to_file_id));
+    return this._get_names().then((cache) => {
+      let pending = [];
+      for (let id of cache) {
+        if (!lookup.has(id)) {
+          pending.push(this._delete(id));
+        }
+      }
+      return Promise.all(pending);
+    });
+  },
+  save: function(id, movie) {
+    let filename = this._replay_id_to_file_id(id);
+    let path = `${this._dir}/${filename}`;
+    return fs.saveFile(path, movie)
+    .then(() => this._add_name(filename))
+  },
+  has: function(id) {
+    let filename = this._replay_id_to_file_id(id);
+    return this._get_names().then((cache) => {
+      return cache.has(filename);
+    });
+  },
+  /**
+   * Query presence of files for a large number of ids.
+   * @param {Array<string>} ids
+   * @returns {Promise<Map<string, bool>>} mapping indicates whether we
+   *   have a movie for the corresponding id
+   */
+  bulkHas: function(ids) {
+    let status = new Map();
+    return this._get_names().then((cache) => {
+      for (let id of ids) {
+        let filename = this._replay_id_to_file_id(id);
+        status.set(id, cache.has(filename));
+      }
+      return status;
+    });
+  },
+  _delete: function(name) {
+    return fs.deleteFile(`${this._dir}/${name}`)
+    .then(() => this._delete_name(name));
+  },
+  // Map from current replay id to id used in FileSystem.
+  _replay_id_to_file_id: function(id) {
+    return id.replace(/.*DATE/, '').replace('replays', '');
+  },
+  // Movies object caches file names on first query so we don't have to
+  // grab them each time.
+  _delete_name: function(name) {
+    return this._get_names().then((cache) => {
+      cache.delete(name);
+    });
+  },
+  _add_name: function(name) {
+    return this._get_names().then((cache) => {
+      cache.add(name);
+    });
+  },
+  _get_names: function() {
+    if (this._retrieved) return Promise.resolve(this._cache);
+    return fs.getDirectory(this._dir)
+    .then(fs.getEntryNames)
+    .then((names) => {
+      this._cache = new Set(names);
+      this._retrieved = true;
+      return this._cache;
+    });
+  },
+  /** @type {Set} */
+  _cache: null,
+  _retrieved: false,
+  // Directory in FileSystem.
+  _dir: 'savedMovies'
+};
 
 // Stored metadata.
 const Metadata = {
@@ -278,36 +340,21 @@ function make_replay_info(id, metadata) {
   };
 }
 
-// Combine data sources into format suitable for menu.
-function make_replay_list(replay_info, rendered_ids) {
-  let rendered = new Set(rendered_ids);
-  for (let info of replay_info) {
-    info.rendered = rendered.has(replay_id_to_file_id(info.id));
-  }
-  return replay_info;
-}
-
 // Remove any movie files that don't have a corresponding replay in
 // indexedDB.
 function getCurrentReplaysForCleaning() {
-  Data.db.table('positions')
+  return Data.db.table('positions')
   .toCollection()
   .primaryKeys().then((keys) => {
-    // Make set for movie file name lookup.
-    let ids = new Set(keys.map(k => replay_id_to_file_id(k)));
-    return fs.getDirectory('savedMovies').then(fs.getEntryNames)
-      .then((names) => {
-        return Promise.all(names.map((name) => {
-          if (!ids.has(name)) {
-            return fs.deleteFile(`savedMovies/${name}`);
-          } else {
-            return Promise.resolve();
-          }
-        }));
-      });
+    return Movies.deleteMissing(keys);
   });
 }
 
+/**
+ * Replay consists of info and data.
+ * Methods below retrieve info, data, or both.
+ * Plural is for multiple replays.
+ */
 /**
  * Returns a promise that resolves to the retrieved replay.
  * @param {string} id
@@ -324,11 +371,32 @@ function get_replay(id) {
     if (!metadata) {
       metadata = Metadata.make(id, data);
     }
-    return {
-      info: make_replay_info(id, metadata),
-      data: data
-    };
+    return Movies.has(id).then((present) => {
+      let info = make_replay_info(id, metadata);
+      info.rendered = present;
+      return {
+        info: info,
+        data: data
+      };
+    });
   });
+}
+
+/**
+ * Returns a promise that resolves to the replay info.
+ */
+function get_replay_info(id) {
+  let metadata = Metadata.get(id);
+  if (!metadata) {
+    // Generate if needed.
+    return get_replay(id).then(replay => replay.info);
+  } else {
+    return Movies.has(id).then((present) => {
+      let info = make_replay_info(id, metadata);
+      info.rendered = present;
+      return info;
+    });
+  }
 }
 
 /**
@@ -375,24 +443,18 @@ function get_all_replays_info() {
         replay_info[index] = replay.info;
       });
     }));
-  }).then(() => {
-    return fs.getDirectory('savedMovies').then(fs.getEntryNames);
-  }).then((movie_names) => {
-    return make_replay_list(replay_info, movie_names);
+  })
+  .then(() => Movies.bulkHas(replay_info.map(info => info.id)))
+  .then((rendered) => {
+    for (let info of replay_info) {
+      info.rendered = rendered.get(info.id);
+    }
+    return replay_info;
   });
 }
 
 function get_replay_count() {
   return Data.db.table('positions').count();
-}
-
-/**
- * Map replay id to file id.
- * @param {string} id
- * @returns {string}
- */
-function replay_id_to_file_id(id) {
-  return id.replace(/.*DATE/, '').replace('replays', '');
 }
 
 /**
@@ -405,8 +467,7 @@ function delete_replay(id) {
   return Data.db.table('positions').delete(id)
   .then(() => {
     Metadata.remove(id);
-    let file_id = replay_id_to_file_id(id);
-    return fs.deleteFile(`savedMovies/${file_id}`);
+    return Movies.delete(id);
   });
 }
 
@@ -421,8 +482,7 @@ function delete_replays(ids) {
     let deletions = [];
     for (let id of ids) {
       Metadata.remove(id);
-      let file_id = replay_id_to_file_id(id);
-      deletions.push(fs.deleteFile(`savedMovies/${file_id}`));
+      deletions.push(Movies.delete(id));
     }
     return Promise.all(deletions);
   });
@@ -477,7 +537,8 @@ function save_replay(id, replay) {
 
 /**
  * @param ids {Array.<String>} - list of ids of replays to download.
- * @returns {Promise} promise that resolves when operation is complete.
+ * @returns {Progress} progress for reporting and indicating when the
+ *   operation is complete.
  */
 function download_replays(ids) {
   logger.info('getRawDataAndZip()');
@@ -548,19 +609,6 @@ function download_replays(ids) {
         saveAs(content, 'raw_data.zip');
       });
     }));
-  });
-}
-
-// this downloads a rendered movie (found in the FileSystem) to disk
-function downloadMovie(name) {
-  //var nameDate = name.replace(/.*DATE/,'').replace('replays','')
-  var id = name.replace(/.*DATE/, '').replace('replays', '');
-  return fs.getFile(`savedMovies/${id}`).then((file) => {
-    var filename = name.replace(/DATE.*/, '') + '.webm';
-    saveAs(file, filename);
-  }).catch((err) => {
-    logger.error('Error downloading movie: ', err);
-    throw err;
   });
 }
 
@@ -746,9 +794,8 @@ function get_new_replay_name() {
   return `${prefix}_replay_${timestamp}`;
 }
 
+// Request/response listeners.
 var title;
-// Guard against multi-page rendering.
-let rendering = false;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let method = message.method;
   //message = message.data;
@@ -805,7 +852,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return save_replay(new_name, cropped_replay);
     }).then((replay_info) => {
       // Original replay was replaced.
-      if (replay_info.id == id) return replay_info;
+      if (replay_info.id == id) {
+        // Delete rendered movie if it existed.
+        return Movies.delete(id).then(() => replay_info);
+      }
       // Original replay still needs to be removed.
       return delete_replay(id).then(() => {
         return replay_info;
@@ -824,7 +874,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         failed: true,
         reason: err.message
       });
-    })
+    });
     return true;
 
   } else if (method == 'replay.delete') {
@@ -858,13 +908,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } catch(e) {
       sendResponse({
         failed: true,
-        reason: 'Replay is not valid JSON'
+        reason: 'Replay is not valid JSON',
+        name: 'ValidationError'
       });
       return false;
     }
     validate(data).then((result) => {
       if (result.failed) {
-        throw new Error(`Validation error: ${result.code}; ${result.reason}`);
+        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
+        err.name = 'ValidationError';
+        throw err;
       } else {
         return save_replay(name, data);
       }
@@ -887,7 +940,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       sendResponse({
         failed: true,
-        reason: err.message
+        reason: err.message,
+        name: err.name
       });
     });
     return true;
@@ -953,37 +1007,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.download') {
-    let {ids} = message;
-    logger.info(`Received replay download request for: ${ids}.`);
-    if (ids.length === 1) {
-      let id = ids[0];
-      get_replay_data(id).then((data) => {
-        data = JSON.stringify(data);
-        let file = new Blob([data], { type: "data:text/txt;charset=utf-8" });
-        saveAs(file, `${id}.txt`);
-      }).then(() => {
-        sendResponse({
-          failed: false
-        });
+    let {id} = message;
+    logger.info(`Received replay download request for: ${id}.`);
+    get_replay_data(id).then((data) => {
+      data = JSON.stringify(data);
+      let file = new Blob([data], { type: "data:text/txt;charset=utf-8" });
+      saveAs(file, `${id}.txt`);
+    }).then(() => {
+      sendResponse({
+        failed: false
       });
-    } else {
-      download_replays(ids).progress((update) => {
-        chrome.tabs.sendMessage(tab, {
-          method: 'export.update',
-          data: update
-        });
-      }).then(() => {
-        sendResponse({
-          failed: false
-        });
-      }).catch((err) => {
-        logger.error('Error downloading replays: ', err);
-        sendResponse({
-          failed: true,
-          reason: err.message
-        });
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        reason: err.message
       });
-    }
+    });
     return true;
 
   } else if (method == 'replay.rename') {
@@ -1011,7 +1050,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (method == 'movie.download') {
     let {id} = message;
     logger.info(`Received request to download movie for: ${id}.`);
-    downloadMovie(id).then(() => {
+    Movies.get(id).then((file) => {
+      return get_replay_info(id).then((info) => {
+        let filename = sanitize(info.name);
+        saveAs(file, filename);
+      });
       sendResponse({
         failed: false
       });
@@ -1028,57 +1071,121 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     logger.info('got request to clean rendered replays')
     getCurrentReplaysForCleaning()
 
-  } else if (method == 'replay.render') {
-    let id = message.id;
-    logger.info(`Rendering replay: ${id}`);
-    if (rendering) {
-      sendResponse({
-        failed: true,
-        severity: 'fatal',
-        reason: "Rendering is already occurring, wait for a bit or" +
-          " disable/enable the extension."
-      });
-    } else {
-      rendering = true;
-    }
-    get_replay_data(id).then((data) => {
-      // Validation is only needed here because we didn't validate replay
-      // database contents previously.
-      return validate(data).then((result) => {
-        if (result.failed)
-          throw new Error(`Validation error: ${result.code}; ${result.reason}`);
-        return renderVideo(data, id)
-        .progress((progress) => {
-          logger.debug(`Sending progress update for ${id}: ${progress}`);
-          chrome.tabs.sendMessage(tab, {
-            method: 'render.update',
-            id: id,
-            progress: progress
-          });
-        });
-      });
-    }).then(() => {
-      logger.info(`Rendering finished for ${id}`);
-      // Reset rendering state.
-      rendering = false;
-      sendResponse({
-        failed: false
-      });
-    }).catch((err) => {
-      logger.error(`Rendering failed for ${id}`, err);
-      // Reset rendering state.
-      rendering = false;
-      sendResponse({
-        failed: true,
-        severity: 'transient',
-        reason: err
-      });
-    });
-    return true;
-
   } else {
     logger.warn(`Message type not recognized: ${method}.`);
 
+  }
+});
+
+function serialize_error(error) {
+  return {
+    message: error.message,
+    name: error.name
+  };
+}
+
+/**
+ * Renders a replay.
+ * @param {string} id the id of the replay to render
+ * @param {Function} update callback for updates
+ * @returns {Promise}
+ */
+function render_replay(id, update) {
+  logger.info(`Rendering replay: ${id}`);
+  return get_replay_data(id).then((data) => {
+    // Validation is only needed here because we didn't validate replay
+    // database contents previously.
+    return validate(data).then((result) => {
+      if (result.failed) {
+        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
+        err.name = 'ValidationError';
+        throw err;
+      }
+
+      return renderVideo(data, id)
+      .progress((progress) => {
+        logger.debug(`Sending progress update for ${id}: ${progress}`);
+        update(progress);
+      });
+    });
+  });
+}
+
+// Rendering context.
+// Whether we're already rendering.
+let rendering = false;
+// Callback for initiating longer-lived activities.
+chrome.runtime.onConnect.addListener((port) => {
+  let name = port.name;
+  let tab = port.sender.tab.id;
+  logger.info(`Received port: ${name}`);
+
+  if (name == 'replay.render') {
+    /**
+     * Render a single replay.
+     * in  -> message with {id}
+     * out <- {error} or {progress}
+     * Error names can be:
+     * - AlreadyRendering or
+     * - Error
+     */
+    if (rendering) {
+      let error = new Error('Already rendering.');
+      error.name = 'AlreadyRendering';
+      port.postMessage({ error: serialize_error(error) });
+      port.disconnect();
+      return;
+    } else {
+      rendering = true;
+    }
+    port.onMessage.addListener((msg) => {
+      let {id} = msg;
+      render_replay(id, (progress) => {
+        port.postMessage({ progress: progress });
+      }).then(() => {
+        return get_replay_info(id);
+      }).then((replay_info) => {
+        // Send update indicating replay is rendered.
+        replay_info.rendered = true;
+        chrome.tabs.sendMessage(tab, {
+          method: 'replay.updated',
+          id: id,
+          replay: replay_info
+        });
+      }).catch((err) => {
+        logger.error(`Rendering failed for ${id}`, err);
+        port.postMessage({ error: serialize_error(err) });
+      }).then(() => {
+        port.disconnect();
+        rendering = false;
+      });
+    });
+    port.onDisconnect.addListener(() => {
+      logger.info('Render port disconnected.');
+      rendering = false;
+    });
+
+  } else if (name == 'replay.download') {
+    /**
+     * Protocol:
+     * -> initial message with replay ids.
+     * <- update messages
+     * we disconnect on finish or failure
+     */
+    port.onMessage.addListener((msg) => {
+      let {ids} = msg;
+      download_replays(ids).progress((update) => {
+        port.postMessage({ progress: update });
+      }).catch((err) => {
+        logger.error('Error downloading replays: ', err);
+        port.postMessage({ error: serialize_error(err) });
+      }).then(() => {
+        port.disconnect();
+      });
+    });
+
+  } else {
+    logger.warn('Did not recognize port type.');
   }
 });
 

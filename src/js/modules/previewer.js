@@ -412,6 +412,7 @@ class Viewer {
 
     let self = this;
     function dismiss() {
+      logger.debug('Previewer dismissed.');
       self.media.pause();
       self.hide();
       $('#menuContainer').show();
@@ -433,7 +434,7 @@ class Viewer {
         return;
       this.replay.delete().catch((err) => {
         alert(`Deletion failed: ${err.message}`);
-      }).then(() => dismiss);
+      }).then(dismiss);
     });
 
     $(player_elements.record).click(() => {

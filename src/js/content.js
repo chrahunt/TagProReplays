@@ -6,7 +6,6 @@ require('bootstrap');
 $.noConflict(true);
 
 require('chrome-storage-promise');
-const EventEmitter = require('events');
 const moment = require('moment');
 const reader = require('promise-file-reader');
 
@@ -336,6 +335,7 @@ let replay_table = new Table({
             $row.find('.rendered-check').text('✓');
             $row.find('.download-movie-button').prop('disabled', false);
         } else {
+            $row.find('.rendered-check').text('');
             $row.find('.download-movie-button').prop('disabled', true);
         }
         let duration = moment(replay.duration * 1000);
@@ -374,7 +374,6 @@ let replay_table = new Table({
 });
 
 let viewer = new Viewer();
-let activity = new EventEmitter();
 // Initialize the menu.
 function initMenu() {
     logger.info("Menu loaded.");
@@ -394,60 +393,56 @@ function initMenu() {
         replay_table.update();
     });
 
-    // these buttons allow rendering/deleting multiple replays
-    $('#renderSelectedButton').click(renderSelected);
-    $('#downloadRawButton').click(downloadRawData);
-
-    /**
-     * Callback for Render button. Sends replays to background page
-     * consecutively on completion of previous replay.
-     */
-    function renderSelected() {
-        let ids = replay_table.get_selected();
-        if (!ids.length) return;
+    replay_table.add_collection_action('#renderSelectedButton', (replays) => {
         if (!confirm('Are you sure you want to render these replays?'
-            + ' The extension will be unavailable until the movies are rendered.')) {
+            + ' The extension will be unavailable until the movies'
+            + ' are rendered.')) {
             return;
         }
-        logger.info('Starting rendering of replays.');
-        for (let id of ids) {
-            let $row = replay_table.get_row(id);
-            $row.find('.rendered-check').text('Queued');
+        let unrendered = replays.filter((replay) => {
+            return !replay.rendered;
+        });
+        if (!unrendered.length) {
+            alert('You must select at least one unrendered replay.');
+            return;
         }
-        let i = 0;
-        render_loop();
-        function render_loop() {
-            if (i === ids.length) {
-                logger.info('Rendering complete.');
+        // Update UI.
+        unrendered.each((replay) => {
+            let $row = replay_table.get_row(replay.id);
+            $row.find('.rendered-check').text('Queued');
+        });
+        // Render replays in sequence.
+        render_loop(0);
+        function render_loop(index) {
+            if (index === unrendered.length) {
+                logger.info('Rendering completed for all replays.');
                 return;
             }
-            let id = ids[i];
-            let $row = replay_table.get_row(id);
+            let replay = unrendered.get(index);
+            let $row = replay_table.get_row(replay.id);
             $row.find('.rendered-check').html('<progress class="progressbar">');
-            chrome.runtime.sendMessage({
-                method: 'replay.render',
-                id: id,
-            }, (result) => {
-                logger.info(`Received render confirmation for replay: ${i}`);
-                if (result.failed) {
-                    logger.info(`Rendering of ${i} failed, reason: ${result.reason}`);
-                    if (result.severity == 'fatal') {
-                        alert(`Rendering failed: ${result.reason}`);
-                        return;
-                    } else {
-                        // Some transient error, we can continue to send replays.
+            replay.render().progress((progress) => {
+                let progress_bar = $row.find('.progressbar')[0];
+                progress_bar.value = progress;
+            }).catch((err) => {
+                if (err.name == 'AlreadyRendering') {
+                    alert(`Error rendering replays: ${err.message}`);
+                    // Replay render status on all selected replays.
+                    for (let i = index; i < unrendered.length; i++) {
+                        let $row = replay_table.get_row(unrendered.get(i).id);
                         $row.find('.rendered-check').html('<span style="color:red">ERROR');
                     }
+                    // Re-throw to abort the rest of the renders.
+                    throw err;
                 } else {
-                    replay_table.update_replay(id, {
-                        rendered: true
-                    });
+                    // Only error for the single replay.
+                    $row.find('.rendered-check').html('<span style="color:red">ERROR');
                 }
-                i++;
-                render_loop();
+            }).then(() => {
+                render_loop(++index);
             });
         }
-    }
+    });
 
     replay_table.add_collection_action('#deleteSelectedButton', (replays) => {
         if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
@@ -465,10 +460,14 @@ function initMenu() {
      * this just sends the request and then manages
      * the progress modal.
      */
-    function downloadRawData() {
-        let ids = replay_table.get_selected();
-        if (!ids.length) return;
-        logger.info(`Requesting download for: ${ids}`);
+    replay_table.add_collection_action('#downloadRawButton', (replays) => {
+        logger.info(`Requesting download for: ${replays.ids}`);
+        if (replays.length === 1) {
+            replays.get(0).download().catch((err) => {
+                alert(`Error downloading replay: ${err.message}`);
+            });
+            return;
+        }
         // Initialize activity dialog.
         activity_dialog.set({
             dismissable: false,
@@ -506,22 +505,18 @@ function initMenu() {
                 }
             }
         }
-        activity.on('export', update_dialog);
-        chrome.runtime.sendMessage({
-            method: 'replay.download',
-            ids: ids
-        }, (result) => {
-            activity.removeListener('export', update_dialog);
+        replays.download().progress((progress) => {
+            update_dialog(progress);
+        }).then(() => {
+            activity_dialog.text('Replays exported.');
+        }).catch((err) => {
+            activity_dialog.text(`Replay export failed, reason: ${err.message}`);
+        }).then(() => {
             activity_dialog.update({
                 dismissable: true
             });
-            if (result.failed) {
-                activity_dialog.text(`Replay export failed, reason: ${result.reason}`);
-            } else {
-                activity_dialog.text('Replays exported.');
-            }
         });
-    }
+    });
 
     replay_table.add_row_action('.playback-link', (replay) => {
         logger.info(`Playback link clicked for ${replay.id}`);
@@ -572,7 +567,9 @@ function initMenu() {
     let import_start, import_end, total_size, total;
     function report_stats() {
         let duration = import_end - import_start;
-        logger.info(`Import Statistics:\nStart: ${import_start}\nEnd: ${import_end}\nDuration: ${duration}\nTotal files: ${total}\nSize: ${total_size}`);
+        logger.info(`Import Statistics:\nStart: ${import_start}\n`
+          + `End: ${import_end}\nDuration: ${duration}\nTotal files:`
+          + ` ${total}\nSize: ${total_size}`);
     }
     function readImportedFile(files, i) {
         if (!i) {
@@ -589,27 +586,31 @@ function initMenu() {
         let file = files[i++];
         total_size += file.size;
         return reader.readAsText(file).then((text) => {
-            chrome.runtime.sendMessage({
-                method: 'replay.import',
+            return Replays.import({
                 name: file.name,
                 data: text
-            }, function (response) {
-                if (response.failed) {
-                    // Failed to import. Wait until confirmation.
-                    showImportAlert(file.name, response.reason).then(() => {
-                        readImportedFile(files, i);
-                    });
-                } else {
-                    logger.info(`Replay ${name} imported.`);
-                    readImportedFile(files, i);
-                }
             });
+        }).then(() => {
+            logger.info(`Replay ${file.name} imported.`);
+        }).catch((err) => {
+            if (err.name == 'ValidationError') {
+                // Wait for dialog before proceeding.
+                return showImportAlert(file.name, err.message);
+            }
+            // Re-throw if not due to validation.
+            throw err;
+        }).then(() => {
+            return readImportedFile(files, i);
         });
-    };
+    }
     
     let upload = new Upload('raw-upload-button');
     upload.on('files', (files) => {
-        readImportedFile(files, 0);
+        readImportedFile(files, 0).then(() => {
+            logger.info('Done importing.');
+        }).catch((err) => {
+            alert(`Error importing: ${err.message}`);
+        });
     });
 } // end initMenu
 
@@ -689,26 +690,6 @@ Replays.on('deleted', (ids) => {
 
 Replays.on('updated', (id, replay) => {
     replay_table.update_replay(id, replay);
-});
-
-// then set up listeners for info from background script
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    let {method} = message;
-    logger.info(`Received message: ${method}`);
-
-    if (method == "render.update") {
-        let {id, progress} = message;
-        let $row = replay_table.get_row(id);
-        let progress_bar = $row.find('.progressbar')[0];
-        progress_bar.value = progress;
-
-    } else if (method == 'export.update') {
-        let {data} = message;
-        activity.emit('export', data);
-
-    } else {
-        logger.warn(`Message type not recognized: ${method}`);
-    }
 });
 
 // this function sets up a listener wrapper

@@ -189,7 +189,7 @@ class Table {
     if (id !== replay.id) {
       $row.attr('id', this._get_id(replay.id));
     }
-    this._render_row($row);
+    this._render_row($row, replay);
     this._do_sort();
   }
 

@@ -1,9 +1,3 @@
-// $ is implicit, we get injected into the page where it is available.
-const saveAs = require('file-saver').saveAs;
-
-const logger = require('util/logger')('recording');
-const Cookies = require('util/cookies');
-
 /**
  * Record and save the state of the game, emitting an event to the
  * window with the replay data.
@@ -20,6 +14,12 @@ const Cookies = require('util/cookies');
  * script <-- replay.saved --  content script
  * {failed} - the result of the operation.
  */
+
+// $ is implicit, we get injected into the page where it is available.
+const saveAs = require('file-saver').saveAs;
+
+const logger = require('util/logger')('recording');
+const Cookies = require('util/cookies');
 
 let positions;
 
