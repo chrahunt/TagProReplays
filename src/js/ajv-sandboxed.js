@@ -1,8 +1,8 @@
 // Script to be loaded into sandboxed page.
 const Ajv = require('ajv');
 
-const logger = require('./modules/logger')('ajv-sandboxed');
-const {registerSandbox} = require('./modules/messaging');
+const logger = require('util/logger')('ajv-sandboxed');
+const {registerSandbox} = require('util/messaging');
 
 class ClassManager {
   constructor(klass) {

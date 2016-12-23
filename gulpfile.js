@@ -49,14 +49,18 @@ var dirs = {
   release: './dist'
 };
 
+var b_defaults = {
+  paths: ['./src/js']
+};
+
 // Returns duplex stream that takes vinyl files, browserifies them, and
 // emits the browserified versions.
 const browserified = (opts) => {
   return through.obj(function (file, enc, next) {
     let src = file.path;
-    let b_opts = {
+    let b_opts = Object.assign({
       entries: src
-    };
+    }, b_defaults);
     Object.assign(b_opts, opts);
     browserify(b_opts)
       .bundle()
@@ -120,7 +124,7 @@ function makeManifest(dest, props) {
 
 // Compile and watchify sourced file.
 function watchifyFile(src, dest) {
-  var opts = Object.assign({}, watchify.args, {
+  var opts = Object.assign({}, watchify.args, b_defaults, {
     entries: src,
     debug: true
   });

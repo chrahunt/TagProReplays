@@ -1,5 +1,9 @@
-var logger = require('./logger')('filesystem');
+var logger = require('util/logger')('filesystem');
 
+/**
+ * Promise-based wrapper around Chrome's implementation of the FileSystem
+ * API.
+ */
 var requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
 var default_size = 50 * 1024 * 1024 * 1024;
 
@@ -138,11 +142,21 @@ function getFile(path) {
   }).then(fileAsPromise);//.catch(errorHandler);
 }
 
+/**
+ * Delete file at specified path. If file is not present
+ * then exception is not raised.
+ * @param {string} path
+ */
 function deleteFile(path) {
   logger.info('deleteFile()');
   return requestFS(default_size).then((fs) => {
     return deleteFileAsPromise(fs.root, path);
-  });//.catch(errorHandler);
+  }).catch((err) => {
+    if (err.name !== 'NotFoundError') {
+      // Re-throw unless not found.
+      throw err;
+    }
+  });
 }
 
 var fs = {

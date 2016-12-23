@@ -1,4 +1,4 @@
-var logger = require('./logger')('cookies');
+var logger = require('util/logger')('cookies');
 
 exports.read = function(name) {
     var nameEQ = name + "=";

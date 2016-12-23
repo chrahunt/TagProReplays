@@ -2,8 +2,8 @@ const loadImage = require('image-promise');
 const moment = require('moment');
 require('moment-duration-format');
 
-const logger = require('./logger')('renderer');
-const Textures = require('./textures');
+const logger = require('util/logger')('renderer');
+const Textures = require('modules/textures');
 logger.info('Loading renderer.');
 
 /*

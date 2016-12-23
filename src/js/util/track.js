@@ -25,7 +25,7 @@
  */
 const mixpanel = require('mixpanel-browser');
 
-const logger = require('./logger')('track');
+const logger = require('util/logger')('track');
 
 function isBackground() {
   // Synchronous shortcut since we don't use an options page.
