@@ -604,13 +604,34 @@ function initMenu() {
         });
     }
     
+    // Track whether we're importing, keep table from updating if so.
+    let importing = false;
     let upload = new Upload('raw-upload-button');
     upload.on('files', (files) => {
+        importing = true;
         readImportedFile(files, 0).then(() => {
             logger.info('Done importing.');
+            // Update table to reflect newly-imported replays.
+            replay_table.update();
         }).catch((err) => {
             alert(`Error importing: ${err.message}`);
-        });
+        }).then(() => {
+            importing = false;
+        })
+    });
+
+    // Table update listeners.
+    Replays.on('added', (replay) => {
+        if (importing) return;
+        replay_table.add_replay(replay);
+    });
+
+    Replays.on('deleted', (ids) => {
+        replay_table.remove_replays(ids);
+    });
+
+    Replays.on('updated', (id, replay) => {
+        replay_table.update_replay(id, replay);
     });
 } // end initMenu
 
@@ -679,18 +700,6 @@ function formatMetaDataTitle(replay) {
     title    += `Blue Team:\n\t${replay.info.blue_team.join('\n\t')}\n`;
     return title;
 }
-
-Replays.on('added', (replay) => {
-    replay_table.add_replay(replay);
-});
-
-Replays.on('deleted', (ids) => {
-    replay_table.remove_replays(ids);
-});
-
-Replays.on('updated', (id, replay) => {
-    replay_table.update_replay(id, replay);
-});
 
 // this function sets up a listener wrapper
 function listen(event, listener) {
