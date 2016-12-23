@@ -58,7 +58,7 @@
     }
 
     #viewer-controls {
-        position: absolute;
+        position: relative;
         bottom: 0;
     }
 }
@@ -209,9 +209,6 @@
 #tpr-viewer-container #viewer-controls {
     height: 58px;
     width: 100%;
-    // force to bottom of viewer.
-    bottom: 0;
-    position: absolute;
 }
 
 .progress-main {
