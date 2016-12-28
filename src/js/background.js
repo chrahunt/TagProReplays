@@ -1052,11 +1052,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     logger.info(`Received request to download movie for: ${id}.`);
     Movies.get(id).then((file) => {
       return get_replay_info(id).then((info) => {
+        logger.debug(`Downloading movie for ${id}.`);
         let filename = sanitize(info.name);
-        saveAs(file, filename);
-      });
-      sendResponse({
-        failed: false
+        saveAs(file, `${filename}.webm`);
+        sendResponse({
+          failed: false
+        });
       });
     }).catch((err) => {
       logger.error('Error downloading movie: ', err);
