@@ -152,33 +152,36 @@ function renderVideo(replay, id) {
       return get_renderer(can, replay, options);
     }).then(function render(renderer, frame=0) {
       if(frame==0) console.time('render time');
-      for (; frame < frames; frame++) {
-        //logger.trace(`Rendering frame ${frame} of ${frames}`);
-        renderer.draw(frame);
-        context.canvas.toBlob(function(blob) {
-          encoder.add(blob, frame);
-
-          if (encoder.frames.length === frames) {
-            return encoder.compile().then(function(output) {
-              console.endTime('render time');
-              let filename = id.replace(/.*DATE/, '').replace('replays', '');
-              return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
-                logger.debug('File saved.');
-              }).catch((err) => {
-                logger.error('Error saving render: ', err);
-                throw err;
-              });
+      //logger.trace(`Rendering frame ${frame} of ${frames}`);
+      renderer.draw(frame);
+      context.canvas.toBlob((function(frame,blob) {
+        encoder.add(blob);
+        
+        frame++;
+        if (frame >= frames) {
+          encoder.compile().then(function(output) {
+            console.timeEnd('render time');
+            let filename = id.replace(/.*DATE/, '').replace('replays', '');
+            return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
+              logger.debug('File saved.');
+            }).catch((err) => {
+              logger.error('Error saving render: ', err);
+              throw err;
             });
-          } else if (Math.floor(frame / frames / notification_freq) != portions_complete) {
+          }).then(function() {
+            resolve(result);
+          });
+        } else {
+          if (Math.floor(frame / frames / notification_freq) != portions_complete) {
             portions_complete++;
             progress(frame / frames);
-            // Slight delay to give our progress message time to propagate.
-            return PromiseTimeout(() => render(renderer, ++frame));
           }
-        }, 'image/webp', 0.8);
-      }
+          // Slight delay to give our progress message time to propagate.
+          //return PromiseTimeout(() => render(renderer, ++frame));
+          return render(renderer,frame)
+        }
+      }).bind(this,frame), 'image/webp', 0.8);
     });
-    resolve(result);
   });
 }
 
