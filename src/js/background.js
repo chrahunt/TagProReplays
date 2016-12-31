@@ -1,16 +1,18 @@
 const JSZip = require('jszip');
+const sanitize = require('sanitize-filename');
 const saveAs = require('file-saver').saveAs;
 const semver = require('semver');
 require('chrome-storage-promise');
 
-const Data = require('./modules/data');
-const logger = require('./modules/logger')('background');
-const fs = require('./modules/filesystem');
-const get_renderer = require('./modules/renderer');
-const Textures = require('./modules/textures');
-const track = require('./modules/track');
-const {validate} = require('./modules/validate');
-const Whammy = require('./modules/whammy');
+const Data = require('modules/data');
+const logger = require('util/logger')('background');
+const fs = require('util/filesystem');
+const get_renderer = require('modules/renderer');
+const {Progress} = require('util/promise-ext');
+const Textures = require('modules/textures');
+const track = require('util/track');
+const {validate} = require('modules/validate');
+const Whammy = require('util/whammy');
 
 logger.info('Starting background page.');
 
@@ -45,40 +47,6 @@ can.style.left = 0;
 let context = can.getContext('2d');
 
 /**
- * Provide a progress callback to some bit of work wrapped
- * in a Promise.
- * 
- * Use with regular promises like:
- *   
- *   var p = new Progress((resolve, reject, progress) => {
- * 
- *   });
- * 
- *   // elsewhere...
- * 
- *   promise_returning_fn().then(p.progress((progress) => {
- *     update_something(progress);
- *   })).then((result) => {
- *     all_done();
- *   });
- */
-class Progress {
-  constructor(wrapped) {
-    this.__callback = () => {};
-    this.__promise = new Promise((resolve, reject) => {
-      return wrapped(resolve, reject, (progress) => {
-        this.__callback(progress);
-      });
-    });
-  }
-
-  progress(callback) {
-    this.__callback = callback;
-    return this.__promise;
-  }
-}
-
-/**
  * Resolves the given callback after a timeout.
  */
 function PromiseTimeout(callback, timeout=0) {
@@ -87,34 +55,6 @@ function PromiseTimeout(callback, timeout=0) {
       resolve(callback());
     }, timeout);
   });
-}
-
-// Function to test integrity of position data before attempting to render
-// Returns false if a vital piece is missing, true if no problems were found
-// Currently does not do a very thorough test
-function checkData(positions) {
-  logger.info('checkData()');
-  const props = ["chat", "splats", "bombs", "spawns", "map", "wallMap", "floorTiles", "score", "gameEndsAt", "clock", "tiles"];
-  for (let prop of props) {
-    if (!positions[prop]) {
-      logger.error(`Replay missing property: ${prop}`);
-      return false;
-    }
-  }
-  const nonempty = ['map', 'wallMap', 'clock'];
-  for (let prop of nonempty) {
-    if (positions[prop].length === 0) {
-      logger.error(`Replay property was empty: ${prop}`);
-      return false;
-    }
-  }
-
-  let player_exists = Object.keys(positions).some(k => k.startsWith('player'));
-  if (!player_exists) {
-    logger.error('No player property found in replay.');
-    return false;
-  }
-  return true;
 }
 
 /**
@@ -130,12 +70,6 @@ function checkData(positions) {
  */
 function renderVideo(replay, id) {
   return new Progress((resolve, reject, progress) => {
-    // Check replay data.
-    if (!checkData(replay)) {
-      logger.warn(`${name} was a bad replay.`);
-      reject("The replay was not valid.");
-    }
-    
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
     let frames = replay.clock.length;
@@ -166,7 +100,7 @@ function renderVideo(replay, id) {
           encoder.compile().then(function(output) {
             console.timeEnd('compile time');
             let filename = id.replace(/.*DATE/, '').replace('replays', '');
-            return fs.saveFile(`savedMovies/${filename}`, output).then(() => {
+            return Movies.save(id, output).then(() => {
               logger.debug('File saved.');
             }).catch((err) => {
               logger.error('Error saving render: ', err);
@@ -191,58 +125,382 @@ function renderVideo(replay, id) {
   });
 }
 
+/**
+ * Wrapper around rendered replay storage, providing a Promise-based
+ * interface.
+ */
+const Movies = {
+  /**
+   * @param {string} id
+   * @returns {Promise<File>}
+   */
+  get: function(id) {
+    let filename = this._replay_id_to_file_id(id);
+    let path = `${this._dir}/${filename}`;
+    return fs.getFile(path);
+  },
+  /**
+   * Delete the movie matching the provided id.
+   */
+  delete: function(id) {
+    let filename = this._replay_id_to_file_id(id);
+    return this._delete(filename);
+  },
+  /**
+   * Deletes movies from storage that do not correspond to the provided
+   * replay ids.
+   * @returns {Promise}
+   */
+  deleteMissing: function(ids) {
+    let lookup = new Set(ids.map(this._replay_id_to_file_id));
+    return this._get_names().then((cache) => {
+      let pending = [];
+      for (let id of cache) {
+        if (!lookup.has(id)) {
+          pending.push(this._delete(id));
+        }
+      }
+      return Promise.all(pending);
+    });
+  },
+  save: function(id, movie) {
+    let filename = this._replay_id_to_file_id(id);
+    let path = `${this._dir}/${filename}`;
+    return fs.saveFile(path, movie)
+    .then(() => this._add_name(filename))
+  },
+  has: function(id) {
+    let filename = this._replay_id_to_file_id(id);
+    return this._get_names().then((cache) => {
+      return cache.has(filename);
+    });
+  },
+  /**
+   * Query presence of files for a large number of ids.
+   * @param {Array<string>} ids
+   * @returns {Promise<Map<string, bool>>} mapping indicates whether we
+   *   have a movie for the corresponding id
+   */
+  bulkHas: function(ids) {
+    let status = new Map();
+    return this._get_names().then((cache) => {
+      for (let id of ids) {
+        let filename = this._replay_id_to_file_id(id);
+        status.set(id, cache.has(filename));
+      }
+      return status;
+    });
+  },
+  _delete: function(name) {
+    return fs.deleteFile(`${this._dir}/${name}`)
+    .then(() => this._delete_name(name));
+  },
+  // Map from current replay id to id used in FileSystem.
+  _replay_id_to_file_id: function(id) {
+    return id.replace(/.*DATE/, '').replace('replays', '');
+  },
+  // Movies object caches file names on first query so we don't have to
+  // grab them each time.
+  _delete_name: function(name) {
+    return this._get_names().then((cache) => {
+      cache.delete(name);
+    });
+  },
+  _add_name: function(name) {
+    return this._get_names().then((cache) => {
+      cache.add(name);
+    });
+  },
+  _get_names: function() {
+    if (this._retrieved) return Promise.resolve(this._cache);
+    return fs.getDirectory(this._dir)
+    .then(fs.getEntryNames)
+    .then((names) => {
+      this._cache = new Set(names);
+      this._retrieved = true;
+      return this._cache;
+    });
+  },
+  /** @type {Set} */
+  _cache: null,
+  _retrieved: false,
+  // Directory in FileSystem.
+  _dir: 'savedMovies'
+};
+
+// Stored metadata.
+const Metadata = {
+  // Container interface.
+  // Get the replay.
+  get: function(id) {
+    let data = localStorage.getItem(id);
+    if (data === null) return null;
+    let parsed = this.valid(data);
+    if (!parsed) {
+      this.remove(id);
+      return null;
+    }
+    return parsed;
+  },
+  // Set metadata you already have.
+  set: function(id, data) {
+    localStorage.setItem(id, JSON.stringify(data));
+  },
+  remove: function(id) {
+    localStorage.removeItem(id);
+  },
+  has: function(id) {
+    return localStorage.getItem(id) !== null;
+  },
+  // Generate metadata.
+  // Replay is an object.
+  make: function(id, replay) {
+    let metadata = extractMetaData(replay);
+    this.set(id, metadata);
+    return metadata;
+  },
+  // If valid, returns the final format of the data, else
+  // false.
+  valid: function(data) {
+    if (!data) return false;
+    try {
+      let parsed = JSON.parse(data);
+      if (parsed.map) {
+        return parsed;
+      } else {
+        return false;
+      }
+    } catch(e) {
+      return false;
+    }
+  },
+  // Do maintenance on the metadata store.
+  clean: function() {
+    // Remove invalid values.
+    for (let i = 0; i < localStorage.length; i++) {
+      let key = localStorage.key(i);
+      let value = localStorage.getItem(key);
+      if (!this.valid(value)) {
+        this.remove(key);
+      }
+    }
+  }
+};
+
+/**
+ * Extract old-format metadata from a given replay.
+ * TODO: Stop verifying that a single player was recording after implementing
+ * replay validation.
+ * @param {object} positions
+ * @returns {object}
+ */
+function extractMetaData(positions) {
+  var metadata = {
+    redTeam: [],
+    blueTeam: [],
+    duration: 0,
+    fps: 0,
+    map: ''
+  };
+
+  // Get recording player.
+  let players = Object.keys(positions).filter(
+    k => k.startsWith('player'));
+  let me = players.find(k => positions[k].me === 'me');
+  if (typeof me == 'undefined') {
+    logger.error('Did not find recording player in replay.');
+    throw new Error('Replay did not contain the recording player.');
+  }
+  metadata.fps = positions[me].fps;
+  metadata.map = positions[me].map;
+  let start = Date.parse(positions.clock[0]);
+  let end = Date.parse(positions.clock[positions.clock.length - 1])
+  metadata.duration = Math.round((end - start) / 1000);
+  for (let key of players) {
+    let player = positions[key];
+    let name = player.name.find(n => n);
+    let team = player.team[0];
+    name = key == me ? `* ${name}`
+                     : `  ${name}`;
+    if (team == 1) {
+      metadata.redTeam.push(name);
+    } else {
+      metadata.blueTeam.push(name);
+    }
+  }
+  return metadata;
+}
+
+/**
+ * Given an id and metadata, generate consolidated replay
+ * info.
+ */
+function make_replay_info(id, metadata) {
+  return {
+    id:        id,
+    name:      id.replace(/DATE.*/, ''),
+    // id is formatted either:
+    // 1. replays(\d+)
+    // 2. (.+)DATE(\d+)
+    // where the last capture group is the date recorded, edited,
+    // or imported.
+    recorded:  Number(id.replace('replays', '').replace(/.*DATE/, '')),
+    rendered:  false,
+    // seconds
+    duration:  metadata.duration,
+    map:       metadata.map,
+    fps:       metadata.fps,
+    red_team:  metadata.redTeam,
+    blue_team: metadata.blueTeam
+  };
+}
+
 // Remove any movie files that don't have a corresponding replay in
 // indexedDB.
 function getCurrentReplaysForCleaning() {
-  let keys = [];
-  each_replay((id) => {
-    keys.push(id);
-  }).then(() => {
-    // Make set for movie file name lookup.
-    let ids = new Set(keys.map(
-      k => k.replace(/.*DATE/, '').replace('replays', '')));
-    return fs.getDirectory('savedMovies').then(fs.getEntryNames)
-      .then((names) => {
-        return Promise.all(names.map((name) => {
-          if (!ids.has(name)) {
-            return fs.deleteFile(name);
-          } else {
-            return Promise.resolve();
-          }
-        }));
-      });
+  return Data.db.table('positions')
+  .toCollection()
+  .primaryKeys().then((keys) => {
+    return Movies.deleteMissing(keys);
   });
 }
 
 /**
+ * Replay consists of info and data.
+ * Methods below retrieve info, data, or both.
+ * Plural is for multiple replays.
+ */
+/**
  * Returns a promise that resolves to the retrieved replay.
+ * @param {string} id
+ * @returns {Promise<object>}
  */
 function get_replay(id) {
   logger.info(`Retrieving replay: ${id}.`);
   return Data.db.table('positions')
-    .get(id)
-    .then((replay) => {
-      logger.debug(`Replay ${id} retrieved.`);
-      let data = JSON.parse(replay);
-      return data;
+  .get(id)
+  .then(JSON.parse)
+  .then((data) => {
+    logger.debug(`Replay ${id} retrieved.`);
+    let metadata = Metadata.get(id);
+    if (!metadata) {
+      metadata = Metadata.make(id, data);
+    }
+    return Movies.has(id).then((present) => {
+      let info = make_replay_info(id, metadata);
+      info.rendered = present;
+      return {
+        info: info,
+        data: data
+      };
     });
+  });
+}
+
+/**
+ * Returns a promise that resolves to the replay info.
+ */
+function get_replay_info(id) {
+  let metadata = Metadata.get(id);
+  if (!metadata) {
+    // Generate if needed.
+    return get_replay(id).then(replay => replay.info);
+  } else {
+    return Movies.has(id).then((present) => {
+      let info = make_replay_info(id, metadata);
+      info.rendered = present;
+      return info;
+    });
+  }
+}
+
+/**
+ * Retrieve the data for a replay.
+ * @param {string} id
+ * @returns {Promise<object>}
+ */
+function get_replay_data(id) {
+  logger.info(`Retrieving replay data: ${id}`);
+  return Data.db.table('positions')
+  .get(id)
+  .then(JSON.parse)
+  .then((data) => {
+    logger.debug(`Replay ${id} retrieved.`);
+    return data;
+  });
+}
+
+/**
+ * Retrieve the info for all replays.
+ * @returns {Promise<Array<object>>} array of replay info.
+ */
+function get_all_replays_info() {
+  let replay_info = [];
+  // Metadata to be generated.
+  return Data.db.table('positions')
+  .toCollection()
+  .primaryKeys().then((ids) => {
+    let pending = [];
+    for (let i = 0; i < ids.length; i++) {
+      let id = ids[i];
+      let metadata = Metadata.get(id);
+      if (!metadata) {
+        pending.push([id, i]);
+        // Placeholder.
+        replay_info.push(null);
+      } else {
+        replay_info.push(make_replay_info(id, metadata));
+      }
+    }
+    // Resolve any data that doesn't already exist.
+    return Promise.all(pending.map(([id, index]) => {
+      return get_replay(id).then((replay) => {
+        replay_info[index] = replay.info;
+      });
+    }));
+  })
+  .then(() => Movies.bulkHas(replay_info.map(info => info.id)))
+  .then((rendered) => {
+    for (let info of replay_info) {
+      info.rendered = rendered.get(info.id);
+    }
+    return replay_info;
+  });
 }
 
 function get_replay_count() {
   return Data.db.table('positions').count();
 }
 
+/**
+ * Delete replay and associated data.
+ * @param {string} id
+ * @returns {Promise} resolves when the operation is complete.
+ */
 function delete_replay(id) {
   logger.info(`Deleting replay: ${id}.`);
-  return Data.db.table('positions').delete(id);
+  return Data.db.table('positions').delete(id)
+  .then(() => {
+    Metadata.remove(id);
+    return Movies.delete(id);
+  });
 }
 
 /**
+ * Delete replays and associated data.
  * @param {Array.<string>} ids  ids of items to delete from database.
  */
-function delete_replays(ids, iteratee=null) {
+function delete_replays(ids) {
   logger.info(`Deleting replays: ${ids}`);
-  return Data.db.table('positions').bulkDelete(ids);
+  return Data.db.table('positions').bulkDelete(ids)
+  .then(() => {
+    let deletions = [];
+    for (let id of ids) {
+      Metadata.remove(id);
+      deletions.push(Movies.delete(id));
+    }
+    return Promise.all(deletions);
+  });
 }
 
 function each_replay(iteratee) {
@@ -252,117 +510,132 @@ function each_replay(iteratee) {
 
 /**
  * Saves replay in IndexedDB, returns promise that resolves to id.
+ * @param {string} id
+ * @param {object} replay
+ * @return {Promise<string>} 
  */
 function set_replay(id, replay) {
   logger.info(`Saving replay: ${id}.`);
   return Data.db.table('positions').put(JSON.stringify(replay), id);
 }
 
-// This is necessary since we store the replay name in the
-// primary key.
-// Resolves to the id of the newly saved replay.
-function renameData(id, new_name) {
-  let name = new_name;
+/**
+ * Rename the given replay.
+ * @param {string} id
+ * @param {string} name
+ * @returns {Promise<object>}
+ */
+function rename_replay(id, name) {
   return Data.db.transaction('rw', ['positions'], () => {
-    return Data.db.table('positions').get(id).then((replay) => {
-      let info = make_replay_info(id, get_or_make_metadata(id, replay));
-      // Make date conform to expected format.
-      name = `${name}DATE${info.recorded}`;
-      return Data.db.table('positions').delete(id).then(() => replay);
-    }).then((replay) => {
-      localStorage.removeItem(id);
-      // Store using new name.
-      return save_replay(name, JSON.parse(replay));
+    return get_replay(id).then((replay) => {
+      // Renaming to itself is the same as not doing anything.
+      if (name === replay.info.name) return;
+      name = `${name}DATE${replay.info.recorded}`;
+      delete_replay(id);
+      return save_replay(name, replay.data);
     });
   });
 }
 
-// Handles metadata extraction/saving in addition to IDB saving.
+/**
+ * Saves replay and metadata.
+ * @param {string} id
+ * @param {object} replay
+ * @returns {object} the replay info for the saved replay.
+ */
 function save_replay(id, replay) {
-  let metadata = extractMetaData(replay);
   return set_replay(id, replay).then((id) => {
-    localStorage.setItem(id, JSON.stringify(metadata));
-    return id;
+    let metadata = Metadata.make(id, replay);
+    return make_replay_info(id, metadata);
   });
 }
-
-function get_metadata(id) {
-  return JSON.parse(localStorage.getItem(id));
-}
-
-function get_or_make_metadata(id, replay) {
-  if (!replay) {
-    logger.warn(`Replay with id ${id} does not have a valid replay.`);
-    return extractMetaData(null);
-  }
-  let metadata = localStorage.getItem(id);
-  if (metadata) {
-    try {
-      let result = JSON.parse(metadata);
-      if (typeof result.map != 'undefined') {
-        return result;
-      }
-    } catch (err) {
-      // pass, we make new metadata below.
-    }
-    // the existing metadata is no good, so we remove it.
-    localStorage.removeItem(id);
-  }
-  // At this point, metadata needs to be generated.
-  try {
-    let parsed_replay = JSON.parse(replay);
-    metadata = extractMetaData(parsed_replay);
-    localStorage.setItem(id, JSON.stringify(metadata));
-  } catch (err) {
-    logger.warn(`Replay with id ${id} could not be parsed.`);
-    metadata = extractMetaData(null);
-  }
-  return metadata;
-}
-
 
 /**
  * @param ids {Array.<String>} - list of ids of replays to download.
- * @returns {Promise} promise that resolves when operation is complete.
+ * @returns {Progress} progress for reporting and indicating when the
+ *   operation is complete.
  */
-function getRawDataAndZip(ids) {
+function download_replays(ids) {
   logger.info('getRawDataAndZip()');
-  var zip = new JSZip();
-  return Data.db.table('positions').where(':id').anyOf(ids)
-  .each((item, cursor) => {
-    zip.file(`${cursor.key}.txt`, cursor.value);
-  }).then(() => {
-    return zip.generateAsync({
-      type: "blob",
-      compression: "DEFLATE"
-    }).then((content) => {
-      saveAs(content, 'raw_data.zip');
-    });
-  });
-}
+  let total = ids.length;
+  let i = 0;
+  let zip = new JSZip();
+  let size = 0;
+  //  100 MB
+  let max_size = 200 * 1024 * 1024;
+  let batch_size = 5;
 
-// this downloads a rendered movie (found in the FileSystem) to disk
-function downloadMovie(name) {
-  //var nameDate = name.replace(/.*DATE/,'').replace('replays','')
-  var id = name.replace(/.*DATE/, '').replace('replays', '');
-  return fs.getFile(`savedMovies/${id}`).then((file) => {
-    var filename = name.replace(/DATE.*/, '') + '.webm';
-    saveAs(file, filename);
-  }).catch((err) => {
-    logger.error('Error downloading movie: ', err);
-    throw err;
+  return new Progress((resolve, reject, progress) => {
+    function send_start_zip_update() {
+      progress({
+        action: 'state',
+        value: i === total ? 'zip:final'
+                           : 'zip:intermediate'
+      });
+    }
+    function send_end_zip_update() {
+      progress({
+        action: 'state',
+        value: '!zip'
+      });
+    }
+    let table = Data.db.table('positions');
+    resolve(Data.each_key(table, ids, (cursor) => {
+      logger.debug(`Zipping replay ${++i} of ${total}`);
+      let item = cursor.value;
+      // Skip null values.
+      if (!item) return;
+      let this_size = item.length;
+      size += this_size;
+      let filename = sanitize(cursor.key);
+      // Uniqueness provided by uniqueness constraint of primary key.
+      zip.file(`${filename}.txt`, cursor.value);
+      progress({
+        action: 'progress',
+        value: i / total
+      });
+      logger.debug(`Size: ${size}; Max: ${max_size}`);
+      if (size > max_size) {
+        size = 0;
+        logger.info('Generating intermediate zip file.');
+        send_start_zip_update();
+        // Generate intermediate zip.
+        let result = zip.generateAsync({
+          type: "blob",
+          compression: "STORE"
+        }).then((content) => {
+          logger.info('Finished generating zip.');
+          send_end_zip_update();
+          saveAs(content, 'raw_data.zip');
+        });
+        zip = new JSZip();
+        return result;
+      }
+    }).then(() => {
+      logger.info('Finished looping.');
+      if (!size) return Promise.resolve();
+      logger.info('Generating final zip file.');
+      send_start_zip_update();
+      return zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE"
+      }).then((content) => {
+        send_end_zip_update();
+        saveAs(content, 'raw_data.zip');
+      });
+    }));
   });
 }
 
 /**
- * Crop a replay, including all frames from start to end (includive)
+ * Crop a replay, including all frames from start to end (inclusive)
  * Edits the input replay.
  * @param {object} replay  the replay to crop
  * @param {number} start   the frame to start cropping
  * @param {number} end     the frame to stop cropping at
  * @return {object} 
  */
-function cropReplay(replay, start, end) {
+function cropReplayData(replay, start, end) {
   let length = replay.clock.length;
   if (start === 0 && end === length)
     return replay;
@@ -504,7 +777,7 @@ function cropReplay(replay, start, end) {
 function trimReplay(replay) {
   let data_start = replay.clock.findIndex(t => t !== 0);
   let data_end = replay.clock.length - 1;
-  return cropReplay(replay, data_start, data_end);
+  return cropReplayData(replay, data_start, data_end);
 }
 
 // this takes a positions file and returns the duration in seconds of that replay
@@ -518,84 +791,6 @@ function getDuration(positions) {
   if (typeof player === 'undefined') return (0)
   var duration = Math.round(player.x.length / player.fps);
   return (duration);
-}
-
-// this takes a positions file and returns the metadata of that file, including:
-//     players, their teams at the start of the replay, the map name, the fps of the 
-//     recording, and the duration of the recording
-// TODO: Stop verifying that a single player was recording after implementing
-// replay validation.
-function extractMetaData(positions) {
-  var metadata = {
-    redTeam: [],
-    blueTeam: [],
-    duration: 0,
-    fps: 0,
-    map: ''
-  };
-
-  var found_self = false;
-  var duration = 0;
-  for (let key in positions) {
-    if (key.startsWith('player')) {
-      let player = positions[key];
-      let name = player.name.find(n => n);
-      if (typeof name == 'undefined') continue;
-      let team = player.team[0];
-      let me = player.me == 'me';
-      name = (me ? '* ' : '  ') + name;
-      if (me) {
-        metadata.duration = Math.round(player.x.length / player.fps);
-        metadata.fps = player.fps;
-        metadata.map = player.map;
-        found_self = true;
-      }
-      if (team == 1) {
-        metadata.redTeam.push(name);
-      } else {
-        metadata.blueTeam.push(name);
-      }
-    }
-  }
-  if (!found_self) {
-    logger.error('Did not find recording player in replay.');
-    throw 'player not found';
-  }
-  return metadata;
-}
-
-function make_replay_info(id, metadata) {
-  return {
-    id:        id,
-    name:      id.replace(/DATE.*/, ''),
-    // id is formatted either:
-    // 1. replays(\d+)
-    // 2. (.+)DATE(\d+)
-    // where the last capture group is the date recorded, edited,
-    // or imported.
-    recorded:  Number(id.replace('replays', '').replace(/.*DATE/, '')),
-    rendered:  false,
-    // seconds
-    duration:  metadata.duration,
-    map:       metadata.map,
-    fps:       metadata.fps,
-    red_team:  metadata.redTeam,
-    blue_team: metadata.blueTeam
-  }
-}
-
-// Combine data sources into format suitable for menu.
-function make_replay_list(ids, rendered_ids, metadata) {
-  let replays = [];
-  for (let i = 0; i < ids.length; i++) {
-    let id = ids[i];
-    let info = metadata[i];
-    let replay = make_replay_info(id, info);
-    replay.rendered = rendered_ids.includes(
-      id.replace('replays', '').replace(/.*DATE/, ''));
-    replays.push(replay);
-  }
-  return replays;
 }
 
 // Generate a new replay name.
@@ -614,18 +809,27 @@ function get_new_replay_name() {
   return `${prefix}_replay_${timestamp}`;
 }
 
+// Request/response listeners.
 var title;
-// Guard against multi-page rendering.
-let rendering = false;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let method = message.method;
+  //message = message.data;
   let tab = sender.tab.id;
   let url = sender.url;
   logger.info(`Received ${method}.`);
 
   if (method == 'replay.get') {
-    get_replay(message.id).then((replay) => {
-      sendResponse(replay);
+    let {id} = message;
+    get_replay_data(id).then((replay) => {
+      sendResponse({
+        failed: false,
+        data: replay
+      });
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
     });
     return true;
 
@@ -633,14 +837,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     let {id, start, end, new_name} = message;
     // Add date to replay name since that's where we store it.
     new_name += `DATE${Date.now()}`;
-    get_replay(id).then((replay) => {
+    get_replay_data(id).then((data) => {
       logger.debug(`Cropping ${id} from ${start} to ${end}.`);
-      let cropped_replay = cropReplay(replay, start, end);
-      return save_replay(new_name, cropped_replay);
-    }).then((new_id) => {
+      let cropped_data = cropReplayData(data, start, end);
+      return save_replay(new_name, cropped_data);
+    }).then((replay_info) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        replay: make_replay_info(new_id, get_metadata(new_id))
+        replay: replay_info
       });
       sendResponse({
         failed: false
@@ -657,24 +861,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     let {id, start, end, new_name} = message;
     get_replay(id).then((replay) => {
       logger.debug(`Cropping ${id} from ${start} to ${end}.`);
-      let cropped_replay = cropReplay(replay, start, end);
+      let cropped_replay = cropReplayData(replay.data, start, end);
       // Add date to replay name.
-      let replay_info = make_replay_info(id, get_or_make_metadata(id, replay));
-      new_name = `${new_name}DATE${replay_info.recorded}`;
+      new_name = `${new_name}DATE${replay.info.recorded}`;
       return save_replay(new_name, cropped_replay);
-    }).then((new_id) => {
+    }).then((replay_info) => {
       // Original replay was replaced.
-      if (new_id == id) return new_id;
+      if (replay_info.id == id) {
+        // Delete rendered movie if it existed.
+        return Movies.delete(id).then(() => replay_info);
+      }
       // Original replay still needs to be removed.
       return delete_replay(id).then(() => {
-        localStorage.removeItem(id);
-        return new_id;
+        return replay_info;
       });
-    }).then((new_id) => {
+    }).then((replay_info) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.updated',
         id: id,
-        replay: make_replay_info(new_id, get_metadata(new_id))
+        replay: replay_info
       });
       sendResponse({
         failed: false
@@ -684,16 +889,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         failed: true,
         reason: err.message
       });
-    })
+    });
     return true;
 
   } else if (method == 'replay.delete') {
     let {ids} = message;
     delete_replays(ids).then(() => {
-      // Remove metadata.
-      for (let id of ids) {
-        localStorage.removeItem(id);
-      }
       logger.info('Finished deleting replays.');
       chrome.tabs.sendMessage(tab, {
         method: 'replay.deleted',
@@ -712,7 +913,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   } else if (method == 'replay.import') {
     let {name, data} = message;
-    // Get file name from file or create.
+    // Get file name from filename or create.
     name = name.replace(/\.txt$/, '');
     if (!name.includes('DATE') && !name.startsWith('replays')) {
         name += 'DATE' + Date.now();
@@ -722,20 +923,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } catch(e) {
       sendResponse({
         failed: true,
-        reason: 'Replay is not valid JSON'
+        reason: 'Replay is not valid JSON',
+        name: 'ValidationError'
       });
       return false;
     }
     validate(data).then((result) => {
       if (result.failed) {
-        throw new Error(`Validation error: ${result.code}; ${result.reason}`);
+        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
+        err.name = 'ValidationError';
+        throw err;
       } else {
         return save_replay(name, data);
       }
-    }).then((id) => {
+    }).then((replay_info) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
-        replay: make_replay_info(id, get_metadata(id))
+        replay: replay_info
       });
       sendResponse({
         failed: false
@@ -751,7 +955,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       sendResponse({
         failed: true,
-        reason: err.message
+        reason: err.message,
+        name: err.name
       });
     });
     return true;
@@ -773,7 +978,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return save_replay(name, parsed);
       });
     })
-    .then(validate)
     .then((id) => {
       get_replay_count().then((n) => {
         track("Recorded Replay", {
@@ -787,6 +991,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     }).catch((err) => {
       logger.error('Error saving replay: ', err);
+      // Save replay so it can be sent by user.
       let blob = new Blob([data], { type: 'application/json' });
       saveAs(blob, `${name}.txt`);
       track("Recorded Replay", {
@@ -802,17 +1007,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   } else if (method == 'replay.list') {
     logger.info('Received request for the replay list.');
-    let ids = [];
-    let metadata = [];
-    each_replay((id, replay) => {
-      ids.push(id);
-      metadata.push(get_or_make_metadata(id, replay));
-    }).then(() => {
-      return fs.getDirectory('savedMovies').then(fs.getEntryNames);
-    }).then((movie_names) => {
+    get_all_replays_info().then((info) => {
       logger.info('Sending replay.list response.');
       sendResponse({
-        replays: make_replay_list(ids, movie_names, metadata)
+        replays: info
       });
     }).catch((err) => {
       logger.error('Error retrieving replays: ', err);
@@ -824,30 +1022,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.download') {
-    let ids = message.ids;
-    logger.info(`Received replay download request for: ${ids}.`);
-    if (ids.length === 1) {
-      let id = ids[0];
-      get_replay(id).then((replay) => {
-        let data = JSON.stringify(replay);
-        let file = new Blob([data], { type: "data:text/txt;charset=utf-8" });
-        saveAs(file, `${id}.txt`);
+    let {id} = message;
+    logger.info(`Received replay download request for: ${id}.`);
+    get_replay_data(id).then((data) => {
+      data = JSON.stringify(data);
+      let file = new Blob([data], { type: "data:text/txt;charset=utf-8" });
+      saveAs(file, `${id}.txt`);
+    }).then(() => {
+      sendResponse({
+        failed: false
       });
-    } else {
-      getRawDataAndZip(ids);
-    }
+    }).catch((err) => {
+      sendResponse({
+        failed: true,
+        reason: err.message
+      });
+    });
+    return true;
 
   } else if (method == 'replay.rename') {
     let {id, new_name} = message;
     logger.info(`Received replay rename request for: ${id} to ${new_name}.`);
-    renameData(id, new_name).then((new_id) => {
-      // new_id is only different because we save the replay name
-      // in the replay primary key.
+    rename_replay(id, new_name).then((replay_info) => {
       logger.info(`Renaming complete for ${id}, sending reply.`);
       chrome.tabs.sendMessage(tab, {
         method: "replay.updated",
         id: id,
-        replay: make_replay_info(new_id, get_metadata(new_id))
+        replay: replay_info
       });
       sendResponse({
         failed: false
@@ -862,15 +1063,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'movie.download') {
-    logger.info(`Received request to download movie for: ${message.id}.`);
-    downloadMovie(message.id).then(() => {
-      sendResponse({
-        failed: false
+    let {id} = message;
+    logger.info(`Received request to download movie for: ${id}.`);
+    Movies.get(id).then((file) => {
+      return get_replay_info(id).then((info) => {
+        logger.debug(`Downloading movie for ${id}.`);
+        let filename = sanitize(info.name);
+        saveAs(file, `${filename}.webm`);
+        sendResponse({
+          failed: false
+        });
       });
     }).catch((err) => {
+      logger.error('Error downloading movie: ', err);
       sendResponse({
         failed: true,
-        reason: err
+        reason: err.message
       });
     });
     return true;
@@ -879,51 +1087,121 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     logger.info('got request to clean rendered replays')
     getCurrentReplaysForCleaning()
 
-  } else if (method == 'replay.render') {
-    let id = message.id;
-    logger.info(`Rendering replay: ${id}`);
-    if (rendering) {
-      sendResponse({
-        failed: true,
-        severity: 'fatal',
-        reason: "Rendering is already occurring, wait for a bit or" +
-          " disable/enable the extension."
-      });
-    } else {
-      rendering = true;
-    }
-    get_replay(id).then((replay) => {
-      return renderVideo(replay, id)
-      .progress((progress) => {
-        logger.debug(`Sending progress update for ${id}: ${progress}`);
-        chrome.tabs.sendMessage(tab, {
-          method: 'render.update',
-          id: id,
-          progress: progress
-        });
-      });
-    }).then(() => {
-      logger.info(`Rendering finished for ${id}`);
-      // Reset rendering state.
-      rendering = false;
-      sendResponse({
-        failed: false
-      });
-    }).catch((err) => {
-      logger.error(`Rendering failed for ${id}`, err);
-      // Reset rendering state.
-      rendering = false;
-      sendResponse({
-        failed: true,
-        severity: 'transient',
-        reason: err
-      });
-    });
-    return true;
-
   } else {
     logger.warn(`Message type not recognized: ${method}.`);
 
+  }
+});
+
+function serialize_error(error) {
+  return {
+    message: error.message,
+    name: error.name
+  };
+}
+
+/**
+ * Renders a replay.
+ * @param {string} id the id of the replay to render
+ * @param {Function} update callback for updates
+ * @returns {Promise}
+ */
+function render_replay(id, update) {
+  logger.info(`Rendering replay: ${id}`);
+  return get_replay_data(id).then((data) => {
+    // Validation is only needed here because we didn't validate replay
+    // database contents previously.
+    return validate(data).then((result) => {
+      if (result.failed) {
+        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
+        err.name = 'ValidationError';
+        throw err;
+      }
+
+      return renderVideo(data, id)
+      .progress((progress) => {
+        logger.debug(`Sending progress update for ${id}: ${progress}`);
+        update(progress);
+      });
+    });
+  });
+}
+
+// Rendering context.
+// Whether we're already rendering.
+let rendering = false;
+// Callback for initiating longer-lived activities.
+chrome.runtime.onConnect.addListener((port) => {
+  let name = port.name;
+  let tab = port.sender.tab.id;
+  logger.info(`Received port: ${name}`);
+
+  if (name == 'replay.render') {
+    /**
+     * Render a single replay.
+     * in  -> message with {id}
+     * out <- {error} or {progress}
+     * Error names can be:
+     * - AlreadyRendering or
+     * - Error
+     */
+    if (rendering) {
+      let error = new Error('Already rendering.');
+      error.name = 'AlreadyRendering';
+      port.postMessage({ error: serialize_error(error) });
+      port.disconnect();
+      return;
+    } else {
+      rendering = true;
+    }
+    port.onMessage.addListener((msg) => {
+      let {id} = msg;
+      render_replay(id, (progress) => {
+        port.postMessage({ progress: progress });
+      }).then(() => {
+        return get_replay_info(id);
+      }).then((replay_info) => {
+        // Send update indicating replay is rendered.
+        replay_info.rendered = true;
+        chrome.tabs.sendMessage(tab, {
+          method: 'replay.updated',
+          id: id,
+          replay: replay_info
+        });
+      }).catch((err) => {
+        logger.error(`Rendering failed for ${id}`, err);
+        port.postMessage({ error: serialize_error(err) });
+      }).then(() => {
+        port.disconnect();
+        rendering = false;
+      });
+    });
+    port.onDisconnect.addListener(() => {
+      logger.info('Render port disconnected.');
+      rendering = false;
+    });
+
+  } else if (name == 'replay.download') {
+    /**
+     * Protocol:
+     * -> initial message with replay ids.
+     * <- update messages
+     * we disconnect on finish or failure
+     */
+    port.onMessage.addListener((msg) => {
+      let {ids} = msg;
+      download_replays(ids).progress((update) => {
+        port.postMessage({ progress: update });
+      }).catch((err) => {
+        logger.error('Error downloading replays: ', err);
+        port.postMessage({ error: serialize_error(err) });
+      }).then(() => {
+        port.disconnect();
+      });
+    });
+
+  } else {
+    logger.warn('Did not recognize port type.');
   }
 });
 

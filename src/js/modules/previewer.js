@@ -3,10 +3,11 @@ const loadImage = require('image-promise');
 const EventEmitter = require('events');
 const saveAs = require('file-saver').saveAs;
 
-const Cookies = require('./cookies');
-const get_renderer = require('./renderer');
-const logger = require('./logger')('renderer');
-const track = require('./track');
+const Cookies = require('util/cookies');
+const get_renderer = require('modules/renderer');
+const logger = require('util/logger')('renderer');
+const Replays = require('modules/replay-collection');
+const track = require('util/track');
 
 // Retrieve replay from background page.
 function get_replay(id) {
@@ -14,13 +15,13 @@ function get_replay(id) {
     chrome.runtime.sendMessage({
       method: 'replay.get',
       id: id
-    }, (replay) => {
-      if (!replay) {
-        reject('Replay not retrieved.');
+    }, (result) => {
+      if (result.failed) {
+        reject('Replay not retrieved, error: ' + result.reason);
       } else if (chrome.runtime.lastError) {
         reject(`Chrome error: ${chrome.runtime.lastError.message}`);
       } else {
-        resolve(replay);
+        resolve(result.data);
       }
     });
   });
@@ -36,7 +37,7 @@ function get_replay(id) {
  * - load
  */
 class Media extends EventEmitter {
-  constructor(replay_info, canvas) {
+  constructor(replay, canvas) {
     super();
     this.playing = false;
     this.ready = false;
@@ -44,24 +45,24 @@ class Media extends EventEmitter {
     this.frames = 0;
     this.playTimer = 0;
     this.replay = {};
-    this.replay_info = {};
+    this.data = {};
     this.canvas = canvas;
     //this.track = this.canvas.captureStream().getTracks()[0];
     //this.stream = new MediaStream();
     //this.stream.addTrack(this.track);
-    this.load(replay_info);
+    this.load(replay);
   }
 
-  load(replay_info) {
+  load(replay) {
     logger.debug('Media#load()');
-    this.replay_info = replay_info;
-    get_replay(this.replay_info.id).then((replay) => {
-      this.replay = replay;
-      this.frames = this.replay.clock.length - 1;
+    this.replay = replay;
+    this.replay.get_data().then((data) => {
+      this.data = data;
+      this.frames = this.data.clock.length - 1;
       return chrome.storage.promise.local.get('options');
     }).then((items) => {
       if (!items.options) throw new Error('No options set.');
-      return get_renderer(this.canvas, this.replay, items.options);
+      return get_renderer(this.canvas, this.data, items.options);
     }).then((renderer) => {
       this.renderer = renderer;
       this.set(0);
@@ -75,7 +76,7 @@ class Media extends EventEmitter {
    * Play media from current frame to provided end frame
    * or end of stream if no value provided.
    */
-  play(end = this.replay.clock.length - 1) {
+  play(end = this.data.clock.length - 1) {
     if (this.frame >= end) this.frame = 0;
     logger.debug('Media#play()');
     if (this.playing) {
@@ -88,9 +89,9 @@ class Media extends EventEmitter {
     // Source for frames.
     function* frames() {
       let frame = self.frame;
-      let frame_time = Date.parse(self.replay.clock[frame]);
+      let frame_time = Date.parse(self.data.clock[frame]);
       while (frame < end) {
-        let next_frame_time = Date.parse(self.replay.clock[frame + 1]);
+        let next_frame_time = Date.parse(self.data.clock[frame + 1]);
         let frame_duration = next_frame_time - frame_time;
         yield [frame, frame_duration];
         frame_time = next_frame_time;
@@ -339,7 +340,9 @@ class Viewer {
     this.slider = null;
   }
 
-  // Initialize listeners
+  /**
+   * Initialize UI listeners. Call when DOM is ready.
+   */
   init() {
     this.$canvas = $(player_elements.canvas);
     // We need to resize before the slider.
@@ -409,52 +412,29 @@ class Viewer {
 
     let self = this;
     function dismiss() {
+      logger.debug('Previewer dismissed.');
       self.media.pause();
       self.hide();
       $('#menuContainer').show();
     }
 
     $(player_elements.rename).click(() => {
-      let id = this.replay_info.id;
-      logger.info(`Rename button clicked for ${id}`);
-      let name = this.replay_info.name;
+      logger.info(`Rename button clicked for ${this.replay.id}`);
+      let name = this.replay.name;
       let new_name = prompt(`Please enter a new name for ${name}`, name);
       if (new_name === null) return;
-      if (!validate_name(new_name)) {
-        alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
-        return;
-      }
-      new_name = clean_name(new_name);
-      dismiss();
-      logger.info(`Requesting rename for ${id} to ${new_name}.`);
-      chrome.runtime.sendMessage({
-        method: 'replay.rename',
-        id: id,
-        new_name: new_name
-      }, (result) => {
-        if (result.failed) {
-          alert(`Renaming failed: ${result.reason}`);
-        }
+      this.replay.rename(new_name).catch((err) => {
+        alert(`Renaming failed: ${err.message}`);
       });
     });
 
     $(player_elements.delete).click(() => {
-      logger.info('Delete button clicked.');
-      let id = this.replay_info.id;
-      if (confirm('Are you sure you want to delete this replay?')) {
-        setTimeout(() => {
-          logger.info(`Sending request to delete: ${id}`);
-          chrome.runtime.sendMessage({
-            method: 'replay.delete',
-            ids: [id]
-          }, (result) => {
-            if (result.failed) {
-              alert(`Deletion failed: ${result.reason}`);
-            }
-          });
-        }, 500);
-        dismiss();
-      }
+      logger.info(`Delete button clicked for ${this.replay.id}`);
+      if (!confirm('Are you sure you want to delete this replay?'))
+        return;
+      this.replay.delete().catch((err) => {
+        alert(`Deletion failed: ${err.message}`);
+      }).then(dismiss);
     });
 
     $(player_elements.record).click(() => {
@@ -473,7 +453,7 @@ class Viewer {
 
     $(player_elements.crop).click(() => {
       let [start, end] = [this.crop_start, this.crop_end];
-      let id = this.replay_info.id;
+      let id = this.replay.id;
       let new_name = prompt('If you would also like to name the new cropped replay, type the new name here. Leave it blank to make a generic name.');
       if (new_name === null) return;
       if (new_name === '') {
@@ -500,8 +480,8 @@ class Viewer {
 
     $(player_elements.crop_replace).click(() => {
       let [start, end] = [this.crop_start, this.crop_end];
-      let id = this.replay_info.id;
-      var new_name = prompt('If you would also like to rename this replay, do so now.', this.replay_info.name);
+      let id = this.replay.id;
+      var new_name = prompt('If you would also like to rename this replay, do so now.', this.replay.name);
       if (new_name === null) return;
       if (!validate_name(new_name)) {
         alert('Invalid name, only characters a-z, 0-9, _, and - are accepted.');
@@ -609,12 +589,14 @@ class Viewer {
   }
 
   /**
-   * @param {object} replay - replay info, object with id,
-   *   name, etc.
+   * Load a replay to be played.
+   *
+   * @param {Replay} replay  the replay to be previewed.
    */
   load(replay) {
-    this.replay_info = replay;
-    this.media = new Media(replay, this.$canvas[0]);
+    this.replay = replay;
+    // Built-in recorder based on MediaRecorder
+    // Not using right now.
     /*this.recorder = new MediaRecorder(this.media.stream, {
       mimeType: this.capture_type
     });
@@ -637,6 +619,8 @@ class Viewer {
       chunks = [];
     };
 
+    // Media to be played.
+    this.media = new Media(replay, this.$canvas[0]);
     this.media.on('load', () => {
       this.show();
       this.media.set(0);

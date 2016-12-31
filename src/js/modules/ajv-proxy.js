@@ -1,16 +1,17 @@
-const Ajv = require('ajv');
-
-const logger = require('./logger')('ajv-proxy');
-const {Sandbox} = require('./messaging');
 /**
- * This module provides an interface to Ajv that works in restricted
- * contexts, assuming a sandbox page has been made available.
+ * @fileoverview This module exports an interface to Ajv that works in
+ * restricted contexts. This assumes that a sandbox HTML page is made
+ * available.
  * 
  * Where unrestricted, Ajv is run directly.
  * 
- * Because request/response is required for sandboxed pages, we
- * also restrict the normal interface to be promise-based.
+ * Because request/response is required for sandboxed pages, we also
+ * restrict the interface in both cases to be Promise-based.
  */
+const Ajv = require('ajv');
+
+const logger = require('util/logger')('ajv-proxy');
+const {Sandbox} = require('util/messaging');
 
 // Whether we're on a page that disallows 'unsafe-eval'
 function isRestricted() {
@@ -23,9 +24,9 @@ function isRestricted() {
 }
 
 if (isRestricted()) {
+  // NOTE: This file must be accessible.
   let sandbox = new Sandbox('html/ajv-sandbox.html');
 
-  // Ajv interface to sandboxed page.
   class Proxy {
     constructor() {
       this.ajv = null;
@@ -36,7 +37,6 @@ if (isRestricted()) {
       });
     }
 
-    // Pass-through.
     addSchema(...args) {
       return sandbox.postMessage({
         method: 'call',
@@ -44,7 +44,6 @@ if (isRestricted()) {
       });
     }
 
-    // Pass-through.
     validate(...args) {
       return sandbox.postMessage({
         method: 'call',
@@ -52,7 +51,6 @@ if (isRestricted()) {
       });
     }
 
-    // Pass-through.
     errorsText() {
       return sandbox.postMessage({
         method: 'call',
@@ -60,6 +58,9 @@ if (isRestricted()) {
       });
     }
   };
+  /**
+   * @returns {Promise<Proxy>}
+   */
   module.exports = (...args) => {
     let proxy = new Proxy(...args);
     return proxy.ready.then(() => proxy);
@@ -83,6 +84,9 @@ if (isRestricted()) {
       return Promise.resolve(this.ajv.errorsText());
     }
   }
+  /**
+   * @returns {Promise<Proxy>}
+   */
   module.exports = (...args) => {
     return Promise.resolve(new Proxy(...args));
   };
