@@ -13,6 +13,7 @@ const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
 const Whammy = require('util/whammy');
+require('util/canvas-toblob-polyfill');
 
 logger.info('Starting background page.');
 
@@ -73,7 +74,8 @@ function renderVideo(replay, id) {
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
     let frames = replay.clock.length;
-    let encoder = new Whammy.Video(fps,frames);
+    let encoder = new Whammy.Video(fps);
+    let framesAdded = 0;
     // Fraction of completion that warrants progress notification.
     let notification_freq = 0.05;
     let portions_complete = 0;
@@ -91,33 +93,34 @@ function renderVideo(replay, id) {
       }
       //logger.trace(`Rendering frame ${frame} of ${frames}`);
       renderer.draw(frame);
-      context.canvas.toBlob((function(frame,blob) {
-        let fin = encoder.add(blob,frame);
+      renderer.canvas.toBlob((frame =>
+        (blob => {
+          let len = encoder.add(blob,frame);
+          framesAdded++;
         
-        if (fin) { //wait until Whammy says all our frames have been added
-          console.timeEnd('render time');
-          console.time('compile time');
-          encoder.compile().then(function(output) {
-            console.timeEnd('compile time');
-            let filename = id.replace(/.*DATE/, '').replace('replays', '');
-            return Movies.save(id, output).then(() => {
-              logger.debug('File saved.');
-            }).catch((err) => {
-              logger.error('Error saving render: ', err);
-              throw err;
+          if (len === frames && framesAdded === frames) {
+            console.timeEnd('render time');
+            console.time('compile time');
+            encoder.compile().then(output => {
+              console.timeEnd('compile time');
+              return Movies.save(id, output).then(() => {
+                logger.debug('File saved.');
+              }).catch((err) => {
+                logger.error('Error saving render: ', err);
+                throw err;
+              });
+            }).then(function() {
+              resolve(result);
             });
-          }).then(function() {
-            resolve(result);
-          });
-        }
-      }).bind(this,frame), 'image/webp', 0.8);
+          }
+        })
+      )(frame), 'image/webp', 0.8);
       if (++frame<frames) {
         if (Math.floor(frame / frames / notification_freq) != portions_complete) {
           portions_complete++;
           progress(frame / frames);
         }
-        // Slight delay to give our progress message time to propagate.
-        PromiseTimeout(() => render(renderer,frame));
+        render(renderer,frame);
       } else {
         console.timeEnd('main thread');
       }

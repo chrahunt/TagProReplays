@@ -171,6 +171,21 @@ module.exports = (function() {
       } while(frameNumber < frames.length && clusterDuration < CLUSTER_MAX_DURATION);
       
       var clusterCounter = 0;
+      let blocks = clusterFrames.map(function(webp){
+        var block = makeSimpleBlock({
+          discardable: 0,
+          invisible: 0,
+          keyframe: 1,
+          lacing: 0,
+          trackNum: 1,
+          timecode: Math.round(clusterCounter)
+        });
+        clusterCounter += webp.duration;
+        return {
+          blob: new Blob([block, webp.blob]),
+          id: 0xa3
+        };
+      });
       var cluster = {
         "id": 0x1f43b675, // Cluster
         "data": [
@@ -178,21 +193,7 @@ module.exports = (function() {
             "data": Math.round(clusterTimecode),
             "id": 0xe7 // Timecode
           }
-        ].concat(clusterFrames.map(function(webp){
-          var block = makeSimpleBlock({
-            discardable: 0,
-            invisible: 0,
-            keyframe: 1,
-            lacing: 0,
-            trackNum: 1,
-            timecode: Math.round(clusterCounter)
-          });
-          clusterCounter += webp.duration;
-          return {
-            blob: new Blob([block, webp.blob]),
-            id: 0xa3
-          };
-        }))
+        ].concat(blocks)
       }
  
       //Add cluster to segment
@@ -401,7 +402,6 @@ module.exports = (function() {
   }
   
   function getFramesPromises(frames) {
-    window.framers = frames;
     let promises = [];
     for(let i = 0;i < frames.length;i++) {
       let frame1 = frames[i];
@@ -416,8 +416,8 @@ module.exports = (function() {
     return promises;
   }
 
-  function WhammyVideo(fps, numFrames, quality) { // a more abstract-ish API
-    this.frames = Array.apply(null, Array(numFrames)); //fill array with 'undefined's
+  function WhammyVideo(fps, quality) { // a more abstract-ish API
+    this.frames = [];
     this.duration = 1000 / fps;
     this.quality = quality || 0.8;
   }
@@ -432,7 +432,7 @@ module.exports = (function() {
         duration: duration || this.duration
       };
       this.frames[pos] = frame1; //frames may not come in order
-      return this.frames.indexOf(undefined)===-1; //any frames left to fill?
+      return this.frames.length;
     }
   }
   
