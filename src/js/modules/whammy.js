@@ -1,14 +1,8 @@
-/*
-	var vid = new Whammy.Video();
-	vid.add(canvas or data url)
-	vid.compile()
-*/
-
-module.exports = (function(){
-	// in this case, frames has a very specific meaning, which will be
-	// detailed once i finish writing the code
-
-  function toWebM(frames){
+module.exports = (function() {
+  // in this case, frames has a very specific meaning, which will be
+  // detailed once i finish writing the code
+  
+  function toWebM(frames) {
     var info = checkFrames(frames);
     
     //max duration by cluster in milliseconds
@@ -225,7 +219,7 @@ module.exports = (function(){
   
   // sums the lengths of all the frames and gets the duration, woo
   
-  function checkFrames(frames){
+  function checkFrames(frames) {
     var width = frames[0].width,
     height = frames[0].height,
     duration = frames[0].duration;
@@ -242,7 +236,7 @@ module.exports = (function(){
     };
   }
   
-  function numToBuffer(num){
+  function numToBuffer(num) {
     var parts = [];
     while(num > 0){
       parts.push(num & 0xff);
@@ -251,7 +245,7 @@ module.exports = (function(){
     return new Uint8Array(parts.reverse());
   }
   
-  function numToFixedBuffer(num, size){
+  function numToFixedBuffer(num, size) {
     var parts = new Uint8Array(size);
     for(var i = size - 1; i >= 0; i--){
       parts[i] = num & 0xff;
@@ -260,7 +254,7 @@ module.exports = (function(){
     return parts;
   }
   
-  function strToBuffer(str){
+  function strToBuffer(str) {
     var arr = new Uint8Array(str.length);
     for(var i = 0; i < str.length; i++){
       arr[i] = str.charCodeAt(i);
@@ -276,7 +270,7 @@ module.exports = (function(){
   // at all really, but the reason is that there's some code below that i dont really
   // feel like understanding, and this is easier than using my brain.
   
-  function bitsToBuffer(bits){
+  function bitsToBuffer(bits) {
     var data = [];
     var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
     bits = pad + bits;
@@ -286,7 +280,7 @@ module.exports = (function(){
     return new Uint8Array(data);
   }
 
-  function generateEBML(jsons){
+  function generateEBML(jsons) {
     var ebml = [];
     
     for (let json of jsons) {
@@ -326,7 +320,7 @@ module.exports = (function(){
   //this parses some json markup and makes it into that binary magic
   //which can then get shoved into the matroska comtainer (peaceably)
   
-  function makeSimpleBlock(data){
+  function makeSimpleBlock(data) {
     var flags = 0;
     if (data.keyframe) flags |= 128;
     if (data.invisible) flags |= 8;
@@ -346,7 +340,7 @@ module.exports = (function(){
   
   // here's something else taken verbatim from weppy, awesome rite?
   
-  function parseWebP(riff){
+  function parseWebP(riff) {
     return riff.RIFF[0].then(function(RIFF) {
       let {width, height, blob} = RIFF.WEBP[0];
       return {width, height, riff: {RIFF: [RIFF]}, blob};
@@ -360,7 +354,7 @@ module.exports = (function(){
   // break which makes me make up puns. well, enough riff-raff (aha a
   // rescue of sorts), this function was ripped wholesale from weppy
   
-  function parseRIFF(blob){
+  function parseRIFF(blob) {
     return Promise.resolve(blob).then(function(blob) {
       var offset = 0;
       var chunks = {};
@@ -402,17 +396,33 @@ module.exports = (function(){
 	// here's a little utility function that acts as a utility for other functions
 	// basically, the only purpose is for encoding "Duration", which is encoded as
 	// a double (considerably more difficult to encode than an integer)
-  function doubleToString(num){
+  function doubleToString(num) {
     return new Uint8Array(new Float64Array([num])).map(e => String.fromCharCode(e)).reverse().join('');
   }
+  
+  function getFramesPromises(frames) {
+    window.framers = frames;
+    let promises = [];
+    for(let i = 0;i < frames.length;i++) {
+      let frame1 = frames[i];
+      let p = parseRIFF(frame1.imageBlob).then(rff => {
+        return parseWebP(rff).then(function(webp) {
+          webp.duration = frame1.duration;
+          return webp;
+        });
+      });
+      promises.push(p);
+    }
+    return promises;
+  }
 
-  function WhammyVideo(fps, quality){ // a more abstract-ish API
-    this.frames = [];
+  function WhammyVideo(fps, numFrames, quality) { // a more abstract-ish API
+    this.frames = Array.apply(null, Array(numFrames)); //fill array with 'undefined's
     this.duration = 1000 / fps;
     this.quality = quality || 0.8;
   }
 
-  WhammyVideo.prototype.add = function(frame, duration){
+  WhammyVideo.prototype.add = function(frame, pos, duration) {
     if(typeof duration != 'undefined' && this.duration) throw "you can't pass a duration if the fps is set";
     if(typeof duration == 'undefined' && !this.duration) throw "if you don't have the fps set, you need to have durations here.";
 		
@@ -421,18 +431,13 @@ module.exports = (function(){
         imageBlob: frame,
         duration: duration || this.duration
       };
-      let p = parseRIFF(frame1.imageBlob).then(rff => {
-        return parseWebP(rff).then(function(webp) {
-          webp.duration = frame1.duration;
-          return webp;
-        });
-      });
-      return this.frames.push(p);
+      this.frames[pos] = frame1; //frames may not come in order
+      return this.frames.indexOf(undefined)===-1; //any frames left to fill?
     }
   }
   
-  WhammyVideo.prototype.compile = function(){
-    return Promise.all(this.frames).then(toWebM);
+  WhammyVideo.prototype.compile = function() {
+    return Promise.all(getFramesPromises(this.frames)).then(toWebM);
   }
 
   return {
