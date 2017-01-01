@@ -395,20 +395,15 @@ module.exports = (function() {
     });
   }
 
-  function WhammyVideo(fps, quality) {
+  function WhammyVideo() {
     this.frames = [];
-    this.duration = 1000 / fps;
-    this.quality = quality || 0.8;
   }
 
   WhammyVideo.prototype.add = function(frame, duration) {
-    if(typeof duration != 'undefined' && this.duration) throw "you can't pass a duration if the fps is set";
-    if(typeof duration == 'undefined' && !this.duration) throw "if you don't have the fps set, you need to have durations here.";
-		
     if (frame[Symbol.toStringTag] === 'Blob') {
       let frame1 = {
         imageBlob: frame,
-        duration: duration || this.duration
+        duration: duration
       };
       this.frames.push(frame1);
     } else {

@@ -96,8 +96,11 @@ function getReplayVersion(replay) {
 }
 
 function loadSchema(version) {
-  if (!schemas[version])
-    return Promise.reject(new Error(`Schemas for version ${version} not found`));
+  if (!schemas[version]) {
+    let error = new Error(`Schemas for version ${version} not found`);
+    error.name = 'SchemaNotFound';
+    return Promise.reject(error);
+  }
   let version_schema = schemas[version];
   let result = {
     main: null,
@@ -136,10 +139,9 @@ class Validator {
   validate(replay) {
     let version = getReplayVersion(replay);
     if (!version) {
-      return Promise.resolve({
-        failed: true,
-        code: 'missing version'
-      });
+      let error = new Error('No version found on replay.');
+      err.name = 'MissingVersion';
+      return Promise.reject(error);
     }
 
     if (this.validators[version]) {
@@ -147,24 +149,22 @@ class Validator {
       return validator.validate(version, replay).then((valid) => {
         if (!valid) {
           return validator.errorsText().then((text) => {
-            return {
-              failed: true,
-              code: 'schema validation failure',
-              reason: text
-            };
+            let error = new Error(`Schema validation failed: ${text}`);
+            error.name = 'SchemaValidationFailure';
+            throw error;
           });
         } else if (version in semantic_validator) {
           let valid = semantic_validator[version](replay);
           if (!valid) {
-            return {
-              failed: true,
-              code: 'semantic validation failure',
-              reason: semantic_validator.errors
-            };
+            let text = semantic_validator.errors;
+            let error = new Error(`Semantic validation failed: ${text}`);
+            error.name = 'SemanticValidationFailure';
+            throw error;
           }
         }
         return {
-          failed: false
+          version: version,
+          replay: replay
         };
       });
     }

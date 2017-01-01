@@ -8,12 +8,11 @@ const Data = require('modules/data');
 const logger = require('util/logger')('background');
 const fs = require('util/filesystem');
 const get_renderer = require('modules/renderer');
-const {Progress, map} = require('util/promise-ext');
+const {Progress} = require('util/promise-ext');
+const renderVideo = require('modules/make-video');
 const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
-const Whammy = require('util/whammy');
-require('util/canvas-toblob-polyfill');
 
 logger.info('Starting background page.');
 
@@ -29,209 +28,6 @@ Data.ready().then(() => {
     });
   });
 });
-
-let tileSize = 40;
-
-let can = document.createElement('canvas');
-can.id = 'mapCanvas';
-document.body.appendChild(can);
-
-can = document.getElementById('mapCanvas');
-// Defaults.
-can.width = 1280;
-can.height = 800;
-can.style.zIndex = 200;
-can.style.position = 'absolute';
-can.style.top = 0;
-can.style.left = 0;
-
-let context = can.getContext('2d');
-
-/**
- * Resolves the given callback after a timeout.
- */
-function PromiseTimeout(callback, timeout=0) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      resolve(callback());
-    }, timeout);
-  });
-}
-
-function round(n, places = 3) {
-  let s = n.toString();
-  let sep = s.indexOf('.');
-  if (sep === -1) {
-    return s;
-  } else {
-    return s.slice(0, sep + places);
-  }
-}
-
-class Stats {
-  constructor(name) {
-    this.name = name;
-    this.events = [];
-    this.log('stats:init');
-  }
-
-  log(name) {
-    this._add_event(name, performance.now());
-  }
-
-  summary() {
-    let output = "";
-    let maxwidth = Math.max(...this.events.map(e => e.name.length));
-    let last = 0;
-    for (let event of this.events) {
-      output += `${this._left_pad(maxwidth, event.name)}: ${round(event.time)}`;
-      if (last) {
-        let diff = event.time - last;
-        output += ` +${round(diff)}`;
-      }
-      output += "\n";
-      last = event.time;
-    }
-    return output;
-  }
-
-  _left_pad(length, string, fillchar = ' ') {
-    if (string.length > length) return string;
-    return (fillchar.repeat(length) + string).slice(-length);
-  }
-
-  _add_event(name, time) {
-    if (this.name) {
-      name = `${this.name}:${name}`;
-    }
-    this.events.push({name, time});
-  }
-}
-
-function* range(length) {
-  for (let i = 0; i < length; i++) {
-    logger.trace(`Yielding ${i}`);
-    yield i;
-  }
-}
-
-function toBlob(canvas, mimeType, qualityArgument) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(resolve, mimeType, qualityArgument);
-  });
-}
-
-// Takes unordered input and outputs in specific order.
-class OrderedQueue {
-  constructor() {
-    // Number pushed onto queue.
-    this.enqueued = 0;
-    this._popped = 0;
-    this._buffer = [];
-  }
-
-  // Add ordered item.
-  add(i, item) {
-    this.enqueued++;
-    this._buffer.push([i, item]);
-    this._buffer.sort((a, b) => a[0] - b[0]);
-    //logger.trace(`Pushed onto buffer: ${this._buffer.map(i => i[0])}`);
-  }
-
-  // Pull off any ordered items.
-  get() {
-    let ready = [];
-    for (let i = 0; i < this._buffer.length; i++) {
-      let item = this._buffer[i];
-      let index = item[0];
-      //logger.trace(`index: ${index}; popped: ${this._popped}`);
-      if (index !== this._popped) break;
-      this._popped++;
-      ready.push(item);
-    }
-    if (ready.length) {
-      this._buffer = this._buffer.slice(ready.length);
-    }
-    return ready;
-  }
-
-  get length() {
-    return this._buffer.length;
-  }
-}
-
-/**
- * Renders replay.
- * 
- * Interface:
- *   Progress is returned. Call .progress on it and pass a handler for
- *   the progress events, which contain the % complete. That function returns
- *   a Promise which resolves to the completed render.
- */
-function renderVideo(replay, id) {
-  let stats = new Stats();
-  return new Progress((resolve, reject, progress) => {
-    let me = Object.keys(replay).find(k => replay[k].me == 'me');
-    let fps = replay[me].fps;
-    let frames = replay.clock.length;
-    let encoder = new Whammy.Video(fps);
-    // Fraction of completion that warrants progress notification.
-    let notification_freq = 0.05;
-    let portions_complete = 0;
-    let frame_queue = new OrderedQueue();
-
-    stats.log('start setup');
-    // Set up canvas.
-    chrome.storage.promise.local.get('options')
-    .then((items) => {
-      if (!items.options) throw new Error('No options found');
-      let options = items.options;
-      can.width = options.canvas_width;
-      can.height = options.canvas_height;
-      stats.log('get renderer start');
-      return get_renderer(can, replay, options);
-    })
-    .then((renderer) => {
-      stats.log('get renderer end');
-      stats.log('render start');
-      // Batch process frames for rendering.
-      return map(range(frames), (frame) => {
-        renderer.draw(frame);
-        logger.trace(`Starting render of ${frame}`);
-        return toBlob(renderer.canvas, 'image/webp', 0.8)
-        .then((blob) => {
-          logger.trace(`Pushing frame ${frame} into queue.`);
-          frame_queue.add(frame, blob);
-          // Push any available ordered frames into the encoder.
-          for (let [i, blob] of frame_queue.get()) {
-            logger.trace(`Pushing frame ${i} into encoder.`);
-            encoder.add(blob);
-          }
-          let amountCompleted = frame_queue.enqueued / frames;
-          // Progress updates.
-          if (Math.floor(amountCompleted / notification_freq) != portions_complete) {
-            portions_complete++;
-            progress(amountCompleted);
-          }
-        });
-      }, { concurrency: 4 })
-    })
-    .then(() => {
-      stats.log('render end');
-      stats.log('compile start');
-      logger.info('Compiling.');
-      // Done adding frames.
-      return encoder.compile();
-    })
-    .then((output) => {
-      stats.log('compile end');
-      logger.info('Compiled.');
-      logger.debug(stats.summary());
-      resolve(output);
-    })
-    .catch(reject);
-  });
-}
 
 /**
  * Wrapper around rendered replay storage, providing a Promise-based
@@ -414,7 +210,13 @@ function extractMetaData(positions) {
   // Get recording player.
   let players = Object.keys(positions).filter(
     k => k.startsWith('player'));
+  // Just for debugging, this should already be validated.
+  if (!players.length) {
+    logger.error('No players in replay.');
+    throw new Error('Replay did not contain any players.');
+  }
   let me = players.find(k => positions[k].me === 'me');
+  // Just for debugging, this should already be validated.
   if (typeof me == 'undefined') {
     logger.error('Did not find recording player in replay.');
     throw new Error('Replay did not contain the recording player.');
@@ -1026,25 +828,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!name.includes('DATE') && !name.startsWith('replays')) {
         name += 'DATE' + Date.now();
     }
-    try {
-      data = JSON.parse(data);
-    } catch(e) {
-      sendResponse({
-        failed: true,
-        reason: 'Replay is not valid JSON',
-        name: 'ValidationError'
+    Promise.resolve(data)
+    .then(JSON.parse)
+    .catch((err) => {
+      let error = new Error('Replay is not valid JSON');
+      error.name = 'ValidationError';
+      throw error;
+    })
+    .then((data) => {
+      return validate(data)
+      .catch((err) => {
+        let error = new Error(`Validation error: ${err.message}`);
+        error.name = 'ValidationError';
+        throw error;
       });
-      return false;
-    }
-    validate(data).then((result) => {
-      if (result.failed) {
-        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
-        err.name = 'ValidationError';
-        throw err;
-      } else {
-        return save_replay(name, data);
-      }
-    }).then((replay_info) => {
+    })
+    .then(({replay}) => save_replay(name, replay))
+    .then((replay_info) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
         replay: replay_info
@@ -1055,7 +855,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       track('Imported Replay', {
         Failed: false
       });
-    }).catch((err) => {
+    })
+    .catch((err) => {
       track('Imported Replay', {
         Failed: true,
         Reason: err.message,
@@ -1078,15 +879,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     name = `${name}DATE${Date.now()}`;
     Promise.resolve(data)
     .then(JSON.parse)
-    .then((parsed) => {
-      parsed = trimReplay(parsed);
-      return validate(parsed).then((result) => {
-        if (result.failed)
-          throw new Error(`Validation error: ${result.code}; ${result.reason}`);
-        return save_replay(name, parsed);
-      });
-    })
+    .then(trimReplay)
+    .then(validate)
+    .then(({replay}) => save_replay(name, replay))
     .then((id) => {
+      // We intentionally break the promise chain here, if this
+      // fails we don't care.
       get_replay_count().then((n) => {
         track("Recorded Replay", {
           Failed: false,
@@ -1097,7 +895,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         failed: false
       });
-    }).catch((err) => {
+    })
+    .catch((err) => {
       logger.error('Error saving replay: ', err);
       // Save replay so it can be sent by user.
       let blob = new Blob([data], { type: 'application/json' });
@@ -1208,6 +1007,45 @@ function serialize_error(error) {
   };
 }
 
+// Global canvas element.
+let can = document.createElement('canvas');
+can.id = 'mapCanvas';
+document.body.appendChild(can);
+
+// Defaults.
+can.width = 1280;
+can.height = 800;
+can.style.zIndex = 200;
+can.style.position = 'absolute';
+can.style.top = 0;
+can.style.left = 0;
+
+// Given a renderer, returns a pull stream as a
+// generator which returns Promises which resolves to
+// {frame: blob, duration: number}
+// TODO: Error handling here? How does that work?
+function* frame_source(renderer) {
+  let replay = renderer.replay;
+  let me = Object.keys(replay).find(k => replay[k].me == 'me');
+  let fps = replay[me].fps;
+  let frames = replay.clock.length;
+  let end = frames - 1;
+  let frame = 0;
+  let frame_time = Date.parse(replay.clock[frame]);
+  while (frame < end) {
+    let next_frame_time = Date.parse(replay.clock[frame + 1]);
+    let frame_duration = next_frame_time - frame_time;
+    renderer.draw(frame);
+    yield renderer.toBlob('image/webp', 0.8)
+    .then((blob) => ({frame: blob, duration: frame_duration}));
+    frame_time = next_frame_time;
+    frame++;
+  }
+  renderer.draw(frame);
+  yield renderer.toBlob('image/webp', 0.8)
+  .then((blob) => ({frame: blob, duration: 1000 / fps}));
+}
+
 /**
  * Renders a replay.
  * @param {string} id the id of the replay to render
@@ -1216,24 +1054,41 @@ function serialize_error(error) {
  */
 function render_replay(id, update) {
   logger.info(`Rendering replay: ${id}`);
-  return get_replay_data(id).then((data) => {
-    // Validation is only needed here because we didn't validate replay
-    // database contents previously.
-    return validate(data).then((result) => {
-      if (result.failed) {
-        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
-        err.name = 'ValidationError';
-        throw err;
-      }
-
-      return renderVideo(data, id)
-      .progress((progress) => {
-        logger.debug(`Sending progress update for ${id}: ${progress}`);
-        update(progress);
-      }).then((output) => {
-        return Movies.save(id, output);
-      });
+  return get_replay_data(id)
+  // Validation is only needed here because we didn't validate replay
+  // database contents previously.
+  .then(validate)
+  .catch((err) => {
+    let error = new Error(`Validation error: ${err.message}`);
+    error.name = 'ValidationError';
+    throw error;
+  })
+  .then(({replay}) => {
+    return chrome.storage.promise.local.get('options')
+    .then((items) => {
+      if (!items.options) throw new Error('No options found.');
+      return {options: items.options, replay: replay};
     });
+  })
+  .then(({options, replay}) => get_renderer(can, replay, options))
+  .then((renderer) => {
+    let frames = renderer.replay.clock.length;
+    // Fraction of completion that warrants progress notification.
+    let notification_freq = 0.05;
+    let portions_complete = 0;
+    return renderVideo(frame_source(renderer))
+    .progress((progress) => {
+      let amountCompleted = progress / frames;
+      // Progress updates.
+      if (Math.floor(amountCompleted / notification_freq) != portions_complete) {
+        portions_complete++;
+        logger.debug(`Sending progress update for ${id}: ${progress}`);
+        update(amountCompleted);
+      }
+    });
+  })
+  .then((output) => {
+    return Movies.save(id, output);
   });
 }
 

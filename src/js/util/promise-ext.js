@@ -13,6 +13,7 @@ exports.map = (iterator, mapper, options = {}) => {
   options = Object.assign({ concurrency: Infinity }, options);
   let limit = options.concurrency;
   let pending = 0;
+  let index = 0;
   let results = [];
   let fulfilled = false;
 
@@ -27,7 +28,7 @@ exports.map = (iterator, mapper, options = {}) => {
         let {value, done} = iterator.next();
         if (done) break;
         pending++;
-        Promise.resolve(mapper(value))
+        Promise.resolve(mapper(value, index++))
         .then(finished)
         .catch(error);
       }
