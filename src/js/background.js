@@ -8,7 +8,7 @@ const Data = require('modules/data');
 const logger = require('util/logger')('background');
 const fs = require('util/filesystem');
 const get_renderer = require('modules/renderer');
-const {Progress} = require('util/promise-ext');
+const {Progress, map} = require('util/promise-ext');
 const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
@@ -58,73 +58,178 @@ function PromiseTimeout(callback, timeout=0) {
   });
 }
 
+function round(n, places = 3) {
+  let s = n.toString();
+  let sep = s.indexOf('.');
+  if (sep === -1) {
+    return s;
+  } else {
+    return s.slice(0, sep + places);
+  }
+}
+
+class Stats {
+  constructor(name) {
+    this.name = name;
+    this.events = [];
+    this.log('stats:init');
+  }
+
+  log(name) {
+    this._add_event(name, performance.now());
+  }
+
+  summary() {
+    let output = "";
+    let maxwidth = Math.max(...this.events.map(e => e.name.length));
+    let last = 0;
+    for (let event of this.events) {
+      output += `${this._left_pad(maxwidth, event.name)}: ${round(event.time)}`;
+      if (last) {
+        let diff = event.time - last;
+        output += ` +${round(diff)}`;
+      }
+      output += "\n";
+      last = event.time;
+    }
+    return output;
+  }
+
+  _left_pad(length, string, fillchar = ' ') {
+    if (string.length > length) return string;
+    return (fillchar.repeat(length) + string).slice(-length);
+  }
+
+  _add_event(name, time) {
+    if (this.name) {
+      name = `${this.name}:${name}`;
+    }
+    this.events.push({name, time});
+  }
+}
+
+function* range(length) {
+  for (let i = 0; i < length; i++) {
+    logger.trace(`Yielding ${i}`);
+    yield i;
+  }
+}
+
+function toBlob(canvas, mimeType, qualityArgument) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(resolve, mimeType, qualityArgument);
+  });
+}
+
+// Takes unordered input and outputs in specific order.
+class OrderedQueue {
+  constructor() {
+    // Number pushed onto queue.
+    this.enqueued = 0;
+    this._popped = 0;
+    this._buffer = [];
+  }
+
+  // Add ordered item.
+  add(i, item) {
+    this.enqueued++;
+    this._buffer.push([i, item]);
+    this._buffer.sort((a, b) => a[0] - b[0]);
+    //logger.trace(`Pushed onto buffer: ${this._buffer.map(i => i[0])}`);
+  }
+
+  // Pull off any ordered items.
+  get() {
+    let ready = [];
+    for (let i = 0; i < this._buffer.length; i++) {
+      let item = this._buffer[i];
+      let index = item[0];
+      //logger.trace(`index: ${index}; popped: ${this._popped}`);
+      if (index !== this._popped) break;
+      this._popped++;
+      ready.push(item);
+    }
+    if (ready.length) {
+      this._buffer = this._buffer.slice(ready.length);
+    }
+    return ready;
+  }
+
+  get length() {
+    return this._buffer.length;
+  }
+}
+
 /**
  * Renders replay.
  * 
  * Interface:
  *   Progress is returned. Call .progress on it and pass a handler for
  *   the progress events, which contain the % complete. That function returns
- *   a Promise which can be used like normal for completion/error handling.
- * 
- * A small delay in rendering is provided after progress notification to give
- * async operations a chance to complete.
+ *   a Promise which resolves to the completed render.
  */
 function renderVideo(replay, id) {
+  let stats = new Stats();
   return new Progress((resolve, reject, progress) => {
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
     let frames = replay.clock.length;
     let encoder = new Whammy.Video(fps);
-    let framesAdded = 0;
     // Fraction of completion that warrants progress notification.
     let notification_freq = 0.05;
     let portions_complete = 0;
+    let frame_queue = new OrderedQueue();
 
-    let result = chrome.storage.promise.local.get('options').then((items) => {
+    stats.log('start setup');
+    // Set up canvas.
+    chrome.storage.promise.local.get('options')
+    .then((items) => {
       if (!items.options) throw new Error('No options found');
       let options = items.options;
       can.width = options.canvas_width;
       can.height = options.canvas_height;
+      stats.log('get renderer start');
       return get_renderer(can, replay, options);
-    }).then(function render(renderer, frame=0) {
-      if(frame==0) {
-        console.time('render time');
-        console.time('main thread');
-      }
-      //logger.trace(`Rendering frame ${frame} of ${frames}`);
-      renderer.draw(frame);
-      renderer.canvas.toBlob((frame =>
-        (blob => {
-          let len = encoder.add(blob,frame);
-          framesAdded++;
-        
-          if (len === frames && framesAdded === frames) {
-            console.timeEnd('render time');
-            console.time('compile time');
-            encoder.compile().then(output => {
-              console.timeEnd('compile time');
-              return Movies.save(id, output).then(() => {
-                logger.debug('File saved.');
-              }).catch((err) => {
-                logger.error('Error saving render: ', err);
-                throw err;
-              });
-            }).then(function() {
-              resolve(result);
-            });
+    })
+    .then((renderer) => {
+      stats.log('get renderer end');
+      stats.log('render start');
+      // Batch process frames for rendering.
+      return map(range(frames), (frame) => {
+        renderer.draw(frame);
+        logger.trace(`Starting render of ${frame}`);
+        return toBlob(renderer.canvas, 'image/webp', 0.8)
+        .then((blob) => {
+          logger.trace(`Pushing frame ${frame} into queue.`);
+          frame_queue.add(frame, blob);
+          // Push any available ordered frames into the encoder.
+          for (let [i, blob] of frame_queue.get()) {
+            logger.trace(`Pushing frame ${i} into encoder.`);
+            encoder.add(blob);
           }
-        })
-      )(frame), 'image/webp', 0.8);
-      if (++frame<frames) {
-        if (Math.floor(frame / frames / notification_freq) != portions_complete) {
-          portions_complete++;
-          progress(frame / frames);
-        }
-        render(renderer,frame);
-      } else {
-        console.timeEnd('main thread');
-      }
-    });
+          let amountCompleted = frame_queue.enqueued / frames;
+          // Progress updates.
+          if (Math.floor(amountCompleted / notification_freq) != portions_complete) {
+            portions_complete++;
+            progress(amountCompleted);
+          }
+        });
+      }, { concurrency: 4 })
+    })
+    .then(() => {
+      stats.log('render end');
+      stats.log('compile start');
+      logger.info('Compiling.');
+      // Done adding frames.
+      return encoder.compile();
+    })
+    .then((output) => {
+      stats.log('compile end');
+      logger.info('Compiled.');
+      logger.debug(stats.summary());
+      resolve(output);
+    })
+    .catch(reject);
   });
 }
 
@@ -1125,6 +1230,8 @@ function render_replay(id, update) {
       .progress((progress) => {
         logger.debug(`Sending progress update for ${id}: ${progress}`);
         update(progress);
+      }).then((output) => {
+        return Movies.save(id, output);
       });
     });
   });

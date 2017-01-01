@@ -4,6 +4,55 @@ const logger = require('util/logger')('promise-ext');
  * Promise extensions.
  */
 /**
+ * Rewrite of bluebird Promise.map except:
+ * - doesn't take input promises
+ * - in-order execution of input is guaranteed
+ * - input iterator is not flushed initially.
+ */
+exports.map = (iterator, mapper, options = {}) => {
+  options = Object.assign({ concurrency: Infinity }, options);
+  let limit = options.concurrency;
+  let pending = 0;
+  let results = [];
+  let fulfilled = false;
+
+  return new Promise((resolve, reject) => {
+    function fulfill(fn, value) {
+      fulfilled = true;
+      fn(value);
+    }
+
+    function update() {
+      while (pending < limit) {
+        let {value, done} = iterator.next();
+        if (done) break;
+        pending++;
+        Promise.resolve(mapper(value))
+        .then(finished)
+        .catch(error);
+      }
+    }
+
+    function error(err) {
+      pending--;
+      fulfill(reject, err);
+    }
+
+    function finished(result) {
+      results.push(result);
+      pending--;
+      update();
+      // It's not possible to have pending items
+      if (!pending) fulfill(resolve, results);
+    }
+    // Initialize.
+    update();
+    // Handle empty/synchronous case.
+    if (!pending) fulfill(resolve, results);
+  });
+};
+
+/**
  * Provide a progress callback to some bit of work wrapped
  * in a Promise.
  * 

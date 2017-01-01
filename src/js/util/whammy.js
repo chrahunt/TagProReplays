@@ -1,8 +1,11 @@
+const logger = require('util/logger')('whammy');
+
 module.exports = (function() {
   // in this case, frames has a very specific meaning, which will be
   // detailed once i finish writing the code
   
   function toWebM(frames) {
+    logger.debug(`toWebM() with ${frames.length} frames`);
     var info = checkFrames(frames);
     
     //max duration by cluster in milliseconds
@@ -221,14 +224,13 @@ module.exports = (function() {
   // sums the lengths of all the frames and gets the duration, woo
   
   function checkFrames(frames) {
-    var width = frames[0].width,
-    height = frames[0].height,
-    duration = frames[0].duration;
-    for(var i = 1; i < frames.length; i++){
-      if(frames[i].width != width) throw "Frame " + (i + 1) + " has a different width: "+frames[i].width+' != '+width;
-      if(frames[i].height != height) throw "Frame " + (i + 1) + " has a different height: "+frames[i].height+' != '+height;
-      if(frames[i].duration < 0 || frames[i].duration > 0x7fff) throw "Frame " + (i + 1) + " has a weird duration (must be between 0 and 32767): "+frames[i].duration;
-      duration += frames[i].duration;
+    let {width, height, duration} = frames[0];
+    for (var i = 1; i < frames.length; i++){
+      let frame = frames[i];
+      if(frame.width != width) throw "Frame " + (i + 1) + " has a different width: "+frame.width+' != '+width;
+      if(frame.height != height) throw "Frame " + (i + 1) + " has a different height: "+frame.height+' != '+height;
+      if(frame.duration < 0 || frame.duration > 0x7fff) throw "Frame " + (i + 1) + " has a weird duration (must be between 0 and 32767): "+frame.duration;
+      duration += frame.duration;
     }
     return {
       duration: duration,
@@ -261,15 +263,7 @@ module.exports = (function() {
       arr[i] = str.charCodeAt(i);
     }
     return arr;
-    // this is slower
-    // return new Uint8Array(str.split('').map(function(e){
-    // 	return e.charCodeAt(0)
-    // }))
   }
-  
-  //sorry this is ugly, and sort of hard to understand exactly why this was done
-  // at all really, but the reason is that there's some code below that i dont really
-  // feel like understanding, and this is easier than using my brain.
   
   function bitsToBuffer(bits) {
     var data = [];
@@ -339,21 +333,12 @@ module.exports = (function() {
     ]);
   }
   
-  // here's something else taken verbatim from weppy, awesome rite?
-  
   function parseWebP(riff) {
     return riff.RIFF[0].then(function(RIFF) {
       let {width, height, blob} = RIFF.WEBP[0];
       return {width, height, riff: {RIFF: [RIFF]}, blob};
     });
   }
-  
-  // i think i'm going off on a riff by pretending this is some known
-  // idiom which i'm making a casual and brilliant pun about, but since
-  // i can't find anything on google which conforms to this idiomatic
-  // usage, I'm assuming this is just a consequence of some psychotic
-  // break which makes me make up puns. well, enough riff-raff (aha a
-  // rescue of sorts), this function was ripped wholesale from weppy
   
   function parseRIFF(blob) {
     return Promise.resolve(blob).then(function(blob) {
@@ -394,35 +379,29 @@ module.exports = (function() {
     });
   }
 
-	// here's a little utility function that acts as a utility for other functions
-	// basically, the only purpose is for encoding "Duration", which is encoded as
-	// a double (considerably more difficult to encode than an integer)
+  // For encoding 'duration'
   function doubleToString(num) {
     return new Uint8Array(new Float64Array([num])).map(e => String.fromCharCode(e)).reverse().join('');
   }
   
   function getFramesPromises(frames) {
-    let promises = [];
-    for(let i = 0;i < frames.length;i++) {
-      let frame1 = frames[i];
-      let p = parseRIFF(frame1.imageBlob).then(rff => {
-        return parseWebP(rff).then(function(webp) {
-          webp.duration = frame1.duration;
-          return webp;
-        });
+    return frames.map((frame) => {
+      return parseRIFF(frame.imageBlob)
+      .then(parseWebP)
+      .then((webp) => {
+        webp.duration = frame.duration;
+        return webp;
       });
-      promises.push(p);
-    }
-    return promises;
+    });
   }
 
-  function WhammyVideo(fps, quality) { // a more abstract-ish API
+  function WhammyVideo(fps, quality) {
     this.frames = [];
     this.duration = 1000 / fps;
     this.quality = quality || 0.8;
   }
 
-  WhammyVideo.prototype.add = function(frame, pos, duration) {
+  WhammyVideo.prototype.add = function(frame, duration) {
     if(typeof duration != 'undefined' && this.duration) throw "you can't pass a duration if the fps is set";
     if(typeof duration == 'undefined' && !this.duration) throw "if you don't have the fps set, you need to have durations here.";
 		
@@ -431,17 +410,19 @@ module.exports = (function() {
         imageBlob: frame,
         duration: duration || this.duration
       };
-      this.frames[pos] = frame1; //frames may not come in order
-      return this.frames.length;
+      this.frames.push(frame1);
+    } else {
+      throw new Error('Only Blobs are supported.');
     }
-  }
+  };
   
   WhammyVideo.prototype.compile = function() {
-    return Promise.all(getFramesPromises(this.frames)).then(toWebM);
-  }
+    return Promise.all(getFramesPromises(this.frames))
+    .then(toWebM);
+  };
 
   return {
     Video: WhammyVideo,
     toWebM: toWebM
-  }
+  };
 })();
