@@ -78,19 +78,20 @@ exports.map = (iterator, mapper, options = {}) => {
  * The value passed to progress can be anything you like, it is
  * passed on as-is.
  */
-class Progress {
-  constructor(wrapped) {
-    this.__callback = () => {};
-    this.__promise = new Promise((resolve, reject) => {
-      return wrapped(resolve, reject, (progress) => {
+class Progress extends Promise {
+  constructor(executor) {
+    super((resolve, reject) => {
+      return executor(resolve, reject, (progress) => {
         this.__callback(progress);
       });
     });
+    // no-op
+    this.__callback = () => {};
   }
 
   progress(callback) {
     this.__callback = callback;
-    return this.__promise;
+    return this;
   }
 }
 exports.Progress = Progress;

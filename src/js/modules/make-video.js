@@ -111,16 +111,16 @@ function renderVideo(source) {
     // Batch process frames for rendering.
     return map(source, (operation, index) => {
       return operation.then((data) => {
-        logger.trace(`Pushed frame ${index} into queue.`);
+        //logger.trace(`Pushed frame ${index} into queue.`);
         frame_queue.add(index, data);
         // Push any available ordered frames into the encoder.
         for (let [i, data] of frame_queue.get()) {
-          logger.trace(`Pushing frame ${i} into encoder.`);
+          //logger.trace(`Pushing frame ${i} into encoder.`);
           encoder.add(data.frame, data.duration);
         }
         progress(frame_queue.enqueued);
       });
-    }, { concurrency: 4 })
+    }, { concurrency: navigator.hardwareConcurrency })
     .then(() => {
       stats.log('render end');
       stats.log('compile start');

@@ -1007,7 +1007,7 @@ function serialize_error(error) {
   };
 }
 
-// Global canvas element.
+// Global canvas element used for rendering.
 let can = document.createElement('canvas');
 can.id = 'mapCanvas';
 document.body.appendChild(can);
@@ -1020,10 +1020,11 @@ can.style.position = 'absolute';
 can.style.top = 0;
 can.style.left = 0;
 
-// Given a renderer, returns a pull stream as a
-// generator which returns Promises which resolves to
-// {frame: blob, duration: number}
-// TODO: Error handling here? How does that work?
+/**
+ * Given a renderer, returns a pull stream as a
+ * generator which returns Promises which resolves to
+ * {frame: blob, duration: number}
+ */
 function* frame_source(renderer) {
   let replay = renderer.replay;
   let me = Object.keys(replay).find(k => replay[k].me == 'me');

@@ -7,7 +7,6 @@ build
 dist
 
 # Yet-merged items from dev branch
-karma.conf.js
 .eslintrc.js
 
 # OS
