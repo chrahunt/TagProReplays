@@ -1069,6 +1069,13 @@ function render_replay(id, update) {
     .then((items) => {
       if (!items.options) throw new Error('No options found.');
       return {options: items.options, replay: replay};
+    })
+    .then((args) => {
+      return Textures.get(args.options.custom_textures)
+      .then((textures) => {
+        args.options.textures = textures;
+        return args;
+      });
     });
   })
   .then(({options, replay}) => get_renderer(can, replay, options))

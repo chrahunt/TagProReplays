@@ -9,7 +9,7 @@ const moment = require('moment');
 require('moment-duration-format');
 
 const logger = require('util/logger')('renderer');
-const Textures = require('modules/textures');
+//const Textures = require('modules/textures');
 // Polyfill for Chrome < 50
 require('util/canvas-toblob-polyfill');
 logger.info('Loading renderer.');
@@ -40,13 +40,14 @@ class Renderer {
    * @param {HTMLCanvasElement} canvas - the canvas to render onto
    * @param {Replay} replay
    * @param {Object} options
+   * @param {Number} options.canvas_height
+   * @param {Number} options.canvas_width
+   * @param {bool} options.chat
    * @param {bool} options.custom_textures
+   * @param {Object} options.textures
    * @param {bool} options.spin
    * @param {bool} options.splats
    * @param {bool} options.ui
-   * @param {bool} options.chat
-   * @param {bool} options.canvas_width
-   * @param {bool} options.canvas_height
    */
   constructor(canvas, replay, options = {}) {
     // Set globals.
@@ -66,10 +67,21 @@ class Renderer {
 
     this.total_render_time = 0;
     this.rendered_frames = 0;
+
+    // Allow already-loaded texture images.
+    let texture_promise;
+    if (this.options.textures) {
+      texture_promise = Promise.resolve(this.options.textures);
+    } else {
+      texture_promise = Textures.get(this.options.custom_textures);
+    }
     
-    this.ready_promise = Textures.get(this.options.custom_textures).then((result) => {
+    this.ready_promise = texture_promise
+    .then((result) => {
       textures = result;
-    }).then(() => loadImage(drawMap(this.replay))).then((image) => {
+    })
+    .then(() => loadImage(drawMap(this.replay)))
+    .then((image) => {
       this.map = image;
     });
     this._extract_replay_data();

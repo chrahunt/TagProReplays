@@ -17,6 +17,7 @@ module.exports = function (config) {
     files: [
       // To include test/karma
       'test/**/*.spec.js',
+      {pattern: 'src/images/**/*.png', watched: true, served: true, included: false},
       {pattern: 'src/schemas/**/*.json', watched: true, served: true, included: false},
       {pattern: 'test/fixtures/**/*', watched: true, served: true, included: false}
     ],
@@ -27,8 +28,9 @@ module.exports = function (config) {
 
     // Proxy to src folder.
     proxies: {
-      '/schemas/': '/base/src/schemas/',
-      '/fixtures/': '/base/test/fixtures/'
+      '/images/': '/base/src/images/',
+      '/fixtures/': '/base/test/fixtures/',
+      '/schemas/': '/base/src/schemas/'
     },
 
     // preprocess matching files before serving them to the browser
