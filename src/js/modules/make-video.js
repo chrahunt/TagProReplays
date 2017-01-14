@@ -14,11 +14,17 @@ class Stats {
   constructor(name) {
     this.name = name;
     this.events = [];
+    this.attributes = {};
     this.log('stats:init');
   }
 
   log(name) {
-    this._add_event(name, performance.now());
+    this._add_event(name, performance.now().toFixed(3));
+  }
+
+  // Add some other attribute.
+  add_attr(name, value) {
+    this.attributes[name] = value;
   }
 
   summary() {
@@ -26,15 +32,33 @@ class Stats {
     let maxwidth = Math.max(...this.events.map(e => e.name.length));
     let last = 0;
     for (let event of this.events) {
-      output += `${this._left_pad(maxwidth, event.name)}: ${round(event.time)}`;
+      output += `${this._left_pad(maxwidth, event.name)}: ${event.time}`;
       if (last) {
         let diff = event.time - last;
-        output += ` +${round(diff)}`;
+        output += ` +${diff}`;
       }
       output += "\n";
       last = event.time;
     }
     return output;
+  }
+
+  // Get action data
+  get_data() {
+    let offsets = this._get_offsets(this.events.map(e => e.time));
+    let events =  this.events.map(({name}, i) => [name, offsets[i]]);
+    return Object.assign({events}, this.attributes);
+  }
+
+  _get_offsets(times) {
+    let result = [];
+    if (!times.length) return result;
+    result.push(0);
+    let start = times[0];
+    for (let time of times.slice(1)) {
+      result.push(time - start);
+    }
+    return result;
   }
 
   _left_pad(length, string, fillchar = ' ') {
@@ -98,11 +122,17 @@ class OrderedQueue {
  *   Progress resolves to the completed render.
  * @param {Iterator} source source for frames, should have objects with
  *   properties frame (Blob) and duration (Number)
- * @returns {Progress}
+ * @returns {Progress} progress that resolves to the rendered video and
+ *   rendering stats.
  */
 module.exports = renderVideo;
 function renderVideo(source) {
   let stats = new Stats();
+  stats.add_attr('cores', navigator.hardwareConcurrency);
+  // Other attributes added later.
+  let frames = 0;
+  let duration = 0;
+  let operation_start = performance.now();
   return new Progress((resolve, reject, progress) => {
     let encoder = new Whammy.Video();
     let frame_queue = new OrderedQueue();
@@ -111,6 +141,8 @@ function renderVideo(source) {
     // Batch process frames for rendering.
     return map(source, (operation, index) => {
       return operation.then((data) => {
+        frames++;
+        duration += data.duration;
         //logger.trace(`Pushed frame ${index} into queue.`);
         frame_queue.add(index, data);
         // Push any available ordered frames into the encoder.
@@ -123,6 +155,8 @@ function renderVideo(source) {
     }, { concurrency: navigator.hardwareConcurrency })
     .then(() => {
       stats.log('render end');
+      stats.add_attr('frames', frames);
+      stats.add_attr('replay duration', duration.toFixed(3));
       stats.log('compile start');
       logger.info('Compiling.');
       // Done adding frames.
@@ -131,25 +165,11 @@ function renderVideo(source) {
     .then((output) => {
       stats.log('compile end');
       logger.info('Compiled.');
+      let total_operation_time = performance.now() - operation_start;
+      stats.add_attr('total time', total_operation_time.toFixed(3));
       logger.debug(stats.summary());
-      resolve(output);
+      resolve({output, stats: stats.get_data()});
     })
     .catch(reject);
   });
-}
-
-/**
- * Round a given number to the provided decimal places.
- * @param {Number} n
- * @param {Number} places
- * @returns {String}
- */
-function round(n, places = 3) {
-  let s = n.toString();
-  let sep = s.indexOf('.');
-  if (sep === -1) {
-    return s;
-  } else {
-    return s.slice(0, sep + places);
-  }
 }

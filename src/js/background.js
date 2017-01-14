@@ -1088,8 +1088,8 @@ function render_replay(id, update) {
       }
     });
   })
-  .then((output) => {
-    return Movies.save(id, output);
+  .then(({output, stats}) => {
+    return Movies.save(id, output).then(() => stats);
   });
 }
 
@@ -1124,7 +1124,8 @@ chrome.runtime.onConnect.addListener((port) => {
       let {id} = msg;
       render_replay(id, (progress) => {
         port.postMessage({ progress: progress });
-      }).then(() => {
+      }).then((stats) => {
+        track('Render', stats);
         return get_replay_info(id);
       }).then((replay_info) => {
         // Send update indicating replay is rendered.
@@ -1136,6 +1137,9 @@ chrome.runtime.onConnect.addListener((port) => {
         });
       }).catch((err) => {
         logger.error(`Rendering failed for ${id}`, err);
+        track('Render', {
+          error: serialize_error(err)
+        });
         port.postMessage({ error: serialize_error(err) });
       }).then(() => {
         port.disconnect();
@@ -1144,6 +1148,7 @@ chrome.runtime.onConnect.addListener((port) => {
     });
     port.onDisconnect.addListener(() => {
       logger.info('Render port disconnected.');
+      // TODO: Don't set rendering false here if we're actually still rendering.
       rendering = false;
     });
 

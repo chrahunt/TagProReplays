@@ -9,7 +9,7 @@ const saveAs = require('file-saver').saveAs;
 
 // Sample frames for rendering.
 let frames = [
-  // path                 duration
+  // path                          duration
   ['fixtures/render/goodblob.txt', 16],
   ['fixtures/render/badblob.txt',  16]
 ];
@@ -42,7 +42,7 @@ function* frame_source(limit = Infinity) {
 
 describe('converting WebP frames to WebM', () => {
   it('should render WebM', () => {
-    return renderVideo(frame_source()).then((data) => {
+    return renderVideo(frame_source()).then((data, stats) => {
       // Don't do anything with output yet, need some way
       // to identify that the video was rendered correctly.
       // But not throwing is good too.
