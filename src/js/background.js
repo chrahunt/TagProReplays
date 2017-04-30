@@ -1244,12 +1244,20 @@ chrome.runtime.onInstalled.addListener((details) => {
         from: last_version,
         to:   version
       });
-      // Clear preview storage from versions prior to 1.3.
+
       if (semver.satisfies(last_version, '<1.3.0')) {
+        // Clear preview storage from versions prior to 1.3.
         chrome.storage.promise.local.clear().then(() => {
           chrome.runtime.reload();
         }).catch((err) => {
           logger.error('Error clearing chrome.storage.local: ', err);
+        });
+      }
+
+      if (semver.satisfies(last_version, '<1.3.15')) {
+        // Force texture reload.
+        Textures.ready(true, true).then(() => {
+          logger.debug('Textures reloaded.');
         });
       }
     }

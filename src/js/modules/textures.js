@@ -5,7 +5,7 @@ var logger = require('util/logger')('textures');
 logger.info('Loading textures');
 
 /*
- * We store default and custom textures as dataURLs in
+ * We store default and custom textures as data URIs in
  * chrome.storage.local under
  * - textures
  * - default_textures
@@ -25,7 +25,7 @@ const texture_names = [
 
 /*
  * Updates saved textures.
- * Each should be a dataURL.
+ * Each should be a data URI.
  */
 exports.set = function (new_textures) {
   var result = {};
@@ -44,13 +44,13 @@ exports.set = function (new_textures) {
       throw new Error("Textures not set.");
     }
   });
-};
+}
 
 /**
  * Retrieves saved textures. If custom is true then custom
  * textures are returned for sprites where they are set.
  * 
- * Each should be a dataURL.
+ * Each should be a data URI.
  */
 exports.get = function (custom) {
   return chrome.storage.promise.local.get(['textures', 'default_textures'])
@@ -64,7 +64,8 @@ exports.get = function (custom) {
       }
     }
     return loadImage(urls);
-  }).then((images) => {
+  })
+  .then((images) => {
     var out = {};
     for (let i = 0; i < images.length; i++) {
       out[texture_names[i]] = images[i];
@@ -74,11 +75,11 @@ exports.get = function (custom) {
 }
 
 /**
- * Get a data URL for the image.
+ * Get a data URI for the image.
  * @param {Image} img - The image.
- * @returns {string} the Data URL representing the image.
+ * @returns {string} the data URI representing the image.
  */
-function imageToDataURL(img) {
+function imageToDataURI(img) {
   var canvas = document.createElement("canvas");
   canvas.width = img.width;
   canvas.height = img.height;
@@ -98,32 +99,38 @@ function getDefaultTextures() {
   })).then((images) => {
     var out = {};
     for (let i = 0; i < images.length; i++) {
-      out[texture_names[i]] = imageToDataURL(images[i]);
+      out[texture_names[i]] = imageToDataURI(images[i]);
     }
     return out;
   });
 }
 
-function setDefaultTextures() {
-  return getDefaultTextures().then((textures) => {
-    return chrome.storage.promise.local.set({
-      textures: textures,
-      // Copy the object, otherwise default_textures is
-      // null.
-      default_textures: Object.assign({}, textures)
-    });
-  });
-}
-
 /**
  * Ensure textures are set and ready.
- * @type {Promise}
+ * @param {bool} forceReload force reload of default textures from disk.
+ * @param {bool} overwrite force overwrite/removal of custom textures, for
+ *   addressing updates to texture format.
+ * @returns {Promise}
  */
-exports.ready = function () {
+exports.ready = function (forceReload=false, overwrite=false) {
   return chrome.storage.promise.local.get(["default_textures", "textures"])
-    .then((items) => {
-    if (!items.textures || !items.default_textures) {
-      return setDefaultTextures();
+  .then(({default_textures, textures}) => {
+    let resetDefault = forceReload || !default_textures;
+    let resetCustom = overwrite || !textures;
+    if (resetDefault) {
+      return getDefaultTextures().then((new_textures) => {
+        if (resetCustom) {
+          textures = {};
+        }
+        return chrome.storage.promise.local.set({
+          default_textures: new_textures,
+          textures: textures
+        });
+      });
+    } else if (resetCustom) {
+      return chrome.storage.promise.local.set({
+        textures: {}
+      });
     }
   });
-}
+};
