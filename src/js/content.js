@@ -774,7 +774,7 @@ function injectStyleSheet(path) {
 }
 
 // if we're on the main tagpro server screen, run the createReplayPageButton function
-if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
+if ($('#userscript-home').length !== 0) {
     // make the body scrollable
     $('body')[0].style.overflowY = "scroll"
     // make the button
@@ -783,10 +783,6 @@ if (document.URL.search(/[a-z]+\/#?$/) >= 0) {
     // Include custom bootstrap.css scoped to #tpr-container
     injectStyleSheet("css/bootstrap.css");
     injectStyleSheet("css/menu.css");
-}
-
-// if we're in a game, as evidenced by there being a port number, inject the replayRecording.js script
-if (document.URL.search(/\.\w+:/) >= 0) {
-    var scripts = ["js/recording.js"];
-    scripts.forEach(injectScript);
+} else if (document.URL.search(/\.\w+:/) >= 0) {
+    injectScript('js/recording.js');
 }

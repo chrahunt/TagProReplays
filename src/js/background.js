@@ -673,6 +673,22 @@ function cropReplayData(replay, start, end) {
     return new_player;
   }
 
+  function cropObject(object) {
+    let x = cropFrameArray(object.x);
+    let valid = x.some(v => v !== null);
+    if (!valid) return null;
+
+    let new_object = {
+      draw: cropFrameArray(object.draw),
+      id: object.id,
+      type: object.type,
+      x: cropFrameArray(object.x),
+      y: cropFrameArray(object.y)
+    };
+
+    return new_object;
+  }
+
   function cropDynamicTile(tile) {
     return {
       x: tile.x,
@@ -731,6 +747,17 @@ function cropReplayData(replay, start, end) {
     });
   }
 
+  function cropEvent(event) {
+    if (event.name == 'spring-2017') {
+      return {
+        name: event.name,
+        data: {
+          egg_holder: cropFrameArray(event.data.egg_holder)
+        }
+      };
+    }
+  }
+
   let new_replay = {
     bombs:      cropBombs(replay.bombs),
     chat:       cropChats(replay.chat),
@@ -739,6 +766,7 @@ function cropReplayData(replay, start, end) {
     gameEndsAt: replay.gameEndsAt,
     floorTiles: replay.floorTiles.map(cropDynamicTile),
     map:        replay.map,
+    objects:    {},
     score:      cropFrameArray(replay.score),
     spawns:     cropSpawns(replay.spawns),
     splats:     cropSplats(replay.splats),
@@ -752,6 +780,17 @@ function cropReplayData(replay, start, end) {
       if (new_player === null) continue;
       new_replay[key] = new_player;
     }
+  }
+  // Add objects.
+  if ('objects' in replay) {
+    for (let id in replay.objects) {
+      let new_obj = cropObject(replay.objects[id]);
+      if (new_obj === null) continue;
+      new_replay.objects[id] = new_obj;
+    }
+  }
+  if ('event' in replay) {
+    new_replay.event = cropEvent(replay.event);
   }
   return new_replay;
 }

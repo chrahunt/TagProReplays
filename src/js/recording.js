@@ -35,9 +35,9 @@ function createZeroArray(N) {
 }
 
 function recordReplayData() {
-  var savingIndex = 0;
-  var fps = Number(Cookies.read('tpr_fps'));
-  var saveDuration = Number(Cookies.read('tpr_duration'));
+  let fps = Number(Cookies.read('tpr_fps'));
+  let saveDuration = Number(Cookies.read('tpr_duration'));
+  let frames = fps * saveDuration;
 
   // set up map data
   positions.chat = [];
@@ -48,9 +48,10 @@ function recordReplayData() {
   delete positions.map.splats;
   positions.wallMap = tagpro.wallMap;
   positions.floorTiles = [];
-  positions.score = createZeroArray(saveDuration * fps);
+  positions.objects = {};
+  positions.score = createZeroArray(frames);
   positions.gameEndsAt = [new Date(tagpro.gameEndsAt).getTime()];
-  positions.clock = createZeroArray(saveDuration * fps);
+  positions.clock = createZeroArray(frames);
   decipheredData = decipherMapdata(positions.map, mapElements);
   positions.tiles = translateWallTiles(decipheredData, positions.wallMap, quadrantCoords);
 
@@ -63,7 +64,7 @@ function recordReplayData() {
         positions.floorTiles.push({
           x: x,
           y: y,
-          value: createZeroArray(saveDuration * fps)
+          value: createZeroArray(frames)
         });
       }
     }
@@ -80,7 +81,7 @@ function recordReplayData() {
   }
 
   // set up listener for chats, splats, and bombs
-  tagpro.socket.on('chat', function (chat) {
+  tagpro.socket.on('chat', (chat) => {
     let attributes = {};
     if (typeof chat.from == 'number') {
       // Preserve player attributes at time chat was made.
@@ -94,78 +95,112 @@ function recordReplayData() {
     positions.chat.push(chat_info);
   });
 
-  tagpro.socket.on('splat', function (SPLAT) {
+  tagpro.socket.on('splat', (SPLAT) => {
     SPLAT.time = new Date();
     positions.splats.push(SPLAT);
   });
 
-  tagpro.socket.on('bomb', function (BOMB) {
+  tagpro.socket.on('bomb', (BOMB) => {
     BOMB.time = new Date();
     positions.bombs.push(BOMB);
   });
 
-  tagpro.socket.on('spawn', function (SPAWN) {
+  tagpro.socket.on('spawn', (SPAWN) => {
     SPAWN.time = new Date();
     positions.spawns.push(SPAWN);
   });
 
-  tagpro.socket.on('end', function (END) {
+  tagpro.socket.on('end', (END) => {
     END.time = new Date();
     positions.end = END;
   });
 
-  tagpro.socket.on('time', function (TIME) {
+  tagpro.socket.on('time', (TIME) => {
     TIME.startTime = new Date();
     positions.gameEndsAt.push(TIME);
   });
 
   // function to save game data
-  saveGameData = function () {
-    currentPlayers = tagpro.players;
-    for (var player in currentPlayers) {
-      if (!positions['player' + player]) {
-        positions['player' + player] = {
-          x: createZeroArray(saveDuration * fps),
-          y: createZeroArray(saveDuration * fps),
-          name: createZeroArray(saveDuration * fps),
-          fps: fps,
-          team: createZeroArray(saveDuration * fps), //players[player].team, // 1:red, 2:blue
-          map: $('#mapInfo').text().replace('Map: ', '').replace(/ by.*/, ''),
-          flag: createZeroArray(saveDuration * fps),
-          bomb: createZeroArray(saveDuration * fps),
-          grip: createZeroArray(saveDuration * fps),
-          tagpro: createZeroArray(saveDuration * fps),
-          dead: createZeroArray(saveDuration * fps),
-          draw: createZeroArray(saveDuration * fps),
-          // 'me' is set when the replay is saved.
-          auth: createZeroArray(saveDuration * fps),
-          degree: createZeroArray(saveDuration * fps),
-          flair: createZeroArray(saveDuration * fps),
-          angle: createZeroArray(saveDuration * fps)
-        };
-      }
+  function saveGameData() {
+    // Check for newly-created players.
+    let currentPlayers = tagpro.players;
+    for (let id in currentPlayers) {
+      let in_replay_id = `player${id}`;
+      if (positions.hasOwnProperty(in_replay_id)) continue;
+      positions[in_replay_id] = {
+        angle: createZeroArray(frames),
+        auth: createZeroArray(frames),
+        bomb: createZeroArray(frames),
+        dead: createZeroArray(frames),
+        degree: createZeroArray(frames),
+        draw: createZeroArray(frames),
+        flair: createZeroArray(frames),
+        flag: createZeroArray(frames),
+        fps: fps,
+        grip: createZeroArray(frames),
+        map: $('#mapInfo').text().replace('Map: ', '').replace(/ by.*/, ''),
+        // `me` is set when the replay is saved.
+        name: createZeroArray(frames),
+        tagpro: createZeroArray(frames),
+        team: createZeroArray(frames),
+        x: createZeroArray(frames),
+        y: createZeroArray(frames),
+      };
     }
-    for (var player in positions) {
-      if (player.search('player') === 0) {
-        for (var prop in positions[player]) {
-          // Only apply to properties tracked over time.
-          if (Array.isArray(positions[player][prop])) {
-            var frames = positions[player][prop];
-            var playerId = player.replace('player', '');
+    // Update players.
+    for (let id in positions) {
+      if (!id.startsWith('player')) continue;
+      let player = positions[id];
+      for (let prop in player) {
+        // Only apply to properties tracked over time.
+        if (Array.isArray(player[prop])) {
+          let frames = player[prop];
+          let playerId = id.replace('player', '');
 
-            frames.shift();
-            if (typeof tagpro.players[playerId] !== 'undefined') {
-              frames.push(tagpro.players[playerId][prop]);
-            } else {
-              frames.push(null);
-            }
+          frames.shift();
+          if (typeof tagpro.players[playerId] !== 'undefined') {
+            frames.push(tagpro.players[playerId][prop]);
+          } else {
+            frames.push(null);
           }
         }
       }
     }
-    for (var j in positions.floorTiles) {
-      positions.floorTiles[j].value.shift();
-      positions.floorTiles[j].value.push(tagpro.map[positions.floorTiles[j].x][positions.floorTiles[j].y]);
+
+    // Check for any newly-created objects.
+    let currentObjects = tagpro.objects;
+    for (let id in currentObjects) {
+      if (!positions.objects[id]) {
+        positions.objects[id] = {
+          draw: createZeroArray(frames),
+          id: Number(id),
+          type: tagpro.objects[id].type,
+          x: createZeroArray(frames),
+          y: createZeroArray(frames)
+        };
+      }
+    }
+    // Update objects.
+    for (let id in positions.objects) {
+      let object = positions.objects[id];
+      for (let prop in object) {
+        // Only apply to properties tracked over time.
+        if (Array.isArray(object[prop])) {
+          let frames = object[prop];
+
+          frames.shift();
+          if (typeof tagpro.objects[id] !== 'undefined') {
+            frames.push(tagpro.objects[id][prop]);
+          } else {
+            frames.push(null);
+          }
+        }
+      }
+    }
+
+    for (let tile of positions.floorTiles) {
+      tile.value.shift();
+      tile.value.push(tagpro.map[tile.x][tile.y]);
     }
     positions.clock.shift();
     positions.clock.push(new Date());
@@ -173,7 +208,39 @@ function recordReplayData() {
     positions.score.push(tagpro.score);
   }
 
-  thing = setInterval(saveGameData, 1000 / fps);
+  let updaters = [saveGameData];
+  // Extension returns false if not applicable or frame update function.
+  let extensions = [doEaster];
+  let extension_results = extensions.map(f => f());
+  updaters.push(...extension_results.filter(e => e));
+
+  setInterval(() => {
+    updaters.forEach(f => f());
+  }, 1000 / fps);
+}
+
+function doEaster() {
+  let fps = Number(Cookies.read('tpr_fps'));
+  let duration = Number(Cookies.read('tpr_duration'));
+  let applies = $('script[src]').toArray().some(e => e.src.endsWith('easter-2017.js'));
+  if (!applies) return false;
+  positions.event = {
+    name: "spring-2017",
+    data: {
+      egg_holder: createZeroArray(duration * fps)
+    }
+  };
+
+  let holder = null;
+  function frameFunction() {
+    positions.event.data.egg_holder.shift();
+    positions.event.data.egg_holder.push(holder);
+  }
+  // track egg holder
+  tagpro.socket.on('eggBall', (data) => {
+    holder = data.holder;
+  });
+  return frameFunction;
 }
 
 //////////////////////////////////////////
@@ -207,8 +274,8 @@ function decipherMapdata(mapData, mapElements) {
     }
   }
 
-  for (var col in mapData) {
-    for (var row in mapData[col]) {
+  for (let col in mapData) {
+    for (let row in mapData[col]) {
       var tileId = mapData[col][row];
       if (tileId == 1) {
         result[col][row].tile = 'wall';
@@ -253,7 +320,7 @@ function translateWallTiles(decipheredData, wallData, quadrantCoords) {
 }
 
 // TL, TR, BR, BL
-var quadrantCoords = {
+const quadrantCoords = {
   "0": [15, 10],
   0: [15, 10],
   "310": [10.5, 7.5],
@@ -490,7 +557,7 @@ var quadrantCoords = {
   "200d": [5.5, 10]
 };
 
-var mapElements = {
+const mapElements = {
   0: {tile: "blank", coordinates: {x: 15, y: 10}, tileSize: 40, drawTileFirst: false},
   2: {tile: "tile", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
   3: {tile: "redflag", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
