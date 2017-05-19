@@ -27,7 +27,8 @@
     "matches": [
       "http://*.koalabeast.com/*",
       "http://*.newcompte.fr/*",
-      "http://tangent.jukejuice.com/*"
+      "http://tangent.jukejuice.com/*",
+      "http://*.nickriggs.com/*"
     ],
     "run_at": "document_end"
   }],

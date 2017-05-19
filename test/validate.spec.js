@@ -246,4 +246,6 @@ describe('Version 1 replay validation', function() {
       });
     }
   });
+
+  it('should accept replays with objects');
 });

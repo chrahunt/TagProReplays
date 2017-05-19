@@ -20,7 +20,8 @@ const texture_names = [
   'speedpadblue',
   'speedpadred',
   'splats',
-  'tiles'
+  'tiles',
+  'egg'
 ];
 
 /*
