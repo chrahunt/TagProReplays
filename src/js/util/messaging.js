@@ -1,4 +1,4 @@
-const logger = require('util/logger')('messaging');;
+const logger = require('util/logger')('messaging');
 
 /**
  * Messaging utilities.

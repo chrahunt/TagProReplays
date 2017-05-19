@@ -79,7 +79,8 @@ under `web_accessible_resources` in the manifest.
 
 When you're ready to make a new release:
 
-1. Make sure to update the version in `package.json` and `manifest.json`.
+1. Make sure to update the version in `package.json` (this is automatically
+   populated in `manifest.json`).
 2. `gulp build-release` - this outputs compiled non-sourcemapped files to
    `./dist`.
 3. Load the `dist` directory as an unpacked extension and test.

@@ -992,6 +992,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     // We store date recorded in the name of the replay.
     name = `${name}DATE${Date.now()}`;
+    // Track event statistics.
+    let event_name = null;
     Promise.resolve(data)
     .then(JSON.parse)
     .then((parsed) => {
@@ -999,6 +1001,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return validate(parsed).then((result) => {
         if (result.failed)
           throw new Error(`Validation error: ${result.code}; ${result.reason}`);
+        event_name = parsed.event && parsed.event.name;
         return save_replay(name, parsed);
       });
     })
@@ -1007,7 +1010,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         track("Recorded Replay", {
           Failed: false,
           'Total Replays': n,
-          URL: url
+          URL: url,
+          Event: event_name || 'None'
         });
       });
       sendResponse({
