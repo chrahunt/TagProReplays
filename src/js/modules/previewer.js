@@ -5,7 +5,7 @@ const saveAs = require('file-saver').saveAs;
 
 const Cookies = require('util/cookies');
 const get_renderer = require('modules/renderer');
-const logger = require('util/logger')('renderer');
+const logger = require('util/logger')('previewer');
 const Replays = require('modules/replay-collection');
 const track = require('util/track');
 

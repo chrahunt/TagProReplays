@@ -931,8 +931,9 @@ function doEvent(positions) {
     let holder_id = event.data.egg_holder[frame];
     if (holder_id) {
       let holder = positions[`player${holder_id}`];
+      if (holder.dead[frame] || !holder.draw[frame]) return;
       let {x, y} = worldToScreen(holder.x[frame], holder.y[frame]);
-      let offset = TILE_SIZE / 20 + 8;
+      let offset = 8;
       let icon_size = 23;
       let texture = textures.egg;
       context.drawImage(texture,
