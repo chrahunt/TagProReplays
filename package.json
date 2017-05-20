@@ -21,6 +21,7 @@
     "gulp-util": "^3.0.7",
     "gulp-watch": "^4.3.10",
     "gulp-zip": "^3.2.0",
+    "json-pointer": "^0.6.0",
     "jsonfile": "^2.4.0",
     "mocha": "^3.1.2",
     "rimraf": "^2.5.4",

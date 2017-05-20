@@ -27,33 +27,35 @@ function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+let error_only = ['code', 'reason', 'extended'];
+let check_passed = (result) => {
+  expect(result).to.not.have.any.keys(...error_only);
+  expect(result.failed).to.be.false;
+};
+
+let check_failed = (result) => {
+  expect(result).to.have.all.keys('failed', ...error_only);
+  expect(result.failed).to.be.true;
+}
+
 describe('Version 1 replay validation', function() {
   it('should validate a replay', function() {
     let path = getReplay(1, 'replays1414027897934');
     let file = fs.readFileSync(path, { encoding: 'utf-8' });
-    return validate.validate(JSON.parse(file)).then((result) => {
-      expect(result).to.not.have.any.keys('code', 'reason');
-      expect(result.failed).to.be.false;
-    });
+    return validate.validate(JSON.parse(file)).then(check_passed);
   });
 
   describe('should accept old-format powerup identifiers', function() {
     it('for tagpro', function() {
       let path = getReplay(1, 'old-tagproDATE1481331402058');
       let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then((result) => {
-        expect(result).to.not.have.any.keys('code', 'reason');
-        expect(result.failed).to.be.false;
-      });
+      return validate.validate(JSON.parse(file)).then(check_passed);
     });
 
     it('for rolling bomb', function() {
       let path = getReplay(1, 'old-bombDATE1481331557109');
       let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then((result) => {
-        expect(result).to.not.have.any.keys('code', 'reason');
-        expect(result.failed).to.be.false;
-      });
+      return validate.validate(JSON.parse(file)).then(check_passed);
     });
   });
 
@@ -61,39 +63,27 @@ describe('Version 1 replay validation', function() {
     it('for tagpro', function() {
       let path = getReplay(1, 'new-tagproDATE1481329503370');
       let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then((result) => {
-        expect(result).to.not.have.any.keys('code', 'reason');
-        expect(result.failed).to.be.false;
-      });
+      return validate.validate(JSON.parse(file)).then(check_passed);
     });
 
     it('for rolling bomb', function() {
       let path = getReplay(1, 'new-bombDATE1481330124869');
       let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then((result) => {
-        expect(result).to.not.have.any.keys('code', 'reason');
-        expect(result.failed).to.be.false;
-      });
+      return validate.validate(JSON.parse(file)).then(check_passed);
     });
   });
 
   it('should accept a replay with old-format chats', function() {
     let path = getReplay(1, 'replays1414027897934');
     let file = fs.readFileSync(path, { encoding: 'utf-8' });
-    return validate.validate(JSON.parse(file)).then((result) => {
-      expect(result).to.not.have.any.keys('code', 'reason');
-      expect(result.failed).to.be.false;
-    });
+    return validate.validate(JSON.parse(file)).then(check_passed);
   });
 
   let path = getReplay(1, 'new-chatsDATE1481243504420');
   let file = fs.readFileSync(path, { encoding: 'utf-8' });
   let template = JSON.parse(file);
   it('should accept a replay with new-format chats', function() {
-    return validate.validate(template).then((result) => {
-      expect(result).to.not.have.any.keys('code', 'reason');
-      expect(result.failed).to.be.false;
-    });
+    return validate.validate(template).then(check_passed);
   });
 
   it('should reject a replay with no recording player', function() {
@@ -103,8 +93,7 @@ describe('Version 1 replay validation', function() {
       replay[player].me = 'other';
     }
     return validate.validate(replay).then((result) => {
-      expect(result).to.have.all.keys('code', 'failed', 'reason');
-      expect(result.failed).to.be.true;
+      check_failed(result);
       expect(result.reason).to.contain('player');
     });
   });
@@ -117,8 +106,7 @@ describe('Version 1 replay validation', function() {
       delete replay[attr];
       it(attr, function() {
         return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('code', 'failed', 'reason');
-          expect(result.failed).to.be.true;
+          check_failed(result);
           expect(result.reason).to.contain(attr);
         });
       });
@@ -133,8 +121,7 @@ describe('Version 1 replay validation', function() {
       delete replay[player][attr];
       it(attr, function() {
         return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('code', 'failed', 'reason');
-          expect(result.failed).to.be.true;
+          check_failed(result);
           expect(result.reason).to.contain(attr);
         });
       });
@@ -149,8 +136,7 @@ describe('Version 1 replay validation', function() {
       }
     }
     return validate.validate(replay).then((result) => {
-      expect(result).to.have.all.keys('code', 'failed', 'reason');
-      expect(result.failed).to.be.true;
+      check_failed(result);
       expect(result.reason).to.contain('player');
     });
   });
@@ -160,8 +146,7 @@ describe('Version 1 replay validation', function() {
       let replay = clone(template);
       replay.score.pop();
       return validate.validate(replay).then((result) => {
-        expect(result).to.have.all.keys('code', 'failed', 'reason');
-        expect(result.failed).to.be.true;
+        check_failed(result);
         expect(result.reason).to.contain('length');
       });
     });
@@ -170,8 +155,7 @@ describe('Version 1 replay validation', function() {
       let replay = clone(template);
       replay.floorTiles[0].value.pop();
       return validate.validate(replay).then((result) => {
-        expect(result).to.have.all.keys('code', 'failed', 'reason');
-        expect(result.failed).to.be.true;
+        check_failed(result);
         expect(result.reason).to.contain('length');
       });
     });
@@ -193,8 +177,7 @@ describe('Version 1 replay validation', function() {
         let replay = clone(template);
         replay[key][prop].pop();
         return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('code', 'failed', 'reason');
-          expect(result.failed).to.be.true;
+          check_failed(result);
           expect(result.reason).to.contain('length');
         });
       });
@@ -206,18 +189,14 @@ describe('Version 1 replay validation', function() {
       it(`${prop} not existing`, function() {
         let replay = clone(template);
         delete replay[key][prop];
-        return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('failed');
-          expect(result.failed).to.be.false;
-        });
+        return validate.validate(replay).then(check_passed);
       });
 
       it(`${prop} as an array`, function() {
         let replay = clone(template);
         replay[key][prop] = [];
         return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('code', 'failed', 'reason');
-          expect(result.failed).to.be.true;
+          check_failed(result);
           expect(result.reason).to.contain('length');
         });
       });
@@ -229,18 +208,14 @@ describe('Version 1 replay validation', function() {
       it(`${prop} as a non-array`, function() {
         let replay = clone(template);
         replay[key][prop] = "test";
-        return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('failed');
-          expect(result.failed).to.be.false;
-        });
+        return validate.validate(replay).then(check_passed);
       });
 
       it(`${prop} as an array`, function() {
         let replay = clone(template);
         replay[key][prop] = [];
         return validate.validate(replay).then((result) => {
-          expect(result).to.have.all.keys('code', 'failed', 'reason');
-          expect(result.failed).to.be.true;
+          check_failed(result);
           expect(result.reason).to.contain('length');
         });
       });

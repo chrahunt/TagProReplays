@@ -956,6 +956,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (result.failed) {
         let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
         err.name = 'ValidationError';
+        err.extended = result.extended;
         throw err;
       } else {
         return save_replay(name, data);
@@ -972,10 +973,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         Failed: false
       });
     }).catch((err) => {
+      console.error(`Error importing replay: ${err}`);
       track('Imported Replay', {
         Failed: true,
         Reason: err.message,
-        Name: name
+        Name: name,
+        Extended: err.extended
       });
       sendResponse({
         failed: true,
@@ -999,8 +1002,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .then((parsed) => {
       parsed = trimReplay(parsed);
       return validate(parsed).then((result) => {
-        if (result.failed)
-          throw new Error(`Validation error: ${result.code}; ${result.reason}`);
+        if (result.failed) {
+          let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
+          err.extended = result.extended;
+          throw err;
+        }
         event_name = parsed.event && parsed.event.name;
         return save_replay(name, parsed);
       });
@@ -1025,7 +1031,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       track("Recorded Replay", {
         Failed: true,
         Reason: err.message,
-        URL: url
+        URL: url,
+        Extended: err.extended,
+        Event: event_name || 'None'
       });
       sendResponse({
         failed: true

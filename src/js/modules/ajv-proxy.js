@@ -28,10 +28,11 @@ if (isRestricted()) {
   let sandbox = new Sandbox('html/ajv-sandbox.html');
 
   class Proxy {
-    constructor() {
+    constructor(...args) {
       this.ajv = null;
       this.ready = sandbox.postMessage({
-        method: 'construct'
+        method: 'construct',
+        args: args
       }).then((id) => {
         this.ajv = id;
       });
@@ -57,6 +58,13 @@ if (isRestricted()) {
         args: [this.ajv, 'errorsText']
       });
     }
+
+    get errors() {
+      return sandbox.postMessage({
+        method: 'get',
+        args: [this.ajv, 'errors']
+      });
+    }
   };
   /**
    * @returns {Promise<Proxy>}
@@ -68,8 +76,8 @@ if (isRestricted()) {
 } else {
   // Pass-through to Ajv instance in current env context.
   class Proxy {
-    constructor() {
-      this.ajv = new Ajv();
+    constructor(...args) {
+      this.ajv = new Ajv(...args);
     }
 
     addSchema(...args) {
@@ -82,6 +90,10 @@ if (isRestricted()) {
 
     errorsText() {
       return Promise.resolve(this.ajv.errorsText());
+    }
+
+    get errors() {
+      return Promise.resolve(this.ajv.errors);
     }
   }
   /**
