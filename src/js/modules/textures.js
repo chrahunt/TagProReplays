@@ -108,12 +108,14 @@ function getDefaultTextures() {
 
 /**
  * Ensure textures are set and ready.
+ * By default we reload textures from disk on every initialization
+ * (of the background page) to prevent issues like mentioned in #182.
  * @param {bool} forceReload force reload of default textures from disk.
  * @param {bool} overwrite force overwrite/removal of custom textures, for
  *   addressing updates to texture format.
  * @returns {Promise}
  */
-exports.ready = function (forceReload=false, overwrite=false) {
+exports.ready = function (forceReload=true, overwrite=false) {
   return chrome.storage.promise.local.get(["default_textures", "textures"])
   .then(({default_textures, textures}) => {
     let resetDefault = forceReload || !default_textures;

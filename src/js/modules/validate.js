@@ -1,3 +1,5 @@
+const pointer = require('json-pointer');
+
 const get_ajv = require('modules/ajv-proxy');
 
 // Schema loading strategy, override in tests.
@@ -118,6 +120,45 @@ function loadSchema(version) {
   });
 }
 
+/**
+ * Serialize schema validation error into some useful output.
+ * @param {Replay} obj the replay that failed validation
+ * @param {Array.<ErrorObject>} errors the errors returned from ajv.
+ */
+function serialize_validation_errors(obj, errors) {
+  // We have set Ajv to only report the first error.
+  let err = errors[0];
+  let path = err.dataPath;
+  let output = [`${err.message};`];
+  if (err.keyword == 'additionalProperties') {
+    let record = '';
+    let prop = err.params.additionalProperty;
+    record += `key:${prop};`;
+    let v = JSON.stringify(pointer.get(obj, `${path}/${prop}`));
+    record += `value:${v.substr(0, 100)};`;
+    output.push(record);
+  } else if (err.keyword == 'oneOf') {
+    let offender = pointer.get(obj, path);
+    let record = '';
+    // Type is important
+    let t = typeof offender;
+    record += `type:${t};`;
+    // keys may be important
+    if (t == 'object') {
+      record += `keys:${Object.keys(offender).join(',')};`;
+    }
+    // Some reasonably-restricted length.
+    record += JSON.stringify(offender).substr(0, 100);
+    output.push(`val:${record}`);
+  } else {
+    // Something we aren't guarding against specifically.
+    let offender = pointer.get(obj, path);
+    let v = JSON.stringify(offender).substr(0, 100);
+    output.push(`val:${v}`);
+  }
+  return output.join('\n');
+}
+
 class Validator {
   constructor(schemas) {
     this.validators = {};
@@ -146,11 +187,16 @@ class Validator {
       let validator = this.validators[version];
       return validator.validate(version, replay).then((valid) => {
         if (!valid) {
-          return validator.errorsText().then((text) => {
+          return validator.errorsText()
+          .then((text) => {
+            return validator.errors.then(errs => [text, errs]);
+          })
+          .then(([text, errs]) => {
             return {
               failed: true,
               code: 'schema validation failure',
-              reason: text
+              reason: text,
+              extended: serialize_validation_errors(replay, errs)
             };
           });
         } else if (version in semantic_validator) {
@@ -159,7 +205,8 @@ class Validator {
             return {
               failed: true,
               code: 'semantic validation failure',
-              reason: semantic_validator.errors
+              reason: semantic_validator.errors,
+              extended: ''
             };
           }
         }
@@ -170,7 +217,7 @@ class Validator {
     }
 
     return loadSchema(version).then((schemas) => {
-      return get_ajv().then((ajv) => [ajv, schemas]);
+      return get_ajv({ jsonPointers: true }).then((ajv) => [ajv, schemas]);
     }).then(([ajv, schemas]) => {
       this.validators[version] = ajv;
       let additions = [

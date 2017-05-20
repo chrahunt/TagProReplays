@@ -121,6 +121,7 @@ exports.registerSandbox = (callback) => {
         });
       })
       .catch((err) => {
+        console.debug(`Propagating error from sandbox: ${err}`);
         port.postMessage({
           callback_ref: callback_ref,
           failed: true,
