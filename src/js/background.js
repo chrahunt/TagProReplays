@@ -13,6 +13,7 @@ const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
 const Whammy = require('util/whammy');
+require('util/canvas-toblob-polyfill');
 
 logger.info('Starting background page.');
 
@@ -72,8 +73,9 @@ function renderVideo(replay, id) {
   return new Progress((resolve, reject, progress) => {
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
-    let encoder = new Whammy.Video(fps);
     let frames = replay.clock.length;
+    let encoder = new Whammy.Video(fps);
+    let framesAdded = 0;
     // Fraction of completion that warrants progress notification.
     let notification_freq = 0.05;
     let portions_complete = 0;
@@ -85,28 +87,44 @@ function renderVideo(replay, id) {
       can.height = options.canvas_height;
       return get_renderer(can, replay, options);
     }).then(function render(renderer, frame=0) {
-      for (; frame < frames; frame++) {
-        //logger.trace(`Rendering frame ${frame} of ${frames}`);
-        renderer.draw(frame);
-        encoder.add(context);
-        let amount_complete = frame / frames;
-        if (Math.floor(amount_complete / notification_freq) != portions_complete) {
-          portions_complete++;
-          progress(amount_complete);
-          // Slight delay to give our progress message time to propagate.
-          return PromiseTimeout(() => render(renderer, ++frame));
-        }
+      if(frame==0) {
+        console.time('render time');
+        console.time('main thread');
       }
-
-      let output = encoder.compile();
-      return Movies.save(id, output).then(() => {
-        logger.debug('File saved.');
-      }).catch((err) => {
-        logger.error('Error saving render: ', err);
-        throw err;
-      });
+      //logger.trace(`Rendering frame ${frame} of ${frames}`);
+      renderer.draw(frame);
+      renderer.canvas.toBlob((frame =>
+        (blob => {
+          let len = encoder.add(blob,frame);
+          framesAdded++;
+        
+          if (len === frames && framesAdded === frames) {
+            console.timeEnd('render time');
+            console.time('compile time');
+            encoder.compile().then(output => {
+              console.timeEnd('compile time');
+              return Movies.save(id, output).then(() => {
+                logger.debug('File saved.');
+              }).catch((err) => {
+                logger.error('Error saving render: ', err);
+                throw err;
+              });
+            }).then(function() {
+              resolve(result);
+            });
+          }
+        })
+      )(frame), 'image/webp', 0.8);
+      if (++frame<frames) {
+        if (Math.floor(frame / frames / notification_freq) != portions_complete) {
+          portions_complete++;
+          progress(frame / frames);
+        }
+        render(renderer,frame);
+      } else {
+        console.timeEnd('main thread');
+      }
     });
-    resolve(result);
   });
 }
 
