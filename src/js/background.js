@@ -72,8 +72,8 @@ function renderVideo(replay, id) {
   return new Progress((resolve, reject, progress) => {
     let me = Object.keys(replay).find(k => replay[k].me == 'me');
     let fps = replay[me].fps;
-    let encoder = new Whammy.Video(fps);
     let frames = replay.clock.length;
+    let encoder = new Whammy.Video(fps,frames);
     // Fraction of completion that warrants progress notification.
     let notification_freq = 0.05;
     let portions_complete = 0;
@@ -85,28 +85,43 @@ function renderVideo(replay, id) {
       can.height = options.canvas_height;
       return get_renderer(can, replay, options);
     }).then(function render(renderer, frame=0) {
-      for (; frame < frames; frame++) {
-        //logger.trace(`Rendering frame ${frame} of ${frames}`);
-        renderer.draw(frame);
-        encoder.add(context);
-        let amount_complete = frame / frames;
-        if (Math.floor(amount_complete / notification_freq) != portions_complete) {
-          portions_complete++;
-          progress(amount_complete);
-          // Slight delay to give our progress message time to propagate.
-          return PromiseTimeout(() => render(renderer, ++frame));
-        }
+      if(frame==0) {
+        console.time('render time');
+        console.time('main thread');
       }
-
-      let output = encoder.compile();
-      return Movies.save(id, output).then(() => {
-        logger.debug('File saved.');
-      }).catch((err) => {
-        logger.error('Error saving render: ', err);
-        throw err;
-      });
+      //logger.trace(`Rendering frame ${frame} of ${frames}`);
+      renderer.draw(frame);
+      context.canvas.toBlob((function(frame,blob) {
+        let fin = encoder.add(blob,frame);
+        
+        if (fin) { //wait until Whammy says all our frames have been added
+          console.timeEnd('render time');
+          console.time('compile time');
+          encoder.compile().then(function(output) {
+            console.timeEnd('compile time');
+            let filename = id.replace(/.*DATE/, '').replace('replays', '');
+            return Movies.save(id, output).then(() => {
+              logger.debug('File saved.');
+            }).catch((err) => {
+              logger.error('Error saving render: ', err);
+              throw err;
+            });
+          }).then(function() {
+            resolve(result);
+          });
+        }
+      }).bind(this,frame), 'image/webp', 0.8);
+      if (++frame<frames) {
+        if (Math.floor(frame / frames / notification_freq) != portions_complete) {
+          portions_complete++;
+          progress(frame / frames);
+        }
+        // Slight delay to give our progress message time to propagate.
+        PromiseTimeout(() => render(renderer,frame));
+      } else {
+        console.timeEnd('main thread');
+      }
     });
-    resolve(result);
   });
 }
 
