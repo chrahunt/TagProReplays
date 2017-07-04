@@ -30,7 +30,8 @@
     "chatInstance": {
       "title": "Chat Message.",
       "description": "Information about a message sent to the player via chat.",
-      "oneOf": [{
+      "oneOf": [
+        {
           "type": "object",
           "properties": {
             "c": {
@@ -39,6 +40,9 @@
             },
             "from": {
               "type": ["string", "integer", "null"]
+            },
+            "idInGroup": {
+              "type": ["string", "null"]
             },
             "message": {
               "description": "The message text, or a number which should be interpreted as text.",
@@ -65,7 +69,8 @@
             "message"
           ],
           "additionalProperties": false
-        }, {
+        },
+        {
           "type": "object",
           "description": "New chat format introduced to fix #104",
           "properties": {
@@ -78,6 +83,9 @@
             },
             "from": {
               "type": ["string", "integer", "null"]
+            },
+            "idInGroup": {
+              "type": ["string", "null"]
             },
             "message": { "type": "string" },
             "mod": {
