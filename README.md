@@ -109,8 +109,8 @@ The extension currently supports Chrome 49+.
 
 When you're ready to make a new release:
 
-1. Make sure to update the version in `package.json` and `manifest.json`.
-2. `gulp build-release` - this outputs compiled, non-sourcemapped files to
+1. Make sure to update the version in `package.json` (this is automatically
+   populated in `manifest.json`).
    `./dist`.
 3. Load the `dist` directory as an unpacked extension and test.
 4. If tests pass, then make your version-release commit and any history changes

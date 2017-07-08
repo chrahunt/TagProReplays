@@ -30,17 +30,24 @@
     "chatInstance": {
       "title": "Chat Message.",
       "description": "Information about a message sent to the player via chat.",
-      "oneOf": [{
+      "oneOf": [
+        {
           "type": "object",
           "properties": {
             "c": {
-              "description": "Optional text color.",
+              "description": "Optional text color as hex code. Formatted like /#\\d{6}/.",
               "type": "string"
             },
             "from": {
               "type": ["string", "integer", "null"]
             },
-            "message": { "type": "string" },
+            "idInGroup": {
+              "type": ["string", "null"]
+            },
+            "message": {
+              "description": "The message text, or a number which should be interpreted as text.",
+              "type": ["string", "integer"]
+            },
             "mod": {
               "description": "Optional mod parameter.",
               "type": "boolean"
@@ -51,6 +58,7 @@
             },
             "shake": { "type": "boolean" },
             "to": {
+              "description": "The recipients of the chat, may be omitted in some cases (for events)",
               "id": "to",
               "type": "string",
               "enum": ["all", "team", "group"]
@@ -58,11 +66,11 @@
           },
           "required": [
             "from",
-            "message",
-            "to"
+            "message"
           ],
           "additionalProperties": false
-        }, {
+        },
+        {
           "type": "object",
           "description": "New chat format introduced to fix #104",
           "properties": {
@@ -75,6 +83,9 @@
             },
             "from": {
               "type": ["string", "integer", "null"]
+            },
+            "idInGroup": {
+              "type": ["string", "null"]
             },
             "message": { "type": "string" },
             "mod": {
@@ -236,6 +247,34 @@
           "$ref": "#/definitions/stringTime"
         }
       }
+    },
+    "object": {
+      "description": "A non-player object that exists in the game, e.g. mars ball or egg",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "type": {
+          "description": "The type of the object, should be marsball or egg",
+          "type": "string"
+        },
+        "draw": {
+          "type": "array",
+          "items": { "$ref": "definitions.json#/frameArrayItem/bool" }
+        },
+        "x": {
+          "type": "array",
+          "items": { "$ref": "definitions.json#/frameArrayItem/number" }
+        },
+        "y": {
+          "type": "array",
+          "items": { "$ref": "definitions.json#/frameArrayItem/number" }
+        }
+      }
+    },
+    "playerId": {
+      "type": "integer"
     }
   },
   "properties": {
@@ -251,6 +290,38 @@
       "type": "array",
       "description": "The time corresponding to each frame.",
       "items": { "$ref": "#/definitions/stringTime" }
+    },
+    "event": {
+      "description": "Special event descriptor, has name and optional data",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "Egg ball event spring 2017.",
+          "properties": {
+            "name": { "enum": ["spring-2017"] },
+            "data": {
+              "type": "object",
+              "properties": {
+                "egg_holder": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/definitions/playerId"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              "additionalItems": false
+            }
+          },
+          "additionalItems": false
+        }
+      ]
     },
     "gameEndsAt": {
       "title": "Game End Info.",
@@ -306,6 +377,14 @@
         "type": "array",
         "items": { "type": ["number", "string"] }
       }
+    },
+    "objects": {
+      "description": "List of objects that appear in the replay, e.g. eggs or mars balls",
+      "type": "object",
+      "patternProperties": {
+        "^-?\\d+$": { "$ref": "#/definitions/object" }
+      },
+      "additionalProperties": false
     },
     "score": {
       "title": "Scores.",

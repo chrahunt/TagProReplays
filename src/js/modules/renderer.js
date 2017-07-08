@@ -57,6 +57,10 @@ class Renderer {
       text_cache: {
         pretty_text: {},
         very_pretty_text: {}
+      },
+      world_offset: {
+        x: 0,
+        y: 0
       }
     };
     this.options = options;
@@ -155,11 +159,13 @@ class Renderer {
    * @private
    */
   _extract_replay_data() {
-    let id = Object.keys(this.replay).find(
-      k => k.startsWith('player') && this.replay[k].me == 'me');
+    let players = Object.keys(this.replay).filter(
+      k => k.startsWith('player'));
+    let id = players.find(k => this.replay[k].me == 'me');
     replay_data = {
       fps: this.replay[id].fps,
-      me: id
+      me: id,
+      players: players
     };
   }
 
@@ -169,7 +175,7 @@ class Renderer {
    */
   _preprocess_replay() {
     // Factor out pre-processing from replay cropping and this function
-    // later.
+    // later, when replay upgrade is in place.
     let clock = this.replay.clock.map(Date.parse);
     let start = clock[0];
     let end = clock[clock.length - 1];
@@ -303,6 +309,11 @@ function drawChats(positions) {
         name_color = '#FF0000';
       } else if (chat.mod) {
         name_color = '#00B900';
+      }
+    } else {
+      // System message.
+      if (chat.c) {
+        name_color = chat.c;
       }
     }
     let text_color = name_color;
@@ -678,12 +689,13 @@ function drawFloorTiles(positions) {
     }
     let x = tile_spec.animated ? animationTile
                                : tile_spec.coordinates.x;
+    let pos = worldToScreen(floor_tile.x * TILE_SIZE,
+                            floor_tile.y * TILE_SIZE);
     context.drawImage(textures[tile_spec.img],
       x * TILE_SIZE,
       tile_spec.coordinates.y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
-      floor_tile.x * TILE_SIZE + posx,
-      floor_tile.y * TILE_SIZE + posy,
+      pos.x, pos.y,
       TILE_SIZE, TILE_SIZE);
   }
 }
@@ -708,9 +720,10 @@ function bombPop(positions) {
         context.fillStyle = "#FF8000";
         context.globalAlpha = bombOpacity;
         context.beginPath();
-        let bombX = bomb.x + posx + TILE_SIZE / 2;
-        let bombY = bomb.y + posy + TILE_SIZE / 2;
-        context.arc(bombX, bombY, Math.round(bombSize), 0, 2 * Math.PI, true);
+        // Starts at center of player.
+        let start = worldToScreen(bomb.x + TILE_SIZE / 2,
+                                  bomb.y + TILE_SIZE / 2);
+        context.arc(start.x, start.y, Math.round(bombSize), 0, 2 * Math.PI, true);
         context.closePath();
         context.fill();
         context.globalAlpha = 1;
@@ -834,12 +847,14 @@ function drawSplats(positions) {
     } else {
       context.globalAlpha = 1;
     }
+    // (player position) -> center of player offset by splat size.
+    let pos = worldToScreen(splat.x - splat_size / 2 + TILE_SIZE / 2,
+                            splat.y - splat_size / 2 + TILE_SIZE / 2);
     context.drawImage(textures.splats,
       state.img * splat_size,
       (splat.t - 1) * 120,
       splat_size, splat_size,
-      splat.x + posx - 60 + 20,
-      splat.y + posy - 60 + 20,
+      pos.x, pos.y,
       splat_size, splat_size);
   }
   // Reset alpha.
@@ -854,10 +869,11 @@ function drawSpawns(positions) {
       let spawn_time = new Date(spawn.time).getTime();
       let diff = now - spawn_time;
       if (diff >= 0 && diff <= spawn.w) {
+        let pos = worldToScreen(spawn.x, spawn.y);
         context.drawImage(textures.tiles,
           (spawn.t == 1 ? 14 : 15) * TILE_SIZE, 0,
           40, 40,
-          spawn.x + posx, spawn.y + posy,
+          pos.x, pos.y,
           40, 40);
       }
     }
@@ -901,104 +917,122 @@ function drawEndText(positions) {
   }
 }
 
-function drawBalls(positions, showSpin) {
-  // draw 'me'
+function worldToScreen(x, y) {
+  return {
+    x: x + render_state.world_offset.x,
+    y: y + render_state.world_offset.y
+  };
+};
+
+// Update frame-specific offset for mapping world to screen coordinates.
+function updateOffset(positions) {
   let me = replay_data.me;
   let player = positions[me];
-  // what team?
-  let team = Array.isArray(player.team) ? player.team[frame]
-                                        : player.team;
   let center_x = context.canvas.width / 2;
   let center_y = context.canvas.height / 2;
-  let player_x = center_x - TILE_SIZE / 2;
-  let player_y = center_y - TILE_SIZE / 2;
-  if (!player.dead[frame]) {
-    // draw own ball with or without spin
-    if (!showSpin || typeof player.angle === 'undefined') {
-      context.drawImage(textures.tiles,
-        (team == 1 ? 14 : 15) * TILE_SIZE, 0,
-        TILE_SIZE, TILE_SIZE,
-        player_x, player_y,
-        TILE_SIZE, TILE_SIZE);
-    } else {
-      context.translate(center_x, center_y);
-      context.rotate(player.angle[frame]);
-      context.drawImage(textures.tiles,
-        (team == 1 ? 14 : 15) * TILE_SIZE, 0,
-        TILE_SIZE, TILE_SIZE,
-        -20, -20,
-        TILE_SIZE,
-        TILE_SIZE);
-      context.rotate(-player.angle[frame]);
-      context.translate(-center_x, -center_y);
-    }
+  let player_screen_x = center_x - TILE_SIZE / 2;
+  let player_screen_y = center_y - TILE_SIZE / 2;
+  let player_world_x = positions[me].x[frame];
+  let player_world_y = positions[me].y[frame];
+  return {
+    x: -player_world_x + player_screen_x,
+    y: -player_world_y + player_screen_y
+  };
+}
 
-    drawPowerups(me, player_x, player_y, positions);
-    drawFlag(me, player_x, player_y, positions);
-    let name = Array.isArray(player.name) ? player.name[frame]
-                                          : player.name;
-    drawName(name, player.auth[frame], player_x, player_y);
-    drawDegree(player.degree[frame], player_x, player_y);
-    if (player.flair) {
-      drawFlair(player.flair[frame], player_x, player_y);
-    }
-  }
-  ballPop(positions, me)
-  rollingBombPop(positions, me)
-
+/**
+ * @param {Replay} positions
+ */
+function drawBalls(positions) {
+  let players = replay_data.players;
   // draw other balls
-  for (let j in positions) {
-    if (!j.startsWith('player')) continue;
-    if (j == me) continue;
-    let player = positions[j];
-    let x = player.x[frame] - positions[me].x[frame] + context.canvas.width / 2 - TILE_SIZE / 2;
-    let y = player.y[frame] - positions[me].y[frame] + context.canvas.height / 2 - TILE_SIZE / 2;
+  for (let id of players) {
+    let player = positions[id];
+    let {x, y} = worldToScreen(player.x[frame], player.y[frame]);
     if (!player.dead[frame] && player.draw[frame]) {
-      if (frame == 0 || player.draw[frame - 1] == true) {
-        if ((player.dead[frame - 1] &&
-             player.x[frame] != player.x[frame - replay_data.fps]) ||
-             !player.dead[frame - 1]) {
-          let team = Array.isArray(player.team) ? player.team[frame]
-                                                : player.team;
+      let team = Array.isArray(player.team) ? player.team[frame]
+                                            : player.team;
 
-          // draw with or without spin
-          if (!showSpin || typeof player.angle === 'undefined') {
-            context.drawImage(textures.tiles,
-              (team == 1 ? 14 : 15) * TILE_SIZE, 0,
-              TILE_SIZE, TILE_SIZE,
-              x, y,
-              TILE_SIZE, TILE_SIZE);
-          } else {
-            context.translate(
-              player.x[frame] - positions[me].x[frame] + context.canvas.width / 2,
-              player.y[frame] - positions[me].y[frame] + context.canvas.height / 2);
-            context.rotate(player.angle[frame]);
-            context.drawImage(textures.tiles,
-              (team == 1 ? 14 : 15) * TILE_SIZE, 0,
-              TILE_SIZE, TILE_SIZE,
-              -TILE_SIZE / 2, -TILE_SIZE / 2,
-              TILE_SIZE, TILE_SIZE);
-            context.rotate(-player.angle[frame]);
-            context.translate(
-              -(player.x[frame] - positions[me].x[frame] + context.canvas.width / 2),
-              -(player.y[frame] - positions[me].y[frame] + context.canvas.height / 2));
-          }
+      if (!options.spin || !('angle' in player)) {
+        context.drawImage(textures.tiles,
+          (team == 1 ? 14 : 15) * TILE_SIZE, 0,
+          TILE_SIZE, TILE_SIZE,
+          x, y,
+          TILE_SIZE, TILE_SIZE);
+      } else {
+        // Move context to be centered on player before rotating.
+        context.translate(
+          x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+        context.rotate(player.angle[frame]);
+        context.drawImage(textures.tiles,
+          (team == 1 ? 14 : 15) * TILE_SIZE, 0,
+          TILE_SIZE, TILE_SIZE,
+          -TILE_SIZE / 2, -TILE_SIZE / 2,
+          TILE_SIZE, TILE_SIZE);
+        context.rotate(-player.angle[frame]);
+        context.translate(
+          -(x + TILE_SIZE / 2), -(y + TILE_SIZE / 2));
+      }
 
-          drawPowerups(j, x, y, positions);
-          drawFlag(j, x, y, positions);
-          let name = Array.isArray(player.name) ? player.name[frame]
-                                                : player.name;
-                                            
-          drawName(name, player.auth[frame], x, y);
-          drawDegree(player.degree[frame], x, y);
-          if (typeof player.flair !== 'undefined') {
-            drawFlair(player.flair[frame], x, y);
-          }
-          rollingBombPop(positions, j);
-        }
+      drawPowerups(id, x, y, positions);
+      drawFlag(id, x, y, positions);
+      let name = Array.isArray(player.name) ? player.name[frame]
+                                            : player.name;
+      drawName(name, player.auth[frame], x, y);
+      drawDegree(player.degree[frame], x, y);
+      if ('flair' in player) {
+        drawFlair(player.flair[frame], x, y);
       }
     }
-    ballPop(positions, j);
+    ballPop(positions, id);
+    rollingBombPop(positions, id);
+  }
+}
+
+function drawObjects(positions) {
+  if (!('objects' in positions)) return;
+  for (let id in positions.objects) {
+    let obj = positions.objects[id];
+    if (!obj.draw[frame]) continue;
+    if (obj.type == 'egg') {
+      let texture = textures.egg;
+      let ball_size = 23;
+      let pos = worldToScreen(obj.x[frame] + TILE_SIZE / 2,
+                              obj.y[frame] + TILE_SIZE / 2);
+      context.drawImage(texture,
+        0, 0,
+        texture.width, texture.height,
+        // Offset
+        pos.x - 8, pos.y - 8,
+        ball_size, ball_size);
+    } else {
+      continue;
+    }
+  }
+}
+
+/**
+ * Handle rendering for special events.
+ * @param {Replay} positions
+ */
+function doEvent(positions) {
+  if (!('event' in positions)) return;
+  let event = positions.event;
+  if (event.name == 'spring-2017') {
+    let holder_id = event.data.egg_holder[frame];
+    if (holder_id) {
+      let holder = positions[`player${holder_id}`];
+      if (holder.dead[frame] || !holder.draw[frame]) return;
+      let {x, y} = worldToScreen(holder.x[frame], holder.y[frame]);
+      let offset = 8;
+      let icon_size = 23;
+      let texture = textures.egg;
+      context.drawImage(texture,
+        0, 0,
+        texture.width, texture.height,
+        x + offset, y + offset,
+        icon_size, icon_size);
+    }
   }
 }
 
@@ -1010,18 +1044,18 @@ function drawBalls(positions, showSpin) {
  */
 function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
   frame = frame_n;
+  render_state.world_offset = updateOffset(positions);
   let me = replay_data.me;
 
   context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   // Fix for Whammy not handling transparency nicely. See #81.
   context.fillStyle = 'black';
   context.fillRect(0, 0, context.canvas.width, context.canvas.height);
-  posx = -(positions[me].x[frame] - context.canvas.width / 2 + TILE_SIZE / 2);
-  posy = -(positions[me].y[frame] - context.canvas.height / 2 + TILE_SIZE / 2);
+  let origin = worldToScreen(0, 0);
   context.drawImage(mapImg,
     0, 0,
     mapImg.width, mapImg.height,
-    posx, posy,
+    origin.x, origin.y,
     mapImg.width, mapImg.height);
   if (showSplats) {
     drawSplats(positions);
@@ -1029,6 +1063,7 @@ function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAn
   drawFloorTiles(positions);
   drawSpawns(positions);
   drawBalls(positions);
+  drawObjects(positions);
   if (showClockAndScore) {
     drawClock(positions);
     drawScore(positions);
@@ -1039,4 +1074,5 @@ function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAn
   }
   bombPop(positions);
   drawEndText(positions);
+  doEvent(positions);
 }

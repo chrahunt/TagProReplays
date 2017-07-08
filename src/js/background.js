@@ -210,13 +210,7 @@ function extractMetaData(positions) {
   // Get recording player.
   let players = Object.keys(positions).filter(
     k => k.startsWith('player'));
-  // Just for debugging, this should already be validated.
-  if (!players.length) {
-    logger.error('No players in replay.');
-    throw new Error('Replay did not contain any players.');
-  }
   let me = players.find(k => positions[k].me === 'me');
-  // Just for debugging, this should already be validated.
   if (typeof me == 'undefined') {
     logger.error('Did not find recording player in replay.');
     throw new Error('Replay did not contain the recording player.');
@@ -598,6 +592,22 @@ function cropReplayData(replay, start, end) {
     return new_player;
   }
 
+  function cropObject(object) {
+    let x = cropFrameArray(object.x);
+    let valid = x.some(v => v !== null);
+    if (!valid) return null;
+
+    let new_object = {
+      draw: cropFrameArray(object.draw),
+      id: object.id,
+      type: object.type,
+      x: cropFrameArray(object.x),
+      y: cropFrameArray(object.y)
+    };
+
+    return new_object;
+  }
+
   function cropDynamicTile(tile) {
     return {
       x: tile.x,
@@ -656,6 +666,17 @@ function cropReplayData(replay, start, end) {
     });
   }
 
+  function cropEvent(event) {
+    if (event.name == 'spring-2017') {
+      return {
+        name: event.name,
+        data: {
+          egg_holder: cropFrameArray(event.data.egg_holder)
+        }
+      };
+    }
+  }
+
   let new_replay = {
     bombs:      cropBombs(replay.bombs),
     chat:       cropChats(replay.chat),
@@ -664,6 +685,7 @@ function cropReplayData(replay, start, end) {
     gameEndsAt: replay.gameEndsAt,
     floorTiles: replay.floorTiles.map(cropDynamicTile),
     map:        replay.map,
+    objects:    {},
     score:      cropFrameArray(replay.score),
     spawns:     cropSpawns(replay.spawns),
     splats:     cropSplats(replay.splats),
@@ -677,6 +699,17 @@ function cropReplayData(replay, start, end) {
       if (new_player === null) continue;
       new_replay[key] = new_player;
     }
+  }
+  // Add objects.
+  if ('objects' in replay) {
+    for (let id in replay.objects) {
+      let new_obj = cropObject(replay.objects[id]);
+      if (new_obj === null) continue;
+      new_replay.objects[id] = new_obj;
+    }
+  }
+  if ('event' in replay) {
+    new_replay.event = cropEvent(replay.event);
   }
   return new_replay;
 }
@@ -840,6 +873,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((err) => {
         let error = new Error(`Validation error: ${err.message}`);
         error.name = 'ValidationError';
+        error.extended = err.extended;
         throw error;
       });
     })
@@ -857,10 +891,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     })
     .catch((err) => {
+      console.error(`Error importing replay: ${err}`);
       track('Imported Replay', {
         Failed: true,
         Reason: err.message,
-        Name: name
+        Name: name,
+        Extended: err.extended
       });
       sendResponse({
         failed: true,
@@ -877,11 +913,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     // We store date recorded in the name of the replay.
     name = `${name}DATE${Date.now()}`;
+    // Track event statistics.
+    let event_name = null;
     Promise.resolve(data)
     .then(JSON.parse)
     .then(trimReplay)
     .then(validate)
-    .then(({replay}) => save_replay(name, replay))
+    .then(({replay}) => {
+      event_name = replay.event && replay.event.name;
+      return save_replay(name, replay);
+    })
     .then((id) => {
       // We intentionally break the promise chain here, if this
       // fails we don't care.
@@ -889,7 +930,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         track("Recorded Replay", {
           Failed: false,
           'Total Replays': n,
-          URL: url
+          URL: url,
+          Event: event_name || 'None'
         });
       });
       sendResponse({
@@ -904,7 +946,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       track("Recorded Replay", {
         Failed: true,
         Reason: err.message,
-        URL: url
+        URL: url,
+        Extended: err.extended,
+        Event: event_name || 'None'
       });
       sendResponse({
         failed: true
@@ -1237,12 +1281,20 @@ chrome.runtime.onInstalled.addListener((details) => {
         from: last_version,
         to:   version
       });
-      // Clear preview storage from versions prior to 1.3.
+
       if (semver.satisfies(last_version, '<1.3.0')) {
+        // Clear preview storage from versions prior to 1.3.
         chrome.storage.promise.local.clear().then(() => {
           chrome.runtime.reload();
         }).catch((err) => {
           logger.error('Error clearing chrome.storage.local: ', err);
+        });
+      }
+
+      if (semver.satisfies(last_version, '<1.3.15')) {
+        // Force texture reload.
+        Textures.ready(true, true).then(() => {
+          logger.debug('Textures reloaded.');
         });
       }
     }

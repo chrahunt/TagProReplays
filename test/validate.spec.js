@@ -70,7 +70,10 @@ describe('Version 1 replay validation', function() {
     });
   });
 
-  // Validate that the template is initially valid.
+  it('should accept a replay with group id', function() {
+    return happy_path('newcompte-chatsDATE1481243504420');
+  });
+
   it('should accept a replay with new-format chats', function() {
     return validate.validate(template).then(test_succeeded);
   });
@@ -194,4 +197,6 @@ describe('Version 1 replay validation', function() {
       });
     }
   });
+
+  it('should accept replays with objects');
 });

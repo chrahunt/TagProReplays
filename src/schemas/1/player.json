@@ -26,51 +26,22 @@
         "y",
         "description"
       ]
-    },
-    "playerArrayItem": {
-      "description": "Array that tracks the state of the properties of a player over time. Initially 0 (prior to player start), but if a player leaves then values are null.",
-      "anyOf": [
-        { "type": "null" },
-        {
-          "description": "Just 0 allowed otherwise.",
-          "type": "integer",
-          "enum": [0]
-        }
-      ],
-      "bool": {
-        "anyOf": [
-          { "$ref": "#/definitions/playerArrayItem" },
-          { "type": "boolean" }
-        ]
-      },
-      "number": {
-        "anyOf": [
-          { "$ref": "#/definitions/playerArrayItem" },
-          { "type": "number" }
-        ]
-      },
-      "integer": {
-        "anyOf": [
-          { "$ref": "#/definitions/playerArrayItem" },
-          { "type": "integer" }
-        ]
-      }
     }
   },
   "properties": {
     "angle": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/number" }
     },
     "auth": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/bool" }
     },
     "bomb": {
       "type": "array",
       "items": {
         "anyOf": [{
-          "$ref": "#/definitions/playerArrayItem/bool"
+          "$ref": "definitions.json#/frameArrayItem/bool"
         }, {
           "description": "New format powerup value, see #77.",
           "type": "integer"
@@ -79,15 +50,15 @@
     },
     "dead": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/bool" }
     },
     "degree": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/integer" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/integer" }
     },
     "draw": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/bool" }
     },
     "flag": {
       "type": "array",
@@ -97,7 +68,7 @@
           "description": "The type of flag held by a player in a specific frame, or null if there was no flag held.",
           "type": ["number", "string"]
         }, {
-          "$ref": "#/definitions/playerArrayItem"
+          "$ref": "definitions.json#/frameArrayItem"
         }]
       }
     },
@@ -106,7 +77,7 @@
       "items": {
         "anyOf": [
           { "$ref": "#/definitions/flair" },
-          { "$ref": "#/definitions/playerArrayItem" }
+          { "$ref": "definitions.json#/frameArrayItem" }
         ]
       }
     },
@@ -116,7 +87,7 @@
     },
     "grip": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/bool" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/bool" }
     },
     "map": {
       "description": "The name of the map played on in the replay.",
@@ -136,7 +107,7 @@
         "items": {
           "anyOf": [
             { "type": "string" },
-            { "$ref": "#/definitions/playerArrayItem" }
+            { "$ref": "definitions.json#/frameArrayItem" }
           ]
         }
       }]
@@ -145,7 +116,7 @@
       "type": "array",
       "items": {
         "anyOf": [{
-          "$ref": "#/definitions/playerArrayItem/bool"
+          "$ref": "definitions.json#/frameArrayItem/bool"
         }, { 
           "description": "New format powerup value. See #77.",
           "type": "integer"
@@ -157,17 +128,17 @@
       "items": {
         "anyOf": [
           { "$ref": "definitions.json#/team" },
-          { "$ref": "#/definitions/playerArrayItem" }
+          { "$ref": "definitions.json#/frameArrayItem" }
         ]
       }
     },
     "x": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/number" }
     },
     "y": {
       "type": "array",
-      "items": { "$ref": "#/definitions/playerArrayItem/number" }
+      "items": { "$ref": "definitions.json#/frameArrayItem/number" }
     }
   },
   "required": [
