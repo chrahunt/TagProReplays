@@ -79,6 +79,12 @@ describe('Version 1 replay validation', function() {
     return validate.validate(JSON.parse(file)).then(check_passed);
   });
 
+  it('should accept a replay with group id', function() {
+    let path = getReplay(1, 'newcompte-chatsDATE1481243504420');
+    let file = fs.readFileSync(path, { encoding: 'utf-8' });
+    return validate.validate(JSON.parse(file)).then(check_passed);
+  })
+
   let path = getReplay(1, 'new-chatsDATE1481243504420');
   let file = fs.readFileSync(path, { encoding: 'utf-8' });
   let template = JSON.parse(file);
