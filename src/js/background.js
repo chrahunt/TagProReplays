@@ -1106,6 +1106,7 @@ function render_replay(id, update) {
   .catch((err) => {
     let error = new Error(`Validation error: ${err.message}`);
     error.name = 'ValidationError';
+    error.extended = err.extended;
     throw error;
   })
   .then(({replay}) => {

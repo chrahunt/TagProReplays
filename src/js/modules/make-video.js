@@ -46,7 +46,8 @@ class Stats {
   // Get action data
   get_data() {
     let offsets = this._get_offsets(this.events.map(e => e.time));
-    let events =  this.events.map(({name}, i) => [name, offsets[i]]);
+    let events =  this.events.map(
+      ({name}, i) => [name, offsets[i].toFixed(3)]);
     return Object.assign({events}, this.attributes);
   }
 
@@ -115,11 +116,15 @@ class OrderedQueue {
 
 /**
  * Renders replay.
- * 
+ *
  * Interface:
  *   Progress is returned. Call .progress on it and pass a handler for
  *   the progress events, which contain the number of frames processed.
  *   Progress resolves to the completed render.
+ *
+ * Progress given only corresponds to webP conversion phase, this is
+ * fine for now.
+ *
  * @param {Iterator} source source for frames, should have objects with
  *   properties frame (Blob) and duration (Number)
  * @returns {Progress} progress that resolves to the rendered video and

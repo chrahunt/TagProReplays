@@ -9,7 +9,6 @@ const moment = require('moment');
 require('moment-duration-format');
 
 const logger = require('util/logger')('renderer');
-//const Textures = require('modules/textures');
 // Polyfill for Chrome < 50
 require('util/canvas-toblob-polyfill');
 logger.info('Loading renderer.');
@@ -21,7 +20,7 @@ logger.info('Loading renderer.');
  * This renderer handles v1 replays.
  */
 // Renderer-global variables.
-var frame, context, textures, replay_data, render_state;
+var frame, context, options, textures, replay_data, render_state;
 
 const TILE_SIZE = 40;
 
@@ -49,9 +48,10 @@ class Renderer {
    * @param {bool} options.splats
    * @param {bool} options.ui
    */
-  constructor(canvas, replay, options = {}) {
+  constructor(canvas, replay, these_options = {}) {
     // Set globals.
     context = canvas.getContext('2d');
+    options = these_options;
     render_state = {
       splats: {},
       text_cache: {
@@ -63,7 +63,7 @@ class Renderer {
         y: 0
       }
     };
-    this.options = options;
+    this.options = these_options;
     this.canvas = canvas;
     this.canvas.width = this.options.canvas_width;
     this.canvas.height = this.options.canvas_height;
@@ -74,11 +74,10 @@ class Renderer {
 
     // Allow already-loaded texture images.
     let texture_promise;
-    if (this.options.textures) {
-      texture_promise = Promise.resolve(this.options.textures);
-    } else {
-      texture_promise = Textures.get(this.options.custom_textures);
+    if (!this.options.textures) {
+      throw new Error('options.textures is required');
     }
+    texture_promise = Promise.resolve(this.options.textures);
     
     this.ready_promise = texture_promise
     .then((result) => {

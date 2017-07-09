@@ -1,4 +1,12 @@
 const logger = require('util/logger')('whammy');
+const {map} = require('util/promise-ext');
+
+/**
+ * Partial re-write of Whammy
+ * https://github.com/antimatter15/whammy
+ *
+ * Adds stricter WebP parsing blob support.
+ */
 
 /**
  * @param {} frames
@@ -104,7 +112,7 @@ function toWebM(frames) {
   //Generate clusters (max duration)
   var frameNumber = 0;
   var clusterTimecode = 0;
-  while(frameNumber < frames.length) {
+  while (frameNumber < frames.length) {
     let cuePoint = {
       "id": 0xbb, // CuePoint
       "data": [{
@@ -478,11 +486,12 @@ function parseVP8(chunk) {
  * @param {Object} riff
  * @returns {Object}
  */
-function parseWebP(blob) {
+function parseWebP(blob, id) {
   return Promise.resolve(blob).then(function(blob) {
     // @optimization: don't read whole blob at once.
     let res = new Response(blob);
     return res.arrayBuffer().then((buffer) => {
+      //logger.debug(`Got arraybuffer for ${id}`);
       let view = new DataView(buffer);
       let offset = 0;
       let label = readFourCC(view, offset);
@@ -517,13 +526,15 @@ function parseWebP(blob) {
  * @returns {}
  */
 function getFramesPromises(frames) {
-  return frames.map((frame) => {
-    return parseWebP(frame.imageBlob)
+  return map(frames[Symbol.iterator](), (frame, i) => {
+    //logger.debug(`Parsing ${i}`);
+    return parseWebP(frame.imageBlob, i)
     .then((webp) => {
+      //logger.debug(`Parsed ${i}`);
       webp.duration = frame.duration;
       return webp;
     });
-  });
+  }, { concurrency: 100 });
 }
 
 function WhammyVideo() {
@@ -544,6 +555,5 @@ WhammyVideo.prototype.add = function(frame, duration) {
 };
 
 WhammyVideo.prototype.compile = function() {
-  return Promise.all(getFramesPromises(this.frames))
-  .then(toWebM);
+  return getFramesPromises(this.frames).then(toWebM);
 };
