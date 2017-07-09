@@ -69,11 +69,27 @@ module.exports = function (config) {
     // how many browser should be started simultaneous
     concurrency: Infinity,
 
+    reporters: ['mocha'],
+
+    // Max length between messages from browser, we needed a higher value
+    // for Travis since rendering is blocking.
+    browserNoActivityTimeout: 20000,
+
+    loggers: [{type: 'file', filename: 'karma-out.log'}],
+
+    browserConsoleLogOptions: {
+      level: 'debug',
+      // We write nowhere so the fact that something is logged gets logged
+      // but we don't truncate any actual file.
+      path: process.platform == 'win32' ? 'NUL' : '/dev/null',
+      terminal: false
+    },
+
     // Chrome on Travis CI
     customLaunchers: {
       Chrome_travis_ci: {
-        base: 'Chrome',
-        flags: ['--no-sandbox']
+        base: 'ChromeHeadless',
+        displayName: 'Chrome-Travis'
       }
     }
   };

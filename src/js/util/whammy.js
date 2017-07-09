@@ -520,6 +520,10 @@ function parseWebP(blob, id) {
   });
 }
 
+function showperf() {
+  let m = window.performance.memory;
+  logger.debug(`total: ${m.totalJSHeapSize}, used: ${m.usedJSHeapSize}, max: ${m.jsHeapSizeLimit}`);
+}
 /**
  * Convert frames.
  * @param {} frames
@@ -531,6 +535,7 @@ function getFramesPromises(frames) {
     return parseWebP(frame.imageBlob, i)
     .then((webp) => {
       //logger.debug(`Parsed ${i}`);
+      //showperf();
       webp.duration = frame.duration;
       return webp;
     });

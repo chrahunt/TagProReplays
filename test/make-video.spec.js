@@ -7,6 +7,7 @@ const expect = require('chai').expect;
 const loadImage = require('image-promise');
 const saveAs = require('file-saver').saveAs;
 
+const logger = require('util/logger')('make-video.spec');
 const get_renderer = require('modules/renderer');
 const renderVideo = require('modules/make-video');
 
@@ -146,9 +147,15 @@ describe('converting WebP frames to WebM', () => {
     this.timeout(0);
     return get_file_source('/fixtures/render/test2DATE1483313925030.txt')
     .then((source) => {
-      return renderVideo(source);
+      // We just happen to know the number of frames.
+      let frames = 142;
+      return renderVideo(source).progress((frame) => {
+        // Log progress to avoid timeout.
+        if (!(frame % 20))
+          logger.info(`Progress: ${frame / frames}`);
+      })
     })
-    .then((data, stats) => {
+    .then(({output, stats}) => {
       // If we haven't crashed then this is a success.
     });
   });
