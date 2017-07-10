@@ -7,6 +7,7 @@ const Cookies = require('util/cookies');
 const get_renderer = require('modules/renderer');
 const logger = require('util/logger')('previewer');
 const Replays = require('modules/replay-collection');
+const Textures = require('modules/textures');
 const track = require('util/track');
 
 // Retrieve replay from background page.
@@ -56,14 +57,23 @@ class Media extends EventEmitter {
   load(replay) {
     logger.debug('Media#load()');
     this.replay = replay;
-    this.replay.get_data().then((data) => {
+    this.replay.get_data()
+    .then((data) => {
       this.data = data;
       this.frames = this.data.clock.length - 1;
       return chrome.storage.promise.local.get('options');
-    }).then((items) => {
+    })
+    .then((items) => {
       if (!items.options) throw new Error('No options set.');
-      return get_renderer(this.canvas, this.data, items.options);
-    }).then((renderer) => {
+      let options = items.options
+      return Textures.get(options.custom_textures)
+      .then((textures) => {
+        options.textures = textures;
+        return options;
+      });
+    })
+    .then(options => get_renderer(this.canvas, this.data, options))
+    .then((renderer) => {
       this.renderer = renderer;
       this.set(0);
       this.emit('load');

@@ -1,488 +1,564 @@
-/*
- This is a version of Whammy js, available at https://github.com/antimatter15/whammy
+const logger = require('util/logger')('whammy');
+const {map} = require('util/promise-ext');
 
- Any part of the original is licensed under the following license:
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Kevin Kwok
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+/**
+ * Partial re-write of Whammy
+ * https://github.com/antimatter15/whammy
+ *
+ * Adds stricter WebP parsing blob support.
  */
 
-module.exports = (function () {
-    // in this case, frames has a very specific meaning, which will be
-    // detailed once i finish writing the code
-
-    function toWebM(frames, outputAsArray) {
-        var info = checkFrames(frames);
-
-        //max duration by cluster in milliseconds
-        var CLUSTER_MAX_DURATION = 30000;
-
-        var EBML = [
-            {
-                "id": 0x1a45dfa3, // EBML
-                "data": [
-                    {
-                        "data": 1,
-                        "id": 0x4286 // EBMLVersion
-                    },
-                    {
-                        "data": 1,
-                        "id": 0x42f7 // EBMLReadVersion
-                    },
-                    {
-                        "data": 4,
-                        "id": 0x42f2 // EBMLMaxIDLength
-                    },
-                    {
-                        "data": 8,
-                        "id": 0x42f3 // EBMLMaxSizeLength
-                    },
-                    {
-                        "data": "webm",
-                        "id": 0x4282 // DocType
-                    },
-                    {
-                        "data": 2,
-                        "id": 0x4287 // DocTypeVersion
-                    },
-                    {
-                        "data": 2,
-                        "id": 0x4285 // DocTypeReadVersion
-                    }
-                ]
-            },
-            {
-                "id": 0x18538067, // Segment
-                "data": [
-                    {
-                        "id": 0x1549a966, // Info
-                        "data": [
-                            {
-                                "data": 1e6, //do things in millisecs (num of nanosecs for duration scale)
-                                "id": 0x2ad7b1 // TimecodeScale
-                            },
-                            {
-                                "data": "whammy",
-                                "id": 0x4d80 // MuxingApp
-                            },
-                            {
-                                "data": "whammy",
-                                "id": 0x5741 // WritingApp
-                            },
-                            {
-                                "data": doubleToString(info.duration),
-                                "id": 0x4489 // Duration
-                            }
-                        ]
-                    },
-                    {
-                        "id": 0x1654ae6b, // Tracks
-                        "data": [
-                            {
-                                "id": 0xae, // TrackEntry
-                                "data": [
-                                    {
-                                        "data": 1,
-                                        "id": 0xd7 // TrackNumber
-                                    },
-                                    {
-                                        "data": 1,
-                                        "id": 0x63c5 // TrackUID
-                                    },
-                                    {
-                                        "data": 0,
-                                        "id": 0x9c // FlagLacing
-                                    },
-                                    {
-                                        "data": "und",
-                                        "id": 0x22b59c // Language
-                                    },
-                                    {
-                                        "data": "V_VP8",
-                                        "id": 0x86 // CodecID
-                                    },
-                                    {
-                                        "data": "VP8",
-                                        "id": 0x258688 // CodecName
-                                    },
-                                    {
-                                        "data": 1,
-                                        "id": 0x83 // TrackType
-                                    },
-                                    {
-                                        "id": 0xe0,  // Video
-                                        "data": [
-                                            {
-                                                "data": info.width,
-                                                "id": 0xb0 // PixelWidth
-                                            },
-                                            {
-                                                "data": info.height,
-                                                "id": 0xba // PixelHeight
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-
-                    //cluster insertion point
-                ]
-            }
-        ];
-
-
-        //Generate clusters (max duration)
-        var frameNumber = 0;
-        var clusterTimecode = 0;
-        while (frameNumber < frames.length) {
-
-            var clusterFrames = [];
-            var clusterDuration = 0;
-            do {
-                clusterFrames.push(frames[frameNumber]);
-                clusterDuration += frames[frameNumber].duration;
-                frameNumber++;
-            } while (frameNumber < frames.length && clusterDuration < CLUSTER_MAX_DURATION);
-
-            var clusterCounter = 0;
-            var cluster = {
-                "id": 0x1f43b675, // Cluster
-                "data": [
-                    {
-                        "data": Math.round(clusterTimecode),
-                        "id": 0xe7 // Timecode
-                    }
-                ].concat(clusterFrames.map(function (webp) {
-                        var block = makeSimpleBlock({
-                            discardable: 0,
-                            frame: webp.data.slice(webp.data.indexOf('\x9d\x01\x2a') - 3),
-                            invisible: 0,
-                            keyframe: 1,
-                            lacing: 0,
-                            trackNum: 1,
-                            timecode: Math.round(clusterCounter)
-                        });
-                        clusterCounter += webp.duration;
-                        return {
-                            data: block,
-                            id: 0xa3
-                        };
-                    }))
-            }
-
-            //Add cluster to segment
-            EBML[1].data.push(cluster);
-            clusterTimecode += clusterDuration;
-        }
-
-        return generateEBML(EBML, outputAsArray)
+/**
+ * @param {} frames
+ * @returns {}
+ */
+function toWebM(frames) {
+  logger.debug(`toWebM() with ${frames.length} frames`);
+  var info = checkFrames(frames);
+  
+  //max duration by cluster in milliseconds
+  var CLUSTER_MAX_DURATION = 30000;
+  
+  var EBML = [{
+    "id": 0x1a45dfa3, // EBML
+    "data": [{
+      "id": 0x4286, // EBMLVersion
+      "data": 1,
+    }, {
+      "id": 0x42f7, // EBMLReadVersion
+      "data": 1,
+    }, {
+      "id": 0x42f2, // EBMLMaxIDLength
+      "data": 4,
+    }, {
+      "id": 0x42f3, // EBMLMaxSizeLength
+      "data": 8,
+    }, {
+      "id": 0x4282, // DocType
+      "data": "webm",
+    }, {
+      "id": 0x4287, // DocTypeVersion
+      "data": 2,
+    }, {
+      "id": 0x4285, // DocTypeReadVersion
+      "data": 2,
+    }]
+  }, {
+    "id": 0x18538067, // Segment
+    "data": [{
+      "id": 0x1549a966, // Info
+      "data": [{
+        "id": 0x2ad7b1, // TimecodeScale
+        "data": 1e6, //do things in millisecs (num of nanosecs for duration scale)
+      }, {
+        "id": 0x4d80, // MuxingApp
+        "data": "whammy",
+      }, {
+        "id": 0x5741, // WritingApp
+        "data": "whammy",
+      }, {
+        "id": 0x4489, // Duration
+        "data": doubleToBuffer(info.duration),
+      }]
+    }, {
+      "id": 0x1654ae6b, // Tracks
+      "data": [{
+        "id": 0xae, // TrackEntry
+        "data": [{
+          "id": 0xd7, // TrackNumber
+          "data": 1,
+        }, {
+          "id": 0x73c5, // TrackUID
+          "data": 1,
+        }, {
+          "id": 0x9c, // FlagLacing
+          "data": 0,
+        }, {
+          "id": 0x22b59c, // Language
+          "data": "und",
+        }, {
+          "id": 0x86, // CodecID
+          "data": "V_VP8",
+        }, {
+          "id": 0x258688, // CodecName
+          "data": "VP8",
+        }, {
+          "id": 0x83, // TrackType
+          "data": 1,
+        }, {
+          "id": 0xe0,  // Video
+          "data": [{
+            "id": 0xb0, // PixelWidth
+            "data": info.width,
+          }, {
+            "id": 0xba, // PixelHeight
+            "data": info.height,
+          }]
+        }]
+      }]
+    }, {
+      "id": 0x1c53bb6b, // Cues
+      "data": [
+        //cue insertion point
+      ],
+    }, /*
+      cluster insertion point
+    */],
+  }];
+  
+  var segment = EBML[1];
+  var cues = segment.data[2];
+  
+  //Generate clusters (max duration)
+  var frameNumber = 0;
+  var clusterTimecode = 0;
+  while (frameNumber < frames.length) {
+    let cuePoint = {
+      "id": 0xbb, // CuePoint
+      "data": [{
+        "id": 0xb3, // CueTime
+        "data": Math.round(clusterTimecode),
+      }, {
+        "id": 0xb7, // CueTrackPositions
+        "data": [{
+          "id": 0xf7, // CueTrack
+          "data": 1,
+        }, {
+          "id": 0xf1, // CueClusterPosition
+          "size": 8,
+          "data": 0, // to be filled in when we know it
+        }]
+      }]
+    };
+    
+    cues.data.push(cuePoint);
+    
+    var clusterFrames = [];
+    var clusterDuration = 0;
+    do {
+      clusterFrames.push(frames[frameNumber]);
+      clusterDuration += frames[frameNumber].duration;
+      frameNumber++;
+    } while(frameNumber < frames.length && clusterDuration < CLUSTER_MAX_DURATION);
+    
+    var clusterCounter = 0;
+    let blocks = clusterFrames.map(function(webp){
+      let header = makeSimpleBlockHeader({
+        discardable: 0,
+        invisible:   0,
+        keyframe:    1,
+        lacing:      0,
+        trackNum:    1,
+        timecode:    Math.round(clusterCounter)
+      });
+      clusterCounter += webp.duration;
+      return {
+        id: 0xa3, // SimpleBlock
+        blob: new Blob([header, webp.blob])
+      };
+    });
+    var cluster = {
+      "id": 0x1f43b675, // Cluster
+      "data": [{
+        "id": 0xe7, // Timecode
+        "data": Math.round(clusterTimecode),
+      }].concat(blocks)
     }
 
-    // sums the lengths of all the frames and gets the duration, woo
-
-    function checkFrames(frames) {
-        var width = frames[0].width,
-            height = frames[0].height,
-            duration = frames[0].duration;
-        for (var i = 1; i < frames.length; i++) {
-            if (frames[i].width != width) throw "Frame " + (i + 1) + " has a different width";
-            if (frames[i].height != height) throw "Frame " + (i + 1) + " has a different height";
-            if (frames[i].duration < 0 || frames[i].duration > 0x7fff) throw "Frame " + (i + 1) + " has a weird duration (must be between 0 and 32767)";
-            duration += frames[i].duration;
-        }
-        return {
-            duration: duration,
-            width: width,
-            height: height
-        };
+    // Add cluster to segment
+    segment.data.push(cluster);
+    clusterTimecode += clusterDuration;
+  }
+  
+  // First pass to compute cluster positions
+  var position = 0;
+  for (var i = 0; i < segment.data.length; i++){
+    if (i >= 3) {
+      cues.data[i-3].data[1].data[1].data = position;
     }
-
-
-    function numToBuffer(num) {
-        var parts = [];
-        while (num > 0) {
-            parts.push(num & 0xff)
-            num = num >> 8
-        }
-        return new Uint8Array(parts.reverse());
+    var data = generateEBML([segment.data[i]]);
+    position += data.size || data.byteLength || data.length;
+    if (i != 2) { // not cues
+      // Save results to avoid having to encode everything twice
+      segment.data[i] = data;
     }
+  }
+  
+  return generateEBML(EBML);
+}
 
-    function strToBuffer(str) {
-        // return new Blob([str]);
+function checkFrames(frames) {
+  let {width, height, duration} = frames[0];
+  for (var i = 1; i < frames.length; i++){
+    let frame = frames[i];
+    if (frame.width != width)
+      throw new Error(`Frame ${i + 1} has a different width:`
+        + ` ${frame.width} != ${width}`);
+    if (frame.height != height)
+      throw new Error(`Frame ${i + 1} has a different height:`
+        + ` ${frame.height} != ${height}`);
+    if (frame.duration < 0 || 0x7fff < frame.duration)
+      throw new Error(`Frame ${i + 1} has a weird duration`
+        + ` (must be between 0 and 32767): ${frame.duration}`);
+    duration += frame.duration;
+  }
+  return {
+    duration: duration,
+    width: width,
+    height: height
+  };
+}
 
-        var arr = new Uint8Array(str.length);
-        for (var i = 0; i < str.length; i++) {
-            arr[i] = str.charCodeAt(i)
-        }
-        return arr;
-        // this is slower
-        // return new Uint8Array(str.split('').map(function(e){
-        // 	return e.charCodeAt(0)
-        // }))
+/**
+ * Parse data structure into simple block header.
+ * @param data
+ * @param data.trackNumber
+ * @param data.timecode
+ * @param data.keyframe
+ * @param data.invisible
+ * @param data.lacing - False or 'Xiph', 'EBML', or 'fixed' - not supported.
+ * @param discardable
+ */
+function makeSimpleBlockHeader(data) {
+  let flags = 0;
+  if (data.keyframe)    flags |= 0x80;
+  if (data.invisible)   flags |= 0x08;
+  if (data.lacing) throw new Error('lacing not supported');
+  if (data.discardable) flags |= 0x01;
+  let trackNum = encodeEbmlValue(data.trackNum);
+  let timecode = numToFixedBuffer(data.timecode, 2);
+  flags = Uint8Array.from([flags]);
+  
+  return concatTypedArrays(trackNum, timecode, flags);
+}
+
+function concatTypedArrays(a, ...arrays) {
+  let length = arrays.reduce((sum, arr) => sum + arr.length, a.length);
+  let c = new a.constructor(length);
+  c.set(a);
+  let offset = a.length;
+  for (let arr of arrays) {
+    c.set(arr, offset);
+    offset += arr.length;
+  }
+  return c;
+}
+
+/**
+ * Encode data in UTF-8 like format. Used for IDs (already implicit in the id
+ * value used) and size.
+ * spec: http://matroska-org.github.io/libebml/specs.html
+ * @param {number} val  integer value to be encoded.
+ * @returns {Uint8Array}
+ */
+function encodeEbmlValue(val) {
+  let result = val;
+  if (val < Math.pow(2, 7) - 2) {
+    result |= 0x80;
+  } else if (val < Math.pow(2, 14) - 2) {
+    result |= 0x4000;
+  } else if (val < Math.pow(2, 21) - 2) {
+    result |= 0x200000;
+  } else if (val < Math.pow(2, 28) - 2) {
+    result |= 0x10000000;
+  } else if (val < Math.pow(2, 35) - 2) {
+    result |= 0x800000000;
+  } else if (val < Math.pow(2, 42) - 2) {
+    result |= 0x20000000000;
+  } else if (val < Math.pow(2, 49) - 2) {
+    result |= 0x2000000000000;
+  } else if (val < Math.pow(2, 56) - 2) {
+    result |= 0x100000000000000;
+  } else {
+    throw new Error(`${val} is too large to be a valid id/size`);
+  }
+  return numToBuffer(result);
+}
+
+/**
+ * Encode a float value to bytes (big-endian).
+ *
+ * @param {Number} num
+ * @returns {Uint8Array}
+ */
+function doubleToBuffer(num) {
+  let arr = new Uint8Array(8);
+  let view = new DataView(arr.buffer);
+  view.setFloat64(0, num);
+  return arr;
+}
+
+/**
+ * Convert a number representing an unsigned/positive integer to bytes (big-endian).
+ * @param {Number} num
+ * @returns {Uint8Array}
+ */
+function numToBuffer(num) {
+  var parts = [];
+  if (num < 0) throw new Error('Number must be nonnegative');
+  // Make sure we add at least 1 number.
+  do {
+    parts.push(num & 0xff);
+    num = num >> 8;
+  } while (num);
+  return new Uint8Array(parts.reverse());
+}
+
+/**
+ * Convert a number to bytes (big-endian), truncating to the provided
+ * size.
+ * @param {Number} num
+ * @param {Number} size - size of the buffer in bytes.
+ * @returns {Uint8Array}
+ */
+function numToFixedBuffer(num, size) {
+  var parts = new Uint8Array(size);
+  for(var i = size - 1; i >= 0; i--){
+    parts[i] = num & 0xff;
+    num = num >> 8;
+  }
+  return parts;
+}
+
+/**
+ * Convert a binary string to bytes.
+ * @param {String} str
+ * @returns {Uint8Array}
+ */
+function strToBuffer(str) {
+  var arr = new Uint8Array(str.length);
+  for(var i = 0; i < str.length; i++){
+    arr[i] = str.charCodeAt(i);
+  }
+  return arr;
+}
+
+/**
+ * Given a nested structure representing ebml, encode into binary.
+ * Structure has the format:
+ * [{id: Number, data: (Number|Structure|Blob|String)}]
+ */
+function generateEBML(jsons) {
+  var ebml = [];
+  
+  for (let json of jsons) {
+    if (typeof json.id === 'undefined' || ArrayBuffer.isView(json)) {
+      // already encoded blob or byteArray
+      ebml.push(json);
+      continue
     }
-
-
-    //sorry this is ugly, and sort of hard to understand exactly why this was done
-    // at all really, but the reason is that there's some code below that i dont really
-    // feel like understanding, and this is easier than using my brain.
-
-    function bitsToBuffer(bits) {
-        var data = [];
-        var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
-        bits = pad + bits;
-        for (var i = 0; i < bits.length; i += 8) {
-            data.push(parseInt(bits.substr(i, 8), 2))
-        }
-        return new Uint8Array(data);
+    
+    var data = json.blob || json.data;
+    
+    if (!json.blob) {
+      // Recurse into data
+      if (Array.isArray(data))      data = generateEBML(data);
+      if (typeof data === 'number' && 'size' in json) data = numToFixedBuffer(data, json.size);
+      if (typeof data === 'number') data = numToBuffer(data);
+      if (typeof data === 'string') data = strToBuffer(data);
     }
-
-    function generateEBML(json, outputAsArray) {
-        var ebml = [];
-        for (var i = 0; i < json.length; i++) {
-            var data = json[i].data;
-            if (typeof data == 'object') data = generateEBML(data, outputAsArray);
-            if (typeof data == 'number') data = bitsToBuffer(data.toString(2));
-            if (typeof data == 'string') data = strToBuffer(data);
-
-            if (data.length) {
-                var z = z;
-            }
-
-            var len = data.size || data.byteLength || data.length;
-            var zeroes = Math.ceil(Math.ceil(Math.log(len) / Math.log(2)) / 8);
-            var size_str = len.toString(2);
-            var padded = (new Array((zeroes * 7 + 7 + 1) - size_str.length)).join('0') + size_str;
-            var size = (new Array(zeroes)).join('0') + '1' + padded;
-
-            //i actually dont quite understand what went on up there, so I'm not really
-            //going to fix this, i'm probably just going to write some hacky thing which
-            //converts that string into a buffer-esque thing
-
-            ebml.push(numToBuffer(json[i].id));
-            ebml.push(bitsToBuffer(size));
-            ebml.push(data)
+    
+    var len = data.size || data.byteLength || data.length;
+    
+    // id
+    ebml.push(numToBuffer(json.id));
+    // size
+    ebml.push(encodeEbmlValue(len));
+    // data
+    ebml.push(data);
+  }
+  
+  return new Blob(ebml, {type: 'video/webm'});
+}
 
 
-        }
+// Sanity check WebP parsing.
+function parseAssert(msg, test) {
+  if (!test) {
+    let err = new Error(msg);
+    err.name = 'WebPParseError';
+    throw err;
+  }
+  return true;
+}
 
-        //output as blob or byteArray
-        if (outputAsArray) {
-            //convert ebml to an array
-            var buffer = toFlatArray(ebml)
-            return new Uint8Array(buffer);
-        } else {
-            return new Blob(ebml, {type: "video/webm"});
-        }
-    }
+/**
+ * Read FourCC at given offset and return string.
+ * @param {DataView} view  the view referencing the buffer.
+ * @param {number} offset  the offset from which to read the value.
+ * @returns {string}  the extracted string
+ */
+function readFourCC(view, offset = 0) {
+  return String.fromCharCode(view.getUint8(offset),
+                             view.getUint8(offset + 1),
+                             view.getUint8(offset + 2),
+                             view.getUint8(offset + 3));
+}
 
-    function toFlatArray(arr, outBuffer) {
-        if (outBuffer == null) {
-            outBuffer = [];
-        }
-        for (var i = 0; i < arr.length; i++) {
-            if (typeof arr[i] == 'object') {
-                //an array
-                toFlatArray(arr[i], outBuffer)
-            } else {
-                //a simple element
-                outBuffer.push(arr[i]);
-            }
-        }
-        return outBuffer;
-    }
+const CHUNK_HEADER_SIZE = 8;
+/**
+ * Given an ArrayBuffer of length at least offset + CHUNK_HEADER_SIZE,
+ * parse the chunk header from it.
+ * @param {ArrayBuffer} buffer
+ * @param {number} offset
+ * @returns {object}
+ */
+function parseChunk(buffer, offset = 0) {
+  let view = new DataView(buffer, offset, CHUNK_HEADER_SIZE);
 
-    //OKAY, so the following two functions are the string-based old stuff, the reason they're
-    //still sort of in here, is that they're actually faster than the new blob stuff because
-    //getAsFile isn't widely implemented, or at least, it doesn't work in chrome, which is the
-    // only browser which supports get as webp
+  let chunk = {
+    FourCC: readFourCC(view),
+    Size: view.getUint32(4, true),
+    Offset: offset + 8
+  };
+  // @optimization: don't create payload here.
+  chunk.Payload = buffer.slice(chunk.Offset, chunk.Offset + chunk.Size);
+  // Odd-sized chunks have a 0 padding.
+  let next = (chunk.Size % 2 == 0) ? offset + 8 + chunk.Size
+                                   : offset + 8 + chunk.Size + 1;
+  return [chunk, next];
+}
 
-    //Converting between a string of 0010101001's and binary back and forth is probably inefficient
-    //TODO: get rid of this function
-    function toBinStr_old(bits) {
-        var data = '';
-        var pad = (bits.length % 8) ? (new Array(1 + 8 - (bits.length % 8))).join('0') : '';
-        bits = pad + bits;
-        for (var i = 0; i < bits.length; i += 8) {
-            data += String.fromCharCode(parseInt(bits.substr(i, 8), 2))
-        }
-        return data;
-    }
+/**
+ * Get 24-bit unsigned int (little-endian) from view.
+ * @param {ArrayBuffer} view
+ * @param {Number} offset
+ * @returns {Number}
+ */
+function getUint24le(view, offset = 0) {
+  return (view.getUint8(offset + 2) << 16) |
+         (view.getUint8(offset + 1) <<  8) |
+          view.getUint8(offset);
+}
 
-    function generateEBML_old(json) {
-        var ebml = '';
-        for (var i = 0; i < json.length; i++) {
-            var data = json[i].data;
-            if (typeof data == 'object') data = generateEBML_old(data);
-            if (typeof data == 'number') data = toBinStr_old(data.toString(2));
+/**
+ * Get 24-bit unsigned int (big-endian) from view.
+ * @param {ArrayBuffer} view
+ * @param {Number} offset
+ * @returns {Number}
+ */
+function getUint24(view, offset = 0) {
+  return (view.getUint8(offset    ) << 16) |
+         (view.getUint8(offset + 1) <<  8) |
+          view.getUint8(offset + 2);
+}
 
-            var len = data.length;
-            var zeroes = Math.ceil(Math.ceil(Math.log(len) / Math.log(2)) / 8);
-            var size_str = len.toString(2);
-            var padded = (new Array((zeroes * 7 + 7 + 1) - size_str.length)).join('0') + size_str;
-            var size = (new Array(zeroes)).join('0') + '1' + padded;
+/**
+ * Parse VP8 into keyframe and width/height.
+ * https://tools.ietf.org/html/rfc6386
+ * - section 19.1
+ * @param {Chunk} chunk
+ */
+function parseVP8(chunk) {
+  // @optimization: don't construct DataView over entire payload
+  let view = new DataView(chunk.Payload);
+  let offset = 0;
+  let data_start = offset;
+  // 3 byte frame tag
+  let tmp = getUint24le(view, offset);
+  offset += 3;
+  let key_frame       =  tmp       & 0x1;
+  let version         = (tmp >> 1) & 0x7;
+  let show_frame      = (tmp >> 4) & 0x1;
+  let first_part_size = (tmp >> 5) & 0x7FFFF;
+  //parseAssert(`VP8 chunk must be a key frame`, key_frame);
+  // 3 byte start code
+  let start_code = getUint24(view, offset);
+  offset += 3;
+  parseAssert(`start code ${start_code} must equal 0x9d012a`, start_code === 0x9d012a);
+  let horizontal_size_code = view.getUint16(offset, true);
+  offset += 2;
+  let width = horizontal_size_code & 0x3FFF;
+  let horizontal_scale = horizontal_size_code >> 14;
+  let vertical_size_code = view.getUint16(offset, true);
+  offset += 2;
+  let height = vertical_size_code & 0x3FFF;
+  let vertical_scale = vertical_size_code >> 14;
+  return {
+    width: width,
+    height: height,
+    blob: new Blob([chunk.Payload.slice(data_start)])
+  };
+}
 
-            ebml += toBinStr_old(json[i].id.toString(2)) + toBinStr_old(size) + data;
+/**
+ * Parse WebP into just VP8.
+ * @param {Object} riff
+ * @returns {Object}
+ */
+function parseWebP(blob, id) {
+  return Promise.resolve(blob).then(function(blob) {
+    // @optimization: don't read whole blob at once.
+    let res = new Response(blob);
+    return res.arrayBuffer().then((buffer) => {
+      //logger.debug(`Got arraybuffer for ${id}`);
+      let view = new DataView(buffer);
+      let offset = 0;
+      let label = readFourCC(view, offset);
+      offset += 4;
+      parseAssert(`${label} must equal RIFF`, label === 'RIFF');
+      let size = view.getUint32(offset, true);
+      offset += 4;
+      label = readFourCC(view, 8);
+      // Bytes read out of `size`.
+      let read = 4;
+      offset += 4;
+      parseAssert(`${label} must equal WEBP`, label === 'WEBP');
+      // @optimization: stop reading chunks when we find VP8.
+      let chunks = [];
+      while (offset < size - 8) {
+        let chunk;
+        [chunk, offset] = parseChunk(buffer, offset);
+        chunks.push(chunk);
+      }
 
-        }
-        return ebml;
-    }
+      let vp8 = chunks.find(c => c.FourCC === 'VP8 ');
+      parseAssert('VP8 chunk must exist', vp8);
+      // @optimization: read payload from Blob before passing to parseVP8.
+      return parseVP8(vp8);
+    });
+  });
+}
 
-    //woot, a function that's actually written for this project!
-    //this parses some json markup and makes it into that binary magic
-    //which can then get shoved into the matroska comtainer (peaceably)
+function showperf() {
+  let m = window.performance.memory;
+  logger.debug(`total: ${m.totalJSHeapSize}, used: ${m.usedJSHeapSize}, max: ${m.jsHeapSizeLimit}`);
+}
+/**
+ * Convert frames.
+ * @param {} frames
+ * @returns {}
+ */
+function getFramesPromises(frames) {
+  return map(frames[Symbol.iterator](), (frame, i) => {
+    //logger.debug(`Parsing ${i}`);
+    return parseWebP(frame.imageBlob, i)
+    .then((webp) => {
+      //logger.debug(`Parsed ${i}`);
+      //showperf();
+      webp.duration = frame.duration;
+      return webp;
+    });
+  }, { concurrency: 100 });
+}
 
-    function makeSimpleBlock(data) {
-        var flags = 0;
-        if (data.keyframe) flags |= 128;
-        if (data.invisible) flags |= 8;
-        if (data.lacing) flags |= (data.lacing << 1);
-        if (data.discardable) flags |= 1;
-        if (data.trackNum > 127) {
-            throw "TrackNumber > 127 not supported";
-        }
-        var out = [data.trackNum | 0x80, data.timecode >> 8, data.timecode & 0xff, flags].map(function (e) {
-                return String.fromCharCode(e)
-            }).join('') + data.frame;
+function WhammyVideo() {
+  this.frames = [];
+}
+exports.Video = WhammyVideo;
 
-        return out;
-    }
+WhammyVideo.prototype.add = function(frame, duration) {
+  if (frame[Symbol.toStringTag] === 'Blob') {
+    let frame1 = {
+      imageBlob: frame,
+      duration: duration
+    };
+    this.frames.push(frame1);
+  } else {
+    throw new Error('Only Blobs are supported.');
+  }
+};
 
-    // here's something else taken verbatim from weppy, awesome rite?
-
-    function parseWebP(riff) {
-        var VP8 = riff.RIFF[0].WEBP[0];
-
-        var frame_start = VP8.indexOf('\x9d\x01\x2a'); //A VP8 keyframe starts with the 0x9d012a header
-        for (var i = 0, c = []; i < 4; i++) c[i] = VP8.charCodeAt(frame_start + 3 + i);
-
-        var width, horizontal_scale, height, vertical_scale, tmp;
-
-        //the code below is literally copied verbatim from the bitstream spec
-        tmp = (c[1] << 8) | c[0];
-        width = tmp & 0x3FFF;
-        horizontal_scale = tmp >> 14;
-        tmp = (c[3] << 8) | c[2];
-        height = tmp & 0x3FFF;
-        vertical_scale = tmp >> 14;
-        return {
-            width: width,
-            height: height,
-            data: VP8,
-            riff: riff
-        }
-    }
-
-    // i think i'm going off on a riff by pretending this is some known
-    // idiom which i'm making a casual and brilliant pun about, but since
-    // i can't find anything on google which conforms to this idiomatic
-    // usage, I'm assuming this is just a consequence of some psychotic
-    // break which makes me make up puns. well, enough riff-raff (aha a
-    // rescue of sorts), this function was ripped wholesale from weppy
-
-    function parseRIFF(string) {
-        var offset = 0;
-        var chunks = {};
-
-        while (offset < string.length) {
-            var id = string.substr(offset, 4);
-            var len = parseInt(string.substr(offset + 4, 4).split('').map(function (i) {
-                var unpadded = i.charCodeAt(0).toString(2);
-                return (new Array(8 - unpadded.length + 1)).join('0') + unpadded
-            }).join(''), 2);
-            var data = string.substr(offset + 4 + 4, len);
-            offset += 4 + 4 + len;
-            chunks[id] = chunks[id] || [];
-
-            if (id == 'RIFF' || id == 'LIST') {
-                chunks[id].push(parseRIFF(data));
-            } else {
-                chunks[id].push(data);
-            }
-        }
-        return chunks;
-    }
-
-    // here's a little utility function that acts as a utility for other functions
-    // basically, the only purpose is for encoding "Duration", which is encoded as
-    // a double (considerably more difficult to encode than an integer)
-    function doubleToString(num) {
-        return [].slice.call(
-            new Uint8Array(
-                (
-                    new Float64Array([num]) //create a float64 array
-                ).buffer) //extract the array buffer
-            , 0) // convert the Uint8Array into a regular array
-            .map(function (e) { //since it's a regular array, we can now use map
-                return String.fromCharCode(e) // encode all the bytes individually
-            })
-            .reverse() //correct the byte endianness (assume it's little endian for now)
-            .join('') // join the bytes in holy matrimony as a string
-    }
-
-    function WhammyVideo(speed, quality) { // a more abstract-ish API
-        this.frames = [];
-        this.duration = 1000 / speed;
-        this.quality = quality || 0.8;
-    }
-
-    WhammyVideo.prototype.add = function (frame, duration) {
-        if (typeof duration != 'undefined' && this.duration) throw "you can't pass a duration if the fps is set";
-        if (typeof duration == 'undefined' && !this.duration) throw "if you don't have the fps set, you ned to have durations here."
-        if ('canvas' in frame) { //CanvasRenderingContext2D
-            frame = frame.canvas;
-        }
-        if ('toDataURL' in frame) {
-            frame = frame.toDataURL('image/webp', this.quality)
-        } else if (typeof frame != "string") {
-            throw "frame must be a a HTMLCanvasElement, a CanvasRenderingContext2D or a DataURI formatted string"
-        }
-        if (!(/^data:image\/webp;base64,/ig).test(frame)) {
-            throw "Input must be formatted properly as a base64 encoded DataURI of type image/webp";
-        }
-        this.frames.push({
-            image: frame,
-            duration: duration || this.duration
-        })
-    }
-
-    WhammyVideo.prototype.compile = function (outputAsArray) {
-        return new toWebM(this.frames.map(function (frame) {
-            var webp = parseWebP(parseRIFF(atob(frame.image.slice(23))));
-            webp.duration = frame.duration;
-            return webp;
-        }), outputAsArray)
-    }
-
-    return {
-        Video: WhammyVideo,
-        fromImageArray: function (images, fps, outputAsArray) {
-            return toWebM(images.map(function (image) {
-                var webp = parseWebP(parseRIFF(atob(image.slice(23))))
-                webp.duration = 1000 / fps;
-                return webp;
-            }), outputAsArray)
-        },
-        toWebM: toWebM
-    }
-})();
+WhammyVideo.prototype.compile = function() {
+  return getFramesPromises(this.frames).then(toWebM);
+};

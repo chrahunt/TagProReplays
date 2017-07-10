@@ -1,9 +1,16 @@
+/**
+ * @fileoverview Contains drawing functions that go from the recorded
+ * replay data to display on an HTML canvas.
+ * 
+ * For usage, see the Renderer class.
+ */
 const loadImage = require('image-promise');
 const moment = require('moment');
 require('moment-duration-format');
 
 const logger = require('util/logger')('renderer');
-const Textures = require('modules/textures');
+// Polyfill for Chrome < 50
+require('util/canvas-toblob-polyfill');
 logger.info('Loading renderer.');
 
 /*
@@ -13,18 +20,33 @@ logger.info('Loading renderer.');
  * This renderer handles v1 replays.
  */
 // Renderer-global variables.
-var frame, context, textures, options, replay_data, render_state;
+var frame, context, options, textures, replay_data, render_state;
 
 const TILE_SIZE = 40;
 
 /**
- * Interface for replay rendering. Some async setup is required, so
- * before trying to draw, make sure to wait on Renderer#ready.
+ * Interface for replay rendering, in general transforming replay
+ * input into some graphical format. For video creation and previewing
+ * this happens on the provided canvas element.
+ * 
+ * Some async setup is required so before trying to draw/display, make
+ * sure to wait on Renderer#ready.
+ * 
+ * Also acts as a proxy to the underlying canvas.
  */
 class Renderer {
   /**
-   * 
-   * Takes a canvas to render onto.
+   * @param {HTMLCanvasElement} canvas - the canvas to render onto
+   * @param {Replay} replay
+   * @param {Object} options
+   * @param {Number} options.canvas_height
+   * @param {Number} options.canvas_width
+   * @param {bool} options.chat
+   * @param {bool} options.custom_textures
+   * @param {Object} options.textures
+   * @param {bool} options.spin
+   * @param {bool} options.splats
+   * @param {bool} options.ui
    */
   constructor(canvas, replay, these_options = {}) {
     // Set globals.
@@ -41,26 +63,44 @@ class Renderer {
         y: 0
       }
     };
-    this.canvas = canvas;
-    this.replay = replay;
     this.options = these_options;
+    this.canvas = canvas;
+    this.canvas.width = this.options.canvas_width;
+    this.canvas.height = this.options.canvas_height;
+    this.replay = replay;
 
     this.total_render_time = 0;
     this.rendered_frames = 0;
+
+    // Allow already-loaded texture images.
+    let texture_promise;
+    if (!this.options.textures) {
+      throw new Error('options.textures is required');
+    }
+    texture_promise = Promise.resolve(this.options.textures);
     
-    this.ready_promise = Textures.get(options.custom_textures).then((result) => {
+    this.ready_promise = texture_promise
+    .then((result) => {
       textures = result;
-    }).then(() => loadImage(drawMap(this.replay))).then((image) => {
+    })
+    .then(() => loadImage(drawMap(this.replay)))
+    .then((image) => {
       this.map = image;
     });
     this._extract_replay_data();
     this._preprocess_replay();
   }
 
+  /**
+   * @returns {Promise}
+   */
   ready() {
     return this.ready_promise;
   }
 
+  /**
+   * @param {Number} frame
+   */
   draw(frame) {
     let t0 = performance.now();
     animateReplay(frame, this.replay, this.map, this.options.spin,
@@ -70,6 +110,53 @@ class Renderer {
     this.rendered_frames++;
   }
 
+  /**
+   * Convert current rendered frame of replay to Blob.
+   * @param {String} [mimeType='image/png']
+   * @param {*} [qualityArgument=1]
+   * @returns {Promise<Blob>}
+   */
+  toBlob(mimeType = 'image/png', qualityArgument = 1) {
+    // We invert the Promise here to avoid async calling of toBlob
+    // which would open the canvas up to being edited before the state
+    // is persisted.
+    let resolve;
+    let reject;
+    let result;
+    let err;
+    try {
+      this.canvas.toBlob((blob) => {
+        // Chances are low that resolve isn't already set but we guard
+        // against it anyway.
+        if (resolve) {
+          resolve(blob);
+        } else {
+          result = blob;
+        }
+      }, mimeType, qualityArgument);
+    } catch(e) {
+      // Tainted canvas might throw SecurityError.
+      if (reject) {
+        reject(e);
+      } else {
+        err = e;
+      }
+    }
+    return new Promise((resolve_, reject_) => {
+      if (err) {
+        reject_(err);
+      } else if (result) {
+        resolve_(result);
+      } else {
+        resolve = resolve_;
+        reject = reject_;
+      }
+    });
+  }
+
+  /**
+   * @private
+   */
   _extract_replay_data() {
     let players = Object.keys(this.replay).filter(
       k => k.startsWith('player'));
@@ -81,7 +168,10 @@ class Renderer {
     };
   }
 
-  // Preprocess the replay, simplifying other areas of rendering.
+  /**
+   * Preprocess the replay, simplifying other areas of rendering.
+   * @private
+   */
   _preprocess_replay() {
     // Factor out pre-processing from replay cropping and this function
     // later, when replay upgrade is in place.

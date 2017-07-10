@@ -98,8 +98,11 @@ function getReplayVersion(replay) {
 }
 
 function loadSchema(version) {
-  if (!schemas[version])
-    return Promise.reject(new Error(`Schemas for version ${version} not found`));
+  if (!schemas[version]) {
+    let error = new Error(`Schemas for version ${version} not found`);
+    error.name = 'SchemaNotFound';
+    return Promise.reject(error);
+  }
   let version_schema = schemas[version];
   let result = {
     main: null,
@@ -177,10 +180,9 @@ class Validator {
   validate(replay) {
     let version = getReplayVersion(replay);
     if (!version) {
-      return Promise.resolve({
-        failed: true,
-        code: 'missing version'
-      });
+      let error = new Error('No version found on replay.');
+      err.name = 'MissingVersion';
+      return Promise.reject(error);
     }
 
     if (this.validators[version]) {
@@ -192,26 +194,25 @@ class Validator {
             return validator.errors.then(errs => [text, errs]);
           })
           .then(([text, errs]) => {
-            return {
-              failed: true,
-              code: 'schema validation failure',
-              reason: text,
-              extended: serialize_validation_errors(replay, errs)
-            };
+            let error = new Error(`Schema validation vailed: ${text}`);
+            error.name = 'SchemaValidationFailure';
+            error.extended = serialize_validation_errors(replay, errs);
+            throw error;
+
           });
         } else if (version in semantic_validator) {
           let valid = semantic_validator[version](replay);
           if (!valid) {
-            return {
-              failed: true,
-              code: 'semantic validation failure',
-              reason: semantic_validator.errors,
-              extended: ''
-            };
+            let text = semantic_validator.errors;
+            let error = new Error(`Semantic validation failed: ${text}`);
+            error.name = 'SemanticValidationFailure';
+            error.extended = '';
+            throw error;
           }
         }
         return {
-          failed: false
+          version: version,
+          replay: replay
         };
       });
     }

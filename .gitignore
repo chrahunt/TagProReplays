@@ -2,12 +2,12 @@
 node_modules
 bower_components
 
-# Packaging folders
+# Generated files/folders
 build
 dist
+karma-out.log
 
 # Yet-merged items from dev branch
-karma.conf.js
 .eslintrc.js
 
 # OS

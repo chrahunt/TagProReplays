@@ -1,7 +1,9 @@
-var debug = require('debug');
+const debug = require('debug');
+//debug.useColors = () => false;
 debug.enable("*");
 
-var top = "tpr";
+
+const top = "tpr";
 
 // Set debug by default.
 // Prevent breaking in sandboxed pages.

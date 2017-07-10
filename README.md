@@ -1,16 +1,21 @@
 # TagProReplays
 
-TagProReplays is a Chrome extension for recording short clips of gameplay in [TagPro](http://tagpro.gg/).
+TagProReplays is a Chrome extension for recording short clips of gameplay in
+[TagPro](http://tagpro.gg/).
 
-The extension uses a replay buffer, remembering the last several seconds (default 30) so you can save sick plays after the fact.
+The extension uses a replay buffer, remembering the last several seconds
+(default 30) so you can save sick plays after the fact.
 
-If screen capture software is a little heavy for your machine, this extension can help!
+If screen capture software is a little heavy for your machine, this extension
+can help!
 
 ## Installation
 
-TagProReplays is only available in Chromium-based browsers. You can get it from the [Chrome Web Store](https://chrome.google.com/webstore/detail/tagproreplays/ejbnakhldlocljfcglmeibhhdnmmcodh).
+TagProReplays is only available in Chromium-based browsers. You can get it from
+the [Chrome Web Store](https://chrome.google.com/webstore/detail/tagproreplays/ejbnakhldlocljfcglmeibhhdnmmcodh).
 
-For Opera users, first install [this extension](https://addons.opera.com/en/extensions/details/download-chrome-extension-9/?display=en) then download from the Chrome web store.
+For Opera users, first install [this extension](https://addons.opera.com/en/extensions/details/download-chrome-extension-9/?display=en)
+then download from the Chrome web store.
 
 ## Development
 
@@ -63,10 +68,17 @@ because they require changes before use. Those changes are documented here:
 **Extension File Organization**:
 
 * **src/**: Main source files for the extension.
+    - **html/**
+    - **images/**
     - **js/**: Files directly under this directory are treated as individual
-      entry points for the browserify build.
+      target scripts for the browserify build.
         + **modules/**: These files are disregarded by the build process (it's
         assumed that they'll be required by the top-level js files).
+        + **util/**: Mostly self-contained modules, single purpose.
+    - **schemas/**: JSON schemas for the replay files
+    - **scss/**: these get compiled to CSS and dropped into `css` in the
+      generated code directory.
+* **test/**: automated tests and fixtures
 * **vendor/**: Third-party libraries that either don't have a proper module,
   or which required customization. Subdirectories other than `js` are copied
   to the `build` directory on build.
@@ -75,13 +87,30 @@ For CSS files injected as content scripts, ensure that referenced resources
 are prepended with `chrome-extension://__MSG_@@extension_id__/`, and listed
 under `web_accessible_resources` in the manifest.
 
+### Testing
+
+This extension uses Karma for testing.
+
+To run tests once, you can just execute `npm test` in the root project
+directory.
+
+To run tests continuously (with rebuild):
+
+1. `npm install -g karma-cli`
+2. `karma start`
+
+As files are edited they will be rebuilt and the tests re-run.
+
+For the list of manual tests, see [here](https://github.com/chrahunt/TagProReplays/wiki/Testing).
+
+The extension currently supports Chrome 49+.
+
 ### Release
 
 When you're ready to make a new release:
 
 1. Make sure to update the version in `package.json` (this is automatically
    populated in `manifest.json`).
-2. `gulp build-release` - this outputs compiled non-sourcemapped files to
    `./dist`.
 3. Load the `dist` directory as an unpacked extension and test.
 4. If tests pass, then make your version-release commit and any history changes

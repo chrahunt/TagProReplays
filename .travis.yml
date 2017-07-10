@@ -1,4 +1,13 @@
-language: node_js
 dist: trusty
+sudo: false
+addons:
+  chrome: stable
+language: node_js
 node_js:
-  - "node"
+- "node"
+before_install:
+- export CHROME_BIN=/usr/bin/google-chrome-stable
+after_success:
+- cat karma-out.log
+after_failure:
+- cat karma-out.log

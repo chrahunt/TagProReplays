@@ -9,10 +9,10 @@ const logger = require('util/logger')('background');
 const fs = require('util/filesystem');
 const get_renderer = require('modules/renderer');
 const {Progress} = require('util/promise-ext');
+const renderVideo = require('modules/make-video');
 const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
-const Whammy = require('util/whammy');
 
 logger.info('Starting background page.');
 
@@ -28,87 +28,6 @@ Data.ready().then(() => {
     });
   });
 });
-
-let tileSize = 40;
-
-let can = document.createElement('canvas');
-can.id = 'mapCanvas';
-document.body.appendChild(can);
-
-can = document.getElementById('mapCanvas');
-// Defaults.
-can.width = 1280;
-can.height = 800;
-can.style.zIndex = 200;
-can.style.position = 'absolute';
-can.style.top = 0;
-can.style.left = 0;
-
-let context = can.getContext('2d');
-
-/**
- * Resolves the given callback after a timeout.
- */
-function PromiseTimeout(callback, timeout=0) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      resolve(callback());
-    }, timeout);
-  });
-}
-
-/**
- * Renders replay.
- * 
- * Interface:
- *   Progress is returned. Call .progress on it and pass a handler for
- *   the progress events, which contain the % complete. That function returns
- *   a Promise which can be used like normal for completion/error handling.
- * 
- * A small delay in rendering is provided after progress notification to give
- * async operations a chance to complete.
- */
-function renderVideo(replay, id) {
-  return new Progress((resolve, reject, progress) => {
-    let me = Object.keys(replay).find(k => replay[k].me == 'me');
-    let fps = replay[me].fps;
-    let encoder = new Whammy.Video(fps);
-    let frames = replay.clock.length;
-    // Fraction of completion that warrants progress notification.
-    let notification_freq = 0.05;
-    let portions_complete = 0;
-
-    let result = chrome.storage.promise.local.get('options').then((items) => {
-      if (!items.options) throw new Error('No options found');
-      let options = items.options;
-      can.width = options.canvas_width;
-      can.height = options.canvas_height;
-      return get_renderer(can, replay, options);
-    }).then(function render(renderer, frame=0) {
-      for (; frame < frames; frame++) {
-        //logger.trace(`Rendering frame ${frame} of ${frames}`);
-        renderer.draw(frame);
-        encoder.add(context);
-        let amount_complete = frame / frames;
-        if (Math.floor(amount_complete / notification_freq) != portions_complete) {
-          portions_complete++;
-          progress(amount_complete);
-          // Slight delay to give our progress message time to propagate.
-          return PromiseTimeout(() => render(renderer, ++frame));
-        }
-      }
-
-      let output = encoder.compile();
-      return Movies.save(id, output).then(() => {
-        logger.debug('File saved.');
-      }).catch((err) => {
-        logger.error('Error saving render: ', err);
-        throw err;
-      });
-    });
-    resolve(result);
-  });
-}
 
 /**
  * Wrapper around rendered replay storage, providing a Promise-based
@@ -942,26 +861,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!name.includes('DATE') && !name.startsWith('replays')) {
         name += 'DATE' + Date.now();
     }
-    try {
-      data = JSON.parse(data);
-    } catch(e) {
-      sendResponse({
-        failed: true,
-        reason: 'Replay is not valid JSON',
-        name: 'ValidationError'
+    Promise.resolve(data)
+    .then(JSON.parse)
+    .catch((err) => {
+      let error = new Error('Replay is not valid JSON');
+      error.name = 'ValidationError';
+      throw error;
+    })
+    .then((data) => {
+      return validate(data)
+      .catch((err) => {
+        let error = new Error(`Validation error: ${err.message}`);
+        error.name = 'ValidationError';
+        error.extended = err.extended;
+        throw error;
       });
-      return false;
-    }
-    validate(data).then((result) => {
-      if (result.failed) {
-        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
-        err.name = 'ValidationError';
-        err.extended = result.extended;
-        throw err;
-      } else {
-        return save_replay(name, data);
-      }
-    }).then((replay_info) => {
+    })
+    .then(({replay}) => save_replay(name, replay))
+    .then((replay_info) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
         replay: replay_info
@@ -972,7 +889,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       track('Imported Replay', {
         Failed: false
       });
-    }).catch((err) => {
+    })
+    .catch((err) => {
       console.error(`Error importing replay: ${err}`);
       track('Imported Replay', {
         Failed: true,
@@ -999,19 +917,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     let event_name = null;
     Promise.resolve(data)
     .then(JSON.parse)
-    .then((parsed) => {
-      parsed = trimReplay(parsed);
-      return validate(parsed).then((result) => {
-        if (result.failed) {
-          let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
-          err.extended = result.extended;
-          throw err;
-        }
-        event_name = parsed.event && parsed.event.name;
-        return save_replay(name, parsed);
-      });
+    .then(trimReplay)
+    .then(validate)
+    .then(({replay}) => {
+      event_name = replay.event && replay.event.name;
+      return save_replay(name, replay);
     })
     .then((id) => {
+      // We intentionally break the promise chain here, if this
+      // fails we don't care.
       get_replay_count().then((n) => {
         track("Recorded Replay", {
           Failed: false,
@@ -1023,7 +937,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         failed: false
       });
-    }).catch((err) => {
+    })
+    .catch((err) => {
       logger.error('Error saving replay: ', err);
       // Save replay so it can be sent by user.
       let blob = new Blob([data], { type: 'application/json' });
@@ -1136,6 +1051,46 @@ function serialize_error(error) {
   };
 }
 
+// Global canvas element used for rendering.
+let can = document.createElement('canvas');
+can.id = 'mapCanvas';
+document.body.appendChild(can);
+
+// Defaults.
+can.width = 1280;
+can.height = 800;
+can.style.zIndex = 200;
+can.style.position = 'absolute';
+can.style.top = 0;
+can.style.left = 0;
+
+/**
+ * Given a renderer, returns a pull stream as a
+ * generator which returns Promises which resolves to
+ * {frame: blob, duration: number}
+ */
+function* frame_source(renderer) {
+  let replay = renderer.replay;
+  let me = Object.keys(replay).find(k => replay[k].me == 'me');
+  let fps = replay[me].fps;
+  let frames = replay.clock.length;
+  let end = frames - 1;
+  let frame = 0;
+  let frame_time = Date.parse(replay.clock[frame]);
+  while (frame < end) {
+    let next_frame_time = Date.parse(replay.clock[frame + 1]);
+    let frame_duration = next_frame_time - frame_time;
+    renderer.draw(frame);
+    yield renderer.toBlob('image/webp', 0.8)
+    .then((blob) => ({frame: blob, duration: frame_duration}));
+    frame_time = next_frame_time;
+    frame++;
+  }
+  renderer.draw(frame);
+  yield renderer.toBlob('image/webp', 0.8)
+  .then((blob) => ({frame: blob, duration: 1000 / fps}));
+}
+
 /**
  * Renders a replay.
  * @param {string} id the id of the replay to render
@@ -1144,22 +1099,49 @@ function serialize_error(error) {
  */
 function render_replay(id, update) {
   logger.info(`Rendering replay: ${id}`);
-  return get_replay_data(id).then((data) => {
-    // Validation is only needed here because we didn't validate replay
-    // database contents previously.
-    return validate(data).then((result) => {
-      if (result.failed) {
-        let err = new Error(`Validation error: ${result.code}; ${result.reason}`);
-        err.name = 'ValidationError';
-        throw err;
-      }
-
-      return renderVideo(data, id)
-      .progress((progress) => {
-        logger.debug(`Sending progress update for ${id}: ${progress}`);
-        update(progress);
+  return get_replay_data(id)
+  // Validation is only needed here because we didn't validate replay
+  // database contents previously.
+  .then(validate)
+  .catch((err) => {
+    let error = new Error(`Validation error: ${err.message}`);
+    error.name = 'ValidationError';
+    error.extended = err.extended;
+    throw error;
+  })
+  .then(({replay}) => {
+    return chrome.storage.promise.local.get('options')
+    .then((items) => {
+      if (!items.options) throw new Error('No options found.');
+      return {options: items.options, replay: replay};
+    })
+    .then((args) => {
+      return Textures.get(args.options.custom_textures)
+      .then((textures) => {
+        args.options.textures = textures;
+        return args;
       });
     });
+  })
+  .then(({options, replay}) => get_renderer(can, replay, options))
+  .then((renderer) => {
+    let frames = renderer.replay.clock.length;
+    // Fraction of completion that warrants progress notification.
+    let notification_freq = 0.05;
+    let portions_complete = 0;
+    return renderVideo(frame_source(renderer))
+    .progress((progress) => {
+      let amountCompleted = progress / frames;
+      // Progress updates.
+      if (Math.floor(amountCompleted / notification_freq) != portions_complete) {
+        portions_complete++;
+        logger.debug(`Sending progress update for ${id}: ${progress}`);
+        update(amountCompleted);
+      }
+    });
+  })
+  .then(({output, stats}) => {
+    return Movies.save(id, output).then(() => stats);
   });
 }
 
@@ -1194,7 +1176,8 @@ chrome.runtime.onConnect.addListener((port) => {
       let {id} = msg;
       render_replay(id, (progress) => {
         port.postMessage({ progress: progress });
-      }).then(() => {
+      }).then((stats) => {
+        track('Render', stats);
         return get_replay_info(id);
       }).then((replay_info) => {
         // Send update indicating replay is rendered.
@@ -1206,6 +1189,9 @@ chrome.runtime.onConnect.addListener((port) => {
         });
       }).catch((err) => {
         logger.error(`Rendering failed for ${id}`, err);
+        track('Render', {
+          error: serialize_error(err)
+        });
         port.postMessage({ error: serialize_error(err) });
       }).then(() => {
         port.disconnect();
@@ -1214,6 +1200,7 @@ chrome.runtime.onConnect.addListener((port) => {
     });
     port.onDisconnect.addListener(() => {
       logger.info('Render port disconnected.');
+      // TODO: Don't set rendering false here if we're actually still rendering.
       rendering = false;
     });
 

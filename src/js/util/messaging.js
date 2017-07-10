@@ -178,10 +178,10 @@ class Client {
         logger.debug(`Received response for ${name}`);
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
-        } else if (result.failed) {
+        } else if (result.error) {
           reject(result.data.message);
         } else {
-          resolve(result.data);
+          resolve(deserialize_error(result.data));
         }
       });
     });
@@ -189,15 +189,22 @@ class Client {
 }
 exports.Client = getInstance(Client);
 
+function deserialize_error(struct) {
+  let err = new Error(struct.message);
+  err.name = struct.name;
+  err.stack = struct.stack
+  return err;
+}
+
 /**
  * Background-page side of the interface.
  * 
  * Only a single callback can be set per message type.
  */
 class Server {
-  constructor() {
+  constructor(options) {
     this.callbacks = new Map();
-    chrome.runtime.onMessage.addListener(this.handle_message.bind(this));
+    options.addListener(this.handle_message.bind(this));
   }
 
   /**
@@ -216,7 +223,7 @@ class Server {
   /**
    * Remove the given callback from listening.
    */
-  off(name, callback) {
+  removeListener(name, callback) {
     let existing_callback = this.callbacks.get(name);
     if (!existing_callback || callback !== existing_callback)
       throw new Error(`Callback not set for ${name}`);
@@ -230,13 +237,11 @@ class Server {
     let {method, data} = message;
     this.listener_delegate(method, data, sender).then((result) => {
       sendResponse({
-        failed: false,
         data: result
       });
     }).catch((err) => {
       sendResponse({
-        failed: true,
-        data: serialize_error(err)
+        error: serialize_error(err)
       });
     });
     return true;
@@ -263,7 +268,20 @@ class Server {
   }
 }
 
-exports.Server = getInstance(Server);
+/**
+ * Overridden in tests. Sets Server callback expecting
+ * message, sender, sendResponse.
+ * @private
+ */
+exports._serverListener = (handler) => {
+  chrome.runtime.onMessage.addListener(handler);
+};
+
+exports.Server = getInstance(Server, {
+  get addListener() {
+    return exports._serverListener;
+  }
+});
 
 function serialize_error(err) {
   return {
@@ -273,10 +291,10 @@ function serialize_error(err) {
   };
 }
 
-function getInstance(klass) {
+function getInstance(klass, ...args) {
   let instance;
   return () => {
-    if (!instance) instance = new klass();
+    if (!instance) instance = new klass(...args);
     return instance;
   };
 }

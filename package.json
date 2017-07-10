@@ -6,10 +6,12 @@
   "devDependencies": {
     "browserify": "^13.1.1",
     "chai": "^3.5.0",
+    "chai-as-promised": "^6.0.0",
     "concat-stream": "^1.5.2",
     "cross-env": "^3.1.3",
     "eslint": "^3.19.0",
     "event-stream": "^3.3.4",
+    "fs-promise": "^1.0.0",
     "gulp": "^3.9.1",
     "gulp-debug": "^2.1.2",
     "gulp-duration": "0.0.0",
@@ -18,19 +20,26 @@
     "gulp-notify": "^2.2.0",
     "gulp-plumber": "^1.1.0",
     "gulp-rename": "^1.2.2",
-    "gulp-sass": "^2.3.2",
+    "gulp-sass": "^3.1.0",
     "gulp-util": "^3.0.7",
     "gulp-watch": "^4.3.10",
     "gulp-zip": "^3.2.0",
     "json-pointer": "^0.6.0",
     "jsonfile": "^2.4.0",
+    "karma": "^1.3.0",
+    "karma-browserify": "^5.1.0",
+    "karma-chai": "^0.1.0",
+    "karma-chrome-launcher": "^2.1.1",
+    "karma-mocha": "^1.3.0",
+    "karma-mocha-reporter": "^2.2.3",
+    "karma-source-map-support": "^1.2.0",
     "mocha": "^3.1.2",
     "rimraf": "^2.5.4",
     "vinyl-source-stream": "^1.1.0",
     "watchify": "^3.7.0"
   },
   "scripts": {
-    "test": "node_modules/.bin/cross-env NODE_PATH=./src/js node_modules/.bin/mocha"
+    "test": "karma start --single-run"
   },
   "repository": {
     "type": "git",
@@ -48,6 +57,7 @@
   "homepage": "https://github.com/chrahunt/TagProReplays#readme",
   "dependencies": {
     "ajv": "^4.9.2",
+    "bluebird": "^3.4.7",
     "bootstrap": "^3.3.7",
     "chrome-storage-promise": "^0.1.0",
     "debug": "^2.2.0",

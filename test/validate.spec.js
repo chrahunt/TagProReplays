@@ -1,95 +1,81 @@
-const expect = require('chai').expect;
+const chai = require('chai');
+const chaiAsPromised = require('chai-as-promised');
 const validate = require('modules/validate');
-const fs = require('fs');
+
+chai.use(chaiAsPromised);
+const expect = chai.expect;
 
 // Override schemas to use file path.
 validate.load_schema = (target) => {
-  let file = fs.readFileSync(`src/${target}`, { encoding: 'utf-8' });
-  return parseJSON(file);
-}
-
-function parseJSON(json) {
-  return new Promise((resolve, reject) => {
-    try {
-      let result = JSON.parse(json);
-      resolve(result);
-    } catch(e) {
-      reject(e);
-    }
-  });
-}
+  return fetch(target).then((res) => res.json());
+};
 
 function getReplay(version, name) {
-  return `test/fixtures/validate/${version}/${name}.json`;
+  let path = `fixtures/validate/${version}/${name}.json`;
+  return fetch(path).then((res) => {
+    return res.text();
+  });
 }
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-let error_only = ['code', 'reason', 'extended'];
-let check_passed = (result) => {
-  expect(result).to.not.have.any.keys(...error_only);
-  expect(result.failed).to.be.false;
-};
-
-let check_failed = (result) => {
-  expect(result).to.have.all.keys('failed', ...error_only);
-  expect(result.failed).to.be.true;
-}
-
 describe('Version 1 replay validation', function() {
+  function test_succeeded(result) {
+    expect(result).to.have.all.keys('replay', 'version');
+    expect(result.version).to.equal('1');
+  }
+
+  function happy_path(name) {
+    return getReplay(1, name)
+    .then((file) => {
+      return validate.validate(JSON.parse(file)).then(test_succeeded);
+    });
+  }
+
   it('should validate a replay', function() {
-    let path = getReplay(1, 'replays1414027897934');
-    let file = fs.readFileSync(path, { encoding: 'utf-8' });
-    return validate.validate(JSON.parse(file)).then(check_passed);
+    return happy_path('replays1414027897934');
   });
 
   describe('should accept old-format powerup identifiers', function() {
     it('for tagpro', function() {
-      let path = getReplay(1, 'old-tagproDATE1481331402058');
-      let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then(check_passed);
+      return happy_path('old-tagproDATE1481331402058');
     });
 
     it('for rolling bomb', function() {
-      let path = getReplay(1, 'old-bombDATE1481331557109');
-      let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then(check_passed);
+      return happy_path('old-bombDATE1481331557109');
     });
   });
 
   describe('should accept new-format powerup identifiers', function() {
     it('for tagpro', function() {
-      let path = getReplay(1, 'new-tagproDATE1481329503370');
-      let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then(check_passed);
+      return happy_path('new-tagproDATE1481329503370');
     });
 
     it('for rolling bomb', function() {
-      let path = getReplay(1, 'new-bombDATE1481330124869');
-      let file = fs.readFileSync(path, { encoding: 'utf-8' });
-      return validate.validate(JSON.parse(file)).then(check_passed);
+      return happy_path('new-bombDATE1481330124869');
     });
   });
 
   it('should accept a replay with old-format chats', function() {
-    let path = getReplay(1, 'replays1414027897934');
-    let file = fs.readFileSync(path, { encoding: 'utf-8' });
-    return validate.validate(JSON.parse(file)).then(check_passed);
+    return happy_path('replays1414027897934');
+  });
+
+  let template;
+  // Set up template for negative test cases.
+  before(function() {
+    return getReplay(1, 'new-chatsDATE1481243504420').then((file) => {
+      template = JSON.parse(file);
+    });
   });
 
   it('should accept a replay with group id', function() {
-    let path = getReplay(1, 'newcompte-chatsDATE1481243504420');
-    let file = fs.readFileSync(path, { encoding: 'utf-8' });
-    return validate.validate(JSON.parse(file)).then(check_passed);
-  })
+    return happy_path('newcompte-chatsDATE1481243504420');
+  });
 
-  let path = getReplay(1, 'new-chatsDATE1481243504420');
-  let file = fs.readFileSync(path, { encoding: 'utf-8' });
-  let template = JSON.parse(file);
   it('should accept a replay with new-format chats', function() {
-    return validate.validate(template).then(check_passed);
+    return validate.validate(template).then(test_succeeded);
   });
 
   it('should reject a replay with no recording player', function() {
@@ -98,38 +84,32 @@ describe('Version 1 replay validation', function() {
     for (let player of players) {
       replay[player].me = 'other';
     }
-    return validate.validate(replay).then((result) => {
-      check_failed(result);
-      expect(result.reason).to.contain('player');
-    });
+    return expect(validate.validate(replay))
+      .to.eventually.be.rejectedWith(Error, /player/);
   });
 
   describe('checks for the attribute', function() {
     let required = ['chat', 'splats', 'bombs', 'spawns', 'map', 'wallMap',
       'floorTiles', 'score', 'clock'];
     for (let attr of required) {
-      let replay = clone(template);
-      delete replay[attr];
       it(attr, function() {
-        return validate.validate(replay).then((result) => {
-          check_failed(result);
-          expect(result.reason).to.contain(attr);
-        });
+        let replay = clone(template);
+        delete replay[attr];
+        return expect(validate.validate(replay))
+          .to.eventually.be.rejectedWith(Error, new RegExp(attr));
       });
     }
   });
 
   describe('checks players for the attribute', function() {
     let required = ['auth', 'name', 'x', 'y'];
-    let player = Object.keys(template).find(v => v.startsWith('player'));
     for (let attr of required) {
-      let replay = clone(template);
-      delete replay[player][attr];
       it(attr, function() {
-        return validate.validate(replay).then((result) => {
-          check_failed(result);
-          expect(result.reason).to.contain(attr);
-        });
+        let replay = clone(template);
+        let player = Object.keys(template).find(v => v.startsWith('player'));
+        delete replay[player][attr];
+        return expect(validate.validate(replay))
+          .to.eventually.be.rejectedWith(Error, new RegExp(attr));
       });
     }
   });
@@ -141,89 +121,79 @@ describe('Version 1 replay validation', function() {
         delete replay[key];
       }
     }
-    return validate.validate(replay).then((result) => {
-      check_failed(result);
-      expect(result.reason).to.contain('player');
-    });
+    return expect(validate.validate(replay))
+      .to.eventually.be.rejectedWith(Error, /player/);
   });
 
   describe('checks frame arrays in the main replay data', function() {
     it('for game score', function() {
       let replay = clone(template);
       replay.score.pop();
-      return validate.validate(replay).then((result) => {
-        check_failed(result);
-        expect(result.reason).to.contain('length');
-      });
+      return expect(validate.validate(replay))
+        .to.eventually.be.rejectedWith(Error, /length/);
     });
 
     it('for floor tiles', function() {
       let replay = clone(template);
       replay.floorTiles[0].value.pop();
-      return validate.validate(replay).then((result) => {
-        check_failed(result);
-        expect(result.reason).to.contain('length');
-      });
+      return expect(validate.validate(replay))
+        .to.eventually.be.rejectedWith(Error, /length/);
     });
   });
 
   describe('checks the frame array length of player property', function() {
-    let players = Object.keys(template).filter(k => k.startsWith('player'));
+    let players;
+    let player_id;
+    let id = 0;
+    before(function() {
+      players = Object.keys(template).filter(k => k.startsWith('player'));
+    });
+    beforeEach(function() {
+      player_id = players[id];
+      id = (id + 1) % players.length;
+    });
     const player_props = ['auth', 'bomb', 'dead', 'degree', 'draw', 'flag',
       'flair', 'grip', 'tagpro', 'team', 'x', 'y'];
     // Optionally present.
     const optional_player_props = ['angle'];
     // Optionally arrays.
     const optional_array_player_props = ['name'];
-    let id = 0;
     for (let prop of player_props) {
-      let key = players[id];
-      id = (id + 1) % players.length;
       it(prop, function() {
         let replay = clone(template);
-        replay[key][prop].pop();
-        return validate.validate(replay).then((result) => {
-          check_failed(result);
-          expect(result.reason).to.contain('length');
-        });
+        replay[player_id][prop].pop();
+        return expect(validate.validate(replay))
+          .to.eventually.be.rejectedWith(Error, /length/);
       });
     }
 
     for (let prop of optional_player_props) {
-      let key = players[id];
-      id = (id + 1) % players.length;
       it(`${prop} not existing`, function() {
         let replay = clone(template);
-        delete replay[key][prop];
-        return validate.validate(replay).then(check_passed);
+        delete replay[player_id][prop];
+        return validate.validate(replay).then(test_succeeded);
       });
 
       it(`${prop} as an array`, function() {
         let replay = clone(template);
-        replay[key][prop] = [];
-        return validate.validate(replay).then((result) => {
-          check_failed(result);
-          expect(result.reason).to.contain('length');
-        });
+        replay[player_id][prop] = [];
+        return expect(validate.validate(replay))
+          .to.eventually.be.rejectedWith(Error, /length/);
       });
     }
 
     for (let prop of optional_array_player_props) {
-      let key = players[id];
-      id = (id + 1) % players.length;
       it(`${prop} as a non-array`, function() {
         let replay = clone(template);
-        replay[key][prop] = "test";
-        return validate.validate(replay).then(check_passed);
+        replay[player_id][prop] = "test";
+        return validate.validate(replay).then(test_succeeded);
       });
 
       it(`${prop} as an array`, function() {
         let replay = clone(template);
-        replay[key][prop] = [];
-        return validate.validate(replay).then((result) => {
-          check_failed(result);
-          expect(result.reason).to.contain('length');
-        });
+        replay[player_id][prop] = [];
+        return expect(validate.validate(replay))
+          .to.eventually.be.rejectedWith(Error, /length/);
       });
     }
   });
