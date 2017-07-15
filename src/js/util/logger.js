@@ -1,17 +1,19 @@
+/* eslint no-console:off */
 const debug = require('debug');
 //debug.useColors = () => false;
 debug.enable("*");
 
-
 const top = "tpr";
 
 // Set debug by default.
-// Prevent breaking in sandboxed pages.
+
 try {
   if (global.localStorage) {
     global.localStorage.debug = `${top}:*`;
   }
-} catch(e) { }
+} catch(e) {
+  // We continue to prevent breaking in sandboxed pages.
+}
 
 var loggers = {
   trace: console.log.bind(console),

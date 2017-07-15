@@ -151,7 +151,7 @@ function renderVideo(source) {
         //logger.trace(`Pushed frame ${index} into queue.`);
         frame_queue.add(index, data);
         // Push any available ordered frames into the encoder.
-        for (let [i, data] of frame_queue.get()) {
+        for (let [_, data] of frame_queue.get()) {
           //logger.trace(`Pushing frame ${i} into encoder.`);
           encoder.add(data.frame, data.duration);
         }

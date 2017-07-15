@@ -1,3 +1,4 @@
+/* global chrome:false */
 const loadImage = require('image-promise');
 require('chrome-storage-promise');
 
@@ -29,7 +30,6 @@ const texture_names = [
  * Each should be a data URI.
  */
 exports.set = function (new_textures) {
-  var result = {};
   return chrome.storage.promise.local.get("textures").then((items) => {
     var textures = items.textures;
     if (textures) {

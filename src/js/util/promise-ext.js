@@ -1,5 +1,3 @@
-const logger = require('util/logger')('promise-ext');
-
 /**
  * Promise extensions.
  */
@@ -15,11 +13,9 @@ exports.map = (iterator, mapper, options = {}) => {
   let pending = 0;
   let index = 0;
   let results = [];
-  let fulfilled = false;
 
   return new Promise((resolve, reject) => {
     function fulfill(fn, value) {
-      fulfilled = true;
       fn(value);
     }
 

@@ -74,29 +74,6 @@ function mapEntriesAsPromise(entry, mapFn) {
   });
 }
 
-function errorHandler(err) {
-  var msg = 'An error occured: ';
-  switch (err.code) {
-    case FileError.NOT_FOUND_ERR:
-      msg += 'File or directory not found';
-      break;
-    case FileError.NOT_READABLE_ERR:
-      msg += 'File or directory not readable';
-      break;
-    case FileError.PATH_EXISTS_ERR:
-      msg += 'File or directory already exists';
-      break;
-    case FileError.TYPE_MISMATCH_ERR:
-      msg += 'Invalid filetype';
-      break;
-    default:
-      msg += 'Unknown Error';
-      break;
-  }
-  logger.error(msg);
-  throw err;
-}
-
 // External getDirectory may create the FileSystem.
 // Returned promise resolves to directory entry.
 function getDirectory(dir_name) {
@@ -107,7 +84,7 @@ function getDirectory(dir_name) {
   }).then((entry) => {
     logger.info('Directory retrieved/created.');
     return entry;
-  });//.catch(errorHandler);
+  });
 }
 
 // Get names of child entries.
@@ -128,7 +105,7 @@ function saveFile(path, data) {
     return getFileAsPromise(fs.root, path);
   }).then((entry) => {
     return writeFileAsPromise(entry, data);
-  });//.catch(errorHandler);
+  });
 }
 
 /**
@@ -139,7 +116,7 @@ function getFile(path) {
   logger.info('getFile()');
   return requestFS(default_size).then((fs) => {
     return getFileAsPromise(fs.root, path);
-  }).then(fileAsPromise);//.catch(errorHandler);
+  }).then(fileAsPromise);
 }
 
 /**

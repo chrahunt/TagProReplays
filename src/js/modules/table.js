@@ -60,9 +60,9 @@ class Table {
    */
   add_row_action(selector, callback) {
     this.$list.on('click', selector, (e) => {
-    let id = this.get_id_from_element(e.target);
-    let replay = this.collection.get(id);
-    callback(replay);
+      let id = this.get_id_from_element(e.target);
+      let replay = this.collection.get(id);
+      callback(replay);
     });
   }
 
@@ -74,7 +74,7 @@ class Table {
     for (let type in this.sort_fields) {
       if (type == 'default') continue;
       let $elt = $(`#${this.sort_fields[type].id}`);
-      $elt.click((e) => {
+      $elt.click(() => {
         let [name, dir] = this._get_sort();
         let new_dir = 'desc';
         if (name == type && dir == 'desc') {
@@ -259,10 +259,8 @@ class Table {
     let [name, dir] = this._get_sort();
     // Column headers.
     let arrow = dir == 'asc' ? '\u25B2'
-                 : '\u25BC';
-    let id = this.sort_fields[name].id;
-    let text = this.sort_fields[name].text;
-
+                             : '\u25BC';
+    // Reset headers to original value, except the one we select.
     for (let type in this.sort_fields) {
       if (type == 'default') continue;
       let field = this.sort_fields[type];
