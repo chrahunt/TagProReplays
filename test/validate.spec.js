@@ -214,5 +214,31 @@ describe('Version 1 replay validation', function() {
     return happy_path('tpr-173');
   });
 
+  it('should accept otherwise-valid replays that have leading zeros', function() {
+    return happy_path('tpr-197');
+  });
+
+  describe('should not accept replays that have a zero elsewhere in its properties for', function() {
+    let template;
+    // Set up template for negative test cases.
+    before(function() {
+      return getReplay(1, 'tpr-197').then((file) => {
+        template = JSON.parse(file);
+      });
+    });
+    // clock
+    // score
+    let only_leading_zeros = ['clock', 'score'];
+    for (let attr of only_leading_zeros) {
+      it(attr, function() {
+        let len = template.clock.length - 1;
+        let replay = clone(template);
+        replay[attr][len] = 0;
+        return expect(validate.validate(replay))
+          .to.eventually.be.rejectedWith(Error, new RegExp(attr));
+      });
+    }
+  });
+
   it('should accept replays with objects');
 });

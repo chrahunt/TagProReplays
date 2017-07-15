@@ -279,6 +279,11 @@
     },
     "playerId": {
       "type": "integer"
+    },
+    "trimmableItem": {
+      "description": "An item in an array that is usually trimmed on import but which may have leading zeros. Other validation should ensure only leading zeroes are present.",
+      "type": "integer",
+      "enum": [0]
     }
   },
   "properties": {
@@ -293,7 +298,12 @@
     "clock": {
       "type": "array",
       "description": "The time corresponding to each frame.",
-      "items": { "$ref": "#/definitions/stringTime" }
+      "items": {
+        "anyOf": [
+          { "$ref": "#/definitions/stringTime" },
+          { "$ref": "#/definitions/trimmableItem" }
+        ]
+      }
     },
     "event": {
       "description": "Special event descriptor, has name and optional data",
@@ -398,7 +408,12 @@
       "title": "Scores.",
       "description": "Holds the scores for each team at each frame of the replay.",
       "type": "array",
-      "items": { "$ref": "#/definitions/score" }
+      "items": {
+        "anyOf": [
+          { "$ref": "#/definitions/score" },
+          { "$ref": "#/definitions/trimmableItem" }
+        ]
+      }
     },
     "spawns": {
       "title": "Spawns.",

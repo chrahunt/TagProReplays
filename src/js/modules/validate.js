@@ -86,6 +86,24 @@ const semantic_validator = {
       }
     }
 
+    // Check that if there are leading zeros on the clock that they are the same
+    // for other arrays that may not have embedded zeros.
+    let only_leading_zero = ['clock', 'score'];
+    for (let key of only_leading_zero) {
+      let data_encountered = false;
+      for (let val of replay[key]) {
+        if (val !== 0) {
+          data_encountered = true;
+        } else {
+          if (data_encountered) {
+            this.errors =
+              `replay.${key} has an embedded zero, but only leading zeros are allowed`;
+            return false;
+          }
+        }
+      }
+    }
+
     return true;
   }
 };
@@ -195,7 +213,7 @@ class Validator {
             return validator.errors.then(errs => [text, errs]);
           })
           .then(([text, errs]) => {
-            let error = new Error(`Schema validation vailed: ${text}`);
+            let error = new Error(`Schema validation failed: ${text}`);
             error.name = 'SchemaValidationFailure';
             error.extended = serialize_validation_errors(replay, errs);
             throw error;
