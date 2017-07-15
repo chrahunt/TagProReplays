@@ -149,7 +149,11 @@
         },
         "x": { "type": "number" },
         "y": { "type": "number" },
-        "time": { "$ref": "#/definitions/stringTime" }
+        "time": { "$ref": "#/definitions/stringTime" },
+        "diedAt": {
+          "description": "Additional property seen on some replays, origin unknown.",
+          "type": "number"
+        }
       },
       "required": [
         "t",

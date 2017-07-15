@@ -206,5 +206,9 @@ describe('Version 1 replay validation', function() {
     return happy_path('tpr-187');
   });
 
+  it('should accept a replay with spawn.diedAt', function() {
+    return happy_path('tpr-172');
+  });
+
   it('should accept replays with objects');
 });
