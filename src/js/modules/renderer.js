@@ -11,6 +11,7 @@ require('moment-duration-format');
 const logger = require('util/logger')('renderer');
 // Polyfill for Chrome < 50
 require('util/canvas-toblob-polyfill');
+const Tiles = require('modules/tiles');
 logger.info('Loading renderer.');
 
 /*
@@ -205,8 +206,61 @@ class Renderer {
         return chat;
       }).filter(chat => chat);
     }
+
+    // Creating tiles used for map generation.
+    let decipheredData = decipherMapdata(this.replay.map);
+    this.replay.tiles = translateWallTiles(decipheredData, this.replay.wallMap);
   }
 };
+
+/**
+ * @typedef TileData
+ * @type {object}
+ * @property {string} tile - The type of tile.
+ * @property {object} coordinates - Coordinates corresponding to the
+ *   location of the tile on the tiles sprite, or an object with
+ *   properties 0, 1, 2, 3 which each hold arrays with the same
+ *   information.
+ * @property {integer} tileSize - The size of the tile to draw.
+ * @property {boolean} drawTileFirst - Whether a floor tile should be
+ *   drawn under the given tile before drawing the tile itself.
+ */
+/**
+ * [decipherMapdata description]
+ * @param {[type]} mapData [description]
+ * @return {[type]} [description]
+ */
+function decipherMapdata(mapData) {
+  let result = [];
+  return mapData.map((col, x) => {
+    return col.map((tile, y) => {
+      return Object.assign({}, Tiles.mapElements[tile]);
+    });
+  });
+}
+
+function translateWallTiles(decipheredData, wallData) {
+  function getWallId(id) {
+    return id.toString().replace('1.', '');
+  }
+  decipheredData.forEach(function(col, x) {
+    col.forEach(function(data, y) {
+      let tile = data.tile;
+      if (tile == "wall" || tile == "diagonalWall") {
+        let coordinates = Object.assign({}, data.coordinates);
+        let wallCoords = wallData[x][y];
+
+        for (let i = 0; i < 4; i++) {
+          let id = wallCoords[i];
+          let tile = Tiles.tiles[id];
+          coordinates[i] = [tile.x, tile.y];
+        }
+        data.coordinates = coordinates;
+      }
+    });
+  });
+  return decipheredData;
+}
 
 /**
  * Returns a Promise that resolves to the renderer.
@@ -518,98 +572,55 @@ function drawMap(positions) {
     return id;
   }
 
-  for (let col in positions.tiles) {
-    for (let row in positions.tiles[col]) {
+  // Don't draw floor tiles on the outside of the map.
+  function drawTile(x_0, y_0, type) {
+    if (!walls[type]) return false;
+    let [x_offset, y_offset] = walls[type];
+    let [x, y] = [x_0 + x_offset, y_0 + y_offset];
+    let x_inside = 0 <= x && x <= width;
+    let y_inside = 0 <= y && y <= height;
+    if (x_inside && positions.map[x][y_0] == '0') return false;
+    if (y_inside && positions.map[x_0][y] == '0') return false;
+    return x_inside || y_inside;
+  }
+
+  positions.tiles.forEach((col, x) => {
+    col.forEach((tile, y) => {
       // draw floor tile underneath certain tiles
       // but don't draw tile outside bounds of the map
       // also whether to draw team tiles / end zones instead of regular tile
-      if (positions.tiles[col][row].tile == 'diagonalWall') {
-        positions.tiles[col][row].drawSpecialTileFirst = drawSpecialTile(+col, +row, positions.map[col][row]);
-        positions.tiles[col][row].drawTileFirst = true;
-        if (positions.map[col][row] == '1.1') {
-          if (col != positions.map.length - 1) {
-            if (positions.map[+col + 1][row] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (row != 0) {
-            if (positions.map[col][+row - 1] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (row == 0 && col == positions.map.length - 1) {
-            positions.tiles[col][row].drawTileFirst = false;
-          }
-        } else if (positions.map[col][row] == '1.2') {
-          if (col != positions.map.length - 1) {
-            if (positions.map[+col + 1][row] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (row != positions.map[col].length - 1) {
-            if (positions.map[col][+row + 1] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (col == positions.map.length - 1 && row == positions.map[col].length - 1) {
-            positions.tiles[col][row].drawTileFirst = false;
-          }
-        } else if (positions.map[col][row] == '1.3') {
-          if (col != 0) {
-            if (positions.map[+col - 1][row] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (row != positions.map[col].length - 1) {
-            if (positions.map[col][+row + 1] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (col == 0 && row == positions.map[col].length - 1)
-            positions.tiles[col][row].drawTileFirst = false;
-        } else if (positions.map[col][row] == '1.4') {
-          if (col != 0) {
-            if (positions.map[+col - 1][row] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (row != 0) {
-            if (positions.map[col][+row - 1] == '0') {
-              positions.tiles[col][row].drawTileFirst = false;
-            }
-          }
-          if (row == 0 && col == 0) {
-            positions.tiles[col][row].drawTileFirst = false;
-          }
-        }
+      if (tile.tile == 'diagonalWall') {
+        let tileId = positions.map[x][y];
+        tile.drawSpecialTileFirst = drawSpecialTile(x, y, tileId);
+        tile.drawTileFirst = drawTile(x, y, tileId);
       }
-      if (positions.tiles[col][row].drawTileFirst && !positions.tiles[col][row].drawSpecialTileFirst) {
+      if (tile.drawTileFirst && !tile.drawSpecialTileFirst) {
         newcontext.drawImage(textures.tiles,
           13 * TILE_SIZE, 4 * TILE_SIZE,
           TILE_SIZE, TILE_SIZE,
-          col * TILE_SIZE, row * TILE_SIZE,
+          x * TILE_SIZE, y * TILE_SIZE,
           TILE_SIZE, TILE_SIZE);
       }
-      if (positions.tiles[col][row].drawSpecialTileFirst) {
+      if (tile.drawSpecialTileFirst) {
         newcontext.drawImage(textures.tiles,
-          specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.x * TILE_SIZE,
-          specialTileElements[positions.tiles[col][row].drawSpecialTileFirst].coordinates.y * TILE_SIZE,
+          specialTileElements[tile.drawSpecialTileFirst].coordinates.x * TILE_SIZE,
+          specialTileElements[tile.drawSpecialTileFirst].coordinates.y * TILE_SIZE,
           TILE_SIZE, TILE_SIZE,
-          col * TILE_SIZE, row * TILE_SIZE,
+          x * TILE_SIZE, y * TILE_SIZE,
           TILE_SIZE, TILE_SIZE);
       }
-      if (positions.tiles[col][row].tile != 'wall' & positions.tiles[col][row].tile != 'diagonalWall') {
-        let tileSize = positions.tiles[col][row].tileSize
+      if (tile.tile != 'wall' && tile.tile != 'diagonalWall') {
+        let tileSize = tile.tileSize
         newcontext.drawImage(textures.tiles,
-          positions.tiles[col][row].coordinates.x * tileSize,
-          positions.tiles[col][row].coordinates.y * tileSize,
+          tile.coordinates.x * tileSize,
+          tile.coordinates.y * tileSize,
           tileSize, tileSize,
-          col * tileSize, row * tileSize,
+          x * tileSize, y * tileSize,
           tileSize, tileSize);
       }
-      if (positions.tiles[col][row].tile == 'wall' | positions.tiles[col][row].tile == 'diagonalWall') {
-        let thisTileSize = positions.tiles[col][row].tileSize
-        for (quadrant in positions.tiles[col][row].coordinates) {
+      if (tile.tile == 'wall' || tile.tile == 'diagonalWall') {
+        let thisTileSize = tile.tileSize
+        for (let quadrant in tile.coordinates) {
           offset = {};
           if (quadrant == 0) {
             offset.x = 0;
@@ -627,46 +638,18 @@ function drawMap(positions) {
             continue;
           }
           newcontext.drawImage(textures.tiles,
-            positions.tiles[col][row].coordinates[quadrant][0] * thisTileSize * 2,
-            positions.tiles[col][row].coordinates[quadrant][1] * thisTileSize * 2,
+            tile.coordinates[quadrant][0] * thisTileSize * 2,
+            tile.coordinates[quadrant][1] * thisTileSize * 2,
             thisTileSize, thisTileSize,
-            col * thisTileSize * 2 + offset.x,
-            row * thisTileSize * 2 + offset.y,
+            x * thisTileSize * 2 + offset.x,
+            y * thisTileSize * 2 + offset.y,
             thisTileSize, thisTileSize)
         }
       }
-    }
-  }
+    });
+  });
   return newcontext.canvas.toDataURL();
 }
-
-const floor_tiles = {
-  3:    { tile: "redflag",           coordinates: { x: 14, y: 1 }, tileSize: 40, img: "tiles" },
-  3.1:  { tile: "redflagtaken",      coordinates: { x: 14, y: 2 }, tileSize: 40, img: "tiles" },
-  4:    { tile: "blueflag",          coordinates: { x: 15, y: 1 }, tileSize: 40, img: "tiles" },
-  4.1:  { tile: "blueflagtaken",     coordinates: { x: 15, y: 2 }, tileSize: 40, img: "tiles" },
-  5:    { tile: "speedpad",          coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpad", animated: true },
-  5.1:  { tile: "emptyspeedpad",     coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpad" },
-  6:    { tile: "emptypowerup",      coordinates: { x: 12, y: 8 }, tileSize: 40, img: "tiles" },
-  6.1:  { tile: "jukejuice",         coordinates: { x: 12, y: 4 }, tileSize: 40, img: "tiles" },
-  6.2:  { tile: "rollingbomb",       coordinates: { x: 12, y: 5 }, tileSize: 40, img: "tiles" },
-  6.3:  { tile: "tagpro",            coordinates: { x: 12, y: 6 }, tileSize: 40, img: "tiles" },
-  6.4:  { tile: "speed",             coordinates: { x: 12, y: 7 }, tileSize: 40, img: "tiles" },
-  9:    { tile: "gate",              coordinates: { x: 12, y: 3 }, tileSize: 40, img: "tiles" },
-  9.1:  { tile: "greengate",         coordinates: { x: 13, y: 3 }, tileSize: 40, img: "tiles" },
-  9.2:  { tile: "redgate",           coordinates: { x: 14, y: 3 }, tileSize: 40, img: "tiles" },
-  9.3:  { tile: "bluegate",          coordinates: { x: 15, y: 3 }, tileSize: 40, img: "tiles" },
-  10:   { tile: "bomb",              coordinates: { x: 12, y: 1 }, tileSize: 40, img: "tiles" },
-  10.1: { tile: "emptybomb",         coordinates: { x: 12, y: 2 }, tileSize: 40, img: "tiles" },
-  13:   { tile: "portal",            coordinates: { x:  0, y: 0 }, tileSize: 40, img: "portal", animated: true },
-  13.1: { tile: "emptyportal",       coordinates: { x:  4, y: 0 }, tileSize: 40, img: "portal" },
-  14:   { tile: "speedpadred",       coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpadred", animated: true },
-  14.1: { tile: "emptyspeedpadred",  coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpadred" },
-  15:   { tile: "speedpadblue",      coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpadblue", animated: true },
-  15.1: { tile: "emptyspeedpadblue", coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpadblue" },
-  16:   { tile: "yellowflag",        coordinates: { x: 13, y: 1 }, tileSize: 40, img: "tiles" },
-  16.1: { tile: "yellowflagtaken",   coordinates: { x: 13, y: 2 }, tileSize: 40, img: "tiles" }
-};
 
 function drawFloorTiles(positions) {
   let mod = frame % (replay_data.fps * 2 / 3);
@@ -681,7 +664,7 @@ function drawFloorTiles(positions) {
     animationTile = 3;
   }
   for (let floor_tile of positions.floorTiles) {
-    let tile_spec = floor_tiles[floor_tile.value[frame]];
+    let tile_spec = Tiles.floor_tiles[floor_tile.value[frame]];
     if (!tile_spec) {
       logger.error(`Error locating floor tile description for ${floor_tile.value[frame]}`);
       return;

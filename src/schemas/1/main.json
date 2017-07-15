@@ -209,11 +209,11 @@
         },
         "x": {
           "description": "The X position of the tile in the map array.",
-          "type": "string"
+          "type": ["number", "string"]
           },
         "y": {
           "description": "The Y position of the tile in the map array.",
-          "type": "string"
+          "type": ["number", "string"]
         }
       },
       "required": [
