@@ -3,9 +3,7 @@
  * 
  * Blob support required so this runs in karma.
  */
-const expect = require('chai').expect;
 const loadImage = require('image-promise');
-const saveAs = require('file-saver').saveAs;
 
 const logger = require('util/logger')('make-video.spec');
 const get_renderer = require('modules/renderer');
@@ -134,7 +132,7 @@ function get_file_source(path) {
 
 describe('converting WebP frames to WebM', () => {
   it('should render WebM', () => {
-    return renderVideo(frame_source(frames)).then((data, stats) => {
+    return renderVideo(frame_source(frames)).then((data, stats) => { // eslint-disable-line no-unused-vars
       // Don't do anything with output yet, need some way
       // to identify that the video was rendered correctly.
       // But not throwing is good too.
@@ -155,8 +153,9 @@ describe('converting WebP frames to WebM', () => {
           logger.info(`Progress: ${frame / frames}`);
       })
     })
-    .then(({output, stats}) => {
+    .then(({output, stats}) => { // eslint-disable-line no-unused-vars
       // If we haven't crashed then this is a success.
+      // TODO: Save and validate file externally.
     });
   });
 });

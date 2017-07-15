@@ -1,32 +1,12 @@
+/* global chrome:false */
 const $ = require('jquery');
-const loadImage = require('image-promise');
 const EventEmitter = require('events');
 const saveAs = require('file-saver').saveAs;
 
-const Cookies = require('util/cookies');
 const get_renderer = require('modules/renderer');
 const logger = require('util/logger')('previewer');
-const Replays = require('modules/replay-collection');
 const Textures = require('modules/textures');
 const track = require('util/track');
-
-// Retrieve replay from background page.
-function get_replay(id) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({
-      method: 'replay.get',
-      id: id
-    }, (result) => {
-      if (result.failed) {
-        reject('Replay not retrieved, error: ' + result.reason);
-      } else if (chrome.runtime.lastError) {
-        reject(`Chrome error: ${chrome.runtime.lastError.message}`);
-      } else {
-        resolve(result.data);
-      }
-    });
-  });
-}
 
 /**
  * Random access Media of a known length
@@ -38,6 +18,10 @@ function get_replay(id) {
  * - load
  */
 class Media extends EventEmitter {
+  /**
+   * @param {Replay} replay
+   * @param {Canvas} canvas
+   */
   constructor(replay, canvas) {
     super();
     this.playing = false;
@@ -54,6 +38,10 @@ class Media extends EventEmitter {
     this.load(replay);
   }
 
+  /**
+   * @private
+   * @param {Replay} replay
+   */
   load(replay) {
     logger.debug('Media#load()');
     this.replay = replay;
@@ -202,11 +190,11 @@ class little_progress extends EventEmitter {
     });
 
     let unhovered_timer;
-    $(this.spec.container).hover((e) => {
+    $(this.spec.container).hover(() => {
       this.hovered = true;
       this._update();
       if (unhovered_timer) clearTimeout(unhovered_timer);
-    }, (e) => {
+    }, () => {
       // Delay so state doesn't change immediately.
       let update_delay = 300;
       unhovered_timer = setTimeout(() => {
@@ -216,14 +204,14 @@ class little_progress extends EventEmitter {
       }, update_delay);
     });
 
-    $(this.spec.crop_start_dismiss).click((e) => {
+    $(this.spec.crop_start_dismiss).click(() => {
       logger.debug('Crop start dismiss clicked');
       this.clip_start(0);
       this.emit('clip_start_remove');
       return false;
     });
 
-    $(this.spec.crop_end_dismiss).click((e) => {
+    $(this.spec.crop_end_dismiss).click(() => {
       logger.debug('Crop end dismiss clicked');
       this.clip_end(1);
       this.emit('clip_end_remove');

@@ -1,3 +1,4 @@
+/* global $:false, tagpro:false */
 /**
  * Record and save the state of the game, emitting an event to the
  * window with the replay data.
@@ -14,10 +15,6 @@
  * script <-- replay.saved --  content script
  * {failed} - the result of the operation.
  */
-
-// $ is implicit, we get injected into the page where it is available.
-const saveAs = require('file-saver').saveAs;
-
 const logger = require('util/logger')('recording');
 const Cookies = require('util/cookies');
 
@@ -274,14 +271,14 @@ function listen(event, listener) {
 listen('replay.saved', function (result) {
   logger.info('Replay save confirmed.');
   if (result.failed) {
-    $('savedFeedback').addClass('failed');
-    $('savedFeedback').text('Failed!');
+    $('#savedFeedback').addClass('failed');
+    $('#savedFeedback').text('Failed!');
   } else {
-    $('savedFeedback').removeClass('failed');
-    $('savedFeedback').text('Saved!');
+    $('#savedFeedback').removeClass('failed');
+    $('#savedFeedback').text('Saved!');
   }
-  $(savedFeedback).fadeIn(300);
-  $(savedFeedback).fadeOut(900);
+  $('#savedFeedback').fadeIn(300);
+  $('#savedFeedback').fadeOut(900);
 });
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.

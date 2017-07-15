@@ -457,10 +457,11 @@ function parseVP8(chunk) {
   // 3 byte frame tag
   let tmp = getUint24le(view, offset);
   offset += 3;
-  let key_frame       =  tmp       & 0x1;
-  let version         = (tmp >> 1) & 0x7;
-  let show_frame      = (tmp >> 4) & 0x1;
-  let first_part_size = (tmp >> 5) & 0x7FFFF;
+  // We keep these unused items around for future reference.
+  let key_frame       =  tmp       & 0x1; // eslint-disable-line no-unused-vars
+  let version         = (tmp >> 1) & 0x7; // eslint-disable-line no-unused-vars
+  let show_frame      = (tmp >> 4) & 0x1; // eslint-disable-line no-unused-vars
+  let first_part_size = (tmp >> 5) & 0x7FFFF; // eslint-disable-line no-unused-vars
   //parseAssert(`VP8 chunk must be a key frame`, key_frame);
   // 3 byte start code
   let start_code = getUint24(view, offset);
@@ -469,11 +470,11 @@ function parseVP8(chunk) {
   let horizontal_size_code = view.getUint16(offset, true);
   offset += 2;
   let width = horizontal_size_code & 0x3FFF;
-  let horizontal_scale = horizontal_size_code >> 14;
+  let horizontal_scale = horizontal_size_code >> 14; // eslint-disable-line no-unused-vars
   let vertical_size_code = view.getUint16(offset, true);
   offset += 2;
   let height = vertical_size_code & 0x3FFF;
-  let vertical_scale = vertical_size_code >> 14;
+  let vertical_scale = vertical_size_code >> 14; // eslint-disable-line no-unused-vars
   return {
     width: width,
     height: height,
@@ -486,12 +487,11 @@ function parseVP8(chunk) {
  * @param {Object} riff
  * @returns {Object}
  */
-function parseWebP(blob, id) {
+function parseWebP(blob) {
   return Promise.resolve(blob).then(function(blob) {
     // @optimization: don't read whole blob at once.
     let res = new Response(blob);
     return res.arrayBuffer().then((buffer) => {
-      //logger.debug(`Got arraybuffer for ${id}`);
       let view = new DataView(buffer);
       let offset = 0;
       let label = readFourCC(view, offset);
@@ -501,7 +501,6 @@ function parseWebP(blob, id) {
       offset += 4;
       label = readFourCC(view, 8);
       // Bytes read out of `size`.
-      let read = 4;
       offset += 4;
       parseAssert(`${label} must equal WEBP`, label === 'WEBP');
       // @optimization: stop reading chunks when we find VP8.
@@ -520,22 +519,15 @@ function parseWebP(blob, id) {
   });
 }
 
-function showperf() {
-  let m = window.performance.memory;
-  logger.debug(`total: ${m.totalJSHeapSize}, used: ${m.usedJSHeapSize}, max: ${m.jsHeapSizeLimit}`);
-}
 /**
  * Convert frames.
  * @param {} frames
  * @returns {}
  */
 function getFramesPromises(frames) {
-  return map(frames[Symbol.iterator](), (frame, i) => {
-    //logger.debug(`Parsing ${i}`);
-    return parseWebP(frame.imageBlob, i)
+  return map(frames[Symbol.iterator](), (frame) => {
+    return parseWebP(frame.imageBlob)
     .then((webp) => {
-      //logger.debug(`Parsed ${i}`);
-      //showperf();
       webp.duration = frame.duration;
       return webp;
     });

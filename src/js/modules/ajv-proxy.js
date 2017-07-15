@@ -10,7 +10,6 @@
  */
 const Ajv = require('ajv');
 
-const logger = require('util/logger')('ajv-proxy');
 const {Sandbox} = require('util/messaging');
 
 // Whether we're on a page that disallows 'unsafe-eval'
@@ -65,7 +64,7 @@ if (isRestricted()) {
         args: [this.ajv, 'errors']
       });
     }
-  };
+  }
   /**
    * @returns {Promise<Proxy>}
    */
