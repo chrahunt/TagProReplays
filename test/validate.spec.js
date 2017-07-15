@@ -198,5 +198,9 @@ describe('Version 1 replay validation', function() {
     }
   });
 
+  it('should accept a replay with up to three values in gameEndsAt', function() {
+    return happy_path('tpr-191');
+  });
+
   it('should accept replays with objects');
 });

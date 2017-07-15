@@ -210,6 +210,22 @@ class Renderer {
     // Creating tiles used for map generation.
     let decipheredData = decipherMapdata(this.replay.map);
     this.replay.tiles = translateWallTiles(decipheredData, this.replay.wallMap);
+
+    // Normalize gameEndsAt to handle:
+    // - old version of recording script that only retrieved initial value
+    // - replay recording starting too early and picking up an initial 
+    //   zero value.
+    // If the recording script started too early, gameEndsAt may have
+    // an initial value of 0, which is not correct.
+    if (!Array.isArray(this.replay.gameEndsAt)) {
+      this.replay.gameEndsAt = [Date.parse(this.replay.gameEndsAt)];
+    } else if (this.replay.gameEndsAt[0] === 0) {
+      // Remove bad value.
+      this.replay.gameEndsAt.shift();
+      // Reformat actual starting value.
+      let start = this.replay.gameEndsAt[0];
+      this.replay.gameEndsAt[0] = Date.parse(start.startTime) + start.time;
+    }
   }
 }
 
@@ -420,9 +436,7 @@ function drawClock(positions) {
   // End of current game state interval.
   let end_time, start_time;
   let default_duration = 720000;
-  if (!Array.isArray(positions.gameEndsAt)) {
-    end_time = moment(positions.gameEndsAt, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
-  } else if (positions.gameEndsAt.length == 1) {
+  if (positions.gameEndsAt.length == 1) {
     end_time = moment(positions.gameEndsAt[0], 'x');
   } else if (positions.gameEndsAt.length == 2) {
     end_time = moment(positions.gameEndsAt[1].startTime, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
@@ -432,7 +446,7 @@ function drawClock(positions) {
     } 
   }
   if (!end_time) {
-    logger.warning('Error parsing game time.');
+    logger.warn('Error parsing game time.');
     return;
   }
   // Default start time.

@@ -335,12 +335,16 @@
               "$ref": "#/definitions/epochTime"
             },
             {
-              "description": "The time message sent when the game starts.",
+              "description": "The time message sent when the game starts, or the initial time message, depending on when recording started.",
+              "$ref": "#/definitions/time"
+            },
+            {
+              "description": "The time message send when the game starts, if we got another time messages.",
               "$ref": "#/definitions/time"
             }
           ],
           "minItems": 1,
-          "maxItems": 2
+          "maxItems": 3
         },
         {
           "type": "integer",
