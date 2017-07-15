@@ -113,6 +113,10 @@
         }
       }]
     },
+    "popAnimation": {
+      "description": "Property seen on replays processed/saved with old version of renderer.",
+      "type": "object"
+    },
     "tagpro": {
       "type": "array",
       "items": {

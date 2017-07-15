@@ -210,5 +210,9 @@ describe('Version 1 replay validation', function() {
     return happy_path('tpr-172');
   });
 
+  it('should accept a replay with a player that has popAnimation', function() {
+    return happy_path('tpr-173');
+  });
+
   it('should accept replays with objects');
 });
