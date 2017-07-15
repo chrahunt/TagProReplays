@@ -689,7 +689,6 @@ function cropReplayData(replay, start, end) {
     score:      cropFrameArray(replay.score),
     spawns:     cropSpawns(replay.spawns),
     splats:     cropSplats(replay.splats),
-    tiles:      replay.tiles,
     wallMap:    replay.wallMap
   };
   // Add players.
