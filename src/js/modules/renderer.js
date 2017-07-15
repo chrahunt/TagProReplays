@@ -210,6 +210,30 @@ class Renderer {
     // Creating tiles used for map generation.
     let decipheredData = decipherMapdata(this.replay.map);
     this.replay.tiles = translateWallTiles(decipheredData, this.replay.wallMap);
+
+    // Normalize gameEndsAt to handle:
+    // - old version of recording script that only retrieved initial value
+    // - replay recording starting too early and picking up an initial 
+    //   zero value.
+    if (!Array.isArray(this.replay.gameEndsAt)) {
+      this.replay.gameEndsAt = [Date.parse(this.replay.gameEndsAt)];
+    } else if (this.replay.gameEndsAt[0] === 0) {
+      // Remove bad value.
+      this.replay.gameEndsAt.shift();
+      // Reformat actual starting value.
+      let start = this.replay.gameEndsAt[0];
+      this.replay.gameEndsAt[0] = Date.parse(start.startTime) + start.time;
+    }
+
+    // Ensure the value of each flair coordinate is a number.
+    replay_data.players
+    .map(id => this.replay[id].flair)
+    .forEach((flair) => {
+      flair.forEach((v) => {
+        if (!v) return;
+        Object.assign(v, { x: Number(v.x), y: Number(v.y) });
+      });
+    });
   }
 }
 
@@ -420,9 +444,7 @@ function drawClock(positions) {
   // End of current game state interval.
   let end_time, start_time;
   let default_duration = 720000;
-  if (!Array.isArray(positions.gameEndsAt)) {
-    end_time = moment(positions.gameEndsAt, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
-  } else if (positions.gameEndsAt.length == 1) {
+  if (positions.gameEndsAt.length == 1) {
     end_time = moment(positions.gameEndsAt[0], 'x');
   } else if (positions.gameEndsAt.length == 2) {
     end_time = moment(positions.gameEndsAt[1].startTime, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
@@ -432,7 +454,7 @@ function drawClock(positions) {
     } 
   }
   if (!end_time) {
-    logger.warning('Error parsing game time.');
+    logger.warn('Error parsing game time.');
     return;
   }
   // Default start time.
@@ -959,9 +981,7 @@ function drawBalls(positions) {
                                             : player.name;
       drawName(name, player.auth[frame], x, y);
       drawDegree(player.degree[frame], x, y);
-      if ('flair' in player) {
-        drawFlair(player.flair[frame], x, y);
-      }
+      drawFlair(player.flair[frame], x, y);
     }
     ballPop(positions, id);
     rollingBombPop(positions, id);

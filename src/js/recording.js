@@ -322,7 +322,7 @@ function recordButton() {
 if (Cookies.read('tpr_record') != 'false') {
   tagpro.ready(() => {
     var startInterval = setInterval(() => {
-      if (tagpro.map && tagpro.wallMap) {
+      if (tagpro.map && tagpro.wallMap && tagpro.gameEndsAt !== 0) {
         clearInterval(startInterval);
         positions = {};
         recordButton();

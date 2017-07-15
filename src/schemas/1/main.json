@@ -149,7 +149,11 @@
         },
         "x": { "type": "number" },
         "y": { "type": "number" },
-        "time": { "$ref": "#/definitions/stringTime" }
+        "time": { "$ref": "#/definitions/stringTime" },
+        "diedAt": {
+          "description": "Additional property seen on some replays, origin unknown.",
+          "type": "number"
+        }
       },
       "required": [
         "t",
@@ -275,6 +279,11 @@
     },
     "playerId": {
       "type": "integer"
+    },
+    "trimmableItem": {
+      "description": "An item in an array that is usually trimmed on import but which may have leading zeros. Other validation should ensure only leading zeroes are present.",
+      "type": "integer",
+      "enum": [0]
     }
   },
   "properties": {
@@ -289,7 +298,12 @@
     "clock": {
       "type": "array",
       "description": "The time corresponding to each frame.",
-      "items": { "$ref": "#/definitions/stringTime" }
+      "items": {
+        "anyOf": [
+          { "$ref": "#/definitions/stringTime" },
+          { "$ref": "#/definitions/trimmableItem" }
+        ]
+      }
     },
     "event": {
       "description": "Special event descriptor, has name and optional data",
@@ -335,12 +349,16 @@
               "$ref": "#/definitions/epochTime"
             },
             {
-              "description": "The time message sent when the game starts.",
+              "description": "The time message sent when the game starts, or the initial time message, depending on when recording started.",
+              "$ref": "#/definitions/time"
+            },
+            {
+              "description": "The time message send when the game starts, if we got another time messages.",
               "$ref": "#/definitions/time"
             }
           ],
           "minItems": 1,
-          "maxItems": 2
+          "maxItems": 3
         },
         {
           "type": "integer",
@@ -390,7 +408,12 @@
       "title": "Scores.",
       "description": "Holds the scores for each team at each frame of the replay.",
       "type": "array",
-      "items": { "$ref": "#/definitions/score" }
+      "items": {
+        "anyOf": [
+          { "$ref": "#/definitions/score" },
+          { "$ref": "#/definitions/trimmableItem" }
+        ]
+      }
     },
     "spawns": {
       "title": "Spawns.",

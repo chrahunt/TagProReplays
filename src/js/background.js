@@ -850,6 +850,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     .then((data) => {
       return validate(data)
+      // We trim the replay here in case it's an upload of a replay that
+      // previously failed to save.
+      .then(({replay}) => trimReplay(replay))
       .catch((err) => {
         let error = new Error(`Validation error: ${err.message}`);
         error.name = 'ValidationError';
@@ -857,7 +860,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         throw error;
       });
     })
-    .then(({replay}) => save_replay(name, replay))
+    .then(replay => save_replay(name, replay))
     .then((replay_info) => {
       chrome.tabs.sendMessage(tab, {
         method: 'replay.added',
@@ -897,9 +900,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     let event_name = null;
     Promise.resolve(data)
     .then(JSON.parse)
-    .then(trimReplay)
+    // Validate replay first, to avoid hiding any possible errors.
     .then(validate)
-    .then(({replay}) => {
+    .then(({replay}) => trimReplay(replay))
+    .then((replay) => {
       event_name = replay.event && replay.event.name;
       return save_replay(name, replay);
     })
