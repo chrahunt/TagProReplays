@@ -1,3 +1,4 @@
+/* global chrome:false */
 const JSZip = require('jszip');
 const sanitize = require('sanitize-filename');
 const saveAs = require('file-saver').saveAs;
@@ -407,11 +408,6 @@ function delete_replays(ids) {
   });
 }
 
-function each_replay(iteratee) {
-  return Data.db.table('positions').each(
-    (item, cursor) => iteratee(cursor.key, item));
-}
-
 /**
  * Saves replay in IndexedDB, returns promise that resolves to id.
  * @param {string} id
@@ -467,7 +463,6 @@ function download_replays(ids) {
   let size = 0;
   //  100 MB
   let max_size = 200 * 1024 * 1024;
-  let batch_size = 5;
 
   return new Progress((resolve, reject, progress) => {
     function send_start_zip_update() {
@@ -544,8 +539,8 @@ function cropReplayData(replay, start, end) {
   if (start === 0 && end === length)
     return replay;
   
-  let start_time = Date.parse(replay.clock[start]),
-      end_time   = Date.parse(replay.clock[end]);
+  let start_time = Date.parse(replay.clock[start]);
+  let end_time = Date.parse(replay.clock[end]);
 
   function cropFrameArray(ary) {
     return ary.slice(start, end + 1);
@@ -722,19 +717,6 @@ function trimReplay(replay) {
   return cropReplayData(replay, data_start, data_end);
 }
 
-// this takes a positions file and returns the duration in seconds of that replay
-function getDuration(positions) {
-  for (var iii in positions) {
-    if (iii.search("player") === 0) {
-      var player = positions[iii];
-      break;
-    }
-  }
-  if (typeof player === 'undefined') return (0)
-  var duration = Math.round(player.x.length / player.fps);
-  return (duration);
-}
-
 // Generate a new replay name.
 // Current default is: {count:0>4}_replay_{timestamp}
 function get_new_replay_name() {
@@ -752,7 +734,6 @@ function get_new_replay_name() {
 }
 
 // Request/response listeners.
-var title;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let method = message.method;
   //message = message.data;
@@ -858,11 +839,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Get file name from filename or create.
     name = name.replace(/\.txt$/, '');
     if (!name.includes('DATE') && !name.startsWith('replays')) {
-        name += 'DATE' + Date.now();
+      name += 'DATE' + Date.now();
     }
     Promise.resolve(data)
     .then(JSON.parse)
-    .catch((err) => {
+    .catch(() => {
       let error = new Error('Replay is not valid JSON');
       error.name = 'ValidationError';
       throw error;
@@ -890,7 +871,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     })
     .catch((err) => {
-      console.error(`Error importing replay: ${err}`);
+      logger.error(`Error importing replay: ${err}`);
       track('Imported Replay', {
         Failed: true,
         Reason: err.message,
@@ -922,7 +903,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       event_name = replay.event && replay.event.name;
       return save_replay(name, replay);
     })
-    .then((id) => {
+    .then(() => {
       // We intentionally break the promise chain here, if this
       // fails we don't care.
       get_replay_count().then((n) => {

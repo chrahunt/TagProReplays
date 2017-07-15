@@ -1,3 +1,4 @@
+/* global chrome:false */
 const logger = require('util/logger')('messaging');
 
 /**
@@ -90,7 +91,9 @@ class Sandbox {
 exports.Sandbox = Sandbox;
 
 let setPortListener = () => {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
+    // onmessage isn't recognized in env: browser for some reason
+    // eslint-disable-next-line no-undef
     onmessage = (e) => {
       logger.debug('Received window message.');
       let port = e.ports[0];
@@ -121,7 +124,7 @@ exports.registerSandbox = (callback) => {
         });
       })
       .catch((err) => {
-        console.debug(`Propagating error from sandbox: ${err}`);
+        logger.debug(`Propagating error from sandbox: ${err}`);
         port.postMessage({
           callback_ref: callback_ref,
           failed: true,

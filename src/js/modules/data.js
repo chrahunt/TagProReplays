@@ -91,7 +91,6 @@ function batch_process(collection, batch_size, iteratee) {
       // e.g. if everything of the transactions are synchronous.
       check();
     }).then(p).catch(reject);
-    return p;
 
     function check() {
       // check looped to ensure that the table looping

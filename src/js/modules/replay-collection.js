@@ -1,3 +1,4 @@
+/* global chrome:false */
 const EventEmitter = require('events');
 
 const {Progress} = require('util/promise-ext');

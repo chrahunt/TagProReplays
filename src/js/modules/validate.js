@@ -1,3 +1,4 @@
+/* global chrome:false */
 const pointer = require('json-pointer');
 
 const get_ajv = require('modules/ajv-proxy');
@@ -163,7 +164,7 @@ function serialize_validation_errors(obj, errors) {
 }
 
 class Validator {
-  constructor(schemas) {
+  constructor() {
     this.validators = {};
   }
 
@@ -181,7 +182,7 @@ class Validator {
     let version = getReplayVersion(replay);
     if (!version) {
       let error = new Error('No version found on replay.');
-      err.name = 'MissingVersion';
+      error.name = 'MissingVersion';
       return Promise.reject(error);
     }
 
@@ -233,6 +234,7 @@ class Validator {
       return this.validate(replay);
     });
   }
-};
+}
+
 let validator = new Validator();
 exports.validate = validator.validate.bind(validator);

@@ -1,8 +1,6 @@
 const EventEmitter = require('events');
 const ProgressBar = require('progressbar.js');
 
-const logger = require('util/logger')('activity');
-
 /**
  * Activity dialog.
  * 
@@ -35,7 +33,7 @@ class ActivityDialog extends EventEmitter {
       show: false
     });
 
-    this.$el.on('hidden.bs.modal', (e) => {
+    this.$el.on('hidden.bs.modal', () => {
       this.emit('closed');
     });
 

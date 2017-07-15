@@ -1,0 +1,25 @@
+{
+    "env": {
+        "browser": true,
+        "commonjs": true,
+        "es6": true,
+        "node": false
+    },
+    "parserOptions": {
+        "ecmaFeatures": {
+            "jsx": false
+        },
+        "sourceType": "module"
+    },
+    "extends": "eslint:recommended",
+    "rules": {
+        "indent": ["error", 2],
+        "no-const-assign": "warn",
+        "no-this-before-super": "warn",
+        "no-undef": "error",
+        "no-unreachable": "warn",
+        "no-unused-vars": ["warn", { "varsIgnorePattern": "^_$" }],
+        "constructor-super": "warn",
+        "valid-typeof": "warn"
+    }
+}

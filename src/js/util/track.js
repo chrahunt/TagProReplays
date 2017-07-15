@@ -1,3 +1,4 @@
+/* global chrome:false */
 /**
  * Contains the in-app tracking/metrics functions that send info
  * out to Mixpanel. When called from a content script the actual
@@ -45,6 +46,13 @@ function isDevMode() {
   return !('update_url' in chrome.runtime.getManifest());
 }
 
+function track(event_name, properties = {}) {
+  logger.debug(`Received tracking event: ${event_name}`);
+  return new Promise((resolve) => {
+    mixpanel.track(event_name, properties, resolve);
+  });
+}
+
 if (isBackground()) {
   // Developer property to segment out test/unpacked extension usage.
   let mode = isDevMode() ? 'dev'
@@ -59,12 +67,6 @@ if (isBackground()) {
     'Version': getExtensionVersion()
   });
 
-  function track(event_name, properties = {}) {
-    logger.debug(`Received tracking event: ${event_name}`);
-    return new Promise((resolve, reject) => {
-      mixpanel.track(event_name, properties, resolve);
-    });
-  }
   module.exports = track;
   // Set up listener for content script.
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

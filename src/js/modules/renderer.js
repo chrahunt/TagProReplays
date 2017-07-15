@@ -211,7 +211,7 @@ class Renderer {
     let decipheredData = decipherMapdata(this.replay.map);
     this.replay.tiles = translateWallTiles(decipheredData, this.replay.wallMap);
   }
-};
+}
 
 /**
  * @typedef TileData
@@ -231,18 +231,14 @@ class Renderer {
  * @return {[type]} [description]
  */
 function decipherMapdata(mapData) {
-  let result = [];
-  return mapData.map((col, x) => {
-    return col.map((tile, y) => {
+  return mapData.map((col) => {
+    return col.map((tile) => {
       return Object.assign({}, Tiles.mapElements[tile]);
     });
   });
 }
 
 function translateWallTiles(decipheredData, wallData) {
-  function getWallId(id) {
-    return id.toString().replace('1.', '');
-  }
   decipheredData.forEach(function(col, x) {
     col.forEach(function(data, y) {
       let tile = data.tile;
@@ -483,9 +479,9 @@ function drawScoreFlag(positions) {
           flagCoords = { x: 15, y: 1 };
         }
         if (typeof flagCoords != 'undefined') {
-          flagTeam = typeof positions[j].team.length === 'undefined' ? positions[j].team
+          let flagTeam = typeof positions[j].team.length === 'undefined' ? positions[j].team
                                                                      : positions[j].team[frame];
-          flagPos = {
+          let flagPos = {
             x: context.canvas.width / 2 + (flagTeam == 1 ? -100 : 80),
             y: context.canvas.height - 50
           };
@@ -536,7 +532,7 @@ function drawMap(positions) {
   newcan.style.position = 'absolute';
   newcan.style.top = 0;
   newcan.style.left = 0;
-  newcontext = newcan.getContext('2d');
+  let newcontext = newcan.getContext('2d');
 
   var specialTiles = ['11', '12', '17', '18'];
   var specialTileElements = {
@@ -621,7 +617,7 @@ function drawMap(positions) {
       if (tile.tile == 'wall' || tile.tile == 'diagonalWall') {
         let thisTileSize = tile.tileSize
         for (let quadrant in tile.coordinates) {
-          offset = {};
+          let offset = {};
           if (quadrant == 0) {
             offset.x = 0;
             offset.y = 0;
@@ -654,6 +650,7 @@ function drawMap(positions) {
 function drawFloorTiles(positions) {
   let mod = frame % (replay_data.fps * 2 / 3);
   let fourth = (replay_data.fps * 2 / 3) / 4;
+  let animationTile;
   if (mod < fourth) {
     animationTile = 0;
   } else if (mod < fourth * 2) {
@@ -723,8 +720,8 @@ function ballCollision(positions, ball) {
   for (let key in positions) {
     if (key.startsWith('player') && key != ball) {
       let other_ball = positions[key];
-      if ((Math.abs(other_ball.x[frame - 1] - this_ball.x[frame - 1]) < 45 &&
-           Math.abs(other_ball.y[frame - 1] - this_ball.y[frame - 1]) < 45) ||
+      if ((Math.abs(other_ball.x[last_frame] - this_ball.x[last_frame]) < 45 &&
+           Math.abs(other_ball.y[last_frame] - this_ball.y[last_frame]) < 45) ||
           (Math.abs(other_ball.x[frame]     - this_ball.x[frame]) < 45 &&
            Math.abs(other_ball.y[frame]     - this_ball.y[frame]) < 45)) {
         return true;
@@ -780,8 +777,8 @@ function ballPop(positions, ball) {
   // if an animation should be in progress, draw it
   if (typeof positions[ball].popAnimation != 'undefined') {
     positions[ball].popAnimation.frame++
-    popSize = 40 + (80 * (positions[ball].popAnimation.frame / positions[ball].popAnimation.length))
-    popOpacity = 1 - positions[ball].popAnimation.frame / positions[ball].popAnimation.length
+    let popSize = 40 + (80 * (positions[ball].popAnimation.frame / positions[ball].popAnimation.length))
+    let popOpacity = 1 - positions[ball].popAnimation.frame / positions[ball].popAnimation.length
 
     context.globalAlpha = popOpacity
     context.drawImage(textures.tiles,
@@ -870,21 +867,21 @@ function drawEndText(positions) {
     var endColor, endText;
     if (endTime <= thisTime) {
       switch (positions.end.winner) {
-        case 'red':
-          endColor = "#ff0000";
-          endText = "Red Wins!";
-          break;
-        case 'blue':
-          endColor = "#0000ff";
-          endText = "Blue Wins!";
-          break;
-        case 'tie':
-          endColor = "#ffffff";
-          endText = "It's a Tie!";
-          break;
-        default:
-          endColor = "#ffffff";
-          endText = positions.end.winner;
+      case 'red':
+        endColor = "#ff0000";
+        endText = "Red Wins!";
+        break;
+      case 'blue':
+        endColor = "#0000ff";
+        endText = "Blue Wins!";
+        break;
+      case 'tie':
+        endColor = "#ffffff";
+        endText = "It's a Tie!";
+        break;
+      default:
+        endColor = "#ffffff";
+        endText = positions.end.winner;
       }
       context.save();
       context.textAlign = "center";
@@ -904,7 +901,7 @@ function worldToScreen(x, y) {
     x: x + render_state.world_offset.x,
     y: y + render_state.world_offset.y
   };
-};
+}
 
 // Update frame-specific offset for mapping world to screen coordinates.
 function updateOffset(positions) {
@@ -914,8 +911,8 @@ function updateOffset(positions) {
   let center_y = context.canvas.height / 2;
   let player_screen_x = center_x - TILE_SIZE / 2;
   let player_screen_y = center_y - TILE_SIZE / 2;
-  let player_world_x = positions[me].x[frame];
-  let player_world_y = positions[me].y[frame];
+  let player_world_x = player.x[frame];
+  let player_world_y = player.y[frame];
   return {
     x: -player_world_x + player_screen_x,
     y: -player_world_y + player_screen_y
@@ -1027,7 +1024,6 @@ function doEvent(positions) {
 function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
   frame = frame_n;
   render_state.world_offset = updateOffset(positions);
-  let me = replay_data.me;
 
   context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   // Fix for Whammy not handling transparency nicely. See #81.
