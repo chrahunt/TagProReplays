@@ -202,5 +202,9 @@ describe('Version 1 replay validation', function() {
     return happy_path('tpr-191');
   });
 
+  it('should accept a replay with flairs that have text coordinates', function() {
+    return happy_path('tpr-187');
+  });
+
   it('should accept replays with objects');
 });

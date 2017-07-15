@@ -215,8 +215,6 @@ class Renderer {
     // - old version of recording script that only retrieved initial value
     // - replay recording starting too early and picking up an initial 
     //   zero value.
-    // If the recording script started too early, gameEndsAt may have
-    // an initial value of 0, which is not correct.
     if (!Array.isArray(this.replay.gameEndsAt)) {
       this.replay.gameEndsAt = [Date.parse(this.replay.gameEndsAt)];
     } else if (this.replay.gameEndsAt[0] === 0) {
@@ -226,6 +224,16 @@ class Renderer {
       let start = this.replay.gameEndsAt[0];
       this.replay.gameEndsAt[0] = Date.parse(start.startTime) + start.time;
     }
+
+    // Ensure the value of each flair coordinate is a number.
+    replay_data.players
+    .map(id => this.replay[id].flair)
+    .forEach((flair) => {
+      flair.forEach((v) => {
+        if (!v) return;
+        Object.assign(v, { x: Number(v.x), y: Number(v.y) });
+      });
+    });
   }
 }
 
@@ -973,9 +981,7 @@ function drawBalls(positions) {
                                             : player.name;
       drawName(name, player.auth[frame], x, y);
       drawDegree(player.degree[frame], x, y);
-      if ('flair' in player) {
-        drawFlair(player.flair[frame], x, y);
-      }
+      drawFlair(player.flair[frame], x, y);
     }
     ballPop(positions, id);
     rollingBombPop(positions, id);

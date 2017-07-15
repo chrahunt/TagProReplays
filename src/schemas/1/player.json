@@ -4,14 +4,15 @@
   "definitions": {
     "flair": {
       "type": "object",
+      "description": "Describes the flair a player is showing.",
       "properties": {
         "x": {
-          "description": "The x position of the flair on the flair sprite.",
-          "type": "integer"
+          "description": "The x position of the flair on the flair sprite. Type may change but will be convertible to int.",
+          "type": ["integer", "string"]
         },
         "y": {
-          "description": "The y position of the flair on the flair sprite.",
-          "type": "integer"
+          "description": "The y position of the flair on the flair sprite. Type may change but will be convertible to int.",
+          "type": ["integer", "string"]
         },
         "description": {
           "type": "string"
