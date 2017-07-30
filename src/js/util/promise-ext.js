@@ -2,21 +2,43 @@
  * Promise extensions.
  */
 /**
- * Rewrite of bluebird Promise.map except:
- * - doesn't take input promises
- * - in-order execution of input is guaranteed
- * - input iterator is not flushed initially.
+ * @typedef {Object} StreamOptions
+ * @property {number} concurrency the maximum number of concurrent
+ *   operations
  */
-exports.map = (iterator, mapper, options = {}) => {
+/**
+ * @callback StreamCallback
+ * @param {T} result the resolved value
+ */
+/**
+ * Takes source of promises (prefer generator) and outputs the results
+ * in order to `output`.
+ * @param {Iterable<Promise<T>>} iterator
+ * @param {StreamCallback} output
+ * @param {StreamOptions} options
+ * @returns {Promise<>} resolves when all promises are resolved or
+ *   rejects on first failure
+ */
+exports.toStream = function(iterator, output, options) {
   options = Object.assign({ concurrency: Infinity }, options);
   let limit = options.concurrency;
   let pending = 0;
   let index = 0;
-  let results = [];
+  let buffer = new Map();
+  let last_pushed = -1;
 
+  let fulfilled = false;
   return new Promise((resolve, reject) => {
     function fulfill(fn, value) {
+      fulfilled = true;
       fn(value);
+    }
+
+    function error(err) {
+      // Don't hang on to references in case we have some hanging
+      // promises
+      buffer = null;
+      fulfill(reject, err);
     }
 
     function update() {
@@ -24,28 +46,35 @@ exports.map = (iterator, mapper, options = {}) => {
         let {value, done} = iterator.next();
         if (done) break;
         pending++;
-        Promise.resolve(mapper(value, index++))
-        .then(finished)
+        let i = index++;
+        Promise.resolve(value)
+        .then(result => finished(result, i))
         .catch(error);
       }
     }
 
-    function error(err) {
+    function finished(result, i) {
+      if (fulfilled) return;
+      buffer.set(i, result);
       pending--;
-      fulfill(reject, err);
+      // Start waiting on async operations ASAP, the the act of pulling
+      // them from the iterator should start them
+      update();
+      // last_push is the index of the most recent item pushed to the
+      // output, or -1.
+      for (var index = i;
+           index == last_pushed + 1 && buffer.has(index);
+           last_pushed = index++) {
+        output(buffer.get(index));
+        buffer.delete(index);
+      }
+      if (!pending) fulfill(resolve);
     }
 
-    function finished(result) {
-      results.push(result);
-      pending--;
-      update();
-      // It's not possible to have pending items
-      if (!pending) fulfill(resolve, results);
-    }
     // Initialize.
     update();
-    // Handle empty/synchronous case.
-    if (!pending) fulfill(resolve, results);
+    // Handle empty case.
+    if (!pending) fulfill(resolve);
   });
 };
 
