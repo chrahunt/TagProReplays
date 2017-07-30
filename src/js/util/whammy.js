@@ -1,5 +1,5 @@
 const logger = require('util/logger')('whammy');
-const {map} = require('util/promise-ext');
+const {toStream} = require('util/promise-ext');
 
 /**
  * Partial re-write of Whammy
@@ -9,7 +9,7 @@ const {map} = require('util/promise-ext');
  */
 
 /**
- * @param {} frames
+ * @param {Array<ParsedFrame>} frames
  * @returns {}
  */
 function toWebM(frames) {
@@ -154,7 +154,7 @@ function toWebM(frames) {
       clusterCounter += webp.duration;
       return {
         id: 0xa3, // SimpleBlock
-        blob: new Blob([header, webp.blob])
+        blob: new Blob([header, webp.data])
       };
     });
     var cluster = {
@@ -232,6 +232,11 @@ function makeSimpleBlockHeader(data) {
   return concatTypedArrays(trackNum, timecode, flags);
 }
 
+/**
+ * Concatenate typed arrays together into a single array.
+ * @param {TypedArray} a
+ * @param {...TypedArray} arrays
+ */
 function concatTypedArrays(a, ...arrays) {
   let length = arrays.reduce((sum, arr) => sum + arr.length, a.length);
   let c = new a.constructor(length);
@@ -247,8 +252,8 @@ function concatTypedArrays(a, ...arrays) {
 /**
  * Encode data in UTF-8 like format. Used for IDs (already implicit in the id
  * value used) and size.
- * spec: http://matroska-org.github.io/libebml/specs.html
- * @param {number} val  integer value to be encoded.
+ * Spec: http://matroska-org.github.io/libebml/specs.html
+ * @param {Number} val integer value to be encoded.
  * @returns {Uint8Array}
  */
 function encodeEbmlValue(val) {
@@ -289,7 +294,8 @@ function doubleToBuffer(num) {
 }
 
 /**
- * Convert a number representing an unsigned/positive integer to bytes (big-endian).
+ * Convert a number representing an unsigned/positive integer to bytes
+ * (big-endian).
  * @param {Number} num
  * @returns {Uint8Array}
  */
@@ -308,7 +314,7 @@ function numToBuffer(num) {
  * Convert a number to bytes (big-endian), truncating to the provided
  * size.
  * @param {Number} num
- * @param {Number} size - size of the buffer in bytes.
+ * @param {Number} size size of the buffer in bytes.
  * @returns {Uint8Array}
  */
 function numToFixedBuffer(num, size) {
@@ -384,9 +390,9 @@ function parseAssert(msg, test) {
 
 /**
  * Read FourCC at given offset and return string.
- * @param {DataView} view  the view referencing the buffer.
- * @param {number} offset  the offset from which to read the value.
- * @returns {string}  the extracted string
+ * @param {DataView} view the view referencing the buffer.
+ * @param {number} offset the offset from which to read the value.
+ * @returns {string} the extracted string
  */
 function readFourCC(view, offset = 0) {
   return String.fromCharCode(view.getUint8(offset),
@@ -395,15 +401,23 @@ function readFourCC(view, offset = 0) {
                              view.getUint8(offset + 3));
 }
 
+/**
+ * @typedef {Object} Chunk
+ * @property {string} FourCC
+ * @property {Number} Size
+ * @property {Number} Offset
+ * @property {ArrayBuffer} Payload
+ */
+
 const CHUNK_HEADER_SIZE = 8;
 /**
  * Given an ArrayBuffer of length at least offset + CHUNK_HEADER_SIZE,
  * parse the chunk header from it.
  * @param {ArrayBuffer} buffer
- * @param {number} offset
- * @returns {object}
+ * @param {Number} offset
+ * @returns {Array[Chunk, Number]} 
  */
-function parseChunk(buffer, offset = 0) {
+function bufferToChunk(buffer, offset = 0) {
   let view = new DataView(buffer, offset, CHUNK_HEADER_SIZE);
 
   let chunk = {
@@ -444,13 +458,21 @@ function getUint24(view, offset = 0) {
 }
 
 /**
+ * @typedef {Object} VP8
+ * @property {Number} width
+ * @property {Number} height
+ * @property {Blob} data
+ */
+/**
  * Parse VP8 into keyframe and width/height.
  * https://tools.ietf.org/html/rfc6386
  * - section 19.1
  * @param {Chunk} chunk
+ * @returns {VP8} the VP8 frame parsed from the chunk
+ * @throws if parsing failed
  */
-function parseVP8(chunk) {
-  // @optimization: don't construct DataView over entire payload
+function chunkToVP8(chunk) {
+  // optimization todo: don't construct DataView over entire payload
   let view = new DataView(chunk.Payload);
   let offset = 0;
   let data_start = offset;
@@ -478,79 +500,118 @@ function parseVP8(chunk) {
   return {
     width: width,
     height: height,
-    blob: new Blob([chunk.Payload.slice(data_start)])
+    data: new Blob([chunk.Payload.slice(data_start)])
   };
 }
 
 /**
- * Parse WebP into just VP8.
- * @param {Object} riff
- * @returns {Object}
+ * Parse blob representing WebP into just the VP8 chunk.
+ * @param {Blob} blob
+ * @returns {VP8}
  */
-function parseWebP(blob) {
-  return Promise.resolve(blob).then(function(blob) {
-    // @optimization: don't read whole blob at once.
-    let res = new Response(blob);
-    return res.arrayBuffer().then((buffer) => {
-      let view = new DataView(buffer);
-      let offset = 0;
-      let label = readFourCC(view, offset);
-      offset += 4;
-      parseAssert(`${label} must equal RIFF`, label === 'RIFF');
-      let size = view.getUint32(offset, true);
-      offset += 4;
-      label = readFourCC(view, 8);
-      // Bytes read out of `size`.
-      offset += 4;
-      parseAssert(`${label} must equal WEBP`, label === 'WEBP');
-      // @optimization: stop reading chunks when we find VP8.
-      let chunks = [];
-      while (offset < size - 8) {
-        let chunk;
-        [chunk, offset] = parseChunk(buffer, offset);
-        chunks.push(chunk);
+function blobToVP8(blob) {
+  // optimization todo: don't read whole blob at once.
+  let res = new Response(blob);
+  return res.arrayBuffer().then((buffer) => {
+    let view = new DataView(buffer);
+    let offset = 0;
+    let label = readFourCC(view, offset);
+    offset += 4;
+    parseAssert(`${label} must equal RIFF`, label === 'RIFF');
+    let size = view.getUint32(offset, true);
+    offset += 4;
+    label = readFourCC(view, 8);
+    // Bytes read out of `size`.
+    offset += 4;
+    parseAssert(`${label} must equal WEBP`, label === 'WEBP');
+    // stop reading chunks when we find the VP8.
+    let vp8_chunk = null;
+    while (offset < size - 8) {
+      let chunk;
+      [chunk, offset] = bufferToChunk(buffer, offset);
+      if (chunk.FourCC === 'VP8 ') {
+        vp8_chunk = chunk;
+        break;
       }
+    }
 
-      let vp8 = chunks.find(c => c.FourCC === 'VP8 ');
-      parseAssert('VP8 chunk must exist', vp8);
-      // @optimization: read payload from Blob before passing to parseVP8.
-      return parseVP8(vp8);
-    });
+    parseAssert('VP8 chunk must exist', vp8_chunk);
+    // optimization todo: read payload from the existing DataView.
+    return chunkToVP8(vp8_chunk);
   });
 }
 
 /**
- * Convert frames.
- * @param {} frames
- * @returns {}
+ * @typedef {Object} Frame
+ * @property {Number} duration
+ * @property {Blob} data
  */
-function getFramesPromises(frames) {
-  return map(frames[Symbol.iterator](), (frame) => {
-    return parseWebP(frame.imageBlob)
-    .then((webp) => {
-      webp.duration = frame.duration;
-      return webp;
+/**
+ * @typedef {Object} ParsedFrame
+ * @augments VP8
+ * @property {Number} duration
+ */
+/**
+ * @param {Iterator<Frame>} frames
+ * @yields {Promise<ParsedFrame>}
+ */
+function* framesToVP8(frames) {
+  for (let frame of frames) {
+    yield blobToVP8(frame.data)
+    .then((vp8) => {
+      vp8.duration = frame.duration;
+      return vp8;
     });
-  }, { concurrency: 100 });
+  }
 }
 
+exports.Video = WhammyVideo;
+
+/**
+ * 
+ * 
+ * Usage:
+ * 
+ *     let encoder = new Video();
+ *     // ...
+ *     encoder.add(frame1, 16);
+ *     encoder.add(frame2, 16);
+ *     // ...
+ *     encoder.compile()
+ *     .then(blob => saveAs(blob, 'movie.webm'));
+ */
 function WhammyVideo() {
   this.frames = [];
 }
-exports.Video = WhammyVideo;
 
-WhammyVideo.prototype.add = function(frame, duration) {
-  if (frame[Symbol.toStringTag] === 'Blob') {
-    let frame1 = {
-      imageBlob: frame,
+/**
+ * Add a frame to the encoder.
+ * @param {Blob} data
+ * @param {number} duration the duration of the frame, in ms
+ */
+WhammyVideo.prototype.add = function(data, duration) {
+  if (data[Symbol.toStringTag] === 'Blob') {
+    let frame = {
+      data: data,
       duration: duration
     };
-    this.frames.push(frame1);
+    this.frames.push(frame);
   } else {
     throw new Error('Only Blobs are supported.');
   }
 };
 
+/**
+ * Compile the frames into a webm video.
+ * @returns {Promise<Blob>}
+ */
 WhammyVideo.prototype.compile = function() {
-  return getFramesPromises(this.frames).then(toWebM);
+  let parsed = [];
+  let vp8_source = framesToVP8(this.frames[Symbol.iterator]());
+  let frames = 0;
+  return toStream(vp8_source, (vp8) => {
+    logger.info(`compile: parsed ${frames++}`);
+    parsed.push(vp8);
+  }, { concurrency: 100 })
+  .then(() => toWebM(parsed));
 };

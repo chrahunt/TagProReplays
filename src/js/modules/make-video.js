@@ -4,7 +4,7 @@
  * them with Whammy.
  */
 const logger = require('util/logger')('make-video');
-const {Progress, map} = require('util/promise-ext');
+const {Progress, toStream} = require('util/promise-ext');
 const Whammy = require('util/whammy');
 
 /**
@@ -75,50 +75,13 @@ class Stats {
   }
 }
 
-// Takes unordered input and outputs in specific order.
-class OrderedQueue {
-  constructor() {
-    // Number pushed onto queue.
-    this.enqueued = 0;
-    this._popped = 0;
-    this._buffer = [];
-  }
-
-  // Add ordered item.
-  add(i, item) {
-    this.enqueued++;
-    this._buffer.push([i, item]);
-    this._buffer.sort((a, b) => a[0] - b[0]);
-    //logger.trace(`Pushed onto buffer: ${this._buffer.map(i => i[0])}`);
-  }
-
-  // Pull off any ordered items.
-  get() {
-    let ready = [];
-    for (let i = 0; i < this._buffer.length; i++) {
-      let item = this._buffer[i];
-      let index = item[0];
-      //logger.trace(`index: ${index}; popped: ${this._popped}`);
-      if (index !== this._popped) break;
-      this._popped++;
-      ready.push(item);
-    }
-    if (ready.length) {
-      this._buffer = this._buffer.slice(ready.length);
-    }
-    return ready;
-  }
-
-  get length() {
-    return this._buffer.length;
-  }
-}
+module.exports = renderVideo;
 
 /**
  * Renders replay.
  *
  * Interface:
- *   Progress is returned. Call .progress on it and pass a handler for
+ *   Progress is returned. Call `progress` on it and pass a handler for
  *   the progress events, which contain the number of frames processed.
  *   Progress resolves to the completed render.
  *
@@ -130,7 +93,6 @@ class OrderedQueue {
  * @returns {Progress} progress that resolves to the rendered video and
  *   rendering stats.
  */
-module.exports = renderVideo;
 function renderVideo(source) {
   let stats = new Stats();
   stats.add_attr('cores', navigator.hardwareConcurrency);
@@ -140,23 +102,14 @@ function renderVideo(source) {
   let operation_start = performance.now();
   return new Progress((resolve, reject, progress) => {
     let encoder = new Whammy.Video();
-    let frame_queue = new OrderedQueue();
 
     stats.log('render start');
     // Batch process frames for rendering.
-    return map(source, (operation, index) => {
-      return operation.then((data) => {
-        frames++;
-        duration += data.duration;
-        //logger.trace(`Pushed frame ${index} into queue.`);
-        frame_queue.add(index, data);
-        // Push any available ordered frames into the encoder.
-        for (let [_, data] of frame_queue.get()) {
-          //logger.trace(`Pushing frame ${i} into encoder.`);
-          encoder.add(data.frame, data.duration);
-        }
-        progress(frame_queue.enqueued);
-      });
+    return toStream(source, (data) => {
+      frames++;
+      duration += data.duration;
+      encoder.add(data.frame, data.duration);
+      progress(frames);
     }, { concurrency: navigator.hardwareConcurrency })
     .then(() => {
       stats.log('render end');
