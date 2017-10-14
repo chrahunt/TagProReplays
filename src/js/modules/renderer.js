@@ -556,12 +556,13 @@ function drawMap(positions) {
   newcan.style.left = 0;
   let newcontext = newcan.getContext('2d');
 
-  var specialTiles = ['11', '12', '17', '18'];
+  var specialTiles = ['11', '12', '17', '18', '23'];
   var specialTileElements = {
     11: { tile: "redtile", coordinates: { x: 14, y: 4 }, tileSize: 40, drawTileFirst: false },
     12: { tile: "bluetile", coordinates: { x: 15, y: 4 }, tileSize: 40, drawTileFirst: false },
     17: { tile: "redgoal", coordinates: { x: 14, y: 5 }, tileSize: 40, drawTileFirst: false },
-    18: { tile: "bluegoal", coordinates: { x: 15, y: 5 }, tileSize: 40, drawTileFirst: false }
+    18: { tile: "bluegoal", coordinates: { x: 15, y: 5 }, tileSize: 40, drawTileFirst: false },
+    23: { tile: "yellowtile", coordinates: { x: 13, y: 5 }, tileSize: 40, drawTileFirst: false }
   };
 
   var width = positions.tiles.length - 1;

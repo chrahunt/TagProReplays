@@ -50,7 +50,8 @@ exports.mapElements = {
   16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
   17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
   18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false},
-  22: {tile: "gravitywell", coordinates: {x: 13, y: 0}, tileSize: 40, drawTileFirst: true}
+  22: {tile: "gravitywell", coordinates: {x: 13, y: 0}, tileSize: 40, drawTileFirst: true},
+  23: {tile: "yellowtile", coordinates: {x: 13, y: 5}, tileSize: 40, drawTileFirst: false}
 };
 
 exports.floor_tiles = {
@@ -140,6 +141,7 @@ exports.tiles = {
   10.1: { x: 12, y: 2, drawFloor: !0, redrawFloor: !0, dynamic: !0 },
   11: { x: 14, y: 4 },
   12: { x: 15, y: 4 },
+  23: { x: 13, y: 5 },
   marsball: { x: 12, y: 9, size: 80, keep: !0 },
   13: { x: 0, y: 0, size: 40 },
   13.1: { x: 4, y: 0, size: 40 },
