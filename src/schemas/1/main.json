@@ -443,6 +443,11 @@
           "maxItems": 4
         }
       }
+    },
+    "tagproVersion": {
+      "title": "TagPro Version",
+      "description": "Version of the TagPro client code for the recording, for forward compatibility in case of changes. Default should be assumed 3.2.1 (the value when this was implemented)",
+      "type": "string"
     }
   },
   "patternProperties": {

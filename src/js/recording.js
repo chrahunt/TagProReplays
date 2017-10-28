@@ -49,6 +49,7 @@ function recordReplayData() {
   positions.score = createZeroArray(frames);
   positions.gameEndsAt = [new Date(tagpro.gameEndsAt).getTime()];
   positions.clock = createZeroArray(frames);
+  positions.tagproVersion = tagpro.version;
 
   // Set up dynamic tiles.
   const dynamic_tile_ids = [3, 4, 5, 6, 9, 10, 13, 14, 15, 16, 19, 20, 21];
