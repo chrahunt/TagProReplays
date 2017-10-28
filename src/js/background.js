@@ -673,18 +673,18 @@ function cropReplayData(replay, start, end) {
   }
 
   let new_replay = {
-    bombs:      cropBombs(replay.bombs),
-    chat:       cropChats(replay.chat),
-    clock:      cropFrameArray(replay.clock),
-    end:        replay.end,
+    bombs: cropBombs(replay.bombs),
+    chat: cropChats(replay.chat),
+    clock: cropFrameArray(replay.clock),
+    end: replay.end,
     gameEndsAt: replay.gameEndsAt,
     floorTiles: replay.floorTiles.map(cropDynamicTile),
-    map:        replay.map,
-    objects:    {},
-    score:      cropFrameArray(replay.score),
-    spawns:     cropSpawns(replay.spawns),
-    splats:     cropSplats(replay.splats),
-    wallMap:    replay.wallMap
+    map: replay.map,
+    objects: {},
+    score: cropFrameArray(replay.score),
+    spawns: cropSpawns(replay.spawns),
+    splats: cropSplats(replay.splats),
+    wallMap: replay.wallMap
   };
   // Add players.
   for (let key in replay) {
@@ -704,6 +704,9 @@ function cropReplayData(replay, start, end) {
   }
   if ('event' in replay) {
     new_replay.event = cropEvent(replay.event);
+  }
+  if ('tagproVersion' in replay) {
+    new_replay.tagproVersion = replay.tagproVersion;
   }
   return new_replay;
 }

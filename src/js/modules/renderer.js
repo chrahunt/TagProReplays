@@ -1005,6 +1005,16 @@ function drawObjects(positions) {
         // Offset
         pos.x - 8, pos.y - 8,
         ball_size, ball_size);
+    } else if (obj.type == 'marsball') {
+      if (!obj.draw[frame]) continue;
+      let descriptor = Tiles.tiles.marsball;
+      let pos = worldToScreen(obj.x[frame] - TILE_SIZE / 2,
+                              obj.y[frame] - TILE_SIZE / 2);
+      context.drawImage(textures.tiles,
+        descriptor.x * TILE_SIZE, descriptor.y * TILE_SIZE,
+        descriptor.size, descriptor.size,
+        pos.x, pos.y,
+        descriptor.size, descriptor.size);
     } else {
       continue;
     }
