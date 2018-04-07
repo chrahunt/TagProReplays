@@ -83,6 +83,10 @@
     color: #222;
 }
 
+#tpr-container #tpr-settings .glyphicon {
+    padding-top: 5px;
+}
+
 #tpr-container .input-xs {
     height: 22px;
     padding: 5px 5px;
@@ -102,6 +106,10 @@
 }
 
 #tpr-container #noReplays {
+    display: none;
+}
+
+#tpr-container #noSearchResults {
     display: none;
 }
 
@@ -157,3 +165,54 @@
         font-family: monospace;
     }
 }
+
+/* Search Bar */
+#tpr-container #tpr-search {
+    font-size: 24px;
+    color: #999;
+}
+
+#tpr-container #tpr-search:hover {
+    color: #222;
+}
+
+#tpr-container #tpr-search .glyphicon {
+    padding-top: 5px;
+}
+
+#tpr-container #tpr-search-info {
+    font-size: 18px;
+    color: #999;
+}
+
+#tpr-container #tpr-search-info:hover {
+    color: #222;
+}
+
+#tpr-container #tpr-search-reset {
+    font-size: 18px;
+    color: #999;
+}
+
+#tpr-container #tpr-search-reset:hover {
+    color: #222;
+}
+
+#searchInput  { 
+    padding-left:  30px; 
+    padding-right: 30px;
+}
+
+.glyphicon.left-addon { 
+    position: absolute;
+    left:  15px;
+    padding: 7px;
+}
+
+.glyphicon.right-addon {
+    position: absolute;
+    right: 15px;
+    padding: 7px;
+}
+
+

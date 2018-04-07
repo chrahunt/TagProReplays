@@ -14,6 +14,7 @@ const renderVideo = require('modules/make-video');
 const Textures = require('modules/textures');
 const track = require('util/track');
 const {validate} = require('modules/validate');
+const Filter = require('modules/filter');
 
 logger.info('Starting background page.');
 
@@ -944,8 +945,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.list') {
+    let query = message.query || "";
     logger.info('Received request for the replay list.');
-    get_all_replays_info().then((info) => {
+    get_all_replays_info()
+    .then((info) => {
+      return new Filter(info, query).filter()
+    }).then((info) => {
       logger.info('Sending replay.list response.');
       sendResponse({
         replays: info
