@@ -1,0 +1,435 @@
+[
+  {
+    "id": "0001_replay_1522615773473DATE1522615773473",
+    "name": "0001_replay_1522615773473",
+    "recorded": 1522615773473,
+    "rendered": false,
+    "duration": 16,
+    "map": "Gumbo",
+    "fps": 60,
+    "red_team": [
+      "  Some Ball 2",
+      "  player one",
+      "  Popper",
+      "  RipRodgers:("
+    ],
+    "blue_team": [
+      "  Dirichlet",
+      "  Some Ball 3",
+      "  Egg Pun",
+      "  osL",
+      "* FILTER"
+    ]
+  },
+  {
+    "id": "0002_replay_1522615865621DATE1522615865621",
+    "name": "0002_replay_1522615865621",
+    "recorded": 1522615865621,
+    "rendered": false,
+    "duration": 29,
+    "map": "Gumbo",
+    "fps": 60,
+    "red_team": [
+      "  Dirichlet",
+      "  osL",
+      "  Some Ball 5",
+      "  RipRodgers:("
+    ],
+    "blue_team": [
+      "* FILTER",
+      "  Some Ball 4",
+      "  Egg Pun",
+      "  teal"
+    ]
+  },
+  {
+    "id": "0003_replay_1522615896421DATE1522615896421",
+    "name": "0003_replay_1522615896421",
+    "recorded": 1522615896421,
+    "rendered": false,
+    "duration": 29,
+    "map": "Gumbo",
+    "fps": 60,
+    "red_team": [
+      "  Dirichlet",
+      "  osL",
+      "  Some Ball 5",
+      "  RipRodgers:("
+    ],
+    "blue_team": [
+      "* FILTER",
+      "  Some Ball 4",
+      "  Egg Pun",
+      "  teal"
+    ]
+  },
+  {
+    "id": "0004_replay_1522615986168DATE1522615986168",
+    "name": "0004_replay_1522615986168",
+    "recorded": 1522615986168,
+    "rendered": false,
+    "duration": 29,
+    "map": "Gumbo",
+    "fps": 60,
+    "red_team": [
+      "  Dirichlet",
+      "  osL",
+      "  Some Ball 5",
+      "  RipRodgers:("
+    ],
+    "blue_team": [
+      "* FILTER",
+      "  Some Ball 4",
+      "  Egg Pun",
+      "  teal"
+    ]
+  },
+  {
+    "id": "0005_replay_1522616193160DATE1522616193160",
+    "name": "0005_replay_1522616193160",
+    "recorded": 1522616193160,
+    "rendered": false,
+    "duration": 29,
+    "map": "Scorpio",
+    "fps": 60,
+    "red_team": [
+      "  osL",
+      "  teal",
+      "  Egg Pun",
+      "  Cornell"
+    ],
+    "blue_team": [
+      "  Dirichlet",
+      "* FILTER",
+      "  Some Ball 6",
+      "  DEIRF"
+    ]
+  },
+  {
+    "id": "0006_replay_1522616559534DATE1522616559534",
+    "name": "0006_replay_1522616559534",
+    "recorded": 1522616559534,
+    "rendered": false,
+    "duration": 29,
+    "map": "Scorpio",
+    "fps": 60,
+    "red_team": [
+      "  osL",
+      "  teal",
+      "  Egg Pun",
+      "  Cornell"
+    ],
+    "blue_team": [
+      "  Dirichlet",
+      "* FILTER",
+      "  Some Ball 6",
+      "  DEIRF"
+    ]
+  },
+  {
+    "id": "0007_replay_1522616771649DATE1522616771649",
+    "name": "0007_replay_1522616771649",
+    "recorded": 1522616771649,
+    "rendered": false,
+    "duration": 35,
+    "map": "Platypus",
+    "fps": 60,
+    "red_team": [
+      "  pseudo",
+      "  Dirichlet",
+      "  WarriOrs",
+      "  Iron God"
+    ],
+    "blue_team": [
+      "  sexyball",
+      "* FILTER",
+      "  Girth Vader",
+      "  12384"
+    ]
+  },
+  {
+    "id": "0008_replay_1522616777331DATE1522616777331",
+    "name": "0008_replay_1522616777331",
+    "recorded": 1522616777331,
+    "rendered": false,
+    "duration": 37,
+    "map": "Platypus",
+    "fps": 60,
+    "red_team": [
+      "  pseudo",
+      "  Dirichlet",
+      "  WarriOrs",
+      "  Iron God"
+    ],
+    "blue_team": [
+      "  sexyball",
+      "* FILTER",
+      "  Girth Vader",
+      "  12384"
+    ]
+  },
+  {
+    "id": "0013_replay_1517179668634DATE1517179668634",
+    "name": "0013_replay_1517179668634",
+    "recorded": 1517179668634,
+    "rendered": false,
+    "duration": 29,
+    "map": "Mephisto",
+    "fps": 60,
+    "red_team": [
+      "  Forkball",
+      "  4^3+1^3+1^3=",
+      "  lilDIRTY",
+      "  Riolu"
+    ],
+    "blue_team": [
+      "  Some Ball 21",
+      "* Love You <3",
+      "  4^3-1^3-1^3=",
+      "  Dor"
+    ]
+  },
+  {
+    "id": "0031_replay_1517460493250DATE1517460493250",
+    "name": "0031_replay_1517460493250",
+    "recorded": 1517460493250,
+    "rendered": false,
+    "duration": 36,
+    "map": "NF Bombing Run",
+    "fps": 60,
+    "red_team": [
+      "* Some Ball"
+    ],
+    "blue_team": [
+      "  Some Ball 2"
+    ]
+  },
+  {
+    "id": "0033_replay_1517691540041DATE1517691540041",
+    "name": "0033_replay_1517691540041",
+    "recorded": 1517691540041,
+    "rendered": false,
+    "duration": 36,
+    "map": "Pilot",
+    "fps": 60,
+    "red_team": [
+      "  DrVoltron",
+      "  rippper"
+    ],
+    "blue_team": [
+      "  popadopoulos",
+      "* testing",
+      "  Happy Shrimp",
+      "  Go Eagles",
+      "  Some Ball 7",
+      "  Some Ball 2"
+    ]
+  },
+  {
+    "id": "buttonDATE1517112293818",
+    "name": "button",
+    "recorded": 1517112293818,
+    "rendered": false,
+    "duration": 2,
+    "map": "Vardo",
+    "fps": 60,
+    "red_team": [
+      "* ballparts"
+    ],
+    "blue_team": [
+      "  Some Ball 1"
+    ]
+  },
+  {
+    "id": "number1DATE1478477086404",
+    "name": "number1",
+    "recorded": 1478477086404,
+    "rendered": false,
+    "duration": 7,
+    "map": "Smirk",
+    "fps": 60,
+    "red_team": [
+      "  Sypher",
+      "  Leonard Pope",
+      "  Some Ball 5",
+      "  Ntdaspi.dll"
+    ],
+    "blue_team": [
+      "  SpiritCooker",
+      "* harry ball",
+      "  ballparts",
+      "  Guaderno"
+    ]
+  },
+  {
+    "id": "number2DATE1478477159260",
+    "name": "number2",
+    "recorded": 1478477159260,
+    "rendered": false,
+    "duration": 7,
+    "map": "Smirk",
+    "fps": 60,
+    "red_team": [
+      "  Sypher",
+      "  Leonard Pope",
+      "  Some Ball 5",
+      "  Ntdaspi.dll"
+    ],
+    "blue_team": [
+      "  SpiritCooker",
+      "  harry ball",
+      "* ballparts",
+      "  Guaderno"
+    ]
+  },
+  {
+    "id": "number3DATE1478477419935",
+    "name": "number3",
+    "recorded": 1478477419935,
+    "rendered": false,
+    "duration": 7,
+    "map": "Smirk",
+    "fps": 60,
+    "red_team": [
+      "  Sypher",
+      "  Leonard Pope",
+      "  Some Ball 5",
+      "  Ntdaspi.dll"
+    ],
+    "blue_team": [
+      "  SpiritCooker",
+      "  harry ball",
+      "* ballparts",
+      "  Guaderno"
+    ]
+  },
+  {
+    "id": "portal2DATE1517108928814",
+    "name": "portal2",
+    "recorded": 1517108928814,
+    "rendered": false,
+    "duration": 1,
+    "map": "Vardo",
+    "fps": 60,
+    "red_team": [
+      "* ballparts"
+    ],
+    "blue_team": [
+      "  Some Ball 1"
+    ]
+  },
+  {
+    "id": "pupDATE1517110756147",
+    "name": "pup",
+    "recorded": 1517110756147,
+    "rendered": false,
+    "duration": 1,
+    "map": "Vardo",
+    "fps": 60,
+    "red_team": [
+      "* ballparts"
+    ],
+    "blue_team": [
+      "  Some Ball 1"
+    ]
+  },
+  {
+    "id": "replays1417410297968DATE1417410297968",
+    "name": "replays1417410297968",
+    "recorded": 1417410297968,
+    "rendered": false,
+    "duration": 8,
+    "map": "Star",
+    "fps": 60,
+    "red_team": [
+      "  Graviton",
+      "  FowlBall",
+      "  Trituin",
+      "  Tone"
+    ],
+    "blue_team": [
+      "* ballparts",
+      "  markam",
+      "  stu.",
+      "  RyanF"
+    ]
+  },
+  {
+    "id": "replays1435121826566",
+    "name": "replays1435121826566",
+    "recorded": 1435121826566,
+    "rendered": false,
+    "duration": 32,
+    "map": "Wormy",
+    "fps": 60,
+    "red_team": [
+      "  balrogofmord",
+      "  Am1r0Z",
+      "  Some Ball 9",
+      "  Some Ball 10"
+    ],
+    "blue_team": [
+      "  Ball Revere",
+      "* isengard?",
+      "  jsh348",
+      "  BrokenAnkIes"
+    ]
+  },
+  {
+    "id": "replays1471705712103",
+    "name": "replays1471705712103",
+    "recorded": 1471705712103,
+    "rendered": false,
+    "duration": 29,
+    "map": "IRON",
+    "fps": 60,
+    "red_team": [
+      "  Yoda Master",
+      "  T. Roosevelt",
+      "  `",
+      "* ballparts"
+    ],
+    "blue_team": [
+      "  rushy",
+      "  RedBull",
+      "  Verx",
+      "  BasedGod"
+    ]
+  },
+  {
+    "id": "replays1517439443525DATE1517439443724",
+    "name": "replays1517439443525",
+    "recorded": 1517439443724,
+    "rendered": false,
+    "duration": 10,
+    "map": "Tehuitzingo",
+    "fps": 60,
+    "red_team": [
+      "* ballparts"
+    ],
+    "blue_team": [
+      "  Some Ball 2"
+    ]
+  },
+  {
+    "id": "testingDATE1517275573511",
+    "name": "testing",
+    "recorded": 1517275573511,
+    "rendered": false,
+    "duration": 24,
+    "map": "Plasma",
+    "fps": 60,
+    "red_team": [
+      "  Some Ball 1",
+      "  TOO STRONG",
+      "  lcskulls06",
+      "* testing"
+    ],
+    "blue_team": [
+      "  TheRussian",
+      "  Vegan Dildo",
+      "  The SomeBall",
+      "  Some Ball 11"
+    ]
+  }
+]

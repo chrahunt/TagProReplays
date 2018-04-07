@@ -8,10 +8,28 @@
       </div>
       <div class="modal-body">
         <div class="dialog-header">
-          <a class="pull-right" id="tpr-settings" data-toggle="modal" data-target="#settingsContainer">
-            <span class="glyphicon glyphicon-cog"></span>
-          </a>
-          <h3>Available Replays</h3>
+          <div class="container-fluid">
+            <div class="row">
+              <div id="tpr-title-div" class="col-sm-10">
+                <h3>Available Replays</h3>
+              </div>
+              <div id="tpr-search-div" class="col-sm-11" style="display: none;">
+                <input id="searchInput" class="form-control" type="search" placeholder="Search">
+                <i id="tpr-search-reset" class="glyphicon glyphicon-arrow-left left-addon"></i>
+                <i id="tpr-search-info" class="glyphicon glyphicon-info-sign right-addon"  data-toggle="popover"></i>
+              </div>
+              <div class="col-sm-1 pull-right">
+                <a id="tpr-settings" data-toggle="modal" data-target="#settingsContainer">
+                  <span class="glyphicon glyphicon-cog"></span>
+                </a>
+              </div>
+              <div id="tpr-search-icon-div" class="col-sm-1 pull-right">
+                <a id="tpr-search">
+                  <span class="glyphicon glyphicon-search pull-right"></span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="replays">
           <table class="table table-condensed" id="replay-headers">
@@ -38,6 +56,9 @@
           </div>
           <div id="noReplays" class="text-center">
             <p>You don't have any replays saved. Go record some!</p>
+          </div>
+          <div id="noSearchResults" class="text-center">
+            <p>No replays matched your search. Try using a different search query.</p>
           </div>
           <div id="replayList">
             <table class="table table-condensed">

@@ -29,6 +29,8 @@ class Table {
     // Map from replay id to row element id to prevent overlap.
     this.ids = {};
     this.num_ids = 0;
+    // track whether user is currently searching.
+    this.inSearch = false;
   }
 
   /**
@@ -311,7 +313,7 @@ class Table {
     $('.replay-count').text(`Total replays: ${this.collection.total()}`);
     if (this.empty()) {
       // Show "No replays" message.
-      $('#noReplays').show();
+      this.inSearch ? $('#noSearchResults').show() : $('#noReplays').show();
       $('#replayList').hide()
       $('#renderSelectedButton').prop('disabled', true);
       $('#deleteSelectedButton').prop('disabled', true);
@@ -320,6 +322,7 @@ class Table {
       $('#selectAllCheckbox').prop('checked', false);
     } else {
       // Hide "No replays".
+      $('#noSearchResults').hide()
       $('#noReplays').hide();
       // Display list of replays.
       $('#replayList').show();

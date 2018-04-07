@@ -2,6 +2,7 @@
 const $ = require('jquery');
 // Set global since bootstrap assumes it.
 window.$ = window.jQuery = $;
+require('popper.js'); // required for popovers
 require('bootstrap');
 // Relinquish control back to existing version if needed.
 $.noConflict(true);
@@ -21,6 +22,7 @@ const {Viewer} = require('modules/previewer');
 const ActivityDialog = require('modules/activity-dialog');
 const Table = require('modules/table');
 const Upload = require('modules/upload');
+const Search = require('modules/search');
 
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
@@ -320,6 +322,7 @@ function initSettings() {
   });
 }
 
+
 // Initialize replay table.
 let replay_table = new Table({
   collection: Replays,
@@ -615,6 +618,22 @@ function initMenu() {
       importing = false;
     })
   });
+
+  // Listen for search sumissions
+  let search = new Search();
+  search.on('submit', () => {
+    logger.info('Submitting search query.');
+    replay_table.collection.query = search.query;
+    replay_table.inSearch = true;
+    replay_table.update();
+  });
+  search.on('reset', () => {
+    logger.info('Resetting search query.');
+    replay_table.collection.query = '';
+    replay_table.inSearch = false;
+    replay_table.update();
+  });
+
 
   // Table update listeners.
   Replays.on('added', (replay) => {

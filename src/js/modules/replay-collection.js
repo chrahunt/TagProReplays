@@ -14,6 +14,7 @@ class ReplayCollection extends EventEmitter {
     super();
     this._collection = [];
     this._collection_by_id = new Map();
+    this.query = "";
     // Set update handlers.
     chrome.runtime.onMessage.addListener((message) => {
       let {method} = message;
@@ -57,7 +58,8 @@ class ReplayCollection extends EventEmitter {
   fetch() {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
-        method: 'replay.list'
+        method: 'replay.list',
+        query:  this.query
       }, (result) => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
