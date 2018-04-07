@@ -1,18 +1,17 @@
-const logger = require('util/logger')('filter');
 const parser = require('search-query-parser');
 
 class Filter {
-	/**
-	* metadata from get_all_replays_info()
-	* query is literal search query string
-	*/
-	constructor(metadata, query) {
-		this.metadata = metadata;
-		this.query = query;
+  /**
+  * metadata from get_all_replays_info()
+  * query is literal search query string
+  */
+  constructor(metadata, query) {
+    this.metadata = metadata;
+    this.query = query;
     this.keywords = ['map', 'player', 'name'];
-	}
+  }
 
-	filter() {
+  filter() {
     return new Promise((resolve, reject) => {
 
       try {
@@ -30,7 +29,7 @@ class Filter {
       }
       
     });
-	}
+  }
 
   /**
   * flatten individual replay's metadata's team arrays into single 'player' string

@@ -50,7 +50,7 @@ class Search extends EventEmitter {
       title: "Instructions"
     });
 
-    $(this.icon).click((e) => {
+    $(this.icon).click(() => {
       logger.debug('Search opened.');
       this.open();
     });
@@ -63,7 +63,7 @@ class Search extends EventEmitter {
       }
     });
 
-    $(this.resetButton).click((e) => {
+    $(this.resetButton).click(() => {
       this.close();
       this.input.val('');
       logger.debug('Search reset.');

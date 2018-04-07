@@ -9,7 +9,7 @@ const expect = chai.expect;
 function load_metadata(metadata_file) {
   let path = `fixtures/filter/${metadata_file}.json`;
   return fetch(path).then((res) => res.json());
-};
+}
 
 load_metadata("example_metadata").then((metadata) => {
   
