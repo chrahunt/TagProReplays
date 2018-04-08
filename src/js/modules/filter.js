@@ -16,7 +16,7 @@ function filter(metadata, query) {
     let queryObject = parser.parse(query, {keywords: keywords});
     if (queryObject === "") return resolve(metadata);
   
-    if (typeof(queryObject) === "string") queryObject = {text: queryObject};
+    queryObject = formatQueryObject(queryObject, keywords);
 
     let results = metadata.filter(filterReplay.bind(this, queryObject));
     return resolve(results);
@@ -51,10 +51,8 @@ function filterReplay(queryObject, replayMetadata) {
   // handle excludes
   if (q.exclude) {  
     let excluded = Object.keys(q.exclude).some(item => {
-      if (typeof(q.exclude[item]) === "string") 
-        q.exclude[item] = [q.exclude[item]];
       return q.exclude[item].some(excludedQuery => {
-        return flatMetadata[item].toLowerCase().includes(excludedQuery.toLowerCase());
+        return flatMetadata[item].toLowerCase().includes(excludedQuery);
       });
     });
     if (excluded) return false;
@@ -62,27 +60,24 @@ function filterReplay(queryObject, replayMetadata) {
 
   // handle maps - handled as OR, so matching any is acceptable
   if (q.map) {
-    if (typeof(q.map) === "string") q.map = [q.map];
     let matchedMap = q.map.some(mapQuery => {
-      return flatMetadata.map.toLowerCase().includes(mapQuery.toLowerCase());
+      return flatMetadata.map.toLowerCase().includes(mapQuery);
     });
     if (!matchedMap) return false;
   }
 
   // handle players - handled as AND, so must match all
   if (q.player) {
-    if (typeof(q.player) === "string") q.player = [q.player];
     let matchedPlayer = q.player.every(playerQuery => {
-      return flatMetadata.player.toLowerCase().includes(playerQuery.toLowerCase());
+      return flatMetadata.player.toLowerCase().includes(playerQuery);
     });
     if (!matchedPlayer) return false;
   }
 
   // handle name - handled as OR, so matching any is acceptable
   if (q.name) {
-    if (typeof(q.name) === "string") q.name = [q.name];
     let matchedName = q.name.some(nameQuery => {
-      return flatMetadata.name.toLowerCase().includes(nameQuery.toLowerCase());
+      return flatMetadata.name.toLowerCase().includes(nameQuery);
     });
     if (!matchedName) return false;
   }
@@ -94,12 +89,12 @@ function filterReplay(queryObject, replayMetadata) {
     let textTerms = formatText(q.text);
 
     let excludedText = textTerms.exclude.some(term => {
-      return flatMetadata.text.toLowerCase().includes(term.toLowerCase());
+      return flatMetadata.text.toLowerCase().includes(term);
     });
     if (excludedText) return false;
 
     let matchedText = textTerms.include.every(term => {
-      return flatMetadata.text.toLowerCase().includes(term.toLowerCase());
+      return flatMetadata.text.toLowerCase().includes(term);
     });
     if (!matchedText) return false;
   }
@@ -140,6 +135,42 @@ function formatText(text) {
   let terms = quotedTerms.concat(text.match(/\S+/g) || []);
 
   return {include: terms, exclude: negativeTerms};
+}
+
+/**
+* format single element of an object
+* specifically, convert string to array and 
+* all strings to lower case.
+* @param {*} item
+* @returns {Array<string>}
+*/
+function format(item) {
+  if (typeof(item) === 'string') item = [item];
+  return item.map((element) => { return element.toLowerCase() });
+}
+
+/**
+* makes results of parser.parse() easier to use
+* specifically, it converts singular strings to one-member arrays
+* and converts all strings to lower case.
+*
+* @param {object} queryObject
+* @param {Array<string>} keywords
+* @returns {object} formatted query object
+*/
+function formatQueryObject(queryObject, keywords) {
+  let q = queryObject;
+  if (typeof(q) === "string") return {text: q.toLowerCase()};
+  if (q.text) q.text = q.text.toLowerCase();
+
+  keywords.forEach((keyword) => {
+    if (typeof(q[keyword]) !== 'undefined') 
+      q[keyword] = format(q[keyword]);
+    if (q.exclude && typeof(q.exclude[keyword]) !== 'undefined')
+      q.exclude[keyword] = format(q.exclude[keyword]);
+  });
+
+  return q;
 }
 
 module.exports = filter;
