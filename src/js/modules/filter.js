@@ -13,20 +13,13 @@ const parser = require('search-query-parser');
 function filter(metadata, query) {
   const keywords = ['map', 'player', 'name'];
   return new Promise((resolve, reject) => {
+    let queryObject = parser.parse(query, {keywords: keywords});
+    if (queryObject === "") return resolve(metadata);
+  
+    if (typeof(queryObject) === "string") queryObject = {text: queryObject};
 
-    try {
-      let queryObject = parser.parse(query, {keywords: keywords});
-      if (queryObject === "") return resolve(metadata);
-    
-      if (typeof(queryObject) === "string") queryObject = {text: queryObject};
-
-
-      let results = metadata.filter(filterReplay.bind(this, queryObject));
-      return resolve(results);
-    } catch(err) {
-      return reject(err);
-    }
-    
+    let results = metadata.filter(filterReplay.bind(this, queryObject));
+    return resolve(results);
   });
 }
 
