@@ -623,15 +623,11 @@ function initMenu() {
   let search = new Search();
   search.on('submit', (query) => {
     logger.info('Submitting search query.');
-    replay_table.collection.query = query;
-    replay_table.inSearch = true;
-    replay_table.update();
+    replay_table.filter_replays(query);
   });
   search.on('reset', () => {
     logger.info('Resetting search query.');
-    replay_table.collection.query = '';
-    replay_table.inSearch = false;
-    replay_table.update();
+    replay_table.reset();
   });
 
 

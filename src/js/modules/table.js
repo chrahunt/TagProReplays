@@ -240,6 +240,25 @@ class Table {
     this._do_sort();
   }
 
+  /**
+  * Initiate a filtering of replays
+  * @param {string} query
+  */
+  filter_replays(query) {
+    this.collection.query = query;
+    this.inSearch = true;
+    this.update();
+  }
+
+  /**
+  * Initiate resetting search query and updating table
+  */
+  reset() {
+    this.collection.query = '';
+    this.inSearch = false;
+    this.update();
+  }
+
   // Private functions.
   _add_replay(replay) {
     let $row = this.$template_row.clone(true);
