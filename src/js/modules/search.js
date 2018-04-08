@@ -57,9 +57,9 @@ class Search extends EventEmitter {
     
     $(this.input).keypress((e) => {
       if (e.key === 'Enter') {
-        this.query = this.input.val();
-        logger.debug(`Search query entered: ${this.query}.`);
-        this.emit('submit');
+        let query = this.input.val();
+        logger.debug(`Search query entered: ${query}.`);
+        this.emit('submit', query);
       }
     });
 

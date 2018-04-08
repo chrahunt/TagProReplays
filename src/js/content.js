@@ -621,9 +621,9 @@ function initMenu() {
 
   // Listen for search sumissions
   let search = new Search();
-  search.on('submit', () => {
+  search.on('submit', (query) => {
     logger.info('Submitting search query.');
-    replay_table.collection.query = search.query;
+    replay_table.collection.query = query;
     replay_table.inSearch = true;
     replay_table.update();
   });
