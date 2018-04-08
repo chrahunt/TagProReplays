@@ -46,13 +46,14 @@ function flatten(replayMetadata) {
 */
 function filterReplay(queryObject, replayMetadata) {
   let flatMetadata = flatten(replayMetadata);
+  let q = queryObject;
   
   // handle excludes
-  if (queryObject.exclude) {  
-    let excluded = Object.keys(queryObject.exclude).some(item => {
-      if (typeof(queryObject.exclude[item]) === "string") 
-        queryObject.exclude[item] = [queryObject.exclude[item]];
-      return queryObject.exclude[item].some(excludedQuery => {
+  if (q.exclude) {  
+    let excluded = Object.keys(q.exclude).some(item => {
+      if (typeof(q.exclude[item]) === "string") 
+        q.exclude[item] = [q.exclude[item]];
+      return q.exclude[item].some(excludedQuery => {
         return flatMetadata[item].toLowerCase().includes(excludedQuery.toLowerCase());
       });
     });
@@ -60,27 +61,27 @@ function filterReplay(queryObject, replayMetadata) {
   }
 
   // handle maps - handled as OR, so matching any is acceptable
-  if (queryObject.map) {
-    if (typeof(queryObject.map) === "string") queryObject.map = [queryObject.map];
-    let matchedMap = queryObject.map.some(mapQuery => {
+  if (q.map) {
+    if (typeof(q.map) === "string") q.map = [q.map];
+    let matchedMap = q.map.some(mapQuery => {
       return flatMetadata.map.toLowerCase().includes(mapQuery.toLowerCase());
     });
     if (!matchedMap) return false;
   }
 
   // handle players - handled as AND, so must match all
-  if (queryObject.player) {
-    if (typeof(queryObject.player) === "string") queryObject.player = [queryObject.player];
-    let matchedPlayer = queryObject.player.every(playerQuery => {
+  if (q.player) {
+    if (typeof(q.player) === "string") q.player = [q.player];
+    let matchedPlayer = q.player.every(playerQuery => {
       return flatMetadata.player.toLowerCase().includes(playerQuery.toLowerCase());
     });
     if (!matchedPlayer) return false;
   }
 
   // handle name - handled as OR, so matching any is acceptable
-  if (queryObject.name) {
-    if (typeof(queryObject.name) === "string") queryObject.name = [queryObject.name];
-    let matchedName = queryObject.name.some(nameQuery => {
+  if (q.name) {
+    if (typeof(q.name) === "string") q.name = [q.name];
+    let matchedName = q.name.some(nameQuery => {
       return flatMetadata.name.toLowerCase().includes(nameQuery.toLowerCase());
     });
     if (!matchedName) return false;
@@ -89,8 +90,8 @@ function filterReplay(queryObject, replayMetadata) {
   // handle free text - terms will be split by white space, unless within double quotes.
   // this will handle exclusions in free text as well
   // They are then treated as AND, so all must match
-  if (queryObject.text) {
-    let textTerms = formatText(queryObject.text);
+  if (q.text) {
+    let textTerms = formatText(q.text);
 
     let excludedText = textTerms.exclude.some(term => {
       return flatMetadata.text.toLowerCase().includes(term.toLowerCase());
