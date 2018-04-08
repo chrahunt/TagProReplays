@@ -14,7 +14,7 @@ function filter(metadata, query) {
   const keywords = ['map', 'player', 'name'];
   return new Promise((resolve, reject) => {
     let queryObject = parser.parse(query, {keywords: keywords});
-    if (queryObject === "") return resolve(metadata);
+    if (queryObject === '') return resolve(metadata);
   
     queryObject = formatQueryObject(queryObject, keywords);
 
@@ -163,7 +163,7 @@ function format(item) {
 */
 function formatQueryObject(queryObject, keywords) {
   let q = queryObject;
-  if (typeof(q) === "string") return {text: q.toLowerCase()};
+  if (typeof(q) === 'string') return {text: q.toLowerCase()};
   if (q.text) q.text = q.text.toLowerCase();
 
   keywords.forEach((keyword) => {

@@ -47,7 +47,7 @@ class Search extends EventEmitter {
       content: inputHTML,
       placement: 'auto',
       html: true,
-      title: "Instructions"
+      title: 'Instructions'
     });
 
     $(this.icon).click(() => {

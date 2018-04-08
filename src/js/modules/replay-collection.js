@@ -14,7 +14,7 @@ class ReplayCollection extends EventEmitter {
     super();
     this._collection = [];
     this._collection_by_id = new Map();
-    this.query = "";
+    this.query = '';
     // Set update handlers.
     chrome.runtime.onMessage.addListener((message) => {
       let {method} = message;
