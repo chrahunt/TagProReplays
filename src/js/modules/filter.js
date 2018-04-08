@@ -4,7 +4,10 @@ const parser = require('search-query-parser');
 /**
 * filters metadata array based on search query
 * @param {Array<object>} metadata
-* @param {string} query
+* @param {string} query - query string is composed of space-delimited terms, each 
+*     of which may be prepended with a {keyword + ":"} to designate a keyword-specific
+*     search and/or a hyphen to indicate a NOT search (exclude replays that match that
+*     term). These terms are parsed prior to being used to filter. 
 * @returns {Promise<Array<object>>}
 */
 function filter(metadata, query) {
