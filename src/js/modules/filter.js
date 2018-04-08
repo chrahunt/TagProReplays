@@ -122,16 +122,20 @@ function formatText(text) {
     return term.replace(/"/g, '');
   });
 
+  const tokens = text.match(/\S+/g) || [];
+
+
   // non-quoted search terms preceded by hyphen
   // should not identify terms containing hyphens in any but the first position
-  let negativeTerms = text.match(/^-\S*(?=\s)| -\S*(?=\s)|^-\S*$| -\S*$/g) || [];
-  negativeTerms = negativeTerms.map(term => {
-    text = text.replace(term, '');
-    return term.replace(/\s/g, '').replace(/^-/g, '');
-  }).concat(quotedNegatives);
+  const negativeTerms = tokens
+    .filter(s => s.startsWith('-'))
+    .map(s => s.slice(1))
+    .concat(quotedNegatives);
 
   // non-quoted search terms not preceded by a hyphen
-  let terms = quotedTerms.concat(text.match(/\S+/g) || []);
+  const terms = tokens
+    .filter(s => !s.startsWith('-'))
+    .concat(quotedTerms);
 
   return {include: terms, exclude: negativeTerms};
 }
