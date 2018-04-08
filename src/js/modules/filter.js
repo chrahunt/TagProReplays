@@ -16,16 +16,16 @@ function filter(metadata, query) {
 
     try {
       let queryObject = parser.parse(query, {keywords: keywords});
-      if (queryObject === "") resolve(metadata);
+      if (queryObject === "") return resolve(metadata);
     
       if (typeof(queryObject) === "string") queryObject = {text: queryObject};
 
 
       let results = metadata.filter(filterReplay.bind(this, queryObject));
-      if (!results) reject();
-      resolve(results);
+      if (!results) return reject();
+      return resolve(results);
     } catch(err) {
-      reject(err);
+      return reject(err);
     }
     
   });
