@@ -945,7 +945,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 
   } else if (method == 'replay.list') {
-    let query = message.query || "";
+    let query = message.query;
     logger.info('Received request for the replay list.');
     get_all_replays_info()
     .then((info) => {
