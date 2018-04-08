@@ -46,7 +46,6 @@ function flatten(replayMetadata) {
 */
 function filterReplay(queryObject, replayMetadata) {
   let flatMetadata = flatten(replayMetadata);
-  let matched = true;
   
   // handle excludes
   if (queryObject.exclude) {  
@@ -66,7 +65,7 @@ function filterReplay(queryObject, replayMetadata) {
     let matchedMap = queryObject.map.some(mapQuery => {
       return flatMetadata.map.toLowerCase().includes(mapQuery.toLowerCase());
     });
-    if (!matchedMap) matched = false;
+    if (!matchedMap) return false;
   }
 
   // handle players - handled as AND, so must match all
@@ -75,7 +74,7 @@ function filterReplay(queryObject, replayMetadata) {
     let matchedPlayer = queryObject.player.every(playerQuery => {
       return flatMetadata.player.toLowerCase().includes(playerQuery.toLowerCase());
     });
-    if (!matchedPlayer) matched = false;
+    if (!matchedPlayer) return false;
   }
 
   // handle name - handled as OR, so matching any is acceptable
@@ -84,7 +83,7 @@ function filterReplay(queryObject, replayMetadata) {
     let matchedName = queryObject.name.some(nameQuery => {
       return flatMetadata.name.toLowerCase().includes(nameQuery.toLowerCase());
     });
-    if (!matchedName) matched = false;
+    if (!matchedName) return false;
   }
 
   // handle free text - terms will be split by white space, unless within double quotes.
@@ -101,10 +100,10 @@ function filterReplay(queryObject, replayMetadata) {
     let matchedText = textTerms.include.every(term => {
       return flatMetadata.text.toLowerCase().includes(term.toLowerCase());
     });
-    if (!matchedText) matched = false;
+    if (!matchedText) return false;
   }
 
-  return matched;
+  return true;
 }
 
 /**
