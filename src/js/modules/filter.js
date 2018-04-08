@@ -25,16 +25,14 @@ function filter(metadata, query) {
 
 /**
 * flatten individual replay's metadata's team arrays into single 'player' string
-* and combine team, map, and name into single space-delimitted string
 * @param {object} replayMetadata
 * @returns {object}
 */
-function flatten(replayMetadata) {
+function flattenPlayers(replayMetadata) {
   replayMetadata.player = [];
   if (replayMetadata.red_team) replayMetadata.player = replayMetadata.player.concat(replayMetadata.red_team);
   if (replayMetadata.blue_team) replayMetadata.player = replayMetadata.player.concat(replayMetadata.blue_team);
   replayMetadata.player = replayMetadata.player.join(' ');
-  replayMetadata.text = `${replayMetadata.map} ${replayMetadata.name} ${replayMetadata.player}`; // makes searching all text simpler
   return replayMetadata;
 }
 
@@ -45,7 +43,7 @@ function flatten(replayMetadata) {
 * @returns {boolean}
 */
 function filterReplay(queryObject, replayMetadata) {
-  let flatMetadata = flatten(replayMetadata);
+  let flatMetadata = flattenPlayers(replayMetadata);
   let q = queryObject;
   
   // handle excludes
@@ -86,15 +84,16 @@ function filterReplay(queryObject, replayMetadata) {
   // this will handle exclusions in free text as well
   // They are then treated as AND, so all must match
   if (q.text) {
+    let allText = `${flatMetadata.map} ${flatMetadata.name} ${flatMetadata.player}`.toLowerCase();
     let textTerms = formatText(q.text);
 
     let excludedText = textTerms.exclude.some(term => {
-      return flatMetadata.text.toLowerCase().includes(term);
+      return allText.includes(term);
     });
     if (excludedText) return false;
 
     let matchedText = textTerms.include.every(term => {
-      return flatMetadata.text.toLowerCase().includes(term);
+      return allText.includes(term);
     });
     if (!matchedText) return false;
   }
