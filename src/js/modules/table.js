@@ -313,7 +313,7 @@ class Table {
     $('.replay-count').text(`Total replays: ${this.collection.total()}`);
     if (this.empty()) {
       // Show "No replays" message.
-      this.inSearch ? $('#noSearchResults').show() : $('#noReplays').show();
+      this.inSearch ? $('#tpr-no-search-results').show() : $('#noReplays').show();
       $('#replayList').hide()
       $('#renderSelectedButton').prop('disabled', true);
       $('#deleteSelectedButton').prop('disabled', true);
@@ -322,7 +322,7 @@ class Table {
       $('#selectAllCheckbox').prop('checked', false);
     } else {
       // Hide "No replays".
-      $('#noSearchResults').hide()
+      $('#tpr-no-search-results').hide()
       $('#noReplays').hide();
       // Display list of replays.
       $('#replayList').show();
