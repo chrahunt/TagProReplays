@@ -18,7 +18,7 @@ class Search extends EventEmitter {
    */
   constructor() {
     super();
-    this.input = $('#searchInput');
+    this.input = $('#tpr-search-input');
     this.icon = $('#tpr-search');
     this.resetButton = $('#tpr-search-reset');
     this.inputDiv = $('#tpr-search-div');
