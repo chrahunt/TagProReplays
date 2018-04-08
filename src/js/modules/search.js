@@ -18,13 +18,13 @@ class Search extends EventEmitter {
    */
   constructor() {
     super();
-    this.input = $('#tpr-search-input');
-    this.icon = $('#tpr-search');
-    this.resetButton = $('#tpr-search-reset');
-    this.inputDiv = $('#tpr-search-div');
-    this.titleDiv = $('#tpr-title-div');
-    this.iconDiv = $('#tpr-search-icon-div');
-    this.info = $('#tpr-search-info');
+    this.$input = $('#tpr-search-input');
+    this.$icon = $('#tpr-search');
+    this.$resetButton = $('#tpr-search-reset');
+    this.$inputContainer = $('#tpr-search-div');
+    this.$titleContainer = $('#tpr-title-div');
+    this.$iconContainer = $('#tpr-search-icon-div');
+    this.$info = $('#tpr-search-info');
 
     const inputHTML = '<span>Use this search to filter your available replays.' +
                       '<br><br>You can use keywords to search by map, by player, or by ' +
@@ -43,45 +43,45 @@ class Search extends EventEmitter {
                       '<p><span><b>iron</b> - returns replays that contain "iron" in their map, players, or name fields.</span><p>' +
                       '<p><span><b>-iron</b> - Returns all replays that do not contain "iron" in their maps, players, or names.</span><p>'
 
-    $(this.info).popover({
+    $(this.$info).popover({
       content: inputHTML,
       placement: 'auto',
       html: true,
       title: 'Instructions'
     });
 
-    $(this.icon).click(() => {
+    $(this.$icon).click(() => {
       logger.debug('Search opened.');
       this.open();
     });
     
-    $(this.input).keypress((e) => {
+    $(this.$input).keypress((e) => {
       if (e.key === 'Enter') {
-        let query = this.input.val();
+        let query = this.$input.val();
         logger.debug(`Search query entered: ${query}.`);
         this.emit('submit', query);
       }
     });
 
-    $(this.resetButton).click(() => {
+    $(this.$resetButton).click(() => {
       this.close();
-      this.input.val('');
+      this.$input.val('');
       logger.debug('Search reset.');
       this.emit('reset');
     });
   }
 
   open() {
-    this.iconDiv.hide();
-    this.titleDiv.hide();
-    this.inputDiv.show();
+    this.$iconContainer.hide();
+    this.$titleContainer.hide();
+    this.$inputContainer.show();
     this.emit('open');
   }
 
   close() {
-    this.iconDiv.show();
-    this.titleDiv.show();
-    this.inputDiv.hide();
+    this.$iconContainer.show();
+    this.$titleContainer.show();
+    this.$inputContainer.hide();
     this.emit('closed');
   }
 
