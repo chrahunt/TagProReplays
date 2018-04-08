@@ -4,7 +4,7 @@ const EventEmitter = require('events');
 require('bootstrap/js/tooltip.js');
 require('bootstrap/js/popover.js');
 
-var logger = require('util/logger')('search');
+const logger = require('util/logger')('search');
 
 /**
  * Search component
