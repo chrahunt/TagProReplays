@@ -22,7 +22,6 @@ function filter(metadata, query) {
 
 
       let results = metadata.filter(filterReplay.bind(this, queryObject));
-      if (!results) return reject();
       return resolve(results);
     } catch(err) {
       return reject(err);
