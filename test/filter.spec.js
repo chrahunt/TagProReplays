@@ -125,6 +125,3 @@ load_metadata('example_metadata').then((metadata) => {
 
   });
 });
-
-
-
