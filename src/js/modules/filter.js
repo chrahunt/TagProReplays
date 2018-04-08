@@ -2,8 +2,10 @@ const parser = require('search-query-parser');
 
 
 /**
-* metadata from get_all_replays_info()
-* query is literal search query string
+* filters metadata array based on search query
+* @param {Array<object>} metadata
+* @param {string} query
+* @returns {Promise<Array<object>>}
 */
 function filter(metadata, query) {
   const keywords = ['map', 'player', 'name'];
@@ -28,6 +30,9 @@ function filter(metadata, query) {
 
 /**
 * flatten individual replay's metadata's team arrays into single 'player' string
+* and combine team, map, and name into single space-delimitted string
+* @param {object} replayMetadata
+* @returns {object}
 */
 function flatten(replayMetadata) {
   replayMetadata.player = [];
@@ -40,6 +45,9 @@ function flatten(replayMetadata) {
 
 /**
 * function to be used in filter method
+* @param {object} queryObject
+* @param {object} replayMetadata
+* @returns {boolean}
 */
 function filterReplay(queryObject, replayMetadata) {
   let flatMetadata = flatten(replayMetadata);
@@ -106,6 +114,8 @@ function filterReplay(queryObject, replayMetadata) {
 
 /**
 * parses and formats free text terms from a query
+* @param {string} text
+* @returns {object}
 */
 function formatText(text) {
 
