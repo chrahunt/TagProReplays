@@ -1,8 +1,8 @@
 const $ = require('jquery');
 const EventEmitter = require('events');
 
-require('../../../node_modules/bootstrap/js/tooltip.js');
-require('../../../node_modules/bootstrap/js/popover.js');
+require('bootstrap/js/tooltip.js');
+require('bootstrap/js/popover.js');
 
 var logger = require('util/logger')('search');
 
