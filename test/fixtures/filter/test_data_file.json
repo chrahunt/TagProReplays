@@ -1,0 +1,307 @@
+[
+  {
+    "name": "return all results with empty query",
+    "query": "",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1417410297968DATE1417410297968",
+      "replays1435121826566",
+      "replays1471705712103",
+      "replays1517439443525DATE1517439443724",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "filter by single map",
+    "query": "map:Gumbo",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168"
+    ]
+  },
+  {
+    "name": "partial match map insensitive to case",
+    "query": "map:gum",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168"
+    ]
+  },
+  {
+    "name": "filter by multiple maps",
+    "query": "map:Gumbo map:Pilot",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0033_replay_1517691540041DATE1517691540041"
+    ]
+  },
+  {
+    "name": "filter by single player",
+    "query": "player:ballparts",
+    "expected": [
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1417410297968DATE1417410297968",
+      "replays1471705712103",
+      "replays1517439443525DATE1517439443724"
+    ]
+  },
+  {
+    "name": "partial match player insensitive to case",
+    "query": "player:BALLP",
+    "expected": [
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1417410297968DATE1417410297968",
+      "replays1471705712103",
+      "replays1517439443525DATE1517439443724"
+    ]
+  },
+  {
+    "name": "filter by multiple players",
+    "query": "player:ballparts player:Some",
+    "expected": [
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1517439443525DATE1517439443724"
+    ]
+  },
+  {
+    "name": "filter by single name term",
+    "query": "name:replay",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "replays1417410297968DATE1417410297968",
+      "replays1435121826566",
+      "replays1471705712103",
+      "replays1517439443525DATE1517439443724"
+    ]
+  },
+  {
+    "name": "partial match name insensitive to case",
+    "query": "name:NUMB",
+    "expected": [
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935"
+    ]
+  },
+  {
+    "name": "filter by multiple name terms",
+    "query": "name:number name:button name:pup",
+    "expected": [
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "pupDATE1517110756147"
+    ]
+  },
+  {
+    "name": "filter by single non-keyword terms",
+    "query": "IRON",
+    "expected": [
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331",
+      "replays1471705712103"
+    ]
+  },
+  {
+    "name": "partial match text insensitive to case",
+    "query": "iro",
+    "expected": [
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331",
+      "replays1471705712103"
+    ]
+  },
+  {
+    "name": "filter by multiple non-keyword terms",
+    "query": "IRON FILTER",
+    "expected": [
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331"
+    ]
+  },
+  {
+    "name": "exclude single map keyword",
+    "query": "-map:Gumbo",
+    "expected": [
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1417410297968DATE1417410297968",
+      "replays1435121826566",
+      "replays1471705712103",
+      "replays1517439443525DATE1517439443724",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "exclude single player keyword",
+    "query": "-player:ballparts",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0007_replay_1522616771649DATE1522616771649",
+      "0008_replay_1522616777331DATE1522616777331",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "replays1435121826566",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "exclude single name keyword",
+    "query": "-name:replay",
+    "expected": [
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "exclude multiple keyword terms",
+    "query": "-map:Platypus -player:ballparts",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "replays1435121826566",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "exclude single non-keyword terms",
+    "query": "-IRON",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "buttonDATE1517112293818",
+      "number1DATE1478477086404",
+      "number2DATE1478477159260",
+      "number3DATE1478477419935",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1417410297968DATE1417410297968",
+      "replays1435121826566",
+      "replays1517439443525DATE1517439443724",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "exclude multiple non-keyword terms",
+    "query": "-IRON -ballparts",
+    "expected": [
+      "0001_replay_1522615773473DATE1522615773473",
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168",
+      "0005_replay_1522616193160DATE1522616193160",
+      "0006_replay_1522616559534DATE1522616559534",
+      "0013_replay_1517179668634DATE1517179668634",
+      "0031_replay_1517460493250DATE1517460493250",
+      "0033_replay_1517691540041DATE1517691540041",
+      "replays1435121826566",
+      "testingDATE1517275573511"
+    ]
+  },
+  {
+    "name": "deal with quotes properly",
+    "query": "\"Some Ball 4\"",
+    "expected": [
+      "0002_replay_1522615865621DATE1522615865621",
+      "0003_replay_1522615896421DATE1522615896421",
+      "0004_replay_1522615986168DATE1522615986168"
+    ]
+  },
+  {
+    "name": "combine include and exclude terms",
+    "query": "player:ballparts -map:Smirk",
+    "expected": [
+      "buttonDATE1517112293818",
+      "portal2DATE1517108928814",
+      "pupDATE1517110756147",
+      "replays1417410297968DATE1417410297968",
+      "replays1471705712103",
+      "replays1517439443525DATE1517439443724"
+    ]
+  }
+]
