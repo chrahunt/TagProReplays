@@ -23,7 +23,6 @@ async function getResults(metadata, item) {
 }
 
 input.forEach((item, i) => {
-  let thisOutput = Object.assign(item, {});
   results.push(getResults(metadata, item));
 });
 
