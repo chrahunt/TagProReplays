@@ -29,6 +29,8 @@ class Table {
     // Map from replay id to row element id to prevent overlap.
     this.ids = {};
     this.num_ids = 0;
+    // track whether user is currently searching.
+    this.inSearch = false;
   }
 
   /**
@@ -238,6 +240,25 @@ class Table {
     this._do_sort();
   }
 
+  /**
+  * Initiate a filtering of replays
+  * @param {string} query
+  */
+  filter_replays(query) {
+    this.collection.query = query;
+    this.inSearch = true;
+    this.update();
+  }
+
+  /**
+  * Initiate resetting search query and updating table
+  */
+  reset() {
+    this.collection.query = '';
+    this.inSearch = false;
+    this.update();
+  }
+
   // Private functions.
   _add_replay(replay) {
     let $row = this.$template_row.clone(true);
@@ -311,7 +332,7 @@ class Table {
     $('.replay-count').text(`Total replays: ${this.collection.total()}`);
     if (this.empty()) {
       // Show "No replays" message.
-      $('#noReplays').show();
+      this.inSearch ? $('#tpr-no-search-results').show() : $('#noReplays').show();
       $('#replayList').hide()
       $('#renderSelectedButton').prop('disabled', true);
       $('#deleteSelectedButton').prop('disabled', true);
@@ -320,6 +341,7 @@ class Table {
       $('#selectAllCheckbox').prop('checked', false);
     } else {
       // Hide "No replays".
+      $('#tpr-no-search-results').hide()
       $('#noReplays').hide();
       // Display list of replays.
       $('#replayList').show();

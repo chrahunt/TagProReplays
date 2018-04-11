@@ -1,0 +1,66 @@
+[
+  {
+    "name": "return all results with empty query",
+    "query": ""
+  }, {
+    "name": "filter by single map",
+    "query": "map:Gumbo"
+  }, {
+    "name": "partial match map insensitive to case",
+    "query": "map:gum"
+  }, {
+    "name": "filter by multiple maps",
+    "query": "map:Gumbo map:Pilot"
+  }, {
+    "name": "filter by single player",
+    "query": "player:ballparts"
+  }, {
+    "name": "partial match player insensitive to case",
+    "query": "player:BALLP"
+  }, {
+    "name": "filter by multiple players",
+    "query": "player:ballparts player:Some"
+  }, {
+    "name": "filter by single name term",
+    "query": "name:replay"
+  }, {
+    "name": "partial match name insensitive to case",
+    "query": "name:NUMB"
+  }, {
+    "name": "filter by multiple name terms",
+    "query": "name:number name:button name:pup"
+  }, {
+    "name": "filter by single non-keyword terms",
+    "query": "IRON"
+  }, {
+    "name": "partial match text insensitive to case",
+    "query": "iro"
+  }, {
+    "name": "filter by multiple non-keyword terms",
+    "query": "IRON FILTER"
+  }, {
+    "name": "exclude single map keyword",
+    "query": "-map:Gumbo"
+  }, {
+    "name": "exclude single player keyword",
+    "query": "-player:ballparts"
+  }, {
+    "name": "exclude single name keyword",
+    "query": "-name:replay"
+  }, {
+    "name": "exclude multiple keyword terms",
+    "query": "-map:Platypus -player:ballparts"
+  }, {
+    "name": "exclude single non-keyword terms",
+    "query": "-IRON"
+  }, {
+    "name": "exclude multiple non-keyword terms",
+    "query": "-IRON -ballparts"
+  }, {
+    "name": "deal with quotes properly",
+    "query": "\"Some Ball 4\""
+  }, {
+    "name": "combine include and exclude terms",
+    "query": "player:ballparts -map:Smirk"
+  }
+]
