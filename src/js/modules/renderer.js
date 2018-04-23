@@ -105,7 +105,7 @@ class Renderer {
   draw(frame) {
     let t0 = performance.now();
     animateReplay(frame, this.replay, this.map, this.options.spin,
-      this.options.splats, this.options.ui, this.options.chat);
+      this.options.splats, this.options.ui, this.options.chat, this.options.tile_previews);
     let t1 = performance.now();
     this.total_render_time += t1 - t0;
     this.rendered_frames++;
@@ -670,10 +670,10 @@ function drawMap(positions) {
   return newcontext.canvas.toDataURL();
 }
 
-function drawFloorTiles(positions) {
+function drawFloorTiles(positions, showPreviews) {
   let mod = frame % (replay_data.fps * 2 / 3);
   let fourth = (replay_data.fps * 2 / 3) / 4;
-  let animationTile;
+  let animationTile, x, y;
   if (mod < fourth) {
     animationTile = 0;
   } else if (mod < fourth * 2) {
@@ -689,16 +689,46 @@ function drawFloorTiles(positions) {
       logger.error(`Error locating floor tile description for ${floor_tile.value[frame]}`);
       return;
     }
-    let x = tile_spec.animated ? animationTile
-                               : tile_spec.coordinates.x;
+    if (!tile_spec.preview) {
+      x = tile_spec.animated ? animationTile
+                             : tile_spec.coordinates.x;
+      y = tile_spec.coordinates.y;
+    } else {
+      trackPreviewState(floor_tile);
+      let index = showPreviews ? floor_tile.previewState.current : 1;
+      let alpha = showPreviews ? 0.5 : 1;
+      x = tile_spec.coordinates[index].x;
+      y = tile_spec.coordinates[index].y;
+      context.globalAlpha = alpha;
+    } 
     let pos = worldToScreen(floor_tile.x * TILE_SIZE,
                             floor_tile.y * TILE_SIZE);
     context.drawImage(textures[tile_spec.img],
       x * TILE_SIZE,
-      tile_spec.coordinates.y * TILE_SIZE,
+      y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
       pos.x, pos.y,
       TILE_SIZE, TILE_SIZE);
+    context.globalAlpha = 1;
+  }
+}
+
+/**
+* Initiate and track state of a preview tile
+* @param {Object} floor_tile
+*/
+function trackPreviewState(floor_tile) {
+  if (!floor_tile.previewState || frame === 0 || floor_tile.value[frame - 1] !== floor_tile.value[frame]) {
+    floor_tile.previewState = {
+      frame: 0,
+      current: 0,
+      duration: replay_data.fps / 4 // when this is noninteger, behavior will not exactly match game
+    };
+  }
+  floor_tile.previewState.frame++;
+  if (floor_tile.previewState.frame > floor_tile.previewState.duration) {
+    floor_tile.previewState.frame = 0;
+    floor_tile.previewState.current = Number(!floor_tile.previewState.current);
   }
 }
 
@@ -1052,7 +1082,7 @@ function doEvent(positions) {
  * positions - replay data
  * mapImg - html img element reflecting the image of the map
  */
-function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat) {
+function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat, showPreviews) {
   frame = frame_n;
   render_state.world_offset = updateOffset(positions);
 
@@ -1069,7 +1099,7 @@ function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAn
   if (showSplats) {
     drawSplats(positions);
   }
-  drawFloorTiles(positions);
+  drawFloorTiles(positions, showPreviews);
   drawSpawns(positions);
   drawBalls(positions);
   drawObjects(positions);
