@@ -176,6 +176,10 @@ function initSettings() {
     id: 'useChatCheckbox',
     type: 'checkbox'
   }, {
+    name: 'tile_previews',
+    id: 'useTilePreviewsCheckbox',
+    type: 'checkbox'
+  }, {
     name: 'canvas_width',
     id: 'canvasWidthInput',
     type: 'number'

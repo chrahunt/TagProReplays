@@ -1233,6 +1233,7 @@ function getDefaultOptions() {
     splats:          true,
     ui:              true,
     chat:            true,
+    tile_previews:   true,
     spin:            true,
     record:          true // Recording enabled.
   };
