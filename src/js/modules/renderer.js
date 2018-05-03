@@ -673,7 +673,7 @@ function drawMap(positions) {
 function drawFloorTiles(positions, showPreviews) {
   let mod = frame % (replay_data.fps * 2 / 3);
   let fourth = (replay_data.fps * 2 / 3) / 4;
-  let animationTile, x, y;
+  let animationTile;
   if (mod < fourth) {
     animationTile = 0;
   } else if (mod < fourth * 2) {
@@ -684,6 +684,7 @@ function drawFloorTiles(positions, showPreviews) {
     animationTile = 3;
   }
   for (let floor_tile of positions.floorTiles) {
+    let x, y;
     let tile_spec = Tiles.floor_tiles[floor_tile.value[frame]];
     if (!tile_spec) {
       logger.error(`Error locating floor tile description for ${floor_tile.value[frame]}`);
@@ -693,13 +694,16 @@ function drawFloorTiles(positions, showPreviews) {
       x = tile_spec.animated ? animationTile
                              : tile_spec.coordinates.x;
       y = tile_spec.coordinates.y;
+    } else if (!showPreviews) {
+      x = tile_spec.emptyCoordinates.x;
+      y = tile_spec.emptyCoordinates.y;
     } else {
-      trackPreviewState(floor_tile);
-      let index = showPreviews ? floor_tile.previewState.current : 1;
-      let alpha = showPreviews ? 0.5 : 1;
-      x = tile_spec.coordinates[index].x;
-      y = tile_spec.coordinates[index].y;
-      context.globalAlpha = alpha;
+      trackPreviewState(positions, floor_tile);
+      let coordinates = floor_tile.previewState.isEmpty ? tile_spec.emptyCoordinates
+                                                        : tile_spec.coordinates;
+      x = coordinates.x;
+      y = coordinates.y;
+      context.globalAlpha = 0.5;
     } 
     let pos = worldToScreen(floor_tile.x * TILE_SIZE,
                             floor_tile.y * TILE_SIZE);
@@ -715,20 +719,22 @@ function drawFloorTiles(positions, showPreviews) {
 
 /**
 * Initiate and track state of a preview tile
-* @param {Object} floor_tile
+* @param {object} positions
+* @param {object} floor_tile
 */
-function trackPreviewState(floor_tile) {
+function trackPreviewState(positions, floor_tile) {
+  const stateDuration = 250;
+  const clockTime = new Date(positions.clock[frame]).getTime();
   if (!floor_tile.previewState || frame === 0 || floor_tile.value[frame - 1] !== floor_tile.value[frame]) {
     floor_tile.previewState = {
-      frame: 0,
-      current: 0,
-      duration: replay_data.fps / 4 // when this is noninteger, behavior will not exactly match game
+      isEmpty: false,
+      switchTime: clockTime + stateDuration
     };
   }
-  floor_tile.previewState.frame++;
-  if (floor_tile.previewState.frame > floor_tile.previewState.duration) {
-    floor_tile.previewState.frame = 0;
-    floor_tile.previewState.current = Number(!floor_tile.previewState.current);
+  let state = floor_tile.previewState;
+  if (clockTime > state.switchTime) {
+    state.switchTime = clockTime + stateDuration;
+    state.isEmpty = !state.isEmpty;
   }
 }
 
