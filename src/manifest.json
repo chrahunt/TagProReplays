@@ -27,7 +27,9 @@
     "matches": [
       "http://*.koalabeast.com/*",
       "http://*.newcompte.fr/*",
-      "http://tangent.jukejuice.com/*"
+      "http://tangent.jukejuice.com/*",
+      "http://tagpro-test.koalabeast.com/game",
+      "*://*.koalabeast.com/game"
     ],
     "run_at": "document_end"
   }],
