@@ -113,8 +113,6 @@ When you're ready to make a new release:
    populated in `manifest.json`).
    `./dist`.
 3. Load the `dist` directory as an unpacked extension and test.
-4. If tests pass, then make your version-release commit and any history changes
-   to clean up ugly intermediate git commits.
-5. zip up contents of `dist`
+4. If tests pass, then run `./tools/release.sh version`
 6. Push to origin, make a release in GitHub, make a post on /r/TagPro, and
-   upload the zip to the Chrome developer dashboard.
+   upload `./dist/dist.zip` to the Chrome developer dashboard.

@@ -166,14 +166,14 @@ gulp.task('clean-release', (cb) => {
   rimraf(dirs.release, cb);
 });
 
-gulp.task('build-release', gulp.series('clean-release'), () => {
+gulp.task('build-release', gulp.series('clean-release', () => {
   var p = jsonfile.readFileSync(pkg);
   return build(dirs.release, {
     manifest: {
       version: p.version
     }
   });
-});
+}));
 
 gulp.task('sass-dev', () => {
   return compileSass(dirs.dev + '/css');
