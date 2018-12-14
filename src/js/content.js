@@ -792,6 +792,7 @@ if ($('#userscript-home').length !== 0) {
   // Include custom bootstrap.css scoped to #tpr-container
   injectStyleSheet("css/bootstrap.css");
   injectStyleSheet("css/menu.css");
-} else if (document.URL.search(/\.\w+:/) >= 0) {
+} else if (document.URL.search(/\.\w+:/) >= 0
+        || document.URL.endsWith('/game')) {
   injectScript('js/recording.js');
 }
