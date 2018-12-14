@@ -1,22 +1,22 @@
 /*eslint no-sync: "off" */
 const browserify = require('browserify'),
-      concat     = require('concat-stream'),
-      duration   = require('gulp-duration'),
-      es         = require('event-stream'),
-      glob       = require('glob'),
-      gulp       = require('gulp'),
-      gutil      = require('gulp-util'),
-      jeditor    = require('gulp-json-editor'),
-      jsonfile   = require('jsonfile'),
-      notify     = require('gulp-notify'),
-      plumber    = require('gulp-plumber'),
-      rename     = require('gulp-rename'),
-      rimraf     = require('rimraf'),
-      sass       = require('gulp-sass'),
-      source     = require('vinyl-source-stream'),
-      through    = require('through2'),
-      watch      = require('gulp-watch'),
-      watchify   = require('watchify');
+  concat = require('concat-stream'),
+  duration = require('gulp-duration'),
+  glob = require('glob'),
+  gulp = require('gulp'),
+  gutil = require('gulp-util'),
+  jeditor = require('gulp-json-editor'),
+  jsonfile = require('jsonfile'),
+  mergeStream = require('merge-stream'),
+  notify = require('gulp-notify'),
+  plumber = require('gulp-plumber'),
+  rename = require('gulp-rename'),
+  rimraf = require('rimraf'),
+  sass = require('gulp-sass'),
+  source = require('vinyl-source-stream'),
+  through = require('through2'),
+  watch = require('gulp-watch'),
+  watchify = require('watchify');
 
 // Uncomment for shim debugging.
 //process.env.BROWSERIFYSHIM_DIAGNOSTICS=1;
@@ -102,7 +102,7 @@ function build(dest, opts) {
   // Sass.
   var compile_sass = compileSass(dest + '/css');
   var man_str = makeManifest(dest, opts.manifest);
-  return es.merge(bundle, ...move_assets, compile_sass, man_str);
+  return mergeStream(bundle, ...move_assets, compile_sass, man_str);
 }
 
 function compileSass(dest) {
@@ -150,7 +150,7 @@ gulp.task('clean', (cb) => {
 });
 
 // Implicitly a dev build.
-gulp.task('build', ['clean'], () => {
+gulp.task('build', gulp.series('clean', () => {
   var p = jsonfile.readFileSync(pkg);
   return build(dirs.dev, {
     browserify: {
@@ -160,13 +160,13 @@ gulp.task('build', ['clean'], () => {
       version: p.version
     }
   });
-});
+}));
 
 gulp.task('clean-release', (cb) => {
   rimraf(dirs.release, cb);
 });
 
-gulp.task('build-release', ['clean-release'], () => {
+gulp.task('build-release', gulp.series('clean-release'), () => {
   var p = jsonfile.readFileSync(pkg);
   return build(dirs.release, {
     manifest: {
@@ -175,7 +175,7 @@ gulp.task('build-release', ['clean-release'], () => {
   });
 });
 
-gulp.task('sass-dev', ['clean'], () => {
+gulp.task('sass-dev', () => {
   return compileSass(dirs.dev + '/css');
 });
 
@@ -183,7 +183,7 @@ gulp.task('sass-dev2', () => {
   return compileSass(dirs.dev + '/css');
 });
 
-gulp.task('manifest-dev', ['clean'], () => {
+gulp.task('manifest-dev', () => {
   // Pull version from package.json.
   var p = jsonfile.readFileSync(pkg);
   return makeManifest(dirs.dev, {
@@ -199,29 +199,31 @@ gulp.task('manifest-dev2', () => {
   });
 });
 
-gulp.task('watch', ['clean', 'sass-dev', 'manifest-dev'], () => {
-  var bundle = glob(sources, (err, files) => {
-    var streams = files.map((entry) => {
-      return watchifyFile(entry, dirs.dev);
+gulp.task('watch',
+  gulp.series('clean', gulp.parallel('sass-dev', 'manifest-dev'),
+  () => {
+    var bundle = glob(sources, (err, files) => {
+      var streams = files.map((entry) => {
+        return watchifyFile(entry, dirs.dev);
+      });
+      return mergeStream(streams);
     });
-    return es.merge(streams);
-  });
 
 
-  assets.forEach((asset, i) => {
-    gulp.src(asset)
-        .pipe(watch(asset, {
-          base: asset_base[i]
-        }))
-        .pipe(plumber())
-        .pipe(gulp.dest(dirs.dev))
-        .pipe(notify((file) => {
-          return `Updated ${file.path}`
-        }));
-  });
+    assets.forEach((asset, i) => {
+      gulp.src(asset)
+          .pipe(watch(asset, {
+            base: asset_base[i]
+          }))
+          .pipe(plumber())
+          .pipe(gulp.dest(dirs.dev))
+          .pipe(notify((file) => {
+            return `Updated ${file.path}`
+          }));
+    });
 
-  gulp.watch(sass_sources, ['sass-dev2']);
-  gulp.watch([pkg, manifest], ['manifest-dev2']);
-  // TODO: Merge all streams.
-  return bundle;
-});
+    gulp.watch(sass_sources, ['sass-dev2']);
+    gulp.watch([pkg, manifest], ['manifest-dev2']);
+    // TODO: Merge all streams.
+    return bundle;
+  }));
