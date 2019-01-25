@@ -24,7 +24,6 @@ const Table = require('modules/table');
 const Upload = require('modules/upload');
 const Search = require('modules/search');
 
-const url = new URL(document.URL);
 // Get URL for setting cookies, assumes a domain of *.hostname.tld:*/etc
 var cookieDomain = document.URL.match(/https?:\/\/[^\/]+?(\.[^\/.]+?\.[^\/.]+?)(?::\d+)?\//)[1];
 
@@ -783,6 +782,7 @@ function injectStyleSheet(path) {
   (document.head || document.documentElement).appendChild(link);
 }
 
+const url = new URL(document.URL);
 // if we're on the main tagpro server screen, run the createReplayPageButton function
 if ($('#userscript-home').length !== 0) {
   // make the body scrollable
@@ -793,7 +793,6 @@ if ($('#userscript-home').length !== 0) {
   // Include custom bootstrap.css scoped to #tpr-container
   injectStyleSheet("css/bootstrap.css");
   injectStyleSheet("css/menu.css");
-} else if (url.port !== ''
-        || url.pathname === '/game') {
+} else if (url.port !== '' || url.pathname === '/game') {
   injectScript('js/recording.js');
 }
