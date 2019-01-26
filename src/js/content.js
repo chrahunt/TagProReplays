@@ -782,6 +782,7 @@ function injectStyleSheet(path) {
   (document.head || document.documentElement).appendChild(link);
 }
 
+const url = new URL(document.URL);
 // if we're on the main tagpro server screen, run the createReplayPageButton function
 if ($('#userscript-home').length !== 0) {
   // make the body scrollable
@@ -792,7 +793,6 @@ if ($('#userscript-home').length !== 0) {
   // Include custom bootstrap.css scoped to #tpr-container
   injectStyleSheet("css/bootstrap.css");
   injectStyleSheet("css/menu.css");
-} else if (document.URL.search(/\.\w+:/) >= 0
-        || document.URL.endsWith('/game')) {
+} else if (url.port !== '' || url.pathname === '/game') {
   injectScript('js/recording.js');
 }
