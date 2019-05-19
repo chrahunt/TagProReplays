@@ -25,7 +25,7 @@
       "css/viewer.css"
     ],
     "matches": [
-      "http://*.koalabeast.com/*",
+      "*://*.koalabeast.com/*",
       "http://*.newcompte.fr/*",
       "http://tangent.jukejuice.com/*"
     ],
