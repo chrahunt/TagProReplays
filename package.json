@@ -15,7 +15,7 @@
     "cross-env": "^3.1.3",
     "debug": "^2.2.0",
     "dexie": "git://github.com/dfahlander/Dexie.js.git#v2.0.0-beta.4",
-    "eslint": "^3.19.0",
+    "eslint": "^4.18.2",
     "file-saver": "git://github.com/chrahunt/FileSaver.js.git#for-tagproreplays",
     "fs-promise": "^1.0.0",
     "gulp": "^4.0.2",
