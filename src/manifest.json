@@ -32,6 +32,9 @@
     ],
     "run_at": "document_end"
   }],
+  "icons": {
+    "128": "images/icon128.png"
+  },
   "sandbox": {
     "pages": [
       "html/ajv-sandbox.html"
