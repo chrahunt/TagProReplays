@@ -1,7 +1,7 @@
 /**
  * @fileoverview Contains drawing functions that go from the recorded
  * replay data to display on an HTML canvas.
- * 
+ *
  * For usage, see the Renderer class.
  */
 const loadImage = require('image-promise');
@@ -29,10 +29,10 @@ const TILE_SIZE = 40;
  * Interface for replay rendering, in general transforming replay
  * input into some graphical format. For video creation and previewing
  * this happens on the provided canvas element.
- * 
+ *
  * Some async setup is required so before trying to draw/display, make
  * sure to wait on Renderer#ready.
- * 
+ *
  * Also acts as a proxy to the underlying canvas.
  */
 class Renderer {
@@ -79,7 +79,7 @@ class Renderer {
       throw new Error('options.textures is required');
     }
     texture_promise = Promise.resolve(this.options.textures);
-    
+
     this.ready_promise = texture_promise
     .then((result) => {
       textures = result;
@@ -213,7 +213,7 @@ class Renderer {
 
     // Normalize gameEndsAt to handle:
     // - old version of recording script that only retrieved initial value
-    // - replay recording starting too early and picking up an initial 
+    // - replay recording starting too early and picking up an initial
     //   zero value.
     if (!Array.isArray(this.replay.gameEndsAt)) {
       this.replay.gameEndsAt = [Date.parse(this.replay.gameEndsAt)];
@@ -360,7 +360,7 @@ function drawChats(positions) {
   let top_offset = context.canvas.height - 175;
   for (let i = start; i < visible_chats.length; i++) {
     let chat = visible_chats[i];
-    let left_pos = 10;  
+    let left_pos = 10;
     let top_pos = top_offset + (i - start) * 12;
     // Determine chat attributes.
     let name = null;
@@ -451,7 +451,7 @@ function drawClock(positions) {
     if (current_time.isAfter(end_time)) {
       start_time = moment(end_time);
       end_time.add(positions.gameEndsAt[1].time, 'ms');
-    } 
+    }
   }
   if (!end_time) {
     logger.warn('Error parsing game time.');
@@ -629,13 +629,17 @@ function drawMap(positions) {
           TILE_SIZE, TILE_SIZE);
       }
       if (tile.tile != 'wall' && tile.tile != 'diagonalWall') {
-        let tileSize = tile.tileSize
-        newcontext.drawImage(textures.tiles,
-          tile.coordinates.x * tileSize,
-          tile.coordinates.y * tileSize,
-          tileSize, tileSize,
-          x * tileSize, y * tileSize,
-          tileSize, tileSize);
+        try {
+          let tileSize = tile.tileSize
+          newcontext.drawImage(textures.tiles,
+            tile.coordinates.x * tileSize,
+            tile.coordinates.y * tileSize,
+            tileSize, tileSize,
+            x * tileSize, y * tileSize,
+            tileSize, tileSize);
+        } catch(err) {
+          logger.error("Tile coordinate x undefined for " + tile.title);
+        }
       }
       if (tile.tile == 'wall' || tile.tile == 'diagonalWall') {
         let thisTileSize = tile.tileSize
@@ -704,7 +708,7 @@ function drawFloorTiles(positions, showPreviews) {
       x = coordinates.x;
       y = coordinates.y;
       context.globalAlpha = 0.5;
-    } 
+    }
     let pos = worldToScreen(floor_tile.x * TILE_SIZE,
                             floor_tile.y * TILE_SIZE);
     context.drawImage(textures[tile_spec.img],

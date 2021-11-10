@@ -52,7 +52,7 @@ function recordReplayData() {
   positions.tagproVersion = tagpro.version;
 
   // Set up dynamic tiles.
-  const dynamic_tile_ids = [3, 4, 5, 6, 9, 10, 13, 14, 15, 16, 19, 20, 21];
+  const dynamic_tile_ids = [3, 4, 5, 6, 9, 10, 13, 14, 15, 16, 19, 20, 21, 22, 24, 25];
   positions.map.forEach((row, x) => {
     row.forEach((tile, y) => {
       if (dynamic_tile_ids.includes(Math.floor(tile))) {
