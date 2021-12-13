@@ -83,11 +83,11 @@ module.exports = function (config) {
       terminal: false
     },
 
-    // Chrome on Travis CI
+    // Chrome on CI
     customLaunchers: {
-      Chrome_travis_ci: {
+      Chrome_ci: {
         base: 'ChromeHeadless',
-        displayName: 'Chrome-Travis',
+        displayName: 'Chrome-CI',
         flags: ['--no-sandbox']
       }
     }
@@ -96,8 +96,8 @@ module.exports = function (config) {
   props.browserify = {};
   props.browserify.debug = true;
   props.browserify.paths = [basePath];
-  if (process.env.TRAVIS) {
-    props.browsers = ['Chrome_travis_ci'];
+  if (process.env.CI) {
+    props.browsers = ['Chrome_ci'];
   }
 
   config.set(props);
