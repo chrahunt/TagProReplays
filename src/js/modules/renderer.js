@@ -770,7 +770,7 @@ function drawFloorTiles(positions, showPreviews) {
     const tile_spec = Tiles.floor_tiles[tile_value];
     if (!tile_spec) {
       render_state.report_missing_tile(tile_value, "Tiles.floor_values");
-      return;
+      continue;
     }
     if (!tile_spec.preview) {
       x = tile_spec.animated ? animationTile
