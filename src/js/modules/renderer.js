@@ -110,6 +110,17 @@ class Renderer {
       world_offset: {
         x: 0,
         y: 0
+      },
+      _missing_tiles: new Set(),
+      /**
+       * @param {string|number} value
+       */
+      report_missing_tile(value) {
+        if (this._missing_tiles.has(value)) {
+          return;
+        }
+        logger.error(`Error locating floor tile for ${value}`);
+        this._missing_tiles.add(value);
       }
     };
     this.options = these_options;
@@ -755,9 +766,10 @@ function drawFloorTiles(positions, showPreviews) {
   }
   for (let floor_tile of positions.floorTiles) {
     let x, y;
-    let tile_spec = Tiles.floor_tiles[floor_tile.value[frame]];
+    const tile_value = floor_tile.value[frame];
+    const tile_spec = Tiles.floor_tiles[tile_value];
     if (!tile_spec) {
-      logger.error(`Error locating floor tile description for ${floor_tile.value[frame]}`);
+      render_state.report_missing_tile(tile_value, "Tiles.floor_values");
       return;
     }
     if (!tile_spec.preview) {
