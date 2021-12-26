@@ -2,6 +2,32 @@
 * @fileoverview Tile constants for the game.
 */
 
+/**
+ * Location of the tile on the corresponding sprite sheet.
+ *
+ * @typedef {{x: number, y: number}} Coordinates
+ */
+/**
+ * When populated (as part of rendering), an object with
+ * properties 0, 1, 2, 3 which each hold 2-length arrays with the
+ * x and y coordinates for that quadrant.
+ *
+ * @typedef {{0: object, 1: object, 2: object, 3: object}} WallCoordinates
+ */
+/**
+ * @typedef {object} MapElement
+ * @property {string} tile name of the tile, used in some places for
+ * easier name comparison in code
+ * @property {Coordinates|WallCoordinates} coordinates
+ * @property {number} tileSize size of the source sprite
+ * @property {boolean|undefined} drawTileFirst when rendering the background map, whether to draw
+ * a floor tile before drawing the current tile. Note: for diagonal wall tiles this is computed
+ * dynamically based on whether the wall tile is bordered by empty space ('0') or on the edge of
+ * the map
+ */
+/**
+ * @type {Object<string, MapElement>}
+ */
 exports.mapElements = {
   0: {tile: "blank", coordinates: {x: 15, y: 10}, tileSize: 40, drawTileFirst: false},
   1: {tile: "wall", coordinates: {0: {}, 1: {}, 2: {}, 3: {}}, tileSize: 20},
