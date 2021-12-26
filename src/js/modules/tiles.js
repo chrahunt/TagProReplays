@@ -2,6 +2,32 @@
 * @fileoverview Tile constants for the game.
 */
 
+/**
+ * Location of the tile on the corresponding sprite sheet.
+ *
+ * @typedef {{x: number, y: number}} Coordinates
+ */
+/**
+ * When populated (as part of rendering), an object with
+ * properties 0, 1, 2, 3 which each hold 2-length arrays with the
+ * x and y coordinates for that quadrant.
+ *
+ * @typedef {{0: object, 1: object, 2: object, 3: object}} WallCoordinates
+ */
+/**
+ * @typedef {object} MapElement
+ * @property {string} tile name of the tile, used in some places for
+ * easier name comparison in code
+ * @property {Coordinates|WallCoordinates} coordinates
+ * @property {number} tileSize size of the source sprite
+ * @property {boolean|undefined} drawTileFirst when rendering the background map, whether to draw
+ * a floor tile before drawing the current tile. Note: for diagonal wall tiles this is computed
+ * dynamically based on whether the wall tile is bordered by empty space ('0') or on the edge of
+ * the map
+ */
+/**
+ * @type {Object<string, MapElement>}
+ */
 exports.mapElements = {
   0: {tile: "blank", coordinates: {x: 15, y: 10}, tileSize: 40, drawTileFirst: false},
   1: {tile: "wall", coordinates: {0: {}, 1: {}, 2: {}, 3: {}}, tileSize: 20},
@@ -55,40 +81,40 @@ exports.mapElements = {
 };
 
 exports.floor_tiles = {
-  3:    { tile: "redflag",           coordinates: { x: 14, y: 1 }, tileSize: 40, img: "tiles" },
-  3.1:  { tile: "redflagtaken",      coordinates: { x: 14, y: 2 }, tileSize: 40, img: "tiles" },
-  4:    { tile: "blueflag",          coordinates: { x: 15, y: 1 }, tileSize: 40, img: "tiles" },
-  4.1:  { tile: "blueflagtaken",     coordinates: { x: 15, y: 2 }, tileSize: 40, img: "tiles" },
-  5:    { tile: "speedpad",          coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpad", animated: true },
-  5.1:  { tile: "emptyspeedpad",     coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpad" },
-  5.11: { tile: "previewspeedpad",   coordinates: { x: 0, y: 0 }, tileSize: 40, img: "speedpad", preview: true, emptyCoordinates: { x:  4, y: 0 } },
-  6:    { tile: "emptypowerup",      coordinates: { x: 12, y: 8 }, tileSize: 40, img: "tiles" },
-  6.1:  { tile: "jukejuice",         coordinates: { x: 12, y: 4 }, tileSize: 40, img: "tiles" },
-  6.2:  { tile: "rollingbomb",       coordinates: { x: 12, y: 5 }, tileSize: 40, img: "tiles" },
-  6.3:  { tile: "tagpro",            coordinates: { x: 12, y: 6 }, tileSize: 40, img: "tiles" },
-  6.4:  { tile: "speed",             coordinates: { x: 12, y: 7 }, tileSize: 40, img: "tiles" },
-  6.11: { tile: "previewjukejuice",  coordinates: { x: 12, y: 4 }, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: { x: 12, y: 8 } },
-  6.21: { tile: "previewrollingbomb", coordinates: { x: 12, y: 5 }, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: { x: 12, y: 8 } },
-  6.31: { tile: "previewtagpro",     coordinates: { x: 12, y: 6 }, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: { x: 12, y: 8 } },
-  6.41: { tile: "previewspeed",      coordinates: { x: 12, y: 7 }, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: { x: 12, y: 8 } },
-  9:    { tile: "gate",              coordinates: { x: 12, y: 3 }, tileSize: 40, img: "tiles" },
-  9.1:  { tile: "greengate",         coordinates: { x: 13, y: 3 }, tileSize: 40, img: "tiles" },
-  9.2:  { tile: "redgate",           coordinates: { x: 14, y: 3 }, tileSize: 40, img: "tiles" },
-  9.3:  { tile: "bluegate",          coordinates: { x: 15, y: 3 }, tileSize: 40, img: "tiles" },
-  10:   { tile: "bomb",              coordinates: { x: 12, y: 1 }, tileSize: 40, img: "tiles" },
-  10.1: { tile: "emptybomb",         coordinates: { x: 12, y: 2 }, tileSize: 40, img: "tiles" },
-  10.11: { tile: "previewbomb",      coordinates: { x: 12, y: 1 }, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: { x: 12, y: 2 } },
-  13:   { tile: "portal",            coordinates: { x:  0, y: 0 }, tileSize: 40, img: "portal", animated: true },
-  13.1: { tile: "emptyportal",       coordinates: { x:  4, y: 0 }, tileSize: 40, img: "portal" },
-  13.11: { tile: "previewportal",    coordinates: { x:  0, y: 0 }, tileSize: 40, img: "portal", preview: true, emptyCoordinates: { x:  4, y: 0 } },
-  14:   { tile: "speedpadred",       coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpadred", animated: true },
-  14.1: { tile: "emptyspeedpadred",  coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpadred" },
-  14.11: { tile: "previewspeedpadred",  coordinates: { x: 0, y: 0 }, tileSize: 40, img: "speedpadred", preview: true, emptyCoordinates: { x:  4, y: 0 } },
-  15:   { tile: "speedpadblue",      coordinates: { x:  0, y: 0 }, tileSize: 40, img: "speedpadblue", animated: true },
-  15.1: { tile: "emptyspeedpadblue", coordinates: { x:  4, y: 0 }, tileSize: 40, img: "speedpadblue" },
-  15.11: { tile: "previewspeedpadblue", coordinates: { x: 0, y: 0 }, tileSize: 40, img: "speedpadblue", preview: true, emptyCoordinates: { x:  4, y: 0 } },
-  16:   { tile: "yellowflag",        coordinates: { x: 13, y: 1 }, tileSize: 40, img: "tiles" },
-  16.1: { tile: "yellowflagtaken",   coordinates: { x: 13, y: 2 }, tileSize: 40, img: "tiles" }
+  3: {tile: "redflag", coordinates: {x: 14, y: 1}, tileSize: 40, img: "tiles"},
+  3.1: {tile: "redflagtaken", coordinates: {x: 14, y: 2}, tileSize: 40, img: "tiles"},
+  4: {tile: "blueflag", coordinates: {x: 15, y: 1}, tileSize: 40, img: "tiles"},
+  4.1: {tile: "blueflagtaken", coordinates: {x: 15, y: 2}, tileSize: 40, img: "tiles"},
+  5: {tile: "speedpad", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpad", animated: true},
+  5.1: {tile: "emptyspeedpad", coordinates: {x: 4, y: 0}, tileSize: 40, img: "speedpad"},
+  5.11: {tile: "previewspeedpad", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpad", preview: true, emptyCoordinates: {x: 4, y: 0}},
+  6: {tile: "emptypowerup", coordinates: {x: 12, y: 8}, tileSize: 40, img: "tiles"},
+  6.1: {tile: "jukejuice", coordinates: {x: 12, y: 4}, tileSize: 40, img: "tiles"},
+  6.2: {tile: "rollingbomb", coordinates: {x: 12, y: 5}, tileSize: 40, img: "tiles"},
+  6.3: {tile: "tagpro", coordinates: {x: 12, y: 6}, tileSize: 40, img: "tiles"},
+  6.4: {tile: "speed", coordinates: {x: 12, y: 7}, tileSize: 40, img: "tiles"},
+  6.11: {tile: "previewjukejuice", coordinates: {x: 12, y: 4}, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: {x: 12, y: 8}},
+  6.21: {tile: "previewrollingbomb", coordinates: {x: 12, y: 5}, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: {x: 12, y: 8}},
+  6.31: {tile: "previewtagpro", coordinates: {x: 12, y: 6}, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: {x: 12, y: 8}},
+  6.41: {tile: "previewspeed", coordinates: {x: 12, y: 7}, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: {x: 12, y: 8}},
+  9: {tile: "gate", coordinates: {x: 12, y: 3}, tileSize: 40, img: "tiles"},
+  9.1: {tile: "greengate", coordinates: {x: 13, y: 3}, tileSize: 40, img: "tiles"},
+  9.2: {tile: "redgate", coordinates: {x: 14, y: 3}, tileSize: 40, img: "tiles"},
+  9.3: {tile: "bluegate", coordinates: {x: 15, y: 3}, tileSize: 40, img: "tiles"},
+  10: {tile: "bomb", coordinates: {x: 12, y: 1}, tileSize: 40, img: "tiles"},
+  10.1: {tile: "emptybomb", coordinates: {x: 12, y: 2}, tileSize: 40, img: "tiles"},
+  10.11: {tile: "previewbomb", coordinates: {x: 12, y: 1}, tileSize: 40, img: "tiles", preview: true, emptyCoordinates: {x: 12, y: 2}},
+  13: {tile: "portal", coordinates: {x: 0, y: 0}, tileSize: 40, img: "portal", animated: true},
+  13.1: {tile: "emptyportal", coordinates: {x: 4, y: 0}, tileSize: 40, img: "portal"},
+  13.11: {tile: "previewportal", coordinates: {x: 0, y: 0}, tileSize: 40, img: "portal", preview: true, emptyCoordinates: {x: 4, y: 0}},
+  14: {tile: "speedpadred", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpadred", animated: true},
+  14.1: {tile: "emptyspeedpadred", coordinates: {x: 4, y: 0}, tileSize: 40, img: "speedpadred"},
+  14.11: {tile: "previewspeedpadred", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpadred", preview: true, emptyCoordinates: {x: 4, y: 0}},
+  15: {tile: "speedpadblue", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpadblue", animated: true},
+  15.1: {tile: "emptyspeedpadblue", coordinates: {x: 4, y: 0}, tileSize: 40, img: "speedpadblue"},
+  15.11: {tile: "previewspeedpadblue", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpadblue", preview: true, emptyCoordinates: {x: 4, y: 0}},
+  16: {tile: "yellowflag", coordinates: {x: 13, y: 1}, tileSize: 40, img: "tiles"},
+  16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 2}, tileSize: 40, img: "tiles"}
 };
 
 exports.tiles = {

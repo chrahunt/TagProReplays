@@ -17,11 +17,59 @@ logger.info('Loading renderer.');
 /*
  * Renderer relies heavily on the format of the replay.
  * For replay format information, see the schemas available in
- * https://github.com/chrahunt/TagProReplays/tree/dev/src/schemas
+ * `src/schemas`.
  * This renderer handles v1 replays.
  */
-// Renderer-global variables.
-var frame, context, options, textures, replay_data, render_state;
+/**
+ * We alter the input replay in several ways to accommodate the
+ * existing rendering methods. This represents the unaltered input,
+ * before any changes.
+ * @typedef {object} InputReplayData
+ */
+/**
+ * @typedef {number|string} WallMapEntryPart
+ */
+/**
+ * @typedef {[WallMapEntryPart, WallMapEntryPart, WallMapEntryPart, WallMapEntryPart]} WallMapEntry
+ */
+/**
+ * As copied from `tagpro.map`.
+ *
+ * @typedef {Array<Array<number|string>>} TagproMap
+ */
+/**
+ * @typedef {object} FloorTile
+ * @property {Array<number|string>} value for each frame
+ * @property {number|string} x position in the map data
+ * @property {number|string} y position in the map data
+ */
+/**
+ * Some aspects of the replay data are normalized or calculated to make rendering
+ * easier, this documents that.
+ *
+ * @typedef {object} ReplayData
+ * @property {TagproMap} map as copied from `tagpro.map`
+ * @property {Array<Array<WallMapEntry>>} wallMap as copied from `tagpro.wallMap`
+ * @property {Array<Array<MapElement>>} tiles tile data laid out in the same way
+ * as the TagPro map, for rendering the background map image
+ * @property {Array<FloorTile>} floorTiles
+ */
+/**
+ * @typedef Textures
+ * @type {object}
+ * @property {HTMLImageElement} tiles
+ * @property {HTMLImageElement} flair
+ * @property {HTMLImageElement} splats
+ */
+/**
+ * @type {Textures}
+ */
+var textures;
+/**
+ * @type {number|undefined}
+ */
+var frame;
+var context, options, replay_data, render_state;
 
 const TILE_SIZE = 40;
 
@@ -38,16 +86,16 @@ const TILE_SIZE = 40;
 class Renderer {
   /**
    * @param {HTMLCanvasElement} canvas - the canvas to render onto
-   * @param {Replay} replay
-   * @param {Object} options
-   * @param {Number} options.canvas_height
-   * @param {Number} options.canvas_width
-   * @param {bool} options.chat
-   * @param {bool} options.custom_textures
-   * @param {Object} options.textures
-   * @param {bool} options.spin
-   * @param {bool} options.splats
-   * @param {bool} options.ui
+   * @param {InputReplayData} replay
+   * @param {Object} these_options
+   * @param {Number} these_options.canvas_height
+   * @param {Number} these_options.canvas_width
+   * @param {bool} these_options.chat
+   * @param {bool} these_options.custom_textures
+   * @param {Promise<Textures>} these_options.textures
+   * @param {bool} these_options.spin
+   * @param {bool} these_options.splats
+   * @param {bool} these_options.ui
    */
   constructor(canvas, replay, these_options = {}) {
     // Set globals.
@@ -68,6 +116,9 @@ class Renderer {
     this.canvas = canvas;
     this.canvas.width = this.options.canvas_width;
     this.canvas.height = this.options.canvas_height;
+    /**
+     * @type {ReplayData}
+     */
     this.replay = replay;
 
     this.total_render_time = 0;
@@ -238,21 +289,8 @@ class Renderer {
 }
 
 /**
- * @typedef TileData
- * @type {object}
- * @property {string} tile - The type of tile.
- * @property {object} coordinates - Coordinates corresponding to the
- *   location of the tile on the tiles sprite, or an object with
- *   properties 0, 1, 2, 3 which each hold arrays with the same
- *   information.
- * @property {integer} tileSize - The size of the tile to draw.
- * @property {boolean} drawTileFirst - Whether a floor tile should be
- *   drawn under the given tile before drawing the tile itself.
- */
-/**
- * [decipherMapdata description]
- * @param {[type]} mapData [description]
- * @return {[type]} [description]
+ * @param {TagproMap} mapData
+ * @return {Array<Array<MapElement>>}
  */
 function decipherMapdata(mapData) {
   return mapData.map((col) => {
@@ -262,6 +300,14 @@ function decipherMapdata(mapData) {
   });
 }
 
+/**
+ * Enrich tile descriptions with specific coordinates for drawing
+ * exotic wall elements.
+ *
+ * @param {Array<Array<MapElement>>} decipheredData
+ * @param {Array<Array<WallMapEntry>>} wallData
+ * @returns {Array<Array<MapElement>>}
+ */
 function translateWallTiles(decipheredData, wallData) {
   decipheredData.forEach(function(col, x) {
     col.forEach(function(data, y) {
@@ -344,6 +390,9 @@ function prettyText(text, textx, texty, color) {
   return context.measureText(text).width;
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawChats(positions) {
   if (!positions.chat) return;
   let chat_duration = 30000;
@@ -437,6 +486,9 @@ function drawPowerups(ball, ballx, bally, positions) {
   }
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawClock(positions) {
   // YYYY-MM-DDTHH:mm:ss.SSSZ
   let current_time = moment(positions.clock[frame], 'YYYY-MM-DDTHH:mm:ss.SSSZ');
@@ -478,6 +530,9 @@ function drawClock(positions) {
   context.fillText(clock_text, context.canvas.width / 2, context.canvas.height - 25);
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawScore(positions) {
   var thisScore = positions.score[frame];
   context.textAlign = "center";
@@ -488,6 +543,9 @@ function drawScore(positions) {
   context.fillText(thisScore.b, context.canvas.width / 2 + 120, context.canvas.height - 50);
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawScoreFlag(positions) {
   for (var j in positions) {
     if (typeof positions[j].flag != 'undefined') {
@@ -540,7 +598,7 @@ function drawFlag(ball, ballx, bally, positions) {
 
 /**
  * Takes in the replay data and returns a DataURL (png) representing the map.
- * positions - replay data
+ * @param {ReplayData} positions
  */
 function drawMap(positions) {
   var newcan = document.createElement('canvas');
@@ -670,6 +728,12 @@ function drawMap(positions) {
   return newcontext.canvas.toDataURL();
 }
 
+/**
+ * Draw dynamic floor tiles - those that can change state over
+ * the course of the replay.
+ *
+ * @param {ReplayData} positions
+ */
 function drawFloorTiles(positions, showPreviews) {
   let mod = frame % (replay_data.fps * 2 / 3);
   let fourth = (replay_data.fps * 2 / 3) / 4;
@@ -719,7 +783,7 @@ function drawFloorTiles(positions, showPreviews) {
 
 /**
 * Initiate and track state of a preview tile
-* @param {object} positions
+* @param {ReplayData} positions
 * @param {object} floor_tile
 */
 function trackPreviewState(positions, floor_tile) {
@@ -738,6 +802,9 @@ function trackPreviewState(positions, floor_tile) {
   }
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function bombPop(positions) {
   let now = new Date(positions.clock[frame]).getTime();
   for (let bomb of positions.bombs) {
@@ -773,6 +840,9 @@ function bombPop(positions) {
   }
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function ballCollision(positions, ball) {
   let last_frame = frame - 1;
   let this_ball = positions[ball];
@@ -790,6 +860,9 @@ function ballCollision(positions, ball) {
   return false;
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function rollingBombPop(positions, ball) {
   let me = replay_data.me;
   let player = positions[ball];
@@ -822,6 +895,9 @@ function rollingBombPop(positions, ball) {
   }
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function ballPop(positions, ball) {
   if (!ball.startsWith('player')) return;
 
@@ -858,6 +934,10 @@ function ballPop(positions, ball) {
 
 let splat_size = 120;
 let splat_fade_duration = 5000;
+
+/**
+ * @param {ReplayData} positions
+ */
 function drawSplats(positions) {
   if (!positions.splats) return;
   let splats = positions.splats;
@@ -899,6 +979,9 @@ function drawSplats(positions) {
   context.globalAlpha = 1;
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawSpawns(positions) {
   if (positions.spawns) {
     context.globalAlpha = .25;
@@ -919,6 +1002,9 @@ function drawSpawns(positions) {
   }
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawEndText(positions) {
   if (positions.end) {
     var endTime = new Date(positions.end.time).getTime();
@@ -962,7 +1048,12 @@ function worldToScreen(x, y) {
   };
 }
 
-// Update frame-specific offset for mapping world to screen coordinates.
+/**
+ * Update frame-specific offset for mapping world to screen coordinates.
+ *
+ * @param {ReplayData} positions
+ * @returns {{x: number, y: number}}
+ */
 function updateOffset(positions) {
   let me = replay_data.me;
   let player = positions[me];
@@ -979,7 +1070,7 @@ function updateOffset(positions) {
 }
 
 /**
- * @param {Replay} positions
+ * @param {ReplayData} positions
  */
 function drawBalls(positions) {
   let players = replay_data.players;
@@ -1025,6 +1116,9 @@ function drawBalls(positions) {
   }
 }
 
+/**
+ * @param {ReplayData} positions
+ */
 function drawObjects(positions) {
   if (!('objects' in positions)) return;
   for (let id in positions.objects) {
@@ -1059,7 +1153,7 @@ function drawObjects(positions) {
 
 /**
  * Handle rendering for special events.
- * @param {Replay} positions
+ * @param {ReplayData} positions
  */
 function doEvent(positions) {
   if (!('event' in positions)) return;
@@ -1085,8 +1179,8 @@ function doEvent(positions) {
 /**
  * Edit mapCanvas to reflect the replay at the given frame.
  * frame - frame of replay
- * positions - replay data
  * mapImg - html img element reflecting the image of the map
+ * @param {ReplayData} positions
  */
 function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAndScore, showChat, showPreviews) {
   frame = frame_n;
