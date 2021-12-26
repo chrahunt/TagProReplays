@@ -295,7 +295,13 @@ class Renderer {
 function decipherMapdata(mapData) {
   return mapData.map((col) => {
     return col.map((tile) => {
-      return Object.assign({}, Tiles.mapElements[tile]);
+      let tileDescriptor = Tiles.mapElements[tile];
+      if (tileDescriptor === undefined) {
+        // Default to a blank tile.
+        tileDescriptor = Tiles.mapElements[0];
+        logger.error(`Could not find tile for value: ${tile}`);
+      }
+      return Object.assign({}, tileDescriptor);
     });
   });
 }
