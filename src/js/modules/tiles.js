@@ -77,7 +77,13 @@ exports.mapElements = {
   17: {tile: "redgoal", coordinates: {x: 14, y: 5}, tileSize: 40, drawTileFirst: false},
   18: {tile: "bluegoal", coordinates: {x: 15, y: 5}, tileSize: 40, drawTileFirst: false},
   22: {tile: "gravitywell", coordinates: {x: 13, y: 0}, tileSize: 40, drawTileFirst: true},
-  23: {tile: "yellowtile", coordinates: {x: 13, y: 5}, tileSize: 40, drawTileFirst: false}
+  23: {tile: "yellowtile", coordinates: {x: 13, y: 5}, tileSize: 40, drawTileFirst: false},
+  24: {tile: "portalred", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
+  24.1: {tile: "emptyportalred", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
+  24.11: {tile: "emptyportalred", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
+  25: {tile: "portalblue", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
+  25.1: {tile: "emptyportalblue", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false},
+  25.11: {tile: "emptyportalblue", coordinates: {x: 13, y: 4}, tileSize: 40, drawTileFirst: false}
 };
 
 exports.floor_tiles = {
@@ -114,7 +120,13 @@ exports.floor_tiles = {
   15.1: {tile: "emptyspeedpadblue", coordinates: {x: 4, y: 0}, tileSize: 40, img: "speedpadblue"},
   15.11: {tile: "previewspeedpadblue", coordinates: {x: 0, y: 0}, tileSize: 40, img: "speedpadblue", preview: true, emptyCoordinates: {x: 4, y: 0}},
   16: {tile: "yellowflag", coordinates: {x: 13, y: 1}, tileSize: 40, img: "tiles"},
-  16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 2}, tileSize: 40, img: "tiles"}
+  16.1: {tile: "yellowflagtaken", coordinates: {x: 13, y: 2}, tileSize: 40, img: "tiles"},
+  24: {tile: "portalred", coordinates: {x: 0, y: 0}, tileSize: 40, img: "portal", animated: true},
+  24.1: {tile: "emptyportalred", coordinates: {x: 4, y: 0}, tileSize: 40, img: "portal"},
+  24.11: {tile: "previewportalred", coordinates: {x: 0, y: 0}, tileSize: 40, img: "portal", preview: true, emptyCoordinates: {x: 4, y: 0}},
+  25: {tile: "portalblue", coordinates: {x: 0, y: 0}, tileSize: 40, img: "portal", animated: true},
+  25.1: {tile: "emptyportalblue", coordinates: {x: 4, y: 0}, tileSize: 40, img: "portal"},
+  25.11: {tile: "previewportalblue", coordinates: {x: 0, y: 0}, tileSize: 40, img: "portal", preview: true, emptyCoordinates: {x: 4, y: 0}}
 };
 
 exports.tiles = {
