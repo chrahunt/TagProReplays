@@ -780,9 +780,13 @@ function drawFloorTiles(positions, showPreviews) {
       x = tile_spec.emptyCoordinates.x;
       y = tile_spec.emptyCoordinates.y;
     } else {
-      trackPreviewState(positions, floor_tile);
-      let coordinates = floor_tile.previewState.isEmpty ? tile_spec.emptyCoordinates
-                                                        : tile_spec.coordinates;
+      let coordinates = tile_spec.coordinates
+      if (tile_spec.blinking) {
+        trackPreviewState(positions, floor_tile);
+        if (floor_tile.previewState.isEmpty) {
+          coordinates = tile_spec.emptyCoordinates;
+        }
+      }
       x = coordinates.x;
       y = coordinates.y;
       context.globalAlpha = 0.5;
