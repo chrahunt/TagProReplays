@@ -4,7 +4,7 @@
   "description": "Chrome extension for recording play in TagPro.",
   "main": "TagProReplays.js",
   "devDependencies": {
-    "ajv": "^4.9.2",
+    "ajv": "^6.12.3",
     "bluebird": "^3.5.4",
     "bootstrap": "^3.4.1",
     "browserify": "^16.2.3",
