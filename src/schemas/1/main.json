@@ -52,6 +52,9 @@
               "description": "Optional mod parameter.",
               "type": "boolean"
             },
+            "for": {
+              "type": ["integer", "null"]
+            },
             "removeAt": {
               "description": "The time at which to remove the chat, 30s after it was sent. May not be present if replay was made while 3.0 bug was present.",
               "$ref": "#/definitions/epochTime"
@@ -86,6 +89,9 @@
             },
             "idInGroup": {
               "type": ["string", "null"]
+            },
+            "for": {
+              "type": ["integer", "null"]
             },
             "message": { "type": "string" },
             "mod": {
