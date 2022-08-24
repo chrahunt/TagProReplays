@@ -19,12 +19,7 @@
           "description": "Unnecessary property added by rendering."
         }
       },
-      "required": [
-        "time",
-        "type",
-        "x",
-        "y"
-      ],
+      "required": ["time", "type", "x", "y"],
       "additionalProperties": false
     },
     "chatInstance": {
@@ -56,6 +51,9 @@
               "description": "The time at which to remove the chat, 30s after it was sent. May not be present if replay was made while 3.0 bug was present.",
               "$ref": "#/definitions/epochTime"
             },
+            "for": {
+              "type": ["string", "integer", "null"]
+            },
             "shake": { "type": "boolean" },
             "to": {
               "description": "The recipients of the chat, may be omitted in some cases (for events)",
@@ -64,10 +62,7 @@
               "enum": ["all", "team", "group"]
             }
           },
-          "required": [
-            "from",
-            "message"
-          ],
+          "required": ["from", "message"],
           "additionalProperties": false
         },
         {
@@ -82,6 +77,9 @@
               "type": "string"
             },
             "from": {
+              "type": ["string", "integer", "null"]
+            },
+            "for": {
               "type": ["string", "integer", "null"]
             },
             "idInGroup": {
@@ -109,14 +107,7 @@
               "enum": ["all", "team", "group"]
             }
           },
-          "required": [
-            "auth",
-            "from",
-            "message",
-            "name",
-            "team",
-            "to"
-          ],
+          "required": ["auth", "from", "message", "name", "team", "to"],
           "additionalProperties": false
         },
         {
@@ -127,11 +118,7 @@
             "v": { "type": "number" },
             "removeAt": { "type": "integer" }
           },
-          "required": [
-            "s",
-            "v",
-            "removeAt"
-          ],
+          "required": ["s", "v", "removeAt"],
           "additionalProperties": false
         }
       ]
@@ -155,13 +142,7 @@
           "type": "number"
         }
       },
-      "required": [
-        "t",
-        "w",
-        "x",
-        "y",
-        "time"
-      ],
+      "required": ["t", "w", "x", "y", "time"],
       "additionalProperties": false
     },
     "score": {
@@ -172,10 +153,7 @@
         "b": { "type": "integer" },
         "r": { "type": "integer" }
       },
-      "required": [
-        "b",
-        "r"
-      ],
+      "required": ["b", "r"],
       "additionalProperties": false
     },
     "splat": {
@@ -193,12 +171,7 @@
           "type": "integer"
         }
       },
-      "required": [
-        "t",
-        "x",
-        "y",
-        "time"
-      ],
+      "required": ["t", "x", "y", "time"],
       "additionalProperties": false
     },
     "floorTile": {
@@ -214,17 +187,13 @@
         "x": {
           "description": "The X position of the tile in the map array.",
           "type": ["number", "string"]
-          },
+        },
         "y": {
           "description": "The Y position of the tile in the map array.",
           "type": ["number", "string"]
         }
       },
-      "required": [
-        "value",
-        "x",
-        "y"
-      ],
+      "required": ["value", "x", "y"],
       "additionalProperties": false
     },
     "stringTime": {
@@ -376,10 +345,7 @@
         },
         "winner": { "type": "string" }
       },
-      "required": [
-        "time",
-        "winner"
-      ],
+      "required": ["time", "winner"],
       "additionalProperties": false
     },
     "floorTiles": {
