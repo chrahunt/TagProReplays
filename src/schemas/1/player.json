@@ -22,7 +22,11 @@
           "type": "integer"
         }
       },
-      "required": ["x", "y", "description"]
+      "required": [
+        "x",
+        "y",
+        "description"
+      ]
     }
   },
   "properties": {
@@ -37,15 +41,12 @@
     "bomb": {
       "type": "array",
       "items": {
-        "anyOf": [
-          {
-            "$ref": "definitions.json#/frameArrayItem/bool"
-          },
-          {
-            "description": "New format powerup value, see #77.",
-            "type": "integer"
-          }
-        ]
+        "anyOf": [{
+          "$ref": "definitions.json#/frameArrayItem/bool"
+        }, {
+          "description": "New format powerup value, see #77.",
+          "type": "integer"
+        }]
       }
     },
     "dead": {
@@ -63,16 +64,13 @@
     "flag": {
       "type": "array",
       "items": {
-        "anyOf": [
-          {
-            "title": "Flag Value.",
-            "description": "The type of flag held by a player in a specific frame, or null if there was no flag held.",
-            "type": ["number", "string"]
-          },
-          {
-            "$ref": "definitions.json#/frameArrayItem"
-          }
-        ]
+        "anyOf": [{
+          "title": "Flag Value.",
+          "description": "The type of flag held by a player in a specific frame, or null if there was no flag held.",
+          "type": ["number", "string"]
+        }, {
+          "$ref": "definitions.json#/frameArrayItem"
+        }]
       }
     },
     "flair": {
@@ -102,21 +100,18 @@
       "enum": ["other", "me"]
     },
     "name": {
-      "anyOf": [
-        {
-          "description": "old format that didn't have an array",
-          "type": "string"
-        },
-        {
-          "type": "array",
-          "items": {
-            "anyOf": [
-              { "type": "string" },
-              { "$ref": "definitions.json#/frameArrayItem" }
-            ]
-          }
+      "anyOf": [{
+        "description": "old format that didn't have an array",
+        "type": "string"
+      }, {
+        "type": "array",
+        "items": {
+          "anyOf": [
+            { "type": "string" },
+            { "$ref": "definitions.json#/frameArrayItem" }
+          ]
         }
-      ]
+      }]
     },
     "popAnimation": {
       "description": "Property seen on replays processed/saved with old version of renderer.",
@@ -125,15 +120,12 @@
     "tagpro": {
       "type": "array",
       "items": {
-        "anyOf": [
-          {
-            "$ref": "definitions.json#/frameArrayItem/bool"
-          },
-          {
-            "description": "New format powerup value. See #77.",
-            "type": "integer"
-          }
-        ]
+        "anyOf": [{
+          "$ref": "definitions.json#/frameArrayItem/bool"
+        }, { 
+          "description": "New format powerup value. See #77.",
+          "type": "integer"
+        }]
       }
     },
     "team": {
@@ -172,5 +164,5 @@
     "x",
     "y"
   ],
-  "additionalProperties": true
+  "additionalProperties": false
 }
