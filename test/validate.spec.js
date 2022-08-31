@@ -78,7 +78,7 @@ describe('Version 1 replay validation', function() {
     return happy_path('newcompte-chatsDATE1481243504420');
   });
 
-  it('should accept a replay with new-format chats', function() {
+  it('should validate template', function() {
     return validate.validate(template).then(test_succeeded);
   });
 
