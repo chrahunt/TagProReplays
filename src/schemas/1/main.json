@@ -71,7 +71,7 @@
             "from",
             "message"
           ],
-          "additionalProperties": true
+          "additionalProperties": false
         },
         {
           "type": "object",
@@ -123,7 +123,7 @@
             "team",
             "to"
           ],
-          "additionalProperties": true
+          "additionalProperties": false
         },
         {
           "description": "Extraneous sound packet seen in some old replays.",
