@@ -52,6 +52,10 @@
               "description": "Optional mod parameter.",
               "type": "boolean"
             },
+            "monitor": {
+              "description": "Optional monitor parameter.",
+              "type": "boolean"
+            },
             "for": {
               "type": ["integer", "null"]
             },
