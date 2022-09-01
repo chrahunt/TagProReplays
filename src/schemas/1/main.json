@@ -53,7 +53,7 @@
               "type": "boolean"
             },
             "monitor": {
-              "description": "Optional mod parameter.",
+              "description": "Optional monitor parameter.",
               "type": "boolean"
             },
             "for": {
