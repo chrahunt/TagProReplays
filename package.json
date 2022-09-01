@@ -1,6 +1,6 @@
 {
   "name": "tagproreplays",
-  "version": "1.6.5",
+  "version": "1.6.6",
   "description": "Chrome extension for recording play in TagPro.",
   "main": "TagProReplays.js",
   "devDependencies": {
