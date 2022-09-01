@@ -62,6 +62,10 @@ describe('Version 1 replay validation', function() {
     return happy_path('replays1414027897934');
   });
 
+  it('should accept a replay with new-format chats', function() {
+    return happy_path('new-chats1661371488519DATE1661371488519');
+  });
+
   let template;
   // Set up template for negative test cases.
   before(function() {
@@ -74,7 +78,7 @@ describe('Version 1 replay validation', function() {
     return happy_path('newcompte-chatsDATE1481243504420');
   });
 
-  it('should accept a replay with new-format chats', function() {
+  it('should validate template', function() {
     return validate.validate(template).then(test_succeeded);
   });
 
