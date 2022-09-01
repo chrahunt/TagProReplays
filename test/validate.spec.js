@@ -66,6 +66,10 @@ describe('Version 1 replay validation', function() {
     return happy_path('new-chats1661371488519DATE1661371488519');
   });
 
+  it('should accept a replay with monitor format chats', function() {
+    return happy_path('monitor-chat1661371488519DATE1661371488519');
+  });
+
   let template;
   // Set up template for negative test cases.
   before(function() {
