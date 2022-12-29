@@ -120,7 +120,6 @@
             }
           },
           "required": [
-            "auth",
             "from",
             "message",
             "name",
