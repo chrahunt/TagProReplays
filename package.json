@@ -34,7 +34,7 @@
     "jquery": "^3.4.1",
     "json-pointer": "^0.6.0",
     "jsonfile": "^2.4.0",
-    "jszip": "^3.2.1",
+    "jszip": "^3.8.0",
     "karma": "^4.1.0",
     "karma-browserify": "^6.0.0",
     "karma-chai": "^0.1.0",
